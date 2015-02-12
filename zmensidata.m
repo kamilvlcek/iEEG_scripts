@@ -40,6 +40,6 @@ end
 clear d;
 
 d = vertcat(dc1,dc2); 
+clear('dc1','dc2','j','els','podil','dpul'); %vymazu promenne, ktere uz nepotrebuju
+save([dir soubor '_' frek 'hz']); %,'H','d','t','tabs','timerel' - 12.2.2015 - nekdy chybi tabs, takze musim ulozit vsechno co je
 
-save([dir soubor '_' frek 'hz'],'H','d','t','tabs','timerel');
-clear('dc1','dc2');
