@@ -1,11 +1,12 @@
 function [  ] = dataview(d,H,start,delka)
-%DATAVIEW Summary of this function goes here
-%   Detailed explanation goes here
+%DATAVIEW zobrazi synchronizacni puls s polu s anotacema
+%   pracuje s datama EEG z Motola
+%   delka i start jsou v sekundach
 
 channel = size(d,2)-2; %synchronizace byva 2 kanaly pred koncem - pred EKG
 
 figure('Name','Synchronizace');
-%delka i start jsou v sekundach
+
 %procenta = delka/size(d,1)*100;
 %pause on;
 for x = start:delka:H.records; %x je index zacatku

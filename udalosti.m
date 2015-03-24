@@ -1,5 +1,5 @@
 function [ UU ] = udalosti( d, H, nahoru, kresli, interval )
-%UDALOSTI vrati casy udalosti v poli d
+%UDALOSTI vrati casy udalosti v poli d, %pouziva se pro import data z Motola do EEGlabu
 %  cas je pocet udalosti v jedne s, sampling rate
 %  nahoru je 1 pokud je udalost do pozitivnich hodnot
 %  prepoklada hodnoty ve sloupci 1 

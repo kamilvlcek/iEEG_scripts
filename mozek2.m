@@ -1,5 +1,5 @@
 function [ ] = mozek2( mri,implanted_electrode,mri_vox_dim,els )
-%MOZEK2 Summary of this function goes here
+%MOZEK2 vykresli mozek pacient s pozici elektrod. Els jsou jmena elektrod, ktera se maji zvyraznit
 %   els jsou jmena elektrod, napriklad els = {'C2','E5','E3','P3'};
 
 

@@ -1,6 +1,8 @@
 % vypocet a zobrazeni Hilberovy obalky podle Jirky Hammera
 % 18.2.2015
 % viz tez d:\prace\programovani\matlab\kareljezek\hilbertovaobalka.m
+% pouze zkusebni skript bez vyuziti k analyze
+% pracuje s promennou d z EEG dat
 close all;
 pasma = 5:10:145;
 castd = 1:10000+10000;

@@ -1,5 +1,6 @@
 function [] = mozek(mri,E_mri_size,el)
 % nakresli obrazky mozku pacienta s elektrodami
+% starsi skript nahrazen funkci mozek2
 
 figure('Name','Mozek');
 % if nargin >= 3

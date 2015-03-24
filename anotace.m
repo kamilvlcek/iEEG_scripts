@@ -1,6 +1,6 @@
 function [  ] = anotace( H, zac)
-%ANOTACE Summary of this function goes here
-%   Detailed explanation goes here
+%ANOTACE vypise vsechny anotace v zaznamu spolu s jejich casem
+%   H, zacatek 1 nebo vice
 
 disp(['celkova delka v sekundach ' num2str(H.records)]);
 for a = zac: size(H.annotation.starttime)

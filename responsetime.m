@@ -1,6 +1,6 @@
 function [ latencies ] = responsetime( ALLEEG,dataset )
-%RESPONSETIME Summary of this function goes here
-%   Detailed explanation goes here
+%RESPONSETIME zjisti casy odpovedi z dat EEGlabu
+%   latence je cas udalosti response od predchozi udalosti
 
 
 d = dataset;
