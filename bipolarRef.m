@@ -24,7 +24,7 @@ for e=els           %cyklus pres jednotlive elektrody
             %dataB(e,:,:) se vynechavam tam uz je 0
         end
         e0 = e+1;       %nejnizsi kontakt nasledujici elektrody
-    else
+    elseif prumery==2
         %celkove prumerna reference
         eavg = mean(data(:,:,:));
         for j=e0:e    %cyklus pres kontakty v elektrody, od nejnizsiho 

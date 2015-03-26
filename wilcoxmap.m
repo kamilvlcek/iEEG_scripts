@@ -50,10 +50,11 @@ if numel(blok)==1
 end
 
 %bipolarni reference
-reference = 0; %0=bipolarni
+reference = -1; %0=bipolarni, -1 zadna
 disp(['reference ' iff(reference==1,'prumerna El',iff(reference==2,'prumerna celkove','bipolarni'))]);
-
-CondA = bipolarRef(CondA,els,reference);  
+if reference >= 0
+    CondA = bipolarRef(CondA,els,reference);  
+end
 if exist('CondB','var') , CondB = bipolarRef(CondB,els,reference);   end %12.11.2014
 
 
