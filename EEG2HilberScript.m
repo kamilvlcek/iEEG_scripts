@@ -1,6 +1,6 @@
 %24.3.2015
 
-channels = 1:125; %cisla kanalu k prevedeni na obalku
+channels = 1:101; %cisla kanalu k prevedeni na obalku
 frekvence = 50:10:150; %gamma 50-150 Hz
 
 %nejdriv prevest referenci na bipolarni
