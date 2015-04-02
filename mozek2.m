@@ -25,6 +25,7 @@ electrodes = cell(1,numel(els)); %tohle bude struktura
 for ee = 1:numel(els) %electrodes je cell array
     EE = els{ee};
     if ischar(EE)
+        electrodes{ee} = struct; %deklarace
         electrodes{ee}.el_name = EE;
         electrodes{ee}.el = findelbyname(implanted_electrode,EE);
     elseif EE > 0
