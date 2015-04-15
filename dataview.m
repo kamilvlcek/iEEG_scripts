@@ -1,15 +1,21 @@
-function [  ] = dataview(d,H,start,delka)
+function [  ] = dataview(d,H,start,delka, channel)
 %DATAVIEW zobrazi synchronizacni puls s polu s anotacema
 %   pracuje s datama EEG z Motola
 %   delka i start jsou v sekundach
 
-channel = size(d,2)-2; %synchronizace byva 2 kanaly pred koncem - pred EKG
+if nargin<5 %muzu zadat kanal se synchronizaci - 15.4.2015
+    channel = size(d,2)-2; %synchronizace byva 2 kanaly pred koncem - pred EKG
+end    
+
 
 figure('Name','Synchronizace');
 
 %procenta = delka/size(d,1)*100;
 %pause on;
 for x = start:delka:H.records; %x je index zacatku
+    if x+delka-1 > H.records
+       break; %kdyz uz delkou presahuju konec zaznamu, ukoncim cyklus
+    end
     plot( x:1/H.samplerate(1):x+delka-1/H.samplerate(1),  d(x*H.samplerate(1):(x+delka)*H.samplerate(1)-1,channel));
     axis([x x+delka -3000 3000])
     sekund_zac = x; % cas v sekundach,cisla s desetinnymi teckami se do grafu na osu x nevejdou
