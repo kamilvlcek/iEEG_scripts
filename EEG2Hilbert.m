@@ -9,6 +9,7 @@ if size(EEG.data,3) > 1
 else
    kresli = 0;
 end
+HT = zeros([size(EEG.data) numel(freq)]); %o jeden rozmer vic nez EEG data - 
 for ch = channels %jednotlive elektrody
     fprintf('channel %i: Hz ',ch);
     HH = zeros(numel(freq)-1,size(EEG.data,2));
