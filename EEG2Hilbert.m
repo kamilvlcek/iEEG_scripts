@@ -14,7 +14,7 @@ end
 for ch = channels %jednotlive elektrody
     fprintf('channel %i: Hz ',ch);
     HH = zeros(numel(freq)-1,size(EEG.data,2));
-    HT = zeros([size(EEG.data,2) size(EEG.data,3) numel(freq)]); %o jeden rozmer vic nez EEG data - pro epochovana data: time, epoch, freq
+    HT = zeros([size(EEG.data,2) numel(freq) size(EEG.data,3)]); %o jeden rozmer vic nez EEG data - pro epochovana data: time, freq, epoch,
     
     for fno = 1:numel(freq)-1 %seznam frekvenci
         loF = freq(fno);
@@ -22,7 +22,7 @@ for ch = channels %jednotlive elektrody
 
         for epoch = 1:size(EEG.data,3) %epochy u rozdelenych dat, u kontinualnich pouze jednou
             hh  = hilbertJirka(double(EEG.data(ch,:,epoch)),loF,hiF,EEG.srate);
-            HT(:,epoch,fno) = hh;
+            HT(:,fno,epoch) = hh;
             
             HH(fno,:) = HH(fno,:) + (hh./mean(hh)).*100; %podil prumeru 100 = prumerna hodnota
         end
@@ -32,12 +32,15 @@ for ch = channels %jednotlive elektrody
         %plot(HH(fno,1:5000));
         %hold on;
     end
+        
+    wsize_sec = 0.125; %velikost okna pro vypocet frekvence ve vterinasch
+    wsize = wsize_sec * EEG.srate;  %velikost okna v poctu hodnot
+    [~,~,~,P] = spectrogram(double(EEG.data(ch,:,1)),wsize,wsize/2,freq,EEG.srate,'yaxis');
+        %P ma rozmery freq x pocethodnot/128
+    spectrogram(double(EEG.data(ch,:,1)),wsize,wsize/2,5:10:145,EEG.srate,'yaxis'); 
+    htplot(HT,1);
     
     M = mean(HH,1);
-    
-    [~,~,~,P] = spectrogram(double(EEG.data(ch,:,1)),256,128,freq,EEG.srate,'yaxis');
-    %P ma rozmery freq x pocethodnot/128
-    htplot(HT,1);
     if kresli
         figure('Name',['Channel ' num2str(ch)]);
         imagesc(HH); % spektrogram prvni epochy
@@ -53,9 +56,10 @@ end
 end
 
 function [] = htplot(HT, epoch)
+
 htf = figure('Name','Hilbert freq'); %#ok<NASGU>
 for freq = 1:size(HT,3) %frekvence
-    plot(HT(:,epoch,freq));
+    plot(HT(:,freq,epoch));
     hold on;
 end
 
