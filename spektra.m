@@ -1,4 +1,4 @@
-function [allHH,T,F]=spektra(EEG, ch,freq, wilcoxontest)
+function [allHH,T,F]=spektra(EEG, ch,freq, wilcoxontest, obrazky)
 %24.4.2015 - zkousim porovnat vysledky funkce spectrogram ze spektrem z EEGlabu
 % viz d:\EEG\motol\pacienti\p68 Daenemark\p68 spectra.cdr
 
@@ -11,7 +11,9 @@ if nargin < 4
 end
 eventlatency = EEG.event(1,1).latency/EEG.srate;
 allHH = zeros( [  size(freq,2)-1  size(EEG.data,2) size(EEG.data,3)] ); % frekvence cas epochy
-
+T = 0:0.1:size(EEG.data,2)/EEG.srate; %cas zacatku a konce epochy
+F = freq; %vystupni parametr
+    
 %vypocet prumerne sily ve frekvencnich pasmech
 fprintf('prumery za frekvence:');
 ffHH = zeros( [ size(freq,2)-1 size(EEG.data,3)]); %prumerny hilbert za kazdou frekvenci a epochu
@@ -38,21 +40,21 @@ for epocha = 1: size(EEG.data,3)
         allHH(f,:,epocha)=H;
     end
     
-    fprintf('%i ',epocha);
+    if mod(epocha,10)==0, fprintf(' %i',epocha); end
 end
 fprintf('\n'); %konec radku
-
+  
 %grafy
-T = 0:0.1:size(EEG.data,2)/EEG.srate; %cas zacatku a konce epochy
-F = freq; %vystupni parametr
-meanHH = squeeze(mean(allHH,3)); %prumer pres vsechny epochy
-figure('Name','prumerny hilbert');
-imagesc(T,freq,meanHH);
-axis xy;
-hold on;
-line([eventlatency eventlatency], [freq(1) freq(end)],'LineWidth',2,'Color','black');
-colorbar;
-caxis([-0,2.5]);
+if obrazky
+    meanHH = squeeze(mean(allHH,3)); %prumer pres vsechny epochy
+    figure('Name','prumerny hilbert');
+    imagesc(T,freq,meanHH);
+    axis xy;
+    hold on;
+    line([eventlatency eventlatency], [freq(1) freq(end)],'LineWidth',2,'Color','black');
+    colorbar;
+    caxis([-0,2.5]);
+end
 
 %statistika
 if wilcoxontest
@@ -99,12 +101,14 @@ if Pyes
     end
     fprintf('\n'); %konec radku
 
-    meanPP = squeeze(mean(allPP,3)); %prumer pres vsechny epochy
-    figure('Name','prumerny spektrogram');
-    imagesc(T,F,meanPP);
-    axis xy;
-    hold on;
-    line([eventlatency eventlatency], [freq(1) freq(end)],'LineWidth',2,'Color','black');
-    colorbar;
-    if normalizovat, caxis([-0,2.5]); end; 
+    if obrazky
+        meanPP = squeeze(mean(allPP,3)); %prumer pres vsechny epochy
+        figure('Name','prumerny spektrogram');
+        imagesc(T,F,meanPP);
+        axis xy;
+        hold on;
+        line([eventlatency eventlatency], [freq(1) freq(end)],'LineWidth',2,'Color','black');
+        colorbar;
+        if normalizovat, caxis([-0,2.5]); end; 
+    end
 end

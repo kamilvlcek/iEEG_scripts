@@ -3,7 +3,7 @@ function [ W ] = WilcoxM( A,B,fdr )
 %   A a B jsou 3d matice, posledni dimenze jsou epochs neboli opakovani.
 %   fdr urcuje, jestli se ma pocitat korekce signifikanci podle fdr
 W = zeros(size(A,1),size(A,2));
-fprintf('Wilcox Test M - proti matrix\n');
+fprintf('Wilcox Test M - proti matrix: ');
 for el = 1:size(A,1)
     fprintf('%d ', el);
     %disp([num2str(el) ' ']);
@@ -20,7 +20,7 @@ if fdr
     W = adj_p; %prepisu puvodni hodnoty korigovanymi podle FDR
 end
 
-fprintf('\ndone\n ');
+fprintf(' .. done\n');
 end
  
 
