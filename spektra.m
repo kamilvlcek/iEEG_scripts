@@ -2,6 +2,7 @@ function [allHH,T,F]=spektra(EEG, ch,freq, Pyes)
 %24.4.2015 - zkousim porovnat vysledky funkce spectrogram ze spektrem z EEGlabu
 % viz d:\EEG\motol\pacienti\p68 Daenemark\p68 spectra.cdr
 wsize_sec = 0.06;
+wilcoxontest = 0;
 %ch = 23;
 %freq = 10:10:150;
 if nargin < 4 
@@ -52,13 +53,15 @@ colorbar;
 caxis([-0,2.5]);
 
 %statistika
-C = mean(allHH(:,1:EEG.event(1,1).latency-1,:),2); %prumer pres cas 
-fdr = 1;
-W = WilcoxA(allHH,C);
-figure('Name','W map hilbert');
-imagesc(T,freq, 1-W,[ iff(fdr,0.95,0.99) 1]);%mapa, od p>0.05 bude modra barva 
-colorbar;
-axis xy;
+if wilcoxontest
+    C = mean(allHH(:,1:EEG.event(1,1).latency-1,:),2); %prumer pres cas 
+    fdr = 1;
+    W = WilcoxA(allHH,C);
+    figure('Name','W map hilbert');
+    imagesc(T,freq, 1-W,[ iff(fdr,0.95,0.99) 1]);%mapa, od p>0.05 bude modra barva 
+    colorbar;
+    axis xy;
+end
 
 if Pyes
     wsize = floor(wsize_sec * EEG.srate);
@@ -74,6 +77,7 @@ if Pyes
         end
     end
     nPP = mean(ffPP,2); %prumer spectrogram pro kazdou frekvenci pres vsechny epochy
+    
     
     fprintf('spectrogram epocha: ');
     for epocha = 1: size(EEG.data,3)
@@ -96,6 +100,3 @@ if Pyes
     colorbar;
     caxis([-0,2.5]);
 end
-
-
-
