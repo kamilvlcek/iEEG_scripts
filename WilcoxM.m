@@ -7,7 +7,7 @@ fprintf('Wilcox Test M - proti matrix: ');
 for el = 1:size(A,1)
     fprintf('%d ', el);
     %disp([num2str(el) ' ']);
-    for s = 1:size(A,2)
+    for s = 1:size(A,2) %cas, test se dela pro kazdy casovy okamzik zvlast
         aa = squeeze (A(el,s,:));
         bb = squeeze (B(el,s,:));
         W(el,s)= ranksum(aa,bb); %Wilcoxon rank sum test

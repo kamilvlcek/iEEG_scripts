@@ -1,4 +1,4 @@
-function [allHH,T,F]=spektra(EEG, ch,freq, wilcoxontest, obrazky)
+function [allHH,T,F]=spektra(EEG, EEGdata, ch,freq, wilcoxontest, obrazky)
 %24.4.2015 - zkousim porovnat vysledky funkce spectrogram ze spektrem z EEGlabu
 % viz d:\EEG\motol\pacienti\p68 Daenemark\p68 spectra.cdr
 
@@ -6,23 +6,20 @@ Pyes = 0; %jestli provadet analyzu funkci spectrogram
 %wilcoxontest = 0;
 %ch = 23;
 %freq = 10:10:150;
-if nargin < 4 
-    wilcoxontest = 0;
-end
 eventlatency = EEG.event(1,1).latency/EEG.srate;
-allHH = zeros( [  size(freq,2)-1  size(EEG.data,2) size(EEG.data,3)] ); % frekvence cas epochy
-T = 0:0.1:size(EEG.data,2)/EEG.srate; %cas zacatku a konce epochy
+allHH = zeros( [  size(freq,2)-1  size(EEGdata,2) size(EEGdata,3)] ); % frekvence cas epochy
+T = 0:0.1:size(EEGdata,2)/EEG.srate; %cas zacatku a konce epochy
 F = freq; %vystupni parametr
     
 %vypocet prumerne sily ve frekvencnich pasmech
 fprintf('prumery za frekvence:');
-ffHH = zeros( [ size(freq,2)-1 size(EEG.data,3)]); %prumerny hilbert za kazdou frekvenci a epochu
+ffHH = zeros( [ size(freq,2)-1 size(EEGdata,3)]); %prumerny hilbert za kazdou frekvenci a epochu
 
-for epocha = 1: size(EEG.data,3);
+for epocha = 1: size(EEGdata,3);
     %hilbert
     for f = 1:numel(freq)
         if f < numel(freq) %hilbert je vzdy od do, takze pro posledni neni definovany
-            ffHH(f,epocha)=mean(hilbertJirka(double(EEG.data(ch,:,epocha)),freq(f), freq(f+1),EEG.srate));
+            ffHH(f,epocha)=mean(hilbertJirka(double(EEGdata(ch,:,epocha)),freq(f), freq(f+1),EEG.srate));
         end
     end
 end
@@ -32,10 +29,10 @@ fprintf('done\n');
 
 % prubehy frekvenci v case
 fprintf('hilbert epocha: ');
-for epocha = 1: size(EEG.data,3)
+for epocha = 1: size(EEGdata,3)
     %hilbert
     for f = 1:numel(freq)-1
-        H = hilbertJirka(double(EEG.data(ch,:,epocha)),freq(f), freq(f+1),EEG.srate);
+        H = hilbertJirka(double(EEGdata(ch,:,epocha)),freq(f), freq(f+1),EEG.srate);
         H = H ./ nHH(f);
         allHH(f,:,epocha)=H;
     end
@@ -72,13 +69,13 @@ if Pyes
     wsize = floor(wsize_sec * EEG.srate);
     normalizovat = 0; %jestli se maji frekvence spectrogramu normalizovat na prumer
     woverlap = 2; %pro jine hodnoty nechapu pocet hodnot, ktere vraci spectrogram
-    allPP = zeros( [  size(freq,2)  floor(size(EEG.data,2)/wsize*woverlap-1) size(EEG.data,3) ] ); %pocet hodnot spektrogramu zkousim odhadnout 
+    allPP = zeros( [  size(freq,2)  floor(size(EEGdata,2)/wsize*woverlap-1) size(EEGdata,3) ] ); %pocet hodnot spektrogramu zkousim odhadnout 
     
     if normalizovat
-        ffPP = zeros( [ size(freq,2)  size(EEG.data,3) ]);  %prumerny spectrogram pro kazdou frekvenci a epochu 
-        for epocha = 1: size(EEG.data,3);
+        ffPP = zeros( [ size(freq,2)  size(EEGdata,3) ]);  %prumerny spectrogram pro kazdou frekvenci a epochu 
+        for epocha = 1: size(EEGdata,3);
             %spectrogram
-            [~,~,~,P]=spectrogram(double(EEG.data(ch,:,epocha)),wsize,wsize/woverlap,freq,EEG.srate,'yaxis');
+            [~,~,~,P]=spectrogram(double(EEGdata(ch,:,epocha)),wsize,wsize/woverlap,freq,EEG.srate,'yaxis');
             PP = 10*log10(abs(P));
             for f = 1:numel(freq)
                 ffPP(f,epocha)=mean(PP(f,:));
@@ -88,9 +85,9 @@ if Pyes
     end
     
     fprintf('spectrogram epocha: ');
-    for epocha = 1: size(EEG.data,3)
+    for epocha = 1: size(EEGdata,3)
          %spectrogram
-        [~,F,T,P]=spectrogram(double(EEG.data(ch,:,epocha)),wsize,wsize/woverlap,freq,EEG.srate,'yaxis');
+        [~,F,T,P]=spectrogram(double(EEGdata(ch,:,epocha)),wsize,wsize/woverlap,freq,EEG.srate,'yaxis');
         PP = 10*log10(abs(P));
         if normalizovat 
             for f = 1:numel(freq) 
