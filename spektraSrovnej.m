@@ -42,8 +42,7 @@ for ch = channels
     
     %vypis logu do souboru
     fprintf(fid,' ---- CHANNEL %i -----  frekvence se signif rozdilem: %i\n',ch,ppp);
-    fprintf(fid,'frekvence se signif rozdilem: %i\n',ppp);
-    
+        
     if ppp > 0 %obrazek kreslim, jen pokud by tam bylo neco videt
         signifchannels = signifchannels +1;
         figure('Name',['W map hilbert Scene vs NonScene, channel ' num2str(ch)]);
