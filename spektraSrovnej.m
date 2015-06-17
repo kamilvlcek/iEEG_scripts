@@ -1,24 +1,35 @@
+function [] = spektraSrovnej(channels,els,dataset1,dataset0,ALLEEG,allfigures)
+% projede kanaly, spocita bipolarni referenci, signifikanci rozdilu mezi datasety 
+% v pasmu 50-150hz pomoci hilbertovy obalky, vykresli obrazek pro vsechny frekvence a prumernou obalu
+% prevedeno na funkci 17.6.2015
+% parametry seznam kanalu, hranice elektrod,hlavni a kontrolni dataset, matice eeglabu
+%  a 0/1 jestli obrazky u obou datasetu zvlast (0= jen obrazek porovnani obou datasetu)
 fdr = 1;
-channels = [90] ; % 23=PPA, p73 
-els = [ 11 21 31 43 53 64 75 92 101]; %hranice elektrod pro p73 - konce
+%channels = [90] ; % 23=PPA, p73 
+%els = [ 11 21 31 43 53 64 75 92 101]; %hranice elektrod pro p73 - konce
 %ch = 23; 
 freq = 50:10:150;
-dataset1 = 1;
-dataset2 = 5;
+%dataset1 = 1;
+%dataset0 = 5;
 pocetvzorku = size(ALLEEG(dataset1).data,2);
 T = 0: (1/ALLEEG(dataset1).srate) : (pocetvzorku-1)/ALLEEG(dataset1).srate; %cas zacatku a konce epochy
+%soubor k logovani vysledku
+fid = fopen('spektraSrovnej.log','wt');
+fprintf(fid,'*** %s\n',ALLEEG(dataset1).setname);
+fprintf(fid,'*** %s\n',ALLEEG(dataset0).setname);
 
 HHprumery = zeros( [numel(channels) pocetvzorku size(ALLEEG(dataset1).data,3)]); % prumerna hilbertova obalka: kanaly cas epochy
 HHppp = zeros(numel(channels),1); %pocet frekvenci se signif rozdilem scene vs nonscene
+signifchannels = 0; %kolik najdu kanalu se signif rozdilem
 for ch = channels
     fprintf(' ---- CHANNEL %i ----- \n',ch);
     fprintf('*** %s\n',ALLEEG(dataset1).setname);
     CondA = bipolarRef(ALLEEG(dataset1).data,els,0);  
-    HHScene = spektra(ALLEEG(dataset1),CondA,ch,freq,true,true);
+    HHScene = spektra(ALLEEG(dataset1),CondA,ch,freq,allfigures,allfigures); %chci obrazky ?
 
-    fprintf('*** %s\n',ALLEEG(dataset2).setname);
-    CondB = bipolarRef(ALLEEG(dataset2).data,els,0);  
-    HHNonScene = spektra(ALLEEG(dataset2),CondB,ch,freq,true,true);
+    fprintf('*** %s\n',ALLEEG(dataset0).setname);
+    CondB = bipolarRef(ALLEEG(dataset0).data,els,0);  
+    HHNonScene = spektra(ALLEEG(dataset0),CondB,ch,freq,allfigures,allfigures); %chci obrazky ?
 
     W = WilcoxM(HHScene,HHNonScene,fdr);
     W = klouzaveokno(W,8,'mean');    
@@ -29,7 +40,12 @@ for ch = channels
     HHprumery(ch,:,:)= mean(HHScene,1);      
     fprintf('frekvence se signif rozdilem: %i\n',ppp);
     
+    %vypis logu do souboru
+    fprintf(fid,' ---- CHANNEL %i -----  frekvence se signif rozdilem: %i\n',ch,ppp);
+    fprintf(fid,'frekvence se signif rozdilem: %i\n',ppp);
+    
     if ppp > 0 %obrazek kreslim, jen pokud by tam bylo neco videt
+        signifchannels = signifchannels +1;
         figure('Name',['W map hilbert Scene vs NonScene, channel ' num2str(ch)]);
         %1. plot vsech frekvenci a jejich signif rozdilu
         subplot(2,1,1);
@@ -55,3 +71,6 @@ for ch = channels
         colorbar; %to je tam jen kvuli stejne sirce hodniho a dolniho grafu
     end
 end
+fprintf('celkem nalezeno %i kanalu se signif rozdilem\n',signifchannels);
+fprintf(fid,'celkem nalezeno %i kanalu se signif rozdilem\n',signifchannels);
+fclose(fid);
