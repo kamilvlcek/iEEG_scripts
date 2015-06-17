@@ -1,12 +1,11 @@
-function [] = spektraSrovnej(channels,els,dataset1,dataset0,ALLEEG,allfigures)
+function [] = spektraSrovnej(channels,pac,dataset1,dataset0,ALLEEG,allfigures)
 % projede kanaly, spocita bipolarni referenci, signifikanci rozdilu mezi datasety 
 % v pasmu 50-150hz pomoci hilbertovy obalky, vykresli obrazek pro vsechny frekvence a prumernou obalu
 % prevedeno na funkci 17.6.2015
-% parametry seznam kanalu, hranice elektrod,hlavni a kontrolni dataset, matice eeglabu
+% parametry seznam kanalu, konfigurace pacienta ,hlavni a kontrolni dataset, matice eeglabu
 %  a 0/1 jestli obrazky u obou datasetu zvlast (0= jen obrazek porovnani obou datasetu)
 fdr = 1;
 %channels = [90] ; % 23=PPA, p73 
-%els = [ 11 21 31 43 53 64 75 92 101]; %hranice elektrod pro p73 - konce
 %ch = 23; 
 freq = 50:10:150;
 %dataset1 = 1;
@@ -24,11 +23,11 @@ signifchannels = 0; %kolik najdu kanalu se signif rozdilem
 for ch = channels
     fprintf(' ---- CHANNEL %i ----- \n',ch);
     fprintf('*** %s\n',ALLEEG(dataset1).setname);
-    CondA = bipolarRef(ALLEEG(dataset1).data,els,0);  
+    CondA = bipolarRef(ALLEEG(dataset1).data, pac.els,0);  
     HHScene = spektra(ALLEEG(dataset1),CondA,ch,freq,allfigures,allfigures); %chci obrazky ?
 
     fprintf('*** %s\n',ALLEEG(dataset0).setname);
-    CondB = bipolarRef(ALLEEG(dataset0).data,els,0);  
+    CondB = bipolarRef(ALLEEG(dataset0).data, pac.els,0);  
     HHNonScene = spektra(ALLEEG(dataset0),CondB,ch,freq,allfigures,allfigures); %chci obrazky ?
 
     W = WilcoxM(HHScene,HHNonScene,fdr);
@@ -45,7 +44,10 @@ for ch = channels
         
     if ppp > 0 %obrazek kreslim, jen pokud by tam bylo neco videt
         signifchannels = signifchannels +1;
-        figure('Name',['W map hilbert Scene vs NonScene, channel ' num2str(ch)]);
+        figh = figure('Name',['W map hilbert Scene vs NonScene, channel ' num2str(ch)]);
+        if ~allfigures
+            set(gcf,'Visible','off'); %obrazek ani neukazi, pokud ho nechci
+        end
         %1. plot vsech frekvenci a jejich signif rozdilu
         subplot(2,1,1);
         imagesc(T,freq, 1-W,[ iff(fdr,0.95,0.99) 1]);%mapa, od p>0.05 bude modra barva 
@@ -68,6 +70,10 @@ for ch = channels
         iWm = Wm<=0.05;
         plot(T(iWm),Wm(iWm),'m.');
         colorbar; %to je tam jen kvuli stejne sirce hodniho a dolniho grafu
+        if ~allfigures %pokud nechci obrazky zobrazit, ukladam je 
+            saveas(figh,['figures\spektraSrovnej_' pac.name '_' num2str(dataset1) '-' num2str(dataset0) '_' num2str(ch,'%3i') '.png']);
+            close(figh);
+        end
     end
 end
 fprintf('celkem nalezeno %i kanalu se signif rozdilem\n',signifchannels);
