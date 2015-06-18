@@ -13,7 +13,7 @@ freq = 50:10:150;
 pocetvzorku = size(ALLEEG(dataset1).data,2);
 T = 0: (1/ALLEEG(dataset1).srate) : (pocetvzorku-1)/ALLEEG(dataset1).srate; %cas zacatku a konce epochy
 %soubor k logovani vysledku
-fid = fopen('spektraSrovnej.log','wt');
+fid = fopen(['figures\spektraSrovnej_' pac.name '_' num2str(dataset1) '-' num2str(dataset0)  '.log'],'wt');
 fprintf(fid,'*** %s\n',ALLEEG(dataset1).setname);
 fprintf(fid,'*** %s\n',ALLEEG(dataset0).setname);
 
