@@ -3,7 +3,8 @@
 %load('..\pacienti\Daenemark p68\VT3_1.mat')
 %disp('importovano... ');
 close all; %zavre obrazky
-LPT = size(d,2)-2; % predpokladam 2 EKG kanaly na konci a predtim synchronizacni puls
+LPT = 64; %64 ma p79; size(d,2)-2; % predpokladam 2 EKG kanaly na konci a predtim synchronizacni puls
+H = header; %p79
 pause on;
 
 %vykreslim synchronizaci pulsy - kontrola, jestli mam spravne kanal LPT
@@ -34,7 +35,11 @@ end
 %interval = [590 1250; 1370 2010]/24/3600 +datenum(strrep(H.starttime, '.', ':')); %vyjadreni v sekundach zaznamu
 
 %p73 VT6 PPA lokalizer 19.11.2014
-interval = [3750 3750+700]/24/3600 +datenum(strrep(H.starttime, '.', ':')); %vyjadreni v sekundach zaznamu
+%interval = [3750 3750+700]/24/3600 +datenum(strrep(H.starttime, '.', ':')); %vyjadreni v sekundach zaznamu
+
+%p79 PPA lokalizer 18.6.2015
+interval = [3182 3600]/24/3600 +datenum(strrep(H.starttime, '.', ':')); %vyjadreni v sekundach zaznamu
+
 
 % prectu si z U1 pomoci datestr(U1(180,2),'HH:MM:SS.FFF')
 
