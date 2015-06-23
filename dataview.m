@@ -6,12 +6,12 @@ function [  ] = dataview(d,H,start,delka, channel)
 if nargin<5 %muzu zadat kanal se synchronizaci - 15.4.2015
     channel = size(d,2)-2; %synchronizace byva 2 kanaly pred koncem - pred EKG
 end    
-
+if delka==0, delka = H.records-1; end %23.6.2015 - kdyz neudam delku, zobrazuje cely zaznam
+if start==0, start = 1; end;
 
 figure('Name','Synchronizace');
 
 %procenta = delka/size(d,1)*100;
-%pause on;
 for x = start:delka:H.records; %x je index zacatku
     if x+delka-1 > H.records
        break; %kdyz uz delkou presahuju konec zaznamu, ukoncim cyklus
@@ -33,8 +33,7 @@ for x = start:delka:H.records; %x je index zacatku
         end
     end
     disp( num2str(x));
-    %keyboard; %zastavi a muzu se divat na promenne, pokracuju pomoci return
-    %pause;
+    keyboard; %zastavi a muzu se divat na promenne, pokracuju pomoci return
 end
 
 end

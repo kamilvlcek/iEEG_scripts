@@ -38,7 +38,7 @@ end
 %interval = [3750 3750+700]/24/3600 +datenum(strrep(H.starttime, '.', ':')); %vyjadreni v sekundach zaznamu
 
 %p79 PPA lokalizer 18.6.2015
-interval = [3182 3600]/24/3600 +datenum(strrep(H.starttime, '.', ':')); %vyjadreni v sekundach zaznamu
+interval = [3200 3800]/24/3600 +datenum(strrep(H.starttime, '.', ':')); %vyjadreni v sekundach zaznamu
 
 
 % prectu si z U1 pomoci datestr(U1(180,2),'HH:MM:SS.FFF')
