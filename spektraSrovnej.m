@@ -24,11 +24,11 @@ for ch = channels
     fprintf(' ---- CHANNEL %i ----- \n',ch);
     fprintf('*** %s\n',ALLEEG(dataset1).setname);
     CondA = bipolarRef(ALLEEG(dataset1).data, pac.els,0);  
-    HHScene = spektra(ALLEEG(dataset1),CondA,ch,freq,allfigures,allfigures); %chci obrazky ?
+    HHScene = spektra(ALLEEG(dataset1),CondA,ch,freq,false,allfigures); %chci obrazky ?
 
     fprintf('*** %s\n',ALLEEG(dataset0).setname);
     CondB = bipolarRef(ALLEEG(dataset0).data, pac.els,0);  
-    HHNonScene = spektra(ALLEEG(dataset0),CondB,ch,freq,allfigures,allfigures); %chci obrazky ?
+    HHNonScene = spektra(ALLEEG(dataset0),CondB,ch,freq,false,allfigures); %chci obrazky ?
 
     W = WilcoxM(HHScene,HHNonScene,fdr);
     W = klouzaveokno(W,8,'mean');    

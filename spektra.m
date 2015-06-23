@@ -51,6 +51,15 @@ if obrazky
     line([eventlatency eventlatency], [freq(1) freq(end)],'LineWidth',2,'Color','black');
     colorbar;
     caxis([-0,2.5]);
+    
+    meanHH = squeeze(mean(allHH,1)); %prumer pres vsechny frekvence
+    figure('Name','prumerna frekvence');
+    imagesc(T,1:size(EEGdata,3),meanHH);
+    axis xy;
+    hold on;
+    line([eventlatency eventlatency], [1 size(EEGdata,3)],'LineWidth',2,'Color','black');
+    colorbar;
+    caxis([-0,2.5]);
 end
 
 %statistika
