@@ -31,7 +31,7 @@ for ch = channels
     HHNonScene = spektra(ALLEEG(dataset0),CondB,ch,freq,false,allfigures); %chci obrazky ?
 
     W = WilcoxM(HHScene,HHNonScene,fdr);
-    W = klouzaveokno(W,8,'mean');    
+    W = klouzaveokno(W,8,'mean');    %prumerne p je nesmysl?
     
     pp = min(W,[],2); %signifikance vsech frekvenci
     ppp = sum(pp<0.05);

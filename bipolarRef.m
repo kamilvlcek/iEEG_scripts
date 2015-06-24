@@ -1,5 +1,6 @@
 function [ dataB ] = bipolarRef( data,els,prumery )
 %BIPOLARREF vrati data s bipolarni nebo prumernou (za elektrody) referenci 
+%  pokud prumery=0, bipolarni reference
 %  pokud prumery=1, udela prumernou referenci
 %  pokud prumery=2, udela celkove prumernou referenci,za vsechny elektrody
 fprintf('bipolarRef: '); 
