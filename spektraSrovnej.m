@@ -2,7 +2,7 @@ function [] = spektraSrovnej(channels,pac,dataset1,dataset0,ALLEEG,allfigures)
 % projede kanaly, spocita bipolarni referenci, signifikanci rozdilu mezi datasety 
 % v pasmu 50-150hz pomoci hilbertovy obalky, vykresli obrazek pro vsechny frekvence a prumernou obalu
 % prevedeno na funkci 17.6.2015
-% parametry seznam kanalu, konfigurace pacienta ,hlavni a kontrolni dataset, matice eeglabu
+% Vstupy: seznam kanalu, konfigurace pacienta, hlavni a kontrolni dataset, matice eeglabu
 %  a 0/1 jestli obrazky u obou datasetu zvlast (0= jen obrazek porovnani obou datasetu)
 fdr = 1;
 %channels = [90] ; % 23=PPA, p73 

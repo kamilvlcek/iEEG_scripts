@@ -1,6 +1,22 @@
 function [allHH,T,F]=spektra(EEG, EEGdata, ch,freq, wilcoxontest, obrazky)
+%zobrazi spekrogramy pomoci Hilberovy obalky
+%napøíklad 
+%[allHH,T,F]=spektra(EEG, EEG.data, 23,10:10:150,1,1);
+%Vstupy:
+%EEG - data z EEGlabu - record
+%EEGdata - 3D matrix -  kanály cas epochy
+%ch - èíslo kanálu
+%freq - seznam frekvenèních pásem 
+%wilcoxontest - bool
+%obrazky - bool
+%
+%Výstupy:
+%allHH - 3D matrix - frekvence cas epochy
+%T - èas - výstypu z funkce spektrogram, pokus se provádí
+%F - frekvence - výstypu z funkce spektrogram, pokus se provádí
+%
 %24.4.2015 - zkousim porovnat vysledky funkce spectrogram ze spektrem z EEGlabu
-% viz d:\EEG\motol\pacienti\p68 Daenemark\p68 spectra.cdr
+
 
 Pyes = 0; %jestli provadet analyzu funkci spectrogram
 %wilcoxontest = 0;
