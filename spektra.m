@@ -1,5 +1,5 @@
 function [allHH,T,F]=spektra(EEG, EEGdata, ch,freq, wilcoxontest, obrazky)
-%zobrazi spekrogramy pomoci Hilberovy obalky
+%zobrazi spekrogramy pomoci Hilberovy obalky, nemeni referenci, predpoklada bipolarni
 %napøíklad 
 %[allHH,T,F]=spektra(EEG, EEG.data, 23,10:10:150,1,1);
 %Vstupy:
@@ -59,7 +59,7 @@ fprintf('\n'); %konec radku
   
 %grafy
 if obrazky
-    meanHH = squeeze(mean(allHH,3)); %prumer pres vsechny epochy
+    meanHH = squeeze(mean(allHH,3)); %prumer pres vsechny epochy, frekvence x cas
     figure('Name','prumerny hilbert');
     imagesc(T,freq,meanHH);
     axis xy;
@@ -67,8 +67,11 @@ if obrazky
     line([eventlatency eventlatency], [freq(1) freq(end)],'LineWidth',2,'Color','black');
     colorbar;
     caxis([-0,2.5]);
+    ylabel('freq [Hz]');
+    xlabel('time [s]');
+    title([EEG.setname ': ' num2str(ch)]);
     
-    meanHH = squeeze(mean(allHH,1)); %prumer pres vsechny frekvence
+    meanHH = squeeze(mean(allHH,1))'; %prumer pres vsechny frekvence, otocene: epochy x cas
     figure('Name','prumerna frekvence');
     imagesc(T,1:size(EEGdata,3),meanHH);
     axis xy;
@@ -76,6 +79,9 @@ if obrazky
     line([eventlatency eventlatency], [1 size(EEGdata,3)],'LineWidth',2,'Color','black');
     colorbar;
     caxis([-0,2.5]);
+    ylabel('epochs');
+    xlabel('time [s]');
+    title([EEG.setname ': ' num2str(ch)]);
 end
 
 %statistika
@@ -87,6 +93,9 @@ if wilcoxontest
     imagesc(T,freq, 1-W,[ iff(fdr,0.95,0.99) 1]);%mapa, od p>0.05 bude modra barva 
     colorbar;
     axis xy;
+    ylabel('freq [Hz]');
+    xlabel('time [s]');
+    title([EEG.setname ': ' num2str(ch)]);
 end
 
 if Pyes
