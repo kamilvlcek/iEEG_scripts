@@ -1,10 +1,15 @@
+function [eegdata, U, T , R] = importData(H,d,t,sec_oddo,prvninahoru, LPT)
+%IMPORTDATA - importuje data do EEGlab formatu
+%sec_oddo jsou sekundy od a sekundy do napriklad [3200 3800]
+%prvninahoru - jestli prvni synchronizacni puls=podnet jde nahoru=1, nebo dolu=0
+%LPT je cislo kanalu se synchronizaci, default  size(d,2)-2, po
+
+
 %clear all; %smaze promenne
 %load('..\pacienti\Nebuchlova\VT2_4.mat'); %d, H,
 %load('..\pacienti\Daenemark p68\VT3_1.mat')
 %disp('importovano... ');
-close all; %zavre obrazky
-LPT = 64; %64 ma p79; size(d,2)-2; % predpokladam 2 EKG kanaly na konci a predtim synchronizacni puls
-H = header; %p79
+if ~exist('LPT','var'), LPT=size(d,2)-2; end
 pause on;
 
 %vykreslim synchronizaci pulsy - kontrola, jestli mam spravne kanal LPT
@@ -38,10 +43,10 @@ end
 %interval = [3750 3750+700]/24/3600 +datenum(strrep(H.starttime, '.', ':')); %vyjadreni v sekundach zaznamu
 
 %p79 PPA lokalizer 18.6.2015
-interval = [3200 3800]/24/3600 +datenum(strrep(H.starttime, '.', ':')); %vyjadreni v sekundach zaznamu
+interval = sec_oddo/24/3600 +datenum(strrep(H.starttime, '.', ':')); %vyjadreni v sekundach zaznamu
 
 
 % prectu si z U1 pomoci datestr(U1(180,2),'HH:MM:SS.FFF')
 
-[ eegdata, U, T , R] = importIEEG ( d,H, LPT,t, interval );
+[ eegdata, U, T , R] = importIEEG ( d,H, LPT,t, interval,prvninahoru );
 %save('AEDist.mat','eegdata','U', 'T','R'); %ulozim tyto promene abych je mohl nacist po spusteni EEG labu

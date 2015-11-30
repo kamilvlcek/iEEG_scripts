@@ -1,7 +1,8 @@
-function [ eegdata, UU, intervalTime,radkyZacatky ] = importIEEG ( d,H, LPT,t, interval) 
+function [ eegdata, UU, intervalTime,radkyZacatky ] = importIEEG ( d,H, LPT,t, interval,prvninahoru) 
 %IMPORT  vytvori matlab pole, ktere se da nacist do EEG Lab
 %   LPT je cislo kanalu se synchronizacnimi pulsy
 %   interval Zajmu jsou timestampy, mezi kterymi me zaznam zajima
+%   prvninahoru - jestli prvni synchronizacni puls=podnet jde nahoru=1, nebo dolu=0
 
 
 radkyZacatky = zeros(size(interval,1),1); %zacatky intervalu [2,sec] = delky predchoziho intervalu
@@ -12,8 +13,8 @@ kresli_RT_ITI = 1;
 for radka = 1:size(interval,1) %cyklus pro zadane casove intervaly v datech
     %treti parametr = 1=nahoru, 0=dolu
     kresli_udalosti = 0; %1=pauzovat u vsech udalosti, 2 = sum udalosti
-    U1 = udalosti(d(:,LPT),H,0,kresli_udalosti, interval(radka,:) ); %casy podnetu - kupodivu u p68 jsou dolu!
-    U2 = udalosti(d(:,LPT),H,1,kresli_udalosti,interval(radka,:) ); %casy reakci
+    U1 = udalosti(d(:,LPT),H,prvninahoru,kresli_udalosti, interval(radka,:) ); %casy podnetu - kupodivu u p68 jsou dolu!
+    U2 = udalosti(d(:,LPT),H,1-prvninahoru,kresli_udalosti,interval(radka,:) ); %casy reakci
     %prvni sloupec je cas od zacatku v sekundach (cislo radku/ vzorkovaci frekvenci)
     %druhy sloupec je denni cas jako timestamp 
     if size(U1,1)~=size(U2,1)
