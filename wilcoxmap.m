@@ -1,25 +1,9 @@
-function [ W ] = wilcoxmap( ALLEEG, pacient,blok,W,range)
+function [ W ] = wilcoxmap( ALLEEG, pCfg,testname,blok,W,range)
 % promenne podle soucasnych datasetu v eeglabu
 %blok: 1=allo vs baseline, 2=ego vs baseline, 3=control vs baseline, 1 2, 1 3, 2 3
 
-if  pacient == 73 %p73
-    els = [ 11 21 31 43 53 64 75 92 101]; %hranice elektrod pro p71 - konce
-    %cas = [-200 2800]; %cas = [-500 1500];
-    cas = [-100 900]; %PPA experiment
-elseif  pacient == 71 %p71
-    els = [ 16 32 48  64 77 89 105 115 125]; %hranice elektrod pro p71 - konce
-    cas = [-200 2800]; %cas = [-500 1500];
-elseif pacient == 69 %p69 - AEdist-p69 1Hz Ep01-1 Allo.set, AEdist-p69 1Hz Ep01-1 Control.set, AEdist-p69 1Hz Ep01-1 Ego.set
-    els = [12 20 27 37 47 56 64 75 83 90 99 109 119 125]; %p69
-    cas = [-100 1000];
-elseif pacient == 68 %p68
-    els = [ 10 18 28  41 54 64 72 82 91 100 114 125]; %hranice elektrod pro p71 - konce
-    cas = [-200 1000];
-else
-    disp('nezname cislo pacienta');
-    exit;
-end
-
+els = pCfg.els;
+cas = pCfg.(testname).cas;
 
 if numel(blok)==1
     CondA = ALLEEG(blok).data;    
@@ -35,13 +19,13 @@ end
 
 stimul = ceil(cas(1)/1000*-512); %vzork frekvence 512 Hz
 
-if nargin < 5
+if ~exist('range','var') 
     range = 1:ALLEEG(blok(1)).nbchan; %rozsah elektrod na vykresleni
 end
 
 if numel(blok)==1
     %obrazek hrubych dat - 3.11.2014
-    figure('Name','prumerne odpovedi')
+    figure('Name',['prumerne odpovedi ' pCfg.name ', ' testname]);
     M = mean(CondA,3);
     imagesc(cas,range,M(range,:));
     colorbar;
@@ -50,8 +34,8 @@ if numel(blok)==1
 end
 
 %bipolarni reference
-reference = -1; %0=bipolarni, -1 zadna
-disp(['reference ' iff(reference==1,'prumerna El',iff(reference==2,'prumerna celkove','bipolarni'))]);
+reference = 0; %0=bipolarni, -1 zadna
+disp(['reference ' iff(reference==1,'prumerna El',iff(reference==2,'prumerna celkove',iff(reference==0,'bipolarni','zadna')))]);
 if reference >= 0
     CondA = bipolarRef(CondA,els,reference);  
 end
@@ -64,7 +48,7 @@ if exist('CondB','var') , CondB = bipolarRef(CondB,els,reference);   end %12.11.
 
 if numel(blok)==1
     %obrazek hrubych dat - 3.11.2014
-    figure('Name','prumerne odpovedi bipolarni')
+    figure('Name',['prumerne odpovedi bipolarni ' pCfg.name ', ' testname])
     M = mean(CondA,3);
     imagesc(cas,range,M(range,:));
     colorbar;
@@ -102,7 +86,7 @@ if numel(blok)==1
 %     end
 
 elseif numel(blok)==2
-    fdr = 0; %pro tento kontrast nebudu pouzivat fdr korekci
+    fdr = 1; %pro tento kontrast budu/nebudu pouzivat fdr korekci
     W = WilcoxM(CondA,CondB,fdr);
 %     if isequal(blok,[1 2])
 %         W = WilcoxM(Allo,Ego,fdr);
@@ -120,11 +104,11 @@ elseif ~exist('W','var') %pokud existuje W, pouziju tu
     %exit;
 end
 
-WK = klouzaveokno(W,25); %25 nebo 50
+WK = klouzaveokno(W,25,'max'); %25 nebo 50
 %WK = W;
 
 %nakreslim 2D obrazek signifikanci
-figure('Name','W map');
+figure('Name',['W map ' pCfg.name ', ' testname]);
 imagesc(cas,range, 1-WK(range,:),[ iff(fdr,0.95,0.99) 1]);%mapa, od p>0.05 bude modra barva 
 colorbar;
 WKmin = find(min(WK,[],2)< iff(fdr,0.05,0.01) );
