@@ -4,5 +4,7 @@ function [ p73 ] = p73config(  )
 p73.els = [ 11 21 31 43 53 64 75 92 101];
 p73.channels = 1:101;
 p73.name = 'p73';
+p73.PPA.lpt = 102;
+p73.PPA.cas = [-100 900];
 end
 

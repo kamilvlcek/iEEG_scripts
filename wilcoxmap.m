@@ -1,32 +1,32 @@
 function [ W ] = wilcoxmap( ALLEEG, pCfg,testname,blok,W,range)
-% promenne podle soucasnych datasetu v eeglabu
-%blok: 1=allo vs baseline, 2=ego vs baseline, 3=control vs baseline, 1 2, 1 3, 2 3
+% blok: cisla datasetu EEGlabu k porovnani. Wilcox test.
+% Pokud jeden blok, dela se stat vuci prumeru pred podnete
+% Pokud dva bloky, dela se stat dvou matic vuci sobe
+% pCfg: konfigurace pacienta
+% testname, jmeno testu v konfiguraci pacienta
+% W: pokud se neuda zadny blok a muze se pouzit a pouze vykreslit drive vypocitane W
+% range: cisla elektrod k vypoctu
 
 els = pCfg.els;
 cas = pCfg.(testname).cas;
 
 if numel(blok)==1
-    CondA = ALLEEG(blok).data;    
+    CondA = ALLEEG(blok).data; %dimensions: channel x time x epochs 
 else
     CondA =  ALLEEG(blok(1)).data;   
     CondB =  ALLEEG(blok(2)).data;
 end
 
-% AlloI = 5; EgoI = 4; ControlI = 2;
-% if(sum(blok==AlloI)>0),     Allo = ALLEEG(AlloI).data;          end %v PPA to je Scene
-% if(sum(blok==EgoI)>0),      Ego = ALLEEG(EgoI).data;            end %v PPA to je Face
-% if(sum(blok==ControlI)>0),  Control = ALLEEG(ControlI).data;    end % v PPA to je Object
-
-stimul = ceil(cas(1)/1000*-512); %vzork frekvence 512 Hz
+stimul = ceil(cas(1)/1000*-512); %vzorek frekvence 512 Hz
 
 if ~exist('range','var') 
     range = 1:ALLEEG(blok(1)).nbchan; %rozsah elektrod na vykresleni
 end
-
+   
 if numel(blok)==1
     %obrazek hrubych dat - 3.11.2014
     figure('Name',['prumerne odpovedi ' pCfg.name ', ' testname]);
-    M = mean(CondA,3);
+    M = mean(CondA,3); %mean over all epochs
     imagesc(cas,range,M(range,:));
     colorbar;
     caxis([-30,30]);
