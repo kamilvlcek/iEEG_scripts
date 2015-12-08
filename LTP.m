@@ -8,10 +8,10 @@ for i=1:100, disp(datestr(tabs(i),'dd-mmm-yyyy HH:MM:SS.FFF')), end
 close all;
 h = figure('Position',[10 100  1200 600]);
 pause on
-for i=1:64
+for i=1:size(d,2)
     plot(d(:,i))
     filename = ['d' num2str(i)];
-    saveas(h,filename,'png')
+    saveas(h,['./lpt/' filename],'png')
     disp(filename)
-    pause(2) %pauza na dve vteriny
+    pause(1) %pauza na dve vteriny
 end 
