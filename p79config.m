@@ -6,5 +6,7 @@ p79.channels = [1:63 65:126];
 p79.name = 'p79';
 p79.AEDist.cas = [-200 1000]; %??? kontrola AEDist
 p79.lpt = 64; %synchronizacni puls
+p79.PPA.lpt = 126;
+p79.PPA.cas = [-100 900];
 end
 
