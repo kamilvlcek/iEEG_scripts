@@ -1,4 +1,4 @@
-function [ tsZAC ] = dataview(d,H,tabs,start,konec, channel)
+function [ iSTART,iEND ] = dataview(d,H,tabs,start,konec, channel)
 %DATAVIEW zobrazi synchronizacni puls s polu s anotacema
 %   pracuje s datama EEG z Motola
 %   delka i start jsou v sekundach
@@ -9,11 +9,12 @@ if ~exist('channel','var') %muzu zadat kanal se synchronizaci - 15.4.2015
 end  
 if ~exist('konec','var')
     delka = H.records-1;  %23.6.2015 - kdyz neudam delku, zobrazuje cely zaznam
+    konec = H.records;
 else
     delka = konec - start;
 end
 if start==0, start = 1; end;
-
+fs = H.samplerate(1); %sampling rate
 figure('Name','Synchronizace');
 
 %procenta = delka/size(d,1)*100;
@@ -22,11 +23,11 @@ figure('Name','Synchronizace');
 %       break; %kdyz uz delkou presahuju konec zaznamu, ukoncim cyklus
 %    end
 x = start;
-    plot( x:1/H.samplerate(1):x+delka-1/H.samplerate(1),  d(x*H.samplerate(1):(x+delka)*H.samplerate(1)-1,channel));
+    plot( x:1/H.samplerate(1):x+delka-1/fs,  d(x*fs:(x+delka)*fs-1,channel));
     axis([x x+delka -3000 3000])
     sekund_zac = x; % cas v sekundach,cisla s desetinnymi teckami se do grafu na osu x nevejdou
     sekund_konec = (x+delka);
-    %sekund_delka = delka/H.samplerate(1);
+    %sekund_delka = delka/fs;
     %set(gca,'XTickLabel',cellstr(int2str( ( sekund_zac : (sekund_delka/10) : sekund_konec)'))');
     xlabel(['sekundy z ' num2str(H.records) ' s celkove']); 
     zobrazenych = 0;
@@ -38,15 +39,17 @@ x = start;
             zobrazenych = zobrazenych+1;
         end
     end
-    tsZAC = sec2tabs(x,H.samplerate(1),tabs); %timestamp zacatku
-    disp( ['zacatek: ' num2str(x) 's, timestamp: ' datestr(tsZAC,'dd-mmm-yyyy HH:MM:SS.FFF') ', ' num2str(tsZAC,'%11.15f')]);
+    
+    iSTART = x*fs; %index zacatku v poli d a tabs
+    tsSTART = tabs(iSTART); %timestamp zacatku
+    disp( ['zacatek: ' num2str(x) 's, timestamp: ' datestr(tsSTART,'dd-mmm-yyyy HH:MM:SS.FFF') ', iSTART: ' num2str(iSTART)]);
+    iEND = konec*fs; %index konce v poli d a tabs
+    tsEND = tabs(iEND); %timestamp konce
+    disp( ['konec: ' num2str(konec) 's, timestamp: ' datestr(tsEND,'dd-mmm-yyyy HH:MM:SS.FFF') ', iEND: ' num2str(iEND)]);
    %keyboard; %zastavi a muzu se divat na promenne, pokracuju pomoci return
 %end
 
 end
 
-function [timestamp]=sec2tabs(sec, fs,tabs)
-    timestamp = tabs(sec*fs);
-end
 
 
