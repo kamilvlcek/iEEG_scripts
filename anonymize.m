@@ -17,6 +17,8 @@ for f = 1:numel(files)
             disp('prazdne id ');
         end
         header.patientID = id;
+        header = rmfield(header, 'recordID'); %pokud tam je
+        disp(['ukladam ' newfilename]);
         save([ adresar newfilename], '-regexp', '^(?!(adresar|id|files|f|newfilename)$).','-v7.3');    
         disp(['ulozeno s header: ' newfilename]);
     elseif exist('H','var')
@@ -26,6 +28,7 @@ for f = 1:numel(files)
             disp('prazdne id ');
         end
         H.patientID = id;
+        disp(['ukladam ' newfilename]);
         save([ adresar newfilename], '-regexp', '^(?!(adresar|id|files|f|newfilename)$).','-v7.3')
         disp(['ulozeno s H: ' newfilename]);
     else
