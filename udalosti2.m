@@ -13,7 +13,11 @@ end
 if ~exist('kresli','var') 
     kresli = 1; %defaultni hodnota
 end
-LPT = 1; %cislo kanalu synchronize - d ted obsahuje jen jeden sloupec
+if size(d,2) > 1
+    LPT = size(d,2)-2; %synchronizace byva 2 kanaly pred koncem - pred EKG
+else
+    LPT = 1; %cislo kanalu synchronize - d ted obsahuje jen jeden sloupec
+end
 Th = 2000; %me kterou vsechny udalosti prekracuji
 if nahoru 
     U = find(d(:,LPT)>Th);

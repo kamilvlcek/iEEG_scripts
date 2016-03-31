@@ -9,4 +9,6 @@ global d tabs; %header nebudu davat globalne, muze se jmenovat pokazde jinak
 d = d(ts0:ts1,:);
 tabs = tabs(ts0:ts1,:);
 header.starttime = datestr(tabs(1),'HH:MM:SS.FFF');
+header.records = (tabs(end)-tabs(1))*60*24*60; %timestampy jsou ve dnech, jejich rozdil je pocet dnu, ja chci vteriny
+%nemenim anotace, takze ty pak nesedi
 end
