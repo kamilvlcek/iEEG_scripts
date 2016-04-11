@@ -8,8 +8,8 @@ if ~exist('channel','var') %muzu zadat kanal se synchronizaci - 15.4.2015
     channel = size(d,2)-2; %synchronizace byva 2 kanaly pred koncem - pred EKG
 end  
 if ~exist('konec','var')
-    delka = H.records-1;  %23.6.2015 - kdyz neudam delku, zobrazuje cely zaznam
     konec = H.records;
+    delka = H.records-start;  %23.6.2015 - kdyz neudam delku, zobrazuje cely zaznam
 else
     delka = konec - start;
 end
@@ -23,7 +23,7 @@ figure('Name','Synchronizace');
 %       break; %kdyz uz delkou presahuju konec zaznamu, ukoncim cyklus
 %    end
 x = start;
-    plot( x:1/H.samplerate(1):x+delka-1/fs,  d(x*fs:(x+delka)*fs-1,channel));
+    plot( x:1/fs:x+delka-1/fs,  d(x*fs:(x+delka)*fs-1,channel));
     axis([x x+delka -3000 3000])
     sekund_zac = x; % cas v sekundach,cisla s desetinnymi teckami se do grafu na osu x nevejdou
     sekund_konec = (x+delka);
