@@ -4,19 +4,30 @@
 % funguje na Amygdale - 23.6.2015
 clear all;
 spojit = {
-        'd:\eeg\motol\pacienti\p82 Vovsova VT9\VT9_2015-04-21_09-46_001.mat',...
-        'd:\eeg\motol\pacienti\p82 Vovsova VT9\VT9_2015-04-21_10-46_002.mat' ...
-        'd:\eeg\motol\pacienti\p82 Vovsova VT9\VT9_2015-04-21_11-46_003.mat' ...
+        'f:\eeg\motol\pacienti\p97 Novak VT13\VT13_2016-02-11_09-20_001.mat',...
+        'f:\eeg\motol\pacienti\p97 Novak VT13\VT13_2016-02-11_10-20_002.mat'
+        
         };
 
 for j = 1:numel(spojit)
     disp(spojit{j});
     load(spojit{j});
+    disp(['delka ' num2str(size(tabs,1))]);
     if j == 1 
         tabs0 = tabs;
         clear tabs;
-        header0 = header;
-        clear header;
+        if exist('header','var') 
+            header0 = header;
+            clear header;
+        end
+        if exist('mults','var') %mults obsahuje jednu hodnotu pro kazdy kanal
+            mults0 = mults;
+            clear mults;
+        end
+        if exist('fs','var') 
+            fs0 = fs;
+            clear fs;
+        end        
         d0 = d;
         clear d;
        
@@ -25,8 +36,10 @@ for j = 1:numel(spojit)
         clear tabs;
         d0 = [d0; d]; %#ok<AGROW>
         clear d;
-        header0.length = header0.length + header.length;
-        header0.records = header0.records + header.records;
+        if exist('header','var') 
+            header0.length = header0.length + header.length;
+            header0.records = header0.records + header.records;
+        end         
     end
     
 end
@@ -34,10 +47,21 @@ d = d0;
 clear d0;
 tabs = tabs0;
 clear tabs0;
-header = header0;
-clear header0;
+if exist('header','var') 
+    header = header0;
+    clear header0;
+end
+if exist('mults','var') 
+    mults = mults0;
+    clear mults0;
+end
+if exist('fs','var') 
+    fs = fs0;
+    clear fs0;
+end
+disp(['vysledna delka ' num2str(size(tabs,1))]);
 dot = strfind(spojit{1},'.');
-
-save( [ spojit{1}(1:dot(1)-1) '_concat.mat'],'header','d','tabs','fs','-v7.3');
+disp(['ukladam ' spojit{1}(1:dot(1)-1) '_concat.mat']);
+save([ spojit{1}(1:dot(1)-1) '_concat.mat'], '-regexp', '^(?!(spojit|j|dot|OBJ)$).','-v7.3');
 clear spojit j dot;
 
