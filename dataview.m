@@ -1,4 +1,4 @@
-function [ iSTART,iEND ] = dataview(d,H,tabs,start,konec, channel)
+function [ iSTART,iEND ] = dataview(d,H,tabs,fs, start,konec,  channel)
 %DATAVIEW zobrazi synchronizacni puls s polu s anotacema
 %   pracuje s datama EEG z Motola
 %   delka i start jsou v sekundach
@@ -14,7 +14,7 @@ else
     delka = konec - start;
 end
 if start==0, start = 1; end;
-fs = H.samplerate(1); %sampling rate
+%fs = H.samplerate(1); %sampling rate
 figure('Name','Synchronizace');
 
 %procenta = delka/size(d,1)*100;

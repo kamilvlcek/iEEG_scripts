@@ -1,7 +1,8 @@
-function [ppa] = ppa_data(pacientid,U1,U2,tabs)
+function [ppa] = ppa_data(pacientid,U1,U2,tabs,eegfile)
 %PPA_DATA vytvori a vraci strukturu s udalostmi experimentu PPA
 % pacientid - id pacienta, napriklad p85, podle pojmenovani vystupni tabulky AEdistData.php.
 % U1 a U2 vystup z udalosti2() - casy synchropulsu k podnedu a odpovedi
+% eegfile je nazev puvodniho souboru s eeg daty
 
 dir = 'd:\prace\homolka\epileptici EEG\vysledky\PPalokalizer\';
 %tabulka odpovedi pacienta
@@ -45,5 +46,8 @@ ppa.strings.podminka = podminka;
 ppa.interval = [tabs(1) tabs(end)];
 %vypis pro kontrolu intevalu
 disp(['PPA data od ' datestr(tabs(1),'dd-mmm-yyyy HH:MM:SS.FFF') ' do ' datestr(tabs(end),'dd-mmm-yyyy HH:MM:SS.FFF')]);
+
+ppa.eegfile = eegfile;
+ppa.pacientid = pacientid;
 end
 

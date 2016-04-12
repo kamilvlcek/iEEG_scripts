@@ -29,8 +29,8 @@ end
 U(2:end,2)=U(2:end,1)-U(1:end-1); 
 U(1,2) = 1000; %prvni hodnotu nechci smazat, nema definovany casovy rozdil vuci predchozi
 
-%smazu udalosti blize nez 0.25 sec od predchozi
-iU = U(:,2)< fs/4; %vice nez 0.25 sec
+%smazu udalosti blize nez 0.125 sec od predchozi - nasel jsem spravnou udalost 0.23 od predchozi
+iU = U(:,2)< fs/4/2; %vice nez 0.125 sec
 U(iU,:)=[]; 
 %smazu udalosti ktere jsou sum - do tretiho a ctvrteho sloupce dam uroven sumu pred a po udalosti
 for j = 1:size(U,1)
