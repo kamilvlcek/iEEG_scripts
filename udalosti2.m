@@ -1,4 +1,4 @@
-function [ UU ] = udalosti2( d, fs, tabs, nahoru, kresli, interval )
+function [ UU ] = udalosti2( d, fs, tabs, nahoru, mults,kresli, interval )
 %UDALOSTI vrati indexy udalosti v poli d a jejich timestampy
 %pouziva se pro import dat z Motola do EEGlabu
 %  fs je pocet udalosti v jedne s, sampling rate
@@ -13,10 +13,16 @@ end
 if ~exist('kresli','var') 
     kresli = 1; %defaultni hodnota
 end
-if size(d,2) > 1
+if ~exist('mults','var') || numel(mults)<size(d,2)
+    mults = ones(1,size(d,2));
+end
+if size(d,2) > 1    
     LPT = size(d,2)-2; %synchronizace byva 2 kanaly pred koncem - pred EKG
+    d = double(d(:,LPT)) .* mults(LPT); %predpokladam d a mults se stejnym poctem kanalu 
+    LPT = 1; %zredukoval jsem d na jen jednorozmerny vektor ze synchronizacniho kanalu
 else
     LPT = 1; %cislo kanalu synchronize - d ted obsahuje jen jeden sloupec
+    d = double(d) * mults(LPT); 
 end
 Th = 2000; %me kterou vsechny udalosti prekracuji
 if nahoru 
