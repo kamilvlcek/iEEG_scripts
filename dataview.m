@@ -7,14 +7,14 @@ function [ iSTART,iEND ] = dataview(d,tabs,fs,mults, start,konec, annotations, c
 if ~exist('channel','var') %muzu zadat kanal se synchronizaci - 15.4.2015
     channel = size(d,2)-2; %synchronizace byva 2 kanaly pred koncem - pred EKG
 end  
-if ~exist('start','var')
+if ~exist('start','var') || start == 0
     start = 1;
     iStart = 1; %index v poli tabs
 else
     iStart = round(start*fs); %index v poli tabs
 end
 zaznamvterin = (tabs(end)-tabs(1))*24*3600; %delka zaznamu ve vterinach
-if ~exist('konec','var')
+if ~exist('konec','var') || konec == 0
     konec = round(zaznamvterin); 
     delka = round(zaznamvterin) -start;  %23.6.2015 - kdyz neudam delku, zobrazuje cely zaznam
     iKonec = size(tabs,1);%index v poli tabs
@@ -25,7 +25,6 @@ end
 if ~exist('mults','var') || numel(mults)<size(d,2)
     mults = ones(1,size(d,2));
 end
-if start==0, start = 1; end;
 %fs = H.samplerate(1); %sampling rate
 
 pauzyvdatech = kontrolacasu(tabs(iStart:iKonec),fs);
