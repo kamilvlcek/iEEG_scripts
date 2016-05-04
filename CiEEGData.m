@@ -11,7 +11,11 @@ classdef CiEEGData < handle
         
         samples; %pocet vzorku v zaznamu
         channels; %pocet kanalu v zaznamu
-        epochs;  %pocet epoch v datech
+        epochs;   %pocet epoch
+        epochData; %cell array informaci o epochach; epochy v radcich, sloupce: kategorie, tab
+        PsyData; %objekt ve formatu CPsyData (PPA, AEDist aj) podle prezentace KISARG
+            %pole PsyData.P.data, sloupce, strings, interval, eegfile, pacientid
+        epochtime; %delka eventu pre a po event v sekundach       
     end
     
     methods (Access = public)
@@ -47,6 +51,26 @@ classdef CiEEGData < handle
                 epoch = 1;            
             end
             dd = double(obj.d(:,ch,epoch)) .* obj.mults(ch);                           
+        end
+        
+        function ExtractEpochs(obj, PsyData,epochtime)
+            obj.PsyData = PsyData; 
+            obj.epochtime = epochtime; %v sekundach cas pred a po udalosti 
+            iepochtime = round(epochtime.*obj.fs); %v poctu vzorku cas pred a po udalosti
+            ts_podnety = PsyData.TimePodnety(); %timestampy vsech podnetu
+            de = zeros(iepochtime(2)-iepochtime(1), size(obj.d,2), size(ts_podnety,1)); %nova epochovana data time x channel x epoch            
+            obj.epochData = cell(size(ts_podnety,1),2); % sloupce kategorie, timestamp
+            for epoch = 1:size(ts_podnety,1) %pro vsechny eventy
+                izacatek = find(obj.tabs==ts_podnety(epoch));
+                obj.epochData(epoch,:)= {PsyData.Kategorie(epoch) ts_podnety(epoch) };
+                for ch = 1:obj.channels %pro vsechny kanaly                    
+                    baseline = mean(obj.d(izacatek+iepochtime(1):izacatek-1));
+                    de(:,ch,epoch) = double(obj.d( izacatek+iepochtime(1) : izacatek+iepochtime(2)-1,ch)).* obj.mults(ch) - baseline; 
+                end
+            end
+            obj.d = de; %puvodni neepochovana budou epochovana
+            obj.mults = ones(size(obj.d,2)); %nove pole uz je double defaultove jednicky pro kazdy kanal
+            [obj.samples,obj.channels, obj.epochs] = obj.DSize();
         end
     end
     
