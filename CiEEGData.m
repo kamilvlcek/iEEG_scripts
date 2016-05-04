@@ -54,7 +54,8 @@ classdef CiEEGData < handle
         end
         
         function ExtractEpochs(obj, PsyData,epochtime)
-            obj.PsyData = PsyData; 
+            % epochuje data v poli d, pridava do objektu epochData a epochtime
+            obj.PsyData = PsyData; %objekt CPsyData
             obj.epochtime = epochtime; %v sekundach cas pred a po udalosti 
             iepochtime = round(epochtime.*obj.fs); %v poctu vzorku cas pred a po udalosti
             ts_podnety = PsyData.TimePodnety(); %timestampy vsech podnetu
