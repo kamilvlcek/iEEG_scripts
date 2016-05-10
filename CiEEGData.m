@@ -9,7 +9,7 @@ classdef CiEEGData < handle
         mults; %nepovinne
         header; %nepovinne
         
-        samples; %pocet vzorku v zaznamu
+        samples; %pocet vzorku v zaznamu = rozmer v case
         channels; %pocet kanalu v zaznamu
         epochs;   %pocet epoch
         epochData; %cell array informaci o epochach; epochy v radcich, sloupce: kategorie, tab
@@ -20,7 +20,7 @@ classdef CiEEGData < handle
     
     methods (Access = public)
         function obj = CiEEGData(d,tabs,fs,mults,header)
-            %konstruktor
+            %konstruktor         
             obj.d = d;
             [obj.samples,obj.channels, obj.epochs] = obj.DSize();
             obj.tabs = tabs;
@@ -54,16 +54,18 @@ classdef CiEEGData < handle
         end
         
         function ExtractEpochs(obj, PsyData,epochtime)
-            % epochuje data v poli d, pridava do objektu epochData a epochtime
+            % epochuje data v poli d, pridava do objektu:
+            % cell array epochData, double(2) epochtime, tridu PsyData 
+            % upravuje obj.mults, samples channels epochs
             obj.PsyData = PsyData; %objekt CPsyData
-            obj.epochtime = epochtime; %v sekundach cas pred a po udalosti 
+            obj.epochtime = epochtime; %v sekundach cas pred a po udalosti  , prvni cislo je zaporne druhe kladne
             iepochtime = round(epochtime.*obj.fs); %v poctu vzorku cas pred a po udalosti
             ts_podnety = PsyData.TimePodnety(); %timestampy vsech podnetu
             de = zeros(iepochtime(2)-iepochtime(1), size(obj.d,2), size(ts_podnety,1)); %nova epochovana data time x channel x epoch            
             obj.epochData = cell(size(ts_podnety,1),2); % sloupce kategorie, timestamp
             for epoch = 1:size(ts_podnety,1) %pro vsechny eventy
-                izacatek = find(obj.tabs==ts_podnety(epoch));
-                obj.epochData(epoch,:)= {PsyData.Kategorie(epoch) ts_podnety(epoch) };
+                izacatek = find(obj.tabs==ts_podnety(epoch)); %najdu index podnetu podle jeho timestampu
+                obj.epochData(epoch,:)= {PsyData.Kategorie(epoch) ts_podnety(epoch)};
                 for ch = 1:obj.channels %pro vsechny kanaly                    
                     baseline = mean(obj.d(izacatek+iepochtime(1):izacatek-1));
                     de(:,ch,epoch) = double(obj.d( izacatek+iepochtime(1) : izacatek+iepochtime(2)-1,ch)).* obj.mults(ch) - baseline; 
