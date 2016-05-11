@@ -33,7 +33,7 @@ classdef CPsyData
             %vraci matici timestampu vsech podnetu
             ts_podnety = obj.P.data(:,obj.P.sloupce.ts_podnet);
         end
-        function kat = Kategorie(obj,event)
+        function [kat katnum] = Kategorie(obj,event)
             %vrati retezec s popisem kategorie eventu
             katnum = obj.P.data(event,obj.P.sloupce.kategorie); %cislo kategorie
             kat = obj.P.strings.podminka{katnum+1};            
