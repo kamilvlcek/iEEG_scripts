@@ -5,6 +5,7 @@ classdef CiEEGData < handle
     properties (Access = public)
         d; %double nebo int matrix: time x channel, muze byt i time x channel x epoch
         tabs; 
+        tabs_orig; %originalni tabs, ktere se zachovaji po epochaci. Downsamplovani se u nich dela
         fs; %vzorkovaci frekvence
         mults; %nepovinne
         header; %nepovinne
@@ -24,6 +25,7 @@ classdef CiEEGData < handle
             obj.d = d;
             [obj.samples,obj.channels, obj.epochs] = obj.DSize();
             obj.tabs = tabs;
+            obj.tabs_orig = tabs;
             obj.fs = fs;
             if exist('mults','var') && ~isempty(mults)
                 obj.mults = mults;

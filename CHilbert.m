@@ -5,7 +5,7 @@ classdef CHilbert < CiEEGData
         decimatefactor = 8; %o kolik decimuju hiblertovu obalku oproti puvodi sampling rate; 2 je dostatecne konzervativni, 8 hodne setri pamet
     end
     properties (Access = public)
-        HFreq; %hilberova obalka pro kazde frekvenci pasmo - time x channel x freq
+        HFreq; %hilberova obalka pro kazde frekvenci pasmo - time x channel x freq (x kategorie)
         Hf; %frekvencni pasma pro ktere jsou pocitany obalky
     end
     methods (Access = public)
@@ -40,6 +40,7 @@ classdef CHilbert < CiEEGData
             obj.d = squeeze(mean(obj.HFreq,3)); %11.5.2016 - prepisu puvodni data prumerem
             obj.fs = obj.fs/obj.decimatefactor;
             obj.tabs = downsample(obj.tabs,obj.decimatefactor);
+            obj.tabs_orig = downsample(obj.tabs_orig,obj.decimatefactor); %potrebuju zdecimovat i druhy tabs. Orig znamena jen ze nepodleha epochovani
             obj.Hf = freq;
             obj.mults = ones(1,size(obj.d,2)); %nove pole uz je double defaultove jednicky pro kazdy kanal
             fprintf('\n'); %ukoncim radku
@@ -52,16 +53,18 @@ classdef CHilbert < CiEEGData
             d = obj.d;          %#ok<NASGU>
             fs = obj.fs;        %#ok<NASGU>
             tabs = obj.tabs;    %#ok<NASGU>
+            tabs_orig = obj.tabs_orig;    %#ok<NASGU>
             Hf = obj.Hf;        %#ok<PROP,NASGU>
             mults = obj.mults;  %#ok<NASGU>
-            save(filename,'HFreq','d','fs','tabs','Hf','mults','-v7.3');
+            save(filename,'HFreq','d','fs','tabs','tabs_orig','Hf','mults','-v7.3');
         end
         function obj = LoadH(obj,filename)
-            load(filename,'HFreq','d','fs','tabs','mults','Hf');
+            load(filename,'HFreq','d','fs','tabs','tabs_orig','mults','Hf');
             obj.HFreq = HFreq; %#ok<CPROP,PROP>
             obj.d = d;          
             obj.fs = fs;        
-            obj.tabs = tabs;  
+            obj.tabs = tabs;
+            obj.tabs_orig = tabs_orig;  
             obj.mults = mults;
             obj.Hf = Hf;        %#ok<CPROP,PROP>
         end
@@ -69,22 +72,28 @@ classdef CHilbert < CiEEGData
         function ExtractEpochs(obj, PsyData,epochtime)
             % rozdeli hilbertovu obalku podle epoch
             % i u ni odecte baseline pred podnetem
-             ExtractEpochs@CiEEGData(obj,PsyData, epochtime); %to mi zepochuje prumernou obalku za frekvencni pasma v poli d
-             
-             %iepochtime = round(epochtime.*obj.Hfs); %v poctu vzorku cas pred a po udalosti, prvni cislo je zaporne druhe kladne
-             %kategorie = cell2mat(obj.P.strings.podminka(:,2)); %cisla karegorii ve sloupcich
-             %Hfreq2 = zeros(iepochtime(2)-iepochtime(1), size(obj.Hmean,2), numel(obj.Hf)-1,size(kategorie,1)); %nova epochovana data time x channel x freq x kategorie=podminka
+            
+            ExtractEpochs@CiEEGData(obj,PsyData, epochtime); %to mi zepochuje prumernou obalku za frekvencni pasma v poli d
+            
+            %ted epochace vsech frekvencnich pasem zvlast, hlavne kvuli obrazkum
+            %prumer za kazdou kategorii, statistiku z toho delat nechci
+             iepochtime = round(epochtime.*obj.fs); %v poctu vzorku cas pred a po udalosti, prvni cislo je zaporne druhe kladne             
+             kategorie = cell2mat(obj.PsyData.P.strings.podminka(:,2)); %cisla karegorii ve sloupcich
+             Hfreq2 = zeros(iepochtime(2)-iepochtime(1), size(obj.d,2), numel(obj.Hf)-1,size(kategorie,1)); %nova epochovana data time x channel x freq x kategorie=podminka
              %cyklus po kategoriich ne po epochach
-             
-             %for epoch = 1:size(obj.epochData,1) 
-             %    izacatek = find(obj.Htabs==obj.epochData{epoch,2}); %najdu index podnetu, podle jeho timestampu. v druhem sloupci epochData jsou timestampy
-             %    for ch=1:obj.channels
-                    
-             %        baseline = mean(obj.Hmean(izacatek + iepochtime(1) : izacatek-1,ch)); %prumerna hodnota v case pred podnetem
-             %        Hmean2(:,ch,epoch)=  obj.Hmean(izacatek + iepochtime(1) : izacatek+iepochtime(2)-1,ch) - baseline; %i u Hilbertovy obalky odecitam baseline
-             %    end
-             %end
-             %obj.Hmean = Hmean2; %nahradim puvodni prumernou hilbertovu obalku tou epochovanou             
+             for kat = kategorie' %potrebuji to v radcich
+                 Epochy = find(cell2mat(obj.epochData(:,2))==kat); %seznam epoch v ramci kategorie ve sloupci 
+                 for epoch = Epochy' %potrebuji to v radcich
+                     izacatek = find(obj.tabs_orig==obj.epochData{epoch,3}); %najdu index podnetu, podle jeho timestampu. v tretim sloupci epochData jsou timestampy
+                     for ch=1:obj.channels
+                        baseline = mean(obj.HFreq(izacatek + iepochtime(1) : izacatek-1,ch,:),1); %baseline pro vsechny frekvencni pasma dohromady
+                        Hfreq2(:,ch,:,kat+1) = Hfreq2(:,ch,:,kat+1) +  bsxfun(@minus,obj.HFreq(izacatek + iepochtime(1) : izacatek+iepochtime(2)-1,ch,:) , baseline); 
+                        %tady se mi to mozna odecetlo blbe? KOntrola
+                     end
+                 end
+                 Hfreq2(:,ch,:,kat+1) = Hfreq2(:,ch,:,kat+1)./numel(Epochy);
+             end             
+             obj.HFreq = Hfreq2;
         end
         
     end 
