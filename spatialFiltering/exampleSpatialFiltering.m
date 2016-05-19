@@ -8,13 +8,13 @@
 % (c) Jiri, May16
 
 %% load example data (exported from Petr Jezdik)
-load('/home/hammer/export/shareData/subjData_carDriving/16_PR1_day1/rawData/amplifierData/P96_2016-01-25_14-30_001.mat');
+load('d:\eeg\motol\pacienti\P79 Pluhackova VT8\VT8_2015-04-09_09-46_001_concat_X_ppa.mat');
 assert(exist('d','var') == 1);
 
 %% load header 'H'
 fileName = ['setHerePath' filesep '16_PR1_day1_header.mat'];  
 % for example:
-fileName = ['/home/hammer/export/shareData/subjData_carDriving/16_PR1_day1/alignedData' filesep '16_PR1_day1_header.mat'];  % for example
+fileName = ['d:\eeg\motol\pacienti\P79 Pluhackova VT8\P79_header.mat'];  % for example
 assert(exist(fileName,'file') == 2);
 clear H;
 load(fileName, 'H');
