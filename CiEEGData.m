@@ -93,6 +93,23 @@ classdef CiEEGData < handle
             iEpochy = cell2mat(obj.epochData(:,2))==katnum ; %seznam epoch v ramci kategorie ve sloupci
             d = obj.d(:,:,iEpochy);
         end
+        function PlotCategory(obj,katnum,channel)
+            d1=obj.CategoryData(katnum);
+            d1m = mean(d1,3);
+            T = (0 : 1/obj.fs : (size(obj.d,1)-1)/obj.fs) + obj.epochtime(1); %cas zacatku a konce epochy
+            E = 1:obj.epochs; %vystupni parametr
+            h1 = figure('Name','Mean Epoch');
+            plot(T,d1m(:,channel));
+            xlabel('Time [s]'); 
+            title(obj.PsyData.CategoryName(katnum));
+            h2 = figure('Name','All Epochs');            
+            imagesc(T,E,squeeze(d1(:,channel,:))');
+            colorbar;
+            xlabel('Time [s]');
+            ylabel('Epochs');
+            title(obj.PsyData.CategoryName(katnum));
+            
+        end
     end
     
 end
