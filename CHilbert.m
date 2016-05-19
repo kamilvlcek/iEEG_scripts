@@ -15,15 +15,15 @@ classdef CHilbert < CiEEGData
             obj@CiEEGData(d,tabs,fs,mults,header);
         end
         
-        function obj = PasmoFrekvence(obj,freq)
+        function obj = PasmoFrekvence(obj,freq,channels)
             %EEG2HILBERT prevede vsechny kanaly na prumer hilbertovych obalek
             %   podle puvodni funkce EEG2Hilbert
             %   pouziva data d z parentu a take fs
             %   freq    seznam freqvenci pro ktere se ma delat prumer - lo, .., ..., .., hi
-            
+            if ~exist('channels','var'), channels = 1:obj.channels; end
             obj.HFreq = zeros(ceil(obj.samples/obj.decimatefactor),obj.channels,numel(freq)-1); %inicializace pole   
             fprintf('kanal ze %i: ', obj.channels);
-            for ch = 1:obj.channels %jednotlive elektrody
+            for ch = channels %jednotlive elektrody
                 %fprintf('channel %i: Hz ',ch);
                            
                 fprintf('%i,',ch);
@@ -32,7 +32,7 @@ classdef CHilbert < CiEEGData
                     hiF = freq(fno+1)-1; 
                     hh = obj.hilbertJirka(obj.DData(ch),loF,hiF,obj.fs); %cista hilbertova obalka, tohle i skript hodne zrychli
                     hh = decimate(hh,obj.decimatefactor); % mensi sampling rate                    
-                    obj.HFreq(:,ch,fno) = (hh./mean(hh)); %podil prumeru 100 = prumerna hodnota
+                    obj.HFreq(:,ch,fno) = (hh./mean(hh)); %podil prumeru = prumerna hodnota
                     %fprintf('%i Hz, ',loF);
                 end
                 %fprintf('\n'); %tisk znova na stejnou radku
@@ -81,17 +81,17 @@ classdef CHilbert < CiEEGData
                  kategorie = cell2mat(obj.PsyData.P.strings.podminka(:,2)); %cisla karegorii ve sloupcich
                  Hfreq2 = zeros(iepochtime(2)-iepochtime(1), size(obj.d,2), numel(obj.Hf)-1,size(kategorie,1)); %nova epochovana data time x channel x freq x kategorie=podminka
                  %cyklus po kategoriich ne po epochach
-                 for kat = kategorie' %potrebuji to v radcich
-                     Epochy = find(cell2mat(obj.epochData(:,2))==kat); %seznam epoch v ramci kategorie ve sloupci 
+                 for katnum = kategorie' %potrebuji to v radcich
+                     Epochy = find(cell2mat(obj.epochData(:,2))==katnum); %seznam epoch v ramci kategorie ve sloupci 
                      for epoch = Epochy' %potrebuji to v radcich
                          izacatek = find(obj.tabs_orig==obj.epochData{epoch,3}); %najdu index podnetu, podle jeho timestampu. v tretim sloupci epochData jsou timestampy
                          for ch=1:obj.channels
                             baseline = mean(obj.HFreq(izacatek + iepochtime(1) : izacatek-1,ch,:),1); %baseline pro vsechny frekvencni pasma dohromady
-                            Hfreq2(:,ch,:,kat+1) = Hfreq2(:,ch,:,kat+1) +  bsxfun(@minus,obj.HFreq(izacatek + iepochtime(1) : izacatek+iepochtime(2)-1,ch,:) , baseline); 
+                            Hfreq2(:,ch,:,katnum+1) = Hfreq2(:,ch,:,katnum+1) +  bsxfun(@minus,obj.HFreq(izacatek + iepochtime(1) : izacatek+iepochtime(2)-1,ch,:) , baseline); 
                             %tady se mi to mozna odecetlo blbe? KOntrola
                          end
                      end
-                     Hfreq2(:,ch,:,kat+1) = Hfreq2(:,ch,:,kat+1)./numel(Epochy);
+                     Hfreq2(:,ch,:,katnum+1) = Hfreq2(:,ch,:,katnum+1)./numel(Epochy);
                  end             
                  obj.HFreq = Hfreq2;
             end

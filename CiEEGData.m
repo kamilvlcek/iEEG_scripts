@@ -66,7 +66,7 @@ classdef CiEEGData < handle
             obj.PsyData = PsyData; %objekt CPsyData
             obj.epochtime = epochtime; %v sekundach cas pred a po udalosti  , prvni cislo je zaporne druhe kladne
             iepochtime = round(epochtime.*obj.fs); %v poctu vzorku cas pred a po udalosti
-            ts_podnety = PsyData.TimePodnety(); %timestampy vsech podnetu
+            ts_podnety = PsyData.TimeStimuli(); %timestampy vsech podnetu
             de = zeros(iepochtime(2)-iepochtime(1), size(obj.d,2), size(ts_podnety,1)); %nova epochovana data time x channel x epoch            
             tabs = zeros(iepochtime(2)-iepochtime(1),size(ts_podnety,1)); %#ok<PROP> %udelam epochovane tabs
             obj.epochData = cell(size(ts_podnety,1),3); % sloupce kategorie, cislo kategorie, timestamp
@@ -74,7 +74,7 @@ classdef CiEEGData < handle
                 izacatek = find(obj.tabs<=ts_podnety(epoch), 1, 'last' ); %najdu index podnetu podle jeho timestampu
                     %kvuli downsamplovani Hilberta, kdy se mi muze ztratit presny cas zacatku
                     %epochy, beru posledni nizsi tabs nez je cas zacatku epochy
-                [Kstring Knum] = PsyData.Kategorie(epoch);    %jmeno a cislo kategorie
+                [Kstring Knum] = PsyData.Category(epoch);    %jmeno a cislo kategorie
                 obj.epochData(epoch,:)= {Kstring Knum obj.tabs(izacatek)}; %zacatek epochy beru z tabs aby sedel na tabs pri downsamplovani
                 for ch = 1:obj.channels %pro vsechny kanaly                    
                     baseline = mean(obj.d(izacatek+iepochtime(1):izacatek-1));
@@ -86,6 +86,12 @@ classdef CiEEGData < handle
             obj.mults = ones(1,size(obj.d,2)); %nove pole uz je double defaultove jednicky pro kazdy kanal
             obj.tabs = tabs; %#ok<PROP>
             [obj.samples,obj.channels, obj.epochs] = obj.DSize();
+        end
+        function [d]= CategoryData(obj, katnum)
+            %vraci epochy ve kterych podnet byl kategorie/podminky katnum
+            assert(obj.epochs > 1,'data not yet epoched'); %vyhodi chybu pokud data nejsou epochovana
+            iEpochy = cell2mat(obj.epochData(:,2))==katnum ; %seznam epoch v ramci kategorie ve sloupci
+            d = obj.d(:,:,iEpochy);
         end
     end
     

@@ -29,16 +29,19 @@ classdef CPsyData
             isi = 24*3600*(obj.P.data(2:end,obj.P.sloupce.ts_podnet) - obj.P.data(1:end-1,obj.P.sloupce.ts_podnet));
         end
         
-        function ts_podnety = TimePodnety(obj)
+        function ts_podnety = TimeStimuli(obj)
             %vraci matici timestampu vsech podnetu
             ts_podnety = obj.P.data(:,obj.P.sloupce.ts_podnet);
         end
-        function [kat katnum] = Kategorie(obj,event)
-            %vrati retezec s popisem kategorie eventu
+        function [kat katnum] = Category(obj,event)
+            %vrati 1 retezec s popisem kategorie eventu a 2. cislo kategorie
             katnum = obj.P.data(event,obj.P.sloupce.kategorie); %cislo kategorie
             kat = obj.P.strings.podminka{katnum+1};            
-        end    
-            
+        end 
+        function [kat] = CategoryName(obj,katnum)
+            %vraci jmeno kategorie z cisla
+            kat = obj.P.strings.podminka{katnum+1};
+        end
     end
     
 end
