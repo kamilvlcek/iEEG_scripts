@@ -16,7 +16,9 @@ classdef CiEEGData < handle
         epochData; %cell array informaci o epochach; epochy v radcich, sloupce: kategorie, tab
         PsyData; %objekt ve formatu CPsyData (PPA, AEDist aj) podle prezentace KISARG
             %pole PsyData.P.data, sloupce, strings, interval, eegfile, pacientid
-        epochtime; %delka eventu pre a po event v sekundach       
+        epochtime; %delka eventu pre a po event v sekundach    
+        CH; %objekt formatu CHHeader s Hammer headerem 
+        els; %cisla poslednich kanalu v kazde elektrode
     end
     
     methods (Access = public)
@@ -53,6 +55,22 @@ classdef CiEEGData < handle
                 epoch = 1;            
             end
             dd = double(obj.d(:,ch,epoch)) .* obj.mults(ch);                           
+        end
+        
+        function obj = GetHHeader(obj,H)
+            %nacte header z promenne H - 25.5.2016
+            obj.CH = CHHeader(H);
+            [~, obj.els] = obj.CH.ChannelGroups();            
+        end
+        function PlotChannels(obj)
+            CC = corrcoef(obj.d); %vypocitam a zobrazim korelacni matici kanalu
+            figure('Name','Channel Correlations');
+            imagesc(CC); 
+            
+            for j = 1:numel(obj.els)
+                line([obj.els(j)+0.5 obj.els(j)+0.5],[1 size(CC,1)],'color','black');
+                line([1 size(CC,1)],[obj.els(j)+0.5 obj.els(j)+0.5],'color','black');
+            end
         end
         
         function ExtractEpochs(obj, PsyData,epochtime)
@@ -93,16 +111,18 @@ classdef CiEEGData < handle
             iEpochy = cell2mat(obj.epochData(:,2))==katnum ; %seznam epoch v ramci kategorie ve sloupci
             d = obj.d(:,:,iEpochy);
         end
+     
         function PlotCategory(obj,katnum,channel)
-            d1=obj.CategoryData(katnum);
-            d1m = mean(d1,3);
+            %vykresli vsechny a prumernou odpoved na kategorii podnetu
+            d1=obj.CategoryData(katnum); %epochy jedne kategorie
+            d1m = mean(d1,3); %prumerne EEG z jedne kategorie
             T = (0 : 1/obj.fs : (size(obj.d,1)-1)/obj.fs) + obj.epochtime(1); %cas zacatku a konce epochy
             E = 1:obj.epochs; %vystupni parametr
-            h1 = figure('Name','Mean Epoch');
+            h1 = figure('Name','Mean Epoch'); %prumerna odpoved na kategorii
             plot(T,d1m(:,channel));
             xlabel('Time [s]'); 
             title(obj.PsyData.CategoryName(katnum));
-            h2 = figure('Name','All Epochs');            
+            h2 = figure('Name','All Epochs');  % vsechny epochy v barevnem obrazku
             imagesc(T,E,squeeze(d1(:,channel,:))');
             colorbar;
             xlabel('Time [s]');
