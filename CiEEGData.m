@@ -19,11 +19,13 @@ classdef CiEEGData < handle
         epochtime; %delka eventu pre a po event v sekundach    
         CH; %objekt formatu CHHeader s Hammer headerem 
         els; %cisla poslednich kanalu v kazde elektrode
+        plotES; % current electrode and second of plot
+        plotH;  % handle to plot
     end
     
     methods (Access = public)
         function obj = CiEEGData(d,tabs,fs,mults,header)
-            %konstruktor         
+            %konstruktor, parametry d,tabs,fs[,mults,header]
             obj.d = d;
             [obj.samples,obj.channels, obj.epochs] = obj.DSize();
             obj.tabs = tabs;
@@ -43,7 +45,7 @@ classdef CiEEGData < handle
         end
         
         function [samples, channels, epochs] = DSize(obj)
-            % vraci velikosti pole d
+            % vraci velikosti pole d - samples, channels, epochs
             samples = size(obj.d,1);
             channels = size(obj.d,2);
             epochs = size(obj.d,3);
@@ -62,6 +64,7 @@ classdef CiEEGData < handle
             obj.CH = CHHeader(H);
             [~, obj.els] = obj.CH.ChannelGroups();            
         end
+        
         function PlotChannels(obj)
             CC = corrcoef(obj.d); %vypocitam a zobrazim korelacni matici kanalu
             figure('Name','Channel Correlations');
@@ -71,7 +74,39 @@ classdef CiEEGData < handle
                 line([obj.els(j)+0.5 obj.els(j)+0.5],[1 size(CC,1)],'color','black');
                 line([1 size(CC,1)],[obj.els(j)+0.5 obj.els(j)+0.5],'color','black');
             end
+            
+            
         end
+        function PlotElectrode(obj,e,s)
+            %vykresli data (2 sekundy ) z jedne elektrody e od vteriny zaznamu s
+            %zatim jen neepochovana data
+            
+            if isempty(obj.plotH)
+                obj.plotH = figure('Name','Electrode Plot'); %zatim zadny neni, novy obrazek                               
+            else
+                figure(obj.plotH);  %kreslim do existujiciho plotu
+            end
+            obj.plotES = [e s]; %ulozim hodnoty pro pohyb klavesami
+            
+            if e==1, elmin = 1; else elmin = obj.els(e-1)+1; end %index prvni elektrody kterou vykreslit
+            elmax = obj.els(e);            % index posledni elektrody kterou vykreslit
+            iD = [ (s-1)*obj.fs + 1,  (s-1)*obj.fs + obj.fs*2]; %indexy eeg, od kdy do kdy vykreslit
+            dd = obj.d( iD(1) : iD(2),elmin: elmax)';   %data k plotovani - prehodim poradi, prvni jsou kanaly
+            t = linspace(iD(1)/obj.fs, iD(2)/obj.fs, iD(2)-iD(1)+1); %casova osa
+            
+            %kod viz navod zde https://uk.mathworks.com/matlabcentral/newsreader/view_thread/294163
+            mi = min(dd,[],2);
+            ma = max(dd,[],2);
+            shift = cumsum([0; abs(ma(1:end-1))+abs(mi(2:end))]);
+            shift = repmat(shift,1,1024);
+            plot(t,dd+shift);
+            set(gca,'ytick',mean(dd+shift,2),'yticklabel',elmin:elmax);
+            grid on;
+            ylim([mi(1) max(max(shift+dd))]); 
+            methodhandle = @obj.hybejPlot;
+            set(obj.plotH,'KeyPressFcn',methodhandle); 
+        end
+        
         
         function ExtractEpochs(obj, PsyData,epochtime)
             % epochuje data v poli d, pridava do objektu:
@@ -111,24 +146,36 @@ classdef CiEEGData < handle
             iEpochy = cell2mat(obj.epochData(:,2))==katnum ; %seznam epoch v ramci kategorie ve sloupci
             d = obj.d(:,:,iEpochy);
         end
-     
         function PlotCategory(obj,katnum,channel)
             %vykresli vsechny a prumernou odpoved na kategorii podnetu
             d1=obj.CategoryData(katnum); %epochy jedne kategorie
             d1m = mean(d1,3); %prumerne EEG z jedne kategorie
             T = (0 : 1/obj.fs : (size(obj.d,1)-1)/obj.fs) + obj.epochtime(1); %cas zacatku a konce epochy
             E = 1:obj.epochs; %vystupni parametr
-            h1 = figure('Name','Mean Epoch'); %prumerna odpoved na kategorii
+            h1 = figure('Name','Mean Epoch'); %#ok<NASGU> %prumerna odpoved na kategorii
             plot(T,d1m(:,channel));
             xlabel('Time [s]'); 
             title(obj.PsyData.CategoryName(katnum));
-            h2 = figure('Name','All Epochs');  % vsechny epochy v barevnem obrazku
+            h2 = figure('Name','All Epochs');  %#ok<NASGU> % vsechny epochy v barevnem obrazku
             imagesc(T,E,squeeze(d1(:,channel,:))');
             colorbar;
             xlabel('Time [s]');
             ylabel('Epochs');
             title(obj.PsyData.CategoryName(katnum));
             
+        end
+        
+    end
+    methods  (Access = private)
+        function hybejPlot(obj,~,eventDat)
+           switch eventDat.Key
+               case 'rightarrow'                   
+                   obj.PlotElectrode(obj.plotES(1),obj.plotES(2)+1);
+               case 'leftarrow'
+                   if(obj.plotES(2))>1
+                        obj.PlotElectrode(obj.plotES(1),obj.plotES(2)-1);
+                   end
+           end
         end
     end
     
