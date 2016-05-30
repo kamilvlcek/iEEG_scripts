@@ -29,10 +29,14 @@ if strfind(filterSettings.name, 'car')        % ~ common average re-reference (C
     % define channel groups
     chGroups = getChannelGroups_kisarg(H, filterSettings.chGroups);
     
+    % rejected channels
+    rejCh = [];         % set here indices of rejected channels !!!
+    
     % design filter
     filterMatrix = zeros(N_inputCh);                        % init
     for grp = 1:size(chGroups,2)
-        selCh = chGroups{grp};
+        selCh = setdiff(chGroups{grp}, rejCh);                              % potential bug: if chGroups{grp} == rejCh (lets hope not!)
+        assert(~isempty(selCh));
         numCh = size(selCh,2);
         filterMatrix(selCh,selCh) = eye(numCh) - 1/numCh.*ones(numCh);    % set weights for CAR channels
     end    
@@ -45,11 +49,15 @@ if strcmp(filterSettings.name, 'bip')
     % define channel groups
     chGroups = getChannelGroups_kisarg(H, 'bip');
     
+    % rejected channels
+    rejCh = [];         % set here indices of rejected channels !!!
+    
     % design filter
     filterMatrix = zeros(N_inputCh, size(chGroups,2));      % init
     selCh_H = [];
     for grp = 1:size(chGroups,2)
-        selCh = chGroups{grp};
+        selCh = setdiff(chGroups{grp}, rejCh);              % potential bug: if chGroups{grp} == rejCh (lets hope not!)
+        assert(~isempty(selCh));
         filterMatrix(selCh(1),grp) = 1;                     % set weights for BIP channels
         if size(selCh,2) == 2
             filterMatrix(selCh(2),grp) = -1;                % set weights for BIP channels
