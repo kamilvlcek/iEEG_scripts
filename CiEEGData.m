@@ -77,8 +77,9 @@ classdef CiEEGData < handle
             
             
         end
-        function PlotElectrode(obj,e,s)
+        function [ranges]=PlotElectrode(obj,e,s,range,time)
             %vykresli data (2 sekundy ) z jedne elektrody e od vteriny zaznamu s
+            %osa y je v rozmezi [-r +r]
             %zatim jen neepochovana data
             
             if isempty(obj.plotH)
@@ -86,25 +87,44 @@ classdef CiEEGData < handle
             else
                 figure(obj.plotH);  %kreslim do existujiciho plotu
             end
-            obj.plotES = [e s]; %ulozim hodnoty pro pohyb klavesami
-            
+                        
             if e==1, elmin = 1; else elmin = obj.els(e-1)+1; end %index prvni elektrody kterou vykreslit
             elmax = obj.els(e);            % index posledni elektrody kterou vykreslit
-            iD = [ (s-1)*obj.fs + 1,  (s-1)*obj.fs + obj.fs*2]; %indexy eeg, od kdy do kdy vykreslit
+            if ~exist('time','var') || isempty(time)
+                time = 5; %5 sekund defaultni casovy rozsah
+            end
+            iD = [ (s-1)*obj.fs + 1,  (s-1)*obj.fs + obj.fs*time]; %indexy eeg, od kdy do kdy vykreslit
             dd = obj.d( iD(1) : iD(2),elmin: elmax)';   %data k plotovani - prehodim poradi, prvni jsou kanaly
             t = linspace(iD(1)/obj.fs, iD(2)/obj.fs, iD(2)-iD(1)+1); %casova osa
             
             %kod viz navod zde https://uk.mathworks.com/matlabcentral/newsreader/view_thread/294163
-            mi = min(dd,[],2);
-            ma = max(dd,[],2);
+            if exist('e','var') && ~isempty(e)
+                mi = repmat(-range,[size(dd,1) 1]);
+                ma = repmat(+range,[size(dd,1) 1]);
+            else
+                mi = min(dd,[],2);          
+                ma = max(dd,[],2);
+                e = [];
+            end
+            
             shift = cumsum([0; abs(ma(1:end-1))+abs(mi(2:end))]);
-            shift = repmat(shift,1,1024);
+            shift = repmat(shift,1,obj.fs*time);
             plot(t,dd+shift);
-            set(gca,'ytick',mean(dd+shift,2),'yticklabel',elmin:elmax);
+            set(gca,'ytick',shift(:,1),'yticklabel',elmin:elmax);
             grid on;
-            ylim([mi(1) max(max(shift+dd))]); 
+            ylim([min(min(shift))-range max(max(shift))+range]); 
+            ylabel(['Electrode ' num2str(e) '/' num2str(numel(obj.els)) ]);
+            xlabel(['Seconds of ' num2str( round(obj.samples/obj.fs)) ]);
+            text(t(1),-shift(2,1),[ 'resolution +/-' num2str(range) 'mV']); 
+            
             methodhandle = @obj.hybejPlot;
             set(obj.plotH,'KeyPressFcn',methodhandle); 
+            ranges = [mi ma];
+            obj.plotES = [e s range time]; %ulozim hodnoty pro pohyb klavesami
+            for j = 1:size(shift,1)
+                text(t(end),shift(j,1),[ ' ' obj.CH.H.channels(1,elmin+j-1).neurologyLabel]);
+            end
+            
         end
         
         
@@ -167,14 +187,30 @@ classdef CiEEGData < handle
         
     end
     methods  (Access = private)
-        function hybejPlot(obj,~,eventDat)
+        function hybejPlot(obj,~,eventDat)           
            switch eventDat.Key
                case 'rightarrow'                   
-                   obj.PlotElectrode(obj.plotES(1),obj.plotES(2)+1);
+                   obj.PlotElectrode(obj.plotES(1),obj.plotES(2)+1,obj.plotES(3),obj.plotES(4));
                case 'leftarrow'
-                   if(obj.plotES(2))>1
-                        obj.PlotElectrode(obj.plotES(1),obj.plotES(2)-1);
+                   if(obj.plotES(2))>1 %pokud je cislo vteriny vetsi nez 1
+                        obj.PlotElectrode(obj.plotES(1),obj.plotES(2)-1,obj.plotES(3),obj.plotES(4));
                    end
+               case 'uparrow'
+                   if(obj.plotES(1))<numel(obj.els) %pokud je cislo elektrody ne maximalni
+                        obj.PlotElectrode(obj.plotES(1)+1,obj.plotES(2),obj.plotES(3),obj.plotES(4));
+                   end                   
+               case 'downarrow'
+                   if(obj.plotES(1))>1 %pokud je cislo elektrody vetsi nez 1
+                        obj.PlotElectrode(obj.plotES(1)-1,obj.plotES(2),obj.plotES(3),obj.plotES(4));
+                   end
+               case 'add'     %signal mensi - vetsi rozliseni           
+                   obj.PlotElectrode(obj.plotES(1),obj.plotES(2),obj.plotES(3)+10,obj.plotES(4));
+                   
+               case 'subtract' %signal vetsi - mensi rozliseni   
+                   obj.PlotElectrode(obj.plotES(1),obj.plotES(2),obj.plotES(3)-10,obj.plotES(4));
+                   
+               otherwise
+                   disp(['You just pressed: ' eventDat.Key]);                      
            end
         end
     end
