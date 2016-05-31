@@ -102,12 +102,16 @@ classdef CiEEGData < handle
             if e==1, elmin = 1; else elmin = obj.els(e-1)+1; end %index prvni elektrody kterou vykreslit
             elmax = obj.els(e);            % index posledni elektrody kterou vykreslit
            
-            iD = [ (s-1)*obj.fs + 1,  (s-1)*obj.fs + obj.fs*time]; %indexy eeg, od kdy do kdy vykreslit
-            dd = obj.d( iD(1) : iD(2),elmin: elmax)';   %data k plotovani - prehodim poradi, prvni jsou kanaly
-            t = linspace(iD(1)/obj.fs, iD(2)/obj.fs, iD(2)-iD(1)+1); %casova osa
-            
+            if obj.epochs <= 1 %pokud data jeste nejsou epochovana
+                iD = [ (s-1)*obj.fs + 1,  (s-1)*obj.fs + obj.fs*time]; %indexy eeg, od kdy do kdy vykreslit
+                dd = obj.d( iD(1) : iD(2),elmin: elmax)';   %data k plotovani - prehodim poradi, prvni jsou kanaly
+                t = linspace(iD(1)/obj.fs, iD(2)/obj.fs, iD(2)-iD(1)+1); %casova osa            
+            else %pokud data uz jsou epochovana   
+                dd = squeeze(obj.d(:, elmin: elmax,s))';  %data k plotovani - prehodim poradi, prvni jsou kanaly
+                t = linspace(obj.epochtime(1), obj.epochtime(2), size(obj.d,1)); %casova osa    
+            end
             %kod viz navod zde https://uk.mathworks.com/matlabcentral/newsreader/view_thread/294163
-            if exist('e','var') && ~isempty(e)
+            if exist('range','var') && ~isempty(e)
                 mi = repmat(-range,[size(dd,1) 1]);
                 ma = repmat(+range,[size(dd,1) 1]);
             else
@@ -117,7 +121,7 @@ classdef CiEEGData < handle
             end
             
             shift = cumsum([0; abs(ma(1:end-1))+abs(mi(2:end))]);
-            shift = repmat(shift,1,obj.fs*time);
+            shift = repmat(shift,1,size(dd,2));            
             plot(t,dd+shift);
             set(gca,'ytick',shift(:,1),'yticklabel',elmin:elmax);
             grid on;
@@ -132,11 +136,15 @@ classdef CiEEGData < handle
             obj.plotES = [e s range time]; %ulozim hodnoty pro pohyb klavesami
             for j = 1:size(shift,1)
                 text(t(end),shift(j,1),[ ' ' obj.CH.H.channels(1,elmin+j-1).neurologyLabel]);
-                text(t(1)-0.5,shift(j,1),[ ' ' obj.CH.H.channels(1,elmin+j-1).name]);
+                text(t(1)-size(dd,2)/obj.fs/10,shift(j,1),[ ' ' obj.CH.H.channels(1,elmin+j-1).name]);
                 if find(obj.RjCh==elmin-1+j) %oznacim vyrazene kanaly
                     text(t(1),shift(j,1)+50,' REJECTED');
                 end
-            end            
+            end  
+            if obj.epochs > 1
+                title(['Epoch ' num2str(s) '/' num2str(obj.epochs)]);
+            end
+            
         end
         
         
@@ -201,8 +209,15 @@ classdef CiEEGData < handle
     methods  (Access = private)
         function hybejPlot(obj,~,eventDat)           
            switch eventDat.Key
-               case 'rightarrow'  
-                   if(obj.plotES(2)+obj.plotES(4) < round(obj.samples/obj.fs))   %pokud je cislo vteriny vpravo mensi nez celkova delka                    
+               case 'rightarrow' 
+                   if obj.epochs == 1
+                       rightval = obj.plotES(2)+obj.plotES(4);
+                       maxval = round(obj.samples/obj.fs);
+                   else
+                       rightval = obj.plotES(2);
+                       maxval = obj.epochs; %pocet epoch
+                   end
+                   if( rightval < maxval)   %pokud je cislo vteriny vpravo mensi nez celkova delka                    
                         obj.PlotElectrode(obj.plotES(1),obj.plotES(2)+1,obj.plotES(3),obj.plotES(4));
                    end
                case 'leftarrow'
@@ -210,7 +225,14 @@ classdef CiEEGData < handle
                         obj.PlotElectrode(obj.plotES(1),obj.plotES(2)-1,obj.plotES(3),obj.plotES(4));
                    end
                case 'pagedown'
-                   if(obj.plotES(2)+obj.plotES(4) < round(obj.samples/obj.fs)-10)   %pokud je cislo vteriny vpravo mensi nez celkova delka
+                   if obj.epochs == 1
+                       rightval = obj.plotES(2)+obj.plotES(4);
+                       maxval = round(obj.samples/obj.fs)-10;
+                   else
+                       rightval = obj.plotES(2);
+                       maxval = obj.epochs-10; %pocet epoch
+                   end
+                   if( rightval < maxval)   %pokud je cislo vteriny vpravo mensi nez celkova delka
                         obj.PlotElectrode(obj.plotES(1),obj.plotES(2)+10,obj.plotES(3),obj.plotES(4));
                    end
                case 'pageup'
