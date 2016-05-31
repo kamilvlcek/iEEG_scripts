@@ -21,6 +21,7 @@ classdef CiEEGData < handle
         els; %cisla poslednich kanalu v kazde elektrode
         plotES; % current electrode and second of plot
         plotH;  % handle to plot
+        RjCh; %seznam cisel rejectovanych kanalu
     end
     
     methods (Access = public)
@@ -73,14 +74,24 @@ classdef CiEEGData < handle
             for j = 1:numel(obj.els)
                 line([obj.els(j)+0.5 obj.els(j)+0.5],[1 size(CC,1)],'color','black');
                 line([1 size(CC,1)],[obj.els(j)+0.5 obj.els(j)+0.5],'color','black');
-            end
-            
-            
+            end     
+        end
+        function obj = RejectChannels(obj,RjCh)
+            %ulozi cisla vyrazenych kanalu - kvuli pocitani bipolarni reference 
+            obj.RjCh = RjCh;
         end
         function [ranges]=PlotElectrode(obj,e,s,range,time)
             %vykresli data (2 sekundy ) z jedne elektrody e od vteriny zaznamu s
             %osa y je v rozmezi [-r +r]
             %zatim jen neepochovana data
+            if ~exist('e','var'), e=1; end
+            if ~exist('s','var'), s=1; end
+            if ~exist('range','var') || isempty(range)
+                range = 150; %150 defaultni rozsah osy y
+            end
+            if ~exist('time','var') || isempty(time)
+                time = 5; %5 sekund defaultni casovy rozsah
+            end
             
             if isempty(obj.plotH)
                 obj.plotH = figure('Name','Electrode Plot'); %zatim zadny neni, novy obrazek                               
@@ -90,9 +101,7 @@ classdef CiEEGData < handle
                         
             if e==1, elmin = 1; else elmin = obj.els(e-1)+1; end %index prvni elektrody kterou vykreslit
             elmax = obj.els(e);            % index posledni elektrody kterou vykreslit
-            if ~exist('time','var') || isempty(time)
-                time = 5; %5 sekund defaultni casovy rozsah
-            end
+           
             iD = [ (s-1)*obj.fs + 1,  (s-1)*obj.fs + obj.fs*time]; %indexy eeg, od kdy do kdy vykreslit
             dd = obj.d( iD(1) : iD(2),elmin: elmax)';   %data k plotovani - prehodim poradi, prvni jsou kanaly
             t = linspace(iD(1)/obj.fs, iD(2)/obj.fs, iD(2)-iD(1)+1); %casova osa
@@ -123,8 +132,11 @@ classdef CiEEGData < handle
             obj.plotES = [e s range time]; %ulozim hodnoty pro pohyb klavesami
             for j = 1:size(shift,1)
                 text(t(end),shift(j,1),[ ' ' obj.CH.H.channels(1,elmin+j-1).neurologyLabel]);
-            end
-            
+                text(t(1)-0.5,shift(j,1),[ ' ' obj.CH.H.channels(1,elmin+j-1).name]);
+                if find(obj.RjCh==elmin-1+j) %oznacim vyrazene kanaly
+                    text(t(1),shift(j,1)+50,' REJECTED');
+                end
+            end            
         end
         
         
@@ -189,12 +201,24 @@ classdef CiEEGData < handle
     methods  (Access = private)
         function hybejPlot(obj,~,eventDat)           
            switch eventDat.Key
-               case 'rightarrow'                   
-                   obj.PlotElectrode(obj.plotES(1),obj.plotES(2)+1,obj.plotES(3),obj.plotES(4));
+               case 'rightarrow'  
+                   if(obj.plotES(2)+obj.plotES(4) < round(obj.samples/obj.fs))   %pokud je cislo vteriny vpravo mensi nez celkova delka                    
+                        obj.PlotElectrode(obj.plotES(1),obj.plotES(2)+1,obj.plotES(3),obj.plotES(4));
+                   end
                case 'leftarrow'
                    if(obj.plotES(2))>1 %pokud je cislo vteriny vetsi nez 1
                         obj.PlotElectrode(obj.plotES(1),obj.plotES(2)-1,obj.plotES(3),obj.plotES(4));
                    end
+               case 'pagedown'
+                   if(obj.plotES(2)+obj.plotES(4) < round(obj.samples/obj.fs)-10)   %pokud je cislo vteriny vpravo mensi nez celkova delka
+                        obj.PlotElectrode(obj.plotES(1),obj.plotES(2)+10,obj.plotES(3),obj.plotES(4));
+                   end
+               case 'pageup'
+                   if(obj.plotES(2))>10 %pokud je cislo vteriny vetsi nez 1
+                        obj.PlotElectrode(obj.plotES(1),obj.plotES(2)-10,obj.plotES(3),obj.plotES(4));
+                   end
+               case 'home'     % na zacatek zaznamu              
+                        obj.PlotElectrode(obj.plotES(1),1,obj.plotES(3),obj.plotES(4));                   
                case 'uparrow'
                    if(obj.plotES(1))<numel(obj.els) %pokud je cislo elektrody ne maximalni
                         obj.PlotElectrode(obj.plotES(1)+1,obj.plotES(2),obj.plotES(3),obj.plotES(4));
@@ -204,10 +228,10 @@ classdef CiEEGData < handle
                         obj.PlotElectrode(obj.plotES(1)-1,obj.plotES(2),obj.plotES(3),obj.plotES(4));
                    end
                case 'add'     %signal mensi - vetsi rozliseni           
-                   obj.PlotElectrode(obj.plotES(1),obj.plotES(2),obj.plotES(3)+10,obj.plotES(4));
+                   obj.PlotElectrode(obj.plotES(1),obj.plotES(2),obj.plotES(3)+50,obj.plotES(4));
                    
                case 'subtract' %signal vetsi - mensi rozliseni   
-                   obj.PlotElectrode(obj.plotES(1),obj.plotES(2),obj.plotES(3)-10,obj.plotES(4));
+                   obj.PlotElectrode(obj.plotES(1),obj.plotES(2),obj.plotES(3)-50,obj.plotES(4));
                    
                otherwise
                    disp(['You just pressed: ' eventDat.Key]);                      
