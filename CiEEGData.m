@@ -19,9 +19,10 @@ classdef CiEEGData < handle
         epochtime; %delka eventu pre a po event v sekundach    
         CH; %objekt formatu CHHeader s Hammer headerem 
         els; %cisla poslednich kanalu v kazde elektrode
-        plotES; % current electrode and second of plot
+        plotES; % current electrode, second of plot/epoch, range of y values, time range
         plotH;  % handle to plot
         RjCh; %seznam cisel rejectovanych kanalu
+        RjEpoch; %seznam vyrazenych epoch
     end
     
     methods (Access = public)
@@ -66,8 +67,17 @@ classdef CiEEGData < handle
             [~, obj.els] = obj.CH.ChannelGroups();            
         end
         
-        function PlotChannels(obj)
-            CC = corrcoef(obj.d); %vypocitam a zobrazim korelacni matici kanalu
+        function PlotChannels(obj)  
+            %vykresli korelace kazdeho kanalu s kazdym
+            if obj.epochs <= 1
+                CC = corrcoef(obj.d); %vypocitam a zobrazim korelacni matici kanalu
+            else
+                dd = zeros(obj.samples*obj.epochs,obj.channels);
+                for ch = 1:obj.channels %predelam matici 3D na 2D
+                    dd(:,ch) = reshape(obj.d(:,ch,:),obj.samples*obj.epochs,1);
+                end                
+                CC = corrcoef(dd); 
+            end
             figure('Name','Channel Correlations');
             imagesc(CC); 
             
@@ -76,10 +86,12 @@ classdef CiEEGData < handle
                 line([1 size(CC,1)],[obj.els(j)+0.5 obj.els(j)+0.5],'color','black');
             end     
         end
+        
         function obj = RejectChannels(obj,RjCh)
             %ulozi cisla vyrazenych kanalu - kvuli pocitani bipolarni reference 
             obj.RjCh = RjCh;
         end
+        
         function [ranges]=PlotElectrode(obj,e,s,range,time)
             %vykresli data (2 sekundy ) z jedne elektrody e od vteriny zaznamu s
             %osa y je v rozmezi [-r +r]
@@ -142,7 +154,12 @@ classdef CiEEGData < handle
                 end
             end  
             if obj.epochs > 1
-                title(['Epoch ' num2str(s) '/' num2str(obj.epochs)]);
+                titul = ['Epoch ' num2str(s) '/' num2str(obj.epochs)];
+                if find(obj.RjEpoch==s)
+                    titul = [titul ' - EXCLUDED'];                    
+                    line([t(1) t(end)],[shift(1,1) shift(end,1)],'Color','r');
+                end
+                title(titul);
             end
             
         end
@@ -254,7 +271,15 @@ classdef CiEEGData < handle
                    
                case 'subtract' %signal vetsi - mensi rozliseni   
                    obj.PlotElectrode(obj.plotES(1),obj.plotES(2),obj.plotES(3)-50,obj.plotES(4));
-                   
+               
+               case 'space' %epoch exclusion
+                   s = obj.plotES(2);
+                   if find(obj.RjEpoch== s)                      
+                        obj.RjEpoch = obj.RjEpoch(obj.RjEpoch~=s); %vymazu hodnoty s
+                   else
+                        obj.RjEpoch = [obj.RjEpoch  obj.plotES(2)]; %pridam hodnotu s
+                   end   
+                   obj.PlotElectrode(obj.plotES(1),obj.plotES(2),obj.plotES(3),obj.plotES(4));
                otherwise
                    disp(['You just pressed: ' eventDat.Key]);                      
            end
