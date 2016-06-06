@@ -23,6 +23,8 @@ classdef CiEEGData < handle
         plotH;  % handle to plot
         RjCh; %seznam cisel rejectovanych kanalu
         RjEpoch; %seznam vyrazenych epoch
+        epochTags; %seznam oznacenych epoch
+        epochLast; %nejvyssi navstivena epocha
     end
     
     methods (Access = public)
@@ -48,6 +50,7 @@ classdef CiEEGData < handle
                     obj.header = [];
                 end
                 obj.plotES = [1 1 150 5 0]; %nastavim defaultni hodnoty grafy
+                obj.epochLast = 1;
             end
         end
         
@@ -117,7 +120,7 @@ classdef CiEEGData < handle
             allels = obj.plotES(5); %jestli se maji zobrazovat vsechny kanaly
             
             if isempty(obj.plotH)
-                obj.plotH = figure('Name','Electrode Plot'); %zatim zadny neni, novy obrazek                               
+                obj.plotH = figure('Name','Electrode Plot'); %zatim zadny neni, novy obrazek                 
             else
                 figure(obj.plotH);  %kreslim do existujiciho plotu
             end
@@ -166,6 +169,8 @@ classdef CiEEGData < handle
             set(obj.plotH,'KeyPressFcn',methodhandle); 
             ranges = [mi ma];
             obj.plotES = [e s range time allels]; %ulozim hodnoty pro pohyb klavesami
+            obj.epochLast = max([s obj.epochLast]); %oznaceni nejvyssi navstivene epochy
+            
             for j = 1:size(shift,1)
                 text(t(end),shift(j,1),[ ' ' obj.CH.H.channels(1,elmin+j-1).neurologyLabel]);
                 text(t(1)-size(dd,2)/obj.fs/10,shift(j,1),[ ' ' obj.CH.H.channels(1,elmin+j-1).name]);
@@ -177,9 +182,14 @@ classdef CiEEGData < handle
                 titul = ['Epoch ' num2str(s) '/' num2str(obj.epochs)];
                 if find(obj.RjEpoch==s)
                     titul = [titul ' - EXCLUDED'];                    
-                    line([t(1) t(end)],[shift(1,1) shift(end,1)],'Color','r');
+                    line([t(1) t(end)],[shift(1,1) shift(end,1)],'Color','r','LineWidth',2);
                 end
-                title(titul);
+                if find(obj.epochTags==s)
+                    titul = [titul ' - TAGGED'];                      
+                    line([0 0],[shift(1,1) shift(end,1)],'Color','g','LineWidth',4);
+                end
+                title(titul);                
+                text(t(end)-((t(end)-t(1))/10),-shift(2,1),[ 'excluded ' num2str(numel(obj.RjEpoch))]); 
             end
             
         end
@@ -261,11 +271,13 @@ classdef CiEEGData < handle
             plotH = obj.plotH;              %#ok<PROP,NASGU>
             RjCh = obj.RjCh;                %#ok<PROP,NASGU>
             RjEpoch = obj.RjEpoch;          %#ok<PROP,NASGU>
-            save(filename,'d','tabs','tabs_orig','fs','mults','header','sce','PsyData','epochtime','CH','els','plotES','plotH','RjCh','RjEpoch','-v7.3');            
+            epochTags = obj.epochTags;      %#ok<PROP,NASGU>
+            epochLast = obj.epochLast;      %#ok<PROP,NASGU>
+            save(filename,'d','tabs','tabs_orig','fs','mults','header','sce','PsyData','epochtime','CH','els','plotES','plotH','RjCh','RjEpoch','epochTags','epochLast','-v7.3');            
         end
         function obj = Load(obj,filename)
             % nacte veskere promenne tridy ze souboru
-            load(filename,'d','tabs','tabs_orig','fs','mults','header','sce','PsyData','epochtime','CH','els','plotES','plotH','RjCh','RjEpoch');            
+            load(filename,'d','tabs','tabs_orig','fs','mults','header','sce','PsyData','epochtime','CH','els','plotES','plotH','RjCh','RjEpoch','epochTags','epochLast');            
             obj.d = d;                      %#ok<CPROP,PROP>
             obj.tabs = tabs;                %#ok<CPROP,PROP>
             obj.tabs_orig = tabs_orig;      %#ok<CPROP,PROP>
@@ -281,6 +293,8 @@ classdef CiEEGData < handle
             obj.plotH = plotH;              %#ok<CPROP,PROP>
             obj.RjCh = RjCh;                %#ok<CPROP,PROP>     
             obj.RjEpoch = RjEpoch;          %#ok<CPROP,PROP>
+            obj.epochTags = epochTags;                %#ok<CPROP,PROP>     
+            obj.epochLast = epochLast;          %#ok<CPROP,PROP>
         end
     end
     methods  (Access = private)
@@ -294,7 +308,7 @@ classdef CiEEGData < handle
                        rightval = obj.plotES(2);
                        maxval = obj.epochs; %pocet epoch
                    end
-                   if( rightval < maxval)   %pokud je cislo vteriny vpravo mensi nez celkova delka                    
+                   if( rightval < maxval)   %pokud je cislo vteriny vpravo mensi nez celkova delka                        
                         obj.PlotElectrode(obj.plotES(1),obj.plotES(2)+1,obj.plotES(3),obj.plotES(4));
                    end
                case 'leftarrow'
@@ -339,14 +353,32 @@ classdef CiEEGData < handle
                    end
                    obj.PlotElectrode(obj.plotES(1),obj.plotES(2),obj.plotES(3)-odecist,obj.plotES(4));
                
-               case 'space' %epoch exclusion
+               case 'delete' %epoch exclusion
                    s = obj.plotES(2);
                    if find(obj.RjEpoch== s)                      
-                        obj.RjEpoch = obj.RjEpoch(obj.RjEpoch~=s); %vymazu hodnoty s
+                        obj.RjEpoch = obj.RjEpoch(obj.RjEpoch~=s); %vymazu hodnoty s                        
                    else
                         obj.RjEpoch = [obj.RjEpoch  obj.plotES(2)]; %pridam hodnotu s
                    end   
                    obj.PlotElectrode(obj.plotES(1),obj.plotES(2),obj.plotES(3),obj.plotES(4));
+               case 'space' %epoch tag  - oznaceni jednolivych epoch 
+                   obj.AddTag();
+                   obj.PlotElectrode();
+               case 'numpad4' %predchozi oznacena epocha
+                   s = obj.plotES(2);
+                   prevTag = obj.epochTags(obj.epochTags < s);
+                   prevDel = obj.RjEpoch(obj.RjEpoch < s);
+                   if numel(prevTag) > 0 || numel(prevDel)>0
+                     obj.PlotElectrode(obj.plotES(1),max([prevTag prevDel]),obj.plotES(3),obj.plotES(4));
+                   end                   
+               case 'numpad6' %dalsi oznacena epocha
+                   s = obj.plotES(2);
+                   nextTag = obj.epochTags(obj.epochTags > s);
+                   nextDel = obj.RjEpoch(obj.RjEpoch > s);
+                   nextLast = obj.epochLast(obj.epochLast > s);
+                   if numel(nextTag) > 0 || numel(nextDel)>0 || numel(nextLast)>0
+                    obj.PlotElectrode(obj.plotES(1),min([nextTag nextDel nextLast]),obj.plotES(3),obj.plotES(4));                    
+                   end
                    
                case 'return'  %prehazuje mezi zobrazeni jednotlivych elektrod a cele poloviny elektrod                   
                    obj.plotES(5) = 1-obj.plotES(5);
@@ -354,6 +386,16 @@ classdef CiEEGData < handle
                otherwise
                    disp(['You just pressed: ' eventDat.Key]);                      
            end
+        end
+        function obj = AddTag(obj,s)
+           if ~exist('s','var')
+                s = obj.plotES(2);
+           end
+           if find(obj.epochTags== s)                      
+                obj.epochTags = obj.epochTags(obj.epochTags~=s); %vymazu hodnoty s
+           else
+                obj.epochTags = [obj.epochTags  obj.plotES(2)]; %pridam hodnotu s                
+           end  
         end
         
     end
