@@ -47,7 +47,7 @@ classdef CiEEGData < handle
                 else
                     obj.header = [];
                 end
-                obj.plotES = [1 1 150 5]; %nastavim defaultni hodnoty grafy
+                obj.plotES = [1 1 150 5 0]; %nastavim defaultni hodnoty grafy
             end
         end
         
@@ -113,16 +113,26 @@ classdef CiEEGData < handle
             end
             if ~exist('time','var') || isempty(time)
                 time = obj.plotES(4); %5 sekund defaultni casovy rozsah
-            end
+            end            
+            allels = obj.plotES(5); %jestli se maji zobrazovat vsechny kanaly
             
             if isempty(obj.plotH)
                 obj.plotH = figure('Name','Electrode Plot'); %zatim zadny neni, novy obrazek                               
             else
                 figure(obj.plotH);  %kreslim do existujiciho plotu
             end
-                        
-            if e==1, elmin = 1; else elmin = obj.els(e-1)+1; end %index prvni elektrody kterou vykreslit
-            elmax = obj.els(e);            % index posledni elektrody kterou vykreslit
+            
+            if  allels==1  %chci zobrazit vsechny elektrody
+                if mod(e,2) 
+                        elmin = 1; elmax = obj.els( floor(numel(obj.els)/2));
+                else
+                        elmin = obj.els( floor(numel(obj.els)/2))+1; elmax =  max(obj.els);
+                end
+                
+            else
+                if e==1, elmin = 1; else elmin = obj.els(e-1)+1; end %index prvni elektrody kterou vykreslit
+                elmax = obj.els(e);            % index posledni elektrody kterou vykreslit
+            end
            
             if obj.epochs <= 1 %pokud data jeste nejsou epochovana
                 iD = [ (s-1)*obj.fs + 1,  (s-1)*obj.fs + obj.fs*time]; %indexy eeg, od kdy do kdy vykreslit
@@ -155,7 +165,7 @@ classdef CiEEGData < handle
             methodhandle = @obj.hybejPlot;
             set(obj.plotH,'KeyPressFcn',methodhandle); 
             ranges = [mi ma];
-            obj.plotES = [e s range time]; %ulozim hodnoty pro pohyb klavesami
+            obj.plotES = [e s range time allels]; %ulozim hodnoty pro pohyb klavesami
             for j = 1:size(shift,1)
                 text(t(end),shift(j,1),[ ' ' obj.CH.H.channels(1,elmin+j-1).neurologyLabel]);
                 text(t(1)-size(dd,2)/obj.fs/10,shift(j,1),[ ' ' obj.CH.H.channels(1,elmin+j-1).name]);
@@ -316,11 +326,18 @@ classdef CiEEGData < handle
                    if(obj.plotES(1))>1 %pokud je cislo elektrody vetsi nez 1
                         obj.PlotElectrode(obj.plotES(1)-1,obj.plotES(2),obj.plotES(3),obj.plotES(4));
                    end
-               case 'add'     %signal mensi - vetsi rozliseni           
-                   obj.PlotElectrode(obj.plotES(1),obj.plotES(2),obj.plotES(3)+50,obj.plotES(4));
+               case 'add'     %signal mensi - vetsi rozliseni 
+                   if obj.plotES(3)>=50, pricist = 50;
+                   else pricist = 10;                   
+                   end
+                   obj.PlotElectrode(obj.plotES(1),obj.plotES(2),obj.plotES(3)+pricist,obj.plotES(4));
                    
                case 'subtract' %signal vetsi - mensi rozliseni   
-                   obj.PlotElectrode(obj.plotES(1),obj.plotES(2),obj.plotES(3)-50,obj.plotES(4));
+                   if obj.plotES(3)>50, odecist = 50;
+                   elseif obj.plotES(3)>10 odecist = 10;
+                   else odecist = 0;
+                   end
+                   obj.PlotElectrode(obj.plotES(1),obj.plotES(2),obj.plotES(3)-odecist,obj.plotES(4));
                
                case 'space' %epoch exclusion
                    s = obj.plotES(2);
@@ -329,6 +346,10 @@ classdef CiEEGData < handle
                    else
                         obj.RjEpoch = [obj.RjEpoch  obj.plotES(2)]; %pridam hodnotu s
                    end   
+                   obj.PlotElectrode(obj.plotES(1),obj.plotES(2),obj.plotES(3),obj.plotES(4));
+                   
+               case 'return'  %prehazuje mezi zobrazeni jednotlivych elektrod a cele poloviny elektrod                   
+                   obj.plotES(5) = 1-obj.plotES(5);
                    obj.PlotElectrode(obj.plotES(1),obj.plotES(2),obj.plotES(3),obj.plotES(4));
                otherwise
                    disp(['You just pressed: ' eventDat.Key]);                      
