@@ -28,22 +28,27 @@ classdef CiEEGData < handle
     methods (Access = public)
         function obj = CiEEGData(d,tabs,fs,mults,header)
             %konstruktor, parametry d,tabs,fs[,mults,header]
-            obj.d = d;
-            [obj.samples,obj.channels, obj.epochs] = obj.DSize();
-            obj.tabs = tabs;
-            obj.tabs_orig = tabs;
-            obj.fs = fs;
-            if exist('mults','var') && ~isempty(mults)
-                obj.mults = mults;
+            if ischar(d) && ~exist('tabs','var') %pokud je prvni parametr retezec, tak ho beru jako nazev souboru, ktery nactu
+                assert(exist(d, 'file') == 2,['Soubor' d 'neexistuje']);
+                obj.Load(d);
             else
-                obj.mults = ones(1,size(d,2)); %defaultove jednicky pro kazdy kanal
+                obj.d = d;
+                [obj.samples,obj.channels, obj.epochs] = obj.DSize();
+                obj.tabs = tabs;
+                obj.tabs_orig = tabs;
+                obj.fs = fs;
+                if exist('mults','var') && ~isempty(mults)
+                    obj.mults = mults;
+                else
+                    obj.mults = ones(1,size(d,2)); %defaultove jednicky pro kazdy kanal
+                end
+                if exist('header','var')
+                    obj.header = header;
+                else
+                    obj.header = [];
+                end
+                obj.plotES = [1 1 150 5]; %nastavim defaultni hodnoty grafy
             end
-            if exist('header','var')
-                obj.header = header;
-            else
-                obj.header = [];
-            end
-            
         end
         
         function [samples, channels, epochs] = DSize(obj)
@@ -92,17 +97,22 @@ classdef CiEEGData < handle
             obj.RjCh = RjCh;
         end
         
+        function obj = RejectEpochs(obj,RjEpoch)
+            %ulozi cisla vyrazenych epoch - kvuli prevodu mezi touto tridou a CHilbert
+            obj.RjEpoch = RjEpoch;
+        end
+        
         function [ranges]=PlotElectrode(obj,e,s,range,time)
             %vykresli data (2 sekundy ) z jedne elektrody e od vteriny zaznamu s
             %osa y je v rozmezi [-r +r]
             %zatim jen neepochovana data
-            if ~exist('e','var'), e=1; end
-            if ~exist('s','var'), s=1; end
+            if ~exist('e','var'), e= obj.plotES(1); end %cislo elektrody
+            if ~exist('s','var'), s= obj.plotES(2); end %cislo epochy nebo vteriny zaznamu
             if ~exist('range','var') || isempty(range)
-                range = 150; %150 defaultni rozsah osy y
+                range = obj.plotES(3); %150 defaultni rozsah osy y
             end
             if ~exist('time','var') || isempty(time)
-                time = 5; %5 sekund defaultni casovy rozsah
+                time = obj.plotES(4); %5 sekund defaultni casovy rozsah
             end
             
             if isempty(obj.plotH)
@@ -197,12 +207,14 @@ classdef CiEEGData < handle
             obj.tabs = tabs; %#ok<PROP>
             [obj.samples,obj.channels, obj.epochs] = obj.DSize();
         end
+        
         function [d]= CategoryData(obj, katnum)
             %vraci epochy ve kterych podnet byl kategorie/podminky katnum
             assert(obj.epochs > 1,'data not yet epoched'); %vyhodi chybu pokud data nejsou epochovana
             iEpochy = cell2mat(obj.epochData(:,2))==katnum ; %seznam epoch v ramci kategorie ve sloupci
             d = obj.d(:,:,iEpochy);
         end
+        
         function PlotCategory(obj,katnum,channel)
             %vykresli vsechny a prumernou odpoved na kategorii podnetu
             d1=obj.CategoryData(katnum); %epochy jedne kategorie
@@ -222,6 +234,44 @@ classdef CiEEGData < handle
             
         end
         
+        function Save(obj,filename)   
+            %ulozi veskere promenne tridy do souboru
+            d = obj.d;                      %#ok<PROP,NASGU>            
+            tabs = obj.tabs;                %#ok<PROP,NASGU>
+            tabs_orig = obj.tabs_orig;      %#ok<PROP,NASGU>
+            fs = obj.fs;                    %#ok<PROP,NASGU>
+            mults = obj.mults;              %#ok<PROP,NASGU>
+            header = obj.header;            %#ok<PROP,NASGU>
+            sce = [obj.samples obj.channels obj.epochs]; %#ok<NASGU>
+            PsyData = obj.PsyData;          %#ok<PROP,NASGU>
+            epochtime = obj.epochtime;      %#ok<PROP,NASGU>
+            CH=obj.CH;                      %#ok<PROP,NASGU>
+            els = obj.els;                  %#ok<PROP,NASGU>
+            plotES = obj.plotES;            %#ok<PROP,NASGU>
+            plotH = obj.plotH;              %#ok<PROP,NASGU>
+            RjCh = obj.RjCh;                %#ok<PROP,NASGU>
+            RjEpoch = obj.RjEpoch;          %#ok<PROP,NASGU>
+            save(filename,'d','tabs','tabs_orig','fs','mults','header','sce','PsyData','epochtime','CH','els','plotES','plotH','RjCh','RjEpoch','-v7.3');            
+        end
+        function obj = Load(obj,filename)
+            % nacte veskere promenne tridy ze souboru
+            load(filename,'d','tabs','tabs_orig','fs','mults','header','sce','PsyData','epochtime','CH','els','plotES','plotH','RjCh','RjEpoch');            
+            obj.d = d;                      %#ok<CPROP,PROP>
+            obj.tabs = tabs;                %#ok<CPROP,PROP>
+            obj.tabs_orig = tabs_orig;      %#ok<CPROP,PROP>
+            obj.fs = fs;                    %#ok<CPROP,PROP>           
+            obj.mults = mults;              %#ok<CPROP,PROP>
+            obj.header = header;            %#ok<CPROP,PROP>
+            obj.samples = sce(1); obj.channels=sce(2); obj.epochs = sce(3); 
+            obj.PsyData = PsyData;          %#ok<CPROP,PROP>
+            obj.epochtime = epochtime;      %#ok<CPROP,PROP>
+            obj.CH = CH;                    %#ok<CPROP,PROP>
+            obj.els = els;                  %#ok<CPROP,PROP>
+            obj.plotES = plotES;            %#ok<CPROP,PROP>
+            obj.plotH = plotH;              %#ok<CPROP,PROP>
+            obj.RjCh = RjCh;                %#ok<CPROP,PROP>     
+            obj.RjEpoch = RjEpoch;          %#ok<CPROP,PROP>
+        end
     end
     methods  (Access = private)
         function hybejPlot(obj,~,eventDat)           
@@ -284,6 +334,7 @@ classdef CiEEGData < handle
                    disp(['You just pressed: ' eventDat.Key]);                      
            end
         end
+        
     end
     
 end
