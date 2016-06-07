@@ -109,8 +109,8 @@ classdef CiEEGData < handle
             %vykresli data (2 sekundy ) z jedne elektrody e od vteriny zaznamu s
             %osa y je v rozmezi [-r +r]
             %zatim jen neepochovana data
-            if ~exist('e','var'), e= obj.plotES(1); end %cislo elektrody
-            if ~exist('s','var'), s= obj.plotES(2); end %cislo epochy nebo vteriny zaznamu
+            if ~exist('e','var') || isempty(e), e= obj.plotES(1); end %cislo elektrody
+            if ~exist('s','var') || isempty(s), s= obj.plotES(2); end %cislo epochy nebo vteriny zaznamu
             if ~exist('range','var') || isempty(range)
                 range = obj.plotES(3); %150 defaultni rozsah osy y
             end
@@ -141,9 +141,27 @@ classdef CiEEGData < handle
                 iD = [ (s-1)*obj.fs + 1,  (s-1)*obj.fs + obj.fs*time]; %indexy eeg, od kdy do kdy vykreslit
                 dd = obj.d( iD(1) : iD(2),elmin: elmax)';   %data k plotovani - prehodim poradi, prvni jsou kanaly
                 t = linspace(iD(1)/obj.fs, iD(2)/obj.fs, iD(2)-iD(1)+1); %casova osa            
-            else %pokud data uz jsou epochovana   
-                dd = squeeze(obj.d(:, elmin: elmax,s))';  %data k plotovani - prehodim poradi, prvni jsou kanaly
-                t = linspace(obj.epochtime(1), obj.epochtime(2), size(obj.d,1)); %casova osa    
+            else %pokud data uz jsou epochovana 
+                time_n = time*obj.fs; %kolik vzorku v case chci zobrazit
+                dd = zeros(elmax-elmin+1,time_n);
+                time_nsum = 0; %kolik vzorku v case uz mam v poli dd
+                ss = s-1; %cislo kreslene epochy
+                while time_nsum < time_n %pridavam hodnoty do pole dd z nekolika epoch, dokud nenaplnim pozadovanou delku
+                    ss = ss+1;
+                    if time_n - time_nsum >= obj.samples 
+                        if ss <= obj.epochs
+                            dd(:,1+time_nsum : time_nsum+obj.samples) = squeeze(obj.d(:, elmin: elmax,ss))';  %data k plotovani - prehodim poradi, prvni jsou kanaly
+                        end
+                        time_nsum = time_nsum + obj.samples;
+                    else %pokud mi nezbyva cela epocha do konce pozadovaneho casoveho rozsahu
+                        if ss <= obj.epochs
+                            dd(:,1+time_nsum : time_n ) = squeeze(obj.d(1:time_n - time_nsum, elmin: elmax,ss))';
+                        end
+                        time_nsum = time_n ;
+                    end
+                    
+                end
+                t = linspace(obj.epochtime(1), time+obj.epochtime(1), time_n); %casova osa pres nekolik epoch
             end
             %kod viz navod zde https://uk.mathworks.com/matlabcentral/newsreader/view_thread/294163
             if exist('range','var') && ~isempty(e)
@@ -158,12 +176,16 @@ classdef CiEEGData < handle
             shift = cumsum([0; abs(ma(1:end-1))+abs(mi(2:end))]);
             shift = repmat(shift,1,size(dd,2));            
             plot(t,dd+shift);
-            set(gca,'ytick',shift(:,1),'yticklabel',elmin:elmax);
+            set(gca,'ytick',shift(:,1),'yticklabel',elmin:elmax); %znacky a popisky osy y
             grid on;
-            ylim([min(min(shift))-range max(max(shift))+range]); 
+            ylim([min(min(shift))-range max(max(shift))+range]); %rozsah osy y
             ylabel(['Electrode ' num2str(e) '/' num2str(numel(obj.els)) ]);
-            xlabel(['Seconds of ' num2str( round(obj.samples/obj.fs)) ]);
+            xlabel(['Seconds of ' num2str( round(obj.samples*obj.epochs/obj.fs)) ]);
             text(t(1),-shift(2,1),[ 'resolution +/-' num2str(range) 'mV']); 
+            for timex = obj.epochtime(2) : obj.epochtime(2)-obj.epochtime(1)  :time+obj.epochtime(1)
+                line([timex timex],[shift(1,1) shift(end,1)],'Color',[.5 .5 .5],'LineWidth',2); %oddelovac epoch
+            end
+            xlim([t(1) t(end)]);
             
             methodhandle = @obj.hybejPlot;
             set(obj.plotH,'KeyPressFcn',methodhandle); 
@@ -180,13 +202,15 @@ classdef CiEEGData < handle
             end  
             if obj.epochs > 1
                 titul = ['Epoch ' num2str(s) '/' num2str(obj.epochs)];
-                if find(obj.RjEpoch==s)
-                    titul = [titul ' - EXCLUDED'];                    
-                    line([t(1) t(end)],[shift(1,1) shift(end,1)],'Color','r','LineWidth',2);
+                for sj = s:ss
+                if find(obj.RjEpoch==sj)
+                    if sj == s, titul = [titul ' - EXCLUDED'];  end %#ok<AGROW>
+                    line([obj.epochtime(1) obj.epochtime(2)]+(sj-s)*(obj.epochtime(2)-obj.epochtime(1)),[shift(1,1) shift(end,1)],'Color','r','LineWidth',2);
                 end
-                if find(obj.epochTags==s)
-                    titul = [titul ' - TAGGED'];                      
-                    line([0 0],[shift(1,1) shift(end,1)],'Color','g','LineWidth',4);
+                if find(obj.epochTags==sj)
+                    if sj == s, titul = [titul ' - TAGGED']; end   %#ok<AGROW>
+                    line([0 0]+(sj-s)*(obj.epochtime(2)-obj.epochtime(1)),[shift(1,1) shift(end,1)],'Color','g','LineWidth',4);
+                end
                 end
                 title(titul);                
                 text(t(end)-((t(end)-t(1))/10),-shift(2,1),[ 'excluded ' num2str(numel(obj.RjEpoch))]); 
@@ -303,10 +327,10 @@ classdef CiEEGData < handle
                case 'rightarrow' 
                    if obj.epochs == 1
                        rightval = obj.plotES(2)+obj.plotES(4);
-                       maxval = round(obj.samples/obj.fs);
+                       maxval = round(obj.samples/obj.fs);                       
                    else
-                       rightval = obj.plotES(2);
-                       maxval = obj.epochs; %pocet epoch
+                       rightval = obj.plotES(2); 
+                       maxval = obj.epochs; %maximalni cislo epochy k vykresleni
                    end
                    if( rightval < maxval)   %pokud je cislo vteriny vpravo mensi nez celkova delka                        
                         obj.PlotElectrode(obj.plotES(1),obj.plotES(2)+1,obj.plotES(3),obj.plotES(4));
@@ -315,23 +339,37 @@ classdef CiEEGData < handle
                    if(obj.plotES(2))>1 %pokud je cislo vteriny vetsi nez 1
                         obj.PlotElectrode(obj.plotES(1),obj.plotES(2)-1,obj.plotES(3),obj.plotES(4));
                    end
-               case 'pagedown'
+               case 'pagedown' %posunuti o vetsi usek doprava
                    if obj.epochs == 1
+                       step = 5; %5 sekund, o kolik se chci posunout doprava
                        rightval = obj.plotES(2)+obj.plotES(4);
-                       maxval = round(obj.samples/obj.fs)-10;
+                       maxval = round(obj.samples/obj.fs)-step;
                    else
-                       rightval = obj.plotES(2);
-                       maxval = obj.epochs-10; %pocet epoch
+                       step = obj.PlottedEpochs(); %pocet zobrazenych celych epoch 
+                       rightval = obj.plotES(2)+step-1; %cislo zobrazene epochy vpravo
+                       maxval = obj.epochs-step; %pocet epoch
+                        
                    end
-                   if( rightval < maxval)   %pokud je cislo vteriny vpravo mensi nez celkova delka
-                        obj.PlotElectrode(obj.plotES(1),obj.plotES(2)+10,obj.plotES(3),obj.plotES(4));
+                   if( rightval < maxval)   %pokud je cislo vteriny/epochy vpravo mensi nez celkova delka
+                        obj.PlotElectrode(obj.plotES(1),obj.plotES(2)+step,obj.plotES(3),obj.plotES(4));
                    end
-               case 'pageup'
-                   if(obj.plotES(2))>10 %pokud je cislo vteriny vetsi nez 1
-                        obj.PlotElectrode(obj.plotES(1),obj.plotES(2)-10,obj.plotES(3),obj.plotES(4));
+               case 'pageup' %posunuti o vetsi usek doleva
+                   if obj.epochs == 1
+                       step = 5; %5 sekund, o kolik se chci posunout doleva
+                   else
+                       step = obj.PlottedEpochs();
+                   end
+                   if(obj.plotES(2))>step %pokud je cislo vteriny vetsi nez 1
+                        obj.PlotElectrode(obj.plotES(1),obj.plotES(2)-step,obj.plotES(3),obj.plotES(4));
                    end
                case 'home'     % na zacatek zaznamu              
-                        obj.PlotElectrode(obj.plotES(1),1,obj.plotES(3),obj.plotES(4));                   
+                        obj.PlotElectrode(obj.plotES(1),1,obj.plotES(3),obj.plotES(4)); 
+               case 'end'     % na konec zaznamu        
+                   if obj.epochs == 1
+                        obj.PlotElectrode(obj.plotES(1),obj.samples*obj.fs - obj.plotES(4),obj.plotES(3),obj.plotES(4));  
+                   else
+                        obj.PlotElectrode(obj.plotES(1),obj.epochs - obj.PlottedEpochs()+1,obj.plotES(3),obj.plotES(4));     
+                   end                       
                case 'uparrow'
                    if(obj.plotES(1))<numel(obj.els) %pokud je cislo elektrody ne maximalni
                         obj.PlotElectrode(obj.plotES(1)+1,obj.plotES(2),obj.plotES(3),obj.plotES(4));
@@ -396,6 +434,10 @@ classdef CiEEGData < handle
            else
                 obj.epochTags = [obj.epochTags  obj.plotES(2)]; %pridam hodnotu s                
            end  
+        end
+        function epochs = PlottedEpochs(obj)
+            %vraci pocet zobrazenych celych epoch 
+            epochs = floor(obj.plotES(4) / (obj.epochtime(2) - obj.epochtime(1))); 
         end
         
     end
