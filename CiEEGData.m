@@ -19,12 +19,13 @@ classdef CiEEGData < handle
         epochtime; %delka eventu pre a po event v sekundach    
         CH; %objekt formatu CHHeader s Hammer headerem 
         els; %cisla poslednich kanalu v kazde elektrode
-        plotES; % current electrode, second of plot/epoch, range of y values, time range
+        plotES; % current electrode, second of plot/epoch, range of y values, time range, allels, rangey all els
         plotH;  % handle to plot
         RjCh; %seznam cisel rejectovanych kanalu
         RjEpoch; %seznam vyrazenych epoch
         epochTags; %seznam oznacenych epoch
         epochLast; %nejvyssi navstivena epocha
+        filename;
     end
     
     methods (Access = public)
@@ -105,7 +106,7 @@ classdef CiEEGData < handle
             obj.RjEpoch = RjEpoch;
         end
         
-        function [ranges]=PlotElectrode(obj,e,s,range,time)
+        function PlotElectrode(obj,e,s,range,time)
             %vykresli data (2 sekundy ) z jedne elektrody e od vteriny zaznamu s
             %osa y je v rozmezi [-r +r]
             %zatim jen neepochovana data
@@ -125,18 +126,27 @@ classdef CiEEGData < handle
                 figure(obj.plotH);  %kreslim do existujiciho plotu
             end
             
+            % -------- nastavim rozsah elektrod k zobrazeni -----------------
             if  allels==1  %chci zobrazit vsechny elektrody
                 if mod(e,2) 
-                        elmin = 1; elmax = obj.els( floor(numel(obj.els)/2));
+                        elmin = 1; 
+                        elmax = obj.els( floor(numel(obj.els)/2));
+                        els = obj.els(1 : find(obj.els==elmax)); %#ok<PROP> 
+                        els(2,1) = 1;   %#ok<PROP>  %do els davam hranice elektrod k postupnemu vykresleni - v prvni radce jsou konce kazde elektrody                       
                 else
-                        elmin = obj.els( floor(numel(obj.els)/2))+1; elmax =  max(obj.els);
-                end
-                
+                        elmin = obj.els( floor(numel(obj.els)/2))+1; 
+                        elmax =  max(obj.els);
+                        els = obj.els( find(obj.els > elmin, 1 ) : size(obj.els,2)); %#ok<PROP>
+                        els(2,1) = elmin; %#ok<PROP>
+                end  
+                els(2,2:end) = els(1,1:end-1)+1; %#ok<PROP> %doplnim dolni radku - zacatky kazde elektrody
             else
                 if e==1, elmin = 1; else elmin = obj.els(e-1)+1; end %index prvni elektrody kterou vykreslit
                 elmax = obj.els(e);            % index posledni elektrody kterou vykreslit
+                els = [elmax; elmin]; %#ok<PROP>
             end
-           
+            
+            % -------- ziskam data k vykresleni do promenne dd -----------------
             if obj.epochs <= 1 %pokud data jeste nejsou epochovana
                 iD = [ (s-1)*obj.fs + 1,  (s-1)*obj.fs + obj.fs*time]; %indexy eeg, od kdy do kdy vykreslit
                 dd = obj.d( iD(1) : iD(2),elmin: elmax)';   %data k plotovani - prehodim poradi, prvni jsou kanaly
@@ -163,19 +173,21 @@ classdef CiEEGData < handle
                 end
                 t = linspace(obj.epochtime(1), time+obj.epochtime(1), time_n); %casova osa pres nekolik epoch
             end
-            %kod viz navod zde https://uk.mathworks.com/matlabcentral/newsreader/view_thread/294163
-            if exist('range','var') && ~isempty(e)
-                mi = repmat(-range,[size(dd,1) 1]);
-                ma = repmat(+range,[size(dd,1) 1]);
-            else
-                mi = min(dd,[],2);          
-                ma = max(dd,[],2);
-                e = [];
-            end
-            
+            % -------- KRESLIM -----------------
+            %kod viz navod zde https://uk.mathworks.com/matlabcentral/newsreader/view_thread/294163            
+            mi = repmat(-range,[size(dd,1) 1]); % rozsahu osy y mi:ma
+            ma = repmat(+range,[size(dd,1) 1]);                        
             shift = cumsum([0; abs(ma(1:end-1))+abs(mi(2:end))]);
-            shift = repmat(shift,1,size(dd,2));            
-            plot(t,dd+shift);
+            shift = repmat(shift,1,size(dd,2));
+            colors = ['k' 'b'];
+            c = 0;
+            for el = els              %#ok<PROP>
+                rozsahel = (el(2):el(1))-els(2,1)+1;  %#ok<PROP>
+                plot(t, dd( rozsahel,:) + shift( rozsahel,:),colors(c+1) );  
+                hold on;
+                c = 1-c;
+            end
+            hold off;
             set(gca,'ytick',shift(:,1),'yticklabel',elmin:elmax); %znacky a popisky osy y
             grid on;
             ylim([min(min(shift))-range max(max(shift))+range]); %rozsah osy y
@@ -187,10 +199,11 @@ classdef CiEEGData < handle
             end
             xlim([t(1) t(end)]);
             
+            % -------- ulozim  handle na obrazek a nastaveni grafu -----------------
             methodhandle = @obj.hybejPlot;
             set(obj.plotH,'KeyPressFcn',methodhandle); 
-            ranges = [mi ma];
-            obj.plotES = [e s range time allels]; %ulozim hodnoty pro pohyb klavesami
+            
+            obj.plotES = [e s range time allels ]; %ulozim hodnoty pro pohyb klavesami
             obj.epochLast = max([s obj.epochLast]); %oznaceni nejvyssi navstivene epochy
             
             for j = 1:size(shift,1)
@@ -200,6 +213,8 @@ classdef CiEEGData < handle
                     text(t(1),shift(j,1)+50,' REJECTED');
                 end
             end  
+            
+            % -------- popisy epoch -----------------
             if obj.epochs > 1
                 titul = ['Epoch ' num2str(s) '/' num2str(obj.epochs)];
                 for sj = s:ss
@@ -280,6 +295,12 @@ classdef CiEEGData < handle
         
         function Save(obj,filename)   
             %ulozi veskere promenne tridy do souboru
+            if ~exist('filename','var')
+                filename = obj.filename;
+                assert( ~isempty(filename), 'no filename given or saved before');
+            else
+                obj.filename = filename;
+            end
             d = obj.d;                      %#ok<PROP,NASGU>            
             tabs = obj.tabs;                %#ok<PROP,NASGU>
             tabs_orig = obj.tabs_orig;      %#ok<PROP,NASGU>
@@ -287,7 +308,7 @@ classdef CiEEGData < handle
             mults = obj.mults;              %#ok<PROP,NASGU>
             header = obj.header;            %#ok<PROP,NASGU>
             sce = [obj.samples obj.channels obj.epochs]; %#ok<NASGU>
-            PsyData = obj.PsyData;          %#ok<PROP,NASGU>
+            PsyDataP = obj.PsyData.P;       %#ok<NASGU>         %ulozim pouze strukturu 
             epochtime = obj.epochtime;      %#ok<PROP,NASGU>
             CH=obj.CH;                      %#ok<PROP,NASGU>
             els = obj.els;                  %#ok<PROP,NASGU>
@@ -297,11 +318,11 @@ classdef CiEEGData < handle
             RjEpoch = obj.RjEpoch;          %#ok<PROP,NASGU>
             epochTags = obj.epochTags;      %#ok<PROP,NASGU>
             epochLast = obj.epochLast;      %#ok<PROP,NASGU>
-            save(filename,'d','tabs','tabs_orig','fs','mults','header','sce','PsyData','epochtime','CH','els','plotES','plotH','RjCh','RjEpoch','epochTags','epochLast','-v7.3');            
+            save(filename,'d','tabs','tabs_orig','fs','mults','header','sce','PsyDataP','epochtime','CH','els','plotES','plotH','RjCh','RjEpoch','epochTags','epochLast','-v7.3');            
         end
         function obj = Load(obj,filename)
             % nacte veskere promenne tridy ze souboru
-            load(filename,'d','tabs','tabs_orig','fs','mults','header','sce','PsyData','epochtime','CH','els','plotES','plotH','RjCh','RjEpoch','epochTags','epochLast');            
+            load(filename,'d','tabs','tabs_orig','fs','mults','header','sce','epochtime','CH','els','plotES','plotH','RjCh','RjEpoch','epochTags','epochLast');            
             obj.d = d;                      %#ok<CPROP,PROP>
             obj.tabs = tabs;                %#ok<CPROP,PROP>
             obj.tabs_orig = tabs_orig;      %#ok<CPROP,PROP>
@@ -309,7 +330,14 @@ classdef CiEEGData < handle
             obj.mults = mults;              %#ok<CPROP,PROP>
             obj.header = header;            %#ok<CPROP,PROP>
             obj.samples = sce(1); obj.channels=sce(2); obj.epochs = sce(3); 
-            obj.PsyData = PsyData;          %#ok<CPROP,PROP>
+            vars = whos('-file',filename);
+            if ismember('PsyDataP', {vars.name})
+                load(filename,'PsyDataP');
+                obj.PsyData = CPsyData(PsyDataP);%  %vytvorim objekt psydata ze struktury
+            else
+                load(filename,'PsyData');
+                obj.PsyData = PsyData ;%#ok<CPROP,PROP> %  %drive ulozeny objekt, nez jsem zavedl ukladani struct
+            end
             obj.epochtime = epochtime;      %#ok<CPROP,PROP>
             obj.CH = CH;                    %#ok<CPROP,PROP>
             obj.els = els;                  %#ok<CPROP,PROP>
@@ -317,8 +345,9 @@ classdef CiEEGData < handle
             obj.plotH = plotH;              %#ok<CPROP,PROP>
             obj.RjCh = RjCh;                %#ok<CPROP,PROP>     
             obj.RjEpoch = RjEpoch;          %#ok<CPROP,PROP>
-            obj.epochTags = epochTags;                %#ok<CPROP,PROP>     
-            obj.epochLast = epochLast;          %#ok<CPROP,PROP>
+            if exist('epochTags','var'),  obj.epochTags = epochTags;   else obj.epochTags = []; end         %#ok<CPROP,PROP>     
+            if exist('epochLast','var'),  obj.epochLast = epochLast;   else obj.epochLast = []; end         %#ok<CPROP,PROP>
+            obj.filename = filename;          %
         end
     end
     methods  (Access = private)
