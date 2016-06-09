@@ -217,15 +217,15 @@ classdef CiEEGData < handle
             % -------- popisy epoch -----------------
             if obj.epochs > 1
                 titul = ['Epoch ' num2str(s) '/' num2str(obj.epochs)];
-                for sj = s:ss
-                if find(obj.RjEpoch==sj)
-                    if sj == s, titul = [titul ' - EXCLUDED'];  end %#ok<AGROW>
-                    line([obj.epochtime(1) obj.epochtime(2)]+(sj-s)*(obj.epochtime(2)-obj.epochtime(1)),[shift(1,1) shift(end,1)],'Color','r','LineWidth',2);
-                end
-                if find(obj.epochTags==sj)
-                    if sj == s, titul = [titul ' - TAGGED']; end   %#ok<AGROW>
-                    line([0 0]+(sj-s)*(obj.epochtime(2)-obj.epochtime(1)),[shift(1,1) shift(end,1)],'Color','g','LineWidth',4);
-                end
+                for sj = s:ss %po vsechny zobrazene epochy
+                    if find(obj.RjEpoch==sj) 
+                        if sj == s, titul = [titul ' - EXCLUDED'];  end %#ok<AGROW>
+                        line([obj.epochtime(1) obj.epochtime(2)]+(sj-s)*(obj.epochtime(2)-obj.epochtime(1)),[shift(1,1) shift(end,1)],'Color','r','LineWidth',2);
+                    end
+                    if find(obj.epochTags==sj)
+                        if sj == s, titul = [titul ' - TAGGED']; end   %#ok<AGROW>
+                        line([0 0]+(sj-s)*(obj.epochtime(2)-obj.epochtime(1)),[shift(1,1) shift(end,1)],'Color','g','LineWidth',4);
+                    end
                 end
                 title(titul);                
                 text(t(end)-((t(end)-t(1))/10),-shift(2,1),[ 'excluded ' num2str(numel(obj.RjEpoch))]); 
