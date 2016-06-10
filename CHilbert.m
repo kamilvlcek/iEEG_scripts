@@ -1,6 +1,6 @@
 classdef CHilbert < CiEEGData
     %HILBERT.CLASS sbirka funkci na analyzu pomoci hilbert trasform
-    %   Kamil Vlcek, 2016-04
+    %   Kamil Vlcek, FGU AVCR, since 2016 04
     properties (Constant = true)
         decimatefactor = 8; %o kolik decimuju hiblertovu obalku oproti puvodi sampling rate; 2 je dostatecne konzervativni, 8 hodne setri pamet
     end

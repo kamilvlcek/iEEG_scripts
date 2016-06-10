@@ -1,6 +1,7 @@
 classdef CPsyData < handle
     %CPSYDATA Trida na praci s behavioralnimi daty z psychopy
     %   vytvorena pomoci ppa_data.m, aedist_data.m aj
+    % Kamil Vlcek, FGU AVCR, since 2016 04
     
     properties  (Access = public)
         P; %psychopy behavioural data

@@ -1,6 +1,6 @@
 classdef CiEEGData < handle
     %CEEGDATA Trida na praci s datama ve formatu ISARG od Petra Jezdika
-    %   Kamil Vlcek, 2016-04
+    %   Kamil Vlcek, FGU AVCR, since 2016 04
     
     properties (Access = public)
         d; %double nebo int matrix: time x channel, muze byt i time x channel x epoch
@@ -32,7 +32,7 @@ classdef CiEEGData < handle
         function obj = CiEEGData(d,tabs,fs,mults,header)
             %konstruktor, parametry d,tabs,fs[,mults,header]
             if ischar(d) && ~exist('tabs','var') %pokud je prvni parametr retezec, tak ho beru jako nazev souboru, ktery nactu
-                assert(exist(d, 'file') == 2,['Soubor' d 'neexistuje']);
+                assert(exist(d, 'file') == 2,['Soubor ' d ' neexistuje']);
                 obj.Load(d);
             else
                 obj.d = d;
@@ -179,24 +179,22 @@ classdef CiEEGData < handle
             ma = repmat(+range,[size(dd,1) 1]);                        
             shift = cumsum([0; abs(ma(1:end-1))+abs(mi(2:end))]);
             shift = repmat(shift,1,size(dd,2));
-            colors = ['k' 'b'];
+            colors = [ 'b' 'k'];
             c = 0;
             for el = els              %#ok<PROP>
                 rozsahel = (el(2):el(1))-els(2,1)+1;  %#ok<PROP>
-                plot(t, dd( rozsahel,:) + shift( rozsahel,:),colors(c+1) );  
+                plot(t, bsxfun(@minus,shift(end,:),shift( rozsahel,:)) + dd( rozsahel,:) ,colors(c+1) );  
                 hold on;
                 c = 1-c;
             end
             hold off;
-            set(gca,'ytick',shift(:,1),'yticklabel',elmin:elmax); %znacky a popisky osy y
+            set(gca,'ytick',shift(:,1),'yticklabel',elmax:-1:elmin); %znacky a popisky osy y
             grid on;
+            
             ylim([min(min(shift))-range max(max(shift))+range]); %rozsah osy y
             ylabel(['Electrode ' num2str(e) '/' num2str(numel(obj.els)) ]);
             xlabel(['Seconds of ' num2str( round(obj.samples*obj.epochs/obj.fs)) ]);
-            text(t(1),-shift(2,1),[ 'resolution +/-' num2str(range) 'mV']); 
-            for timex = obj.epochtime(2) : obj.epochtime(2)-obj.epochtime(1)  :time+obj.epochtime(1)
-                line([timex timex],[shift(1,1) shift(end,1)],'Color',[.5 .5 .5],'LineWidth',2); %oddelovac epoch
-            end
+            text(t(1),-shift(2,1),[ 'resolution +/-' num2str(range) 'mV']);         
             xlim([t(1) t(end)]);
             
             % -------- ulozim  handle na obrazek a nastaveni grafu -----------------
@@ -207,15 +205,21 @@ classdef CiEEGData < handle
             obj.epochLast = max([s obj.epochLast]); %oznaceni nejvyssi navstivene epochy
             
             for j = 1:size(shift,1)
-                text(t(end),shift(j,1),[ ' ' obj.CH.H.channels(1,elmin+j-1).neurologyLabel]);
-                text(t(1)-size(dd,2)/obj.fs/10,shift(j,1),[ ' ' obj.CH.H.channels(1,elmin+j-1).name]);
+                yshift = shift(end,1)-shift(j,1);
+                text(t(end),yshift,[ ' ' obj.CH.H.channels(1,elmin+j-1).neurologyLabel]);
+                text(t(1)-size(dd,2)/obj.fs/10,yshift,[ ' ' obj.CH.H.channels(1,elmin+j-1).name]);
                 if find(obj.RjCh==elmin-1+j) %oznacim vyrazene kanaly
-                    text(t(1),shift(j,1)+50,' REJECTED');
+                    text(t(1),yshift+50,' REJECTED');
                 end
             end  
             
             % -------- popisy epoch -----------------
             if obj.epochs > 1
+                line([0 0],[shift(1,1)-range  shift(end,1)+range],'Color','m'); %cas 0 - stimulus
+                for timex = obj.epochtime(2) : obj.epochtime(2)-obj.epochtime(1)  :time+obj.epochtime(1)
+                    line([timex timex],[shift(1,1) shift(end,1)],'Color',[.5 .5 .5],'LineWidth',2); %oddelovac epoch
+                    line([timex timex]-obj.epochtime(1),[shift(1,1)-range  shift(end,1)+range],'Color','m'); %cas 0 - stimulus
+                end
                 titul = ['Epoch ' num2str(s) '/' num2str(obj.epochs)];
                 for sj = s:ss %po vsechny zobrazene epochy
                     if find(obj.RjEpoch==sj) 
@@ -234,18 +238,18 @@ classdef CiEEGData < handle
         end
         
         
-        function ExtractEpochs(obj, PsyData,epochtime)
+        function ExtractEpochs(obj, psy,epochtime)
             % epochuje data v poli d, pridava do objektu:
-            % cell array epochData, double(2) epochtime v sekundach, tridu PsyData 
+            % cell array epochData, double(2) epochtime v sekundach, struct psy na tvorbu PsyData
             % upravuje obj.mults, samples channels epochs
             if obj.epochs > 1
                 disp('already epoched data');
                 return;
             end
-            obj.PsyData = PsyData; %objekt CPsyData
+            obj.PsyData = CPsyData(psy); %vytvorim objekt CPsyData
             obj.epochtime = epochtime; %v sekundach cas pred a po udalosti  , prvni cislo je zaporne druhe kladne
             iepochtime = round(epochtime.*obj.fs); %v poctu vzorku cas pred a po udalosti
-            ts_podnety = PsyData.TimeStimuli(); %timestampy vsech podnetu
+            ts_podnety = obj.PsyData.TimeStimuli(); %timestampy vsech podnetu
             de = zeros(iepochtime(2)-iepochtime(1), size(obj.d,2), size(ts_podnety,1)); %nova epochovana data time x channel x epoch            
             tabs = zeros(iepochtime(2)-iepochtime(1),size(ts_podnety,1)); %#ok<PROP> %udelam epochovane tabs
             obj.epochData = cell(size(ts_podnety,1),3); % sloupce kategorie, cislo kategorie, timestamp
@@ -253,7 +257,7 @@ classdef CiEEGData < handle
                 izacatek = find(obj.tabs<=ts_podnety(epoch), 1, 'last' ); %najdu index podnetu podle jeho timestampu
                     %kvuli downsamplovani Hilberta, kdy se mi muze ztratit presny cas zacatku
                     %epochy, beru posledni nizsi tabs nez je cas zacatku epochy
-                [Kstring Knum] = PsyData.Category(epoch);    %jmeno a cislo kategorie
+                [Kstring Knum] = obj.PsyData.Category(epoch);    %jmeno a cislo kategorie
                 obj.epochData(epoch,:)= {Kstring Knum obj.tabs(izacatek)}; %zacatek epochy beru z tabs aby sedel na tabs pri downsamplovani
                 for ch = 1:obj.channels %pro vsechny kanaly                    
                     baseline = mean(obj.d(izacatek+iepochtime(1):izacatek-1));
@@ -310,7 +314,7 @@ classdef CiEEGData < handle
             sce = [obj.samples obj.channels obj.epochs]; %#ok<NASGU>
             PsyDataP = obj.PsyData.P;       %#ok<NASGU>         %ulozim pouze strukturu 
             epochtime = obj.epochtime;      %#ok<PROP,NASGU>
-            CH=obj.CH;                      %#ok<PROP,NASGU>
+            CH_H=obj.CH.H;                  %#ok<NASGU>
             els = obj.els;                  %#ok<PROP,NASGU>
             plotES = obj.plotES;            %#ok<PROP,NASGU>
             plotH = obj.plotH;              %#ok<PROP,NASGU>
@@ -318,11 +322,11 @@ classdef CiEEGData < handle
             RjEpoch = obj.RjEpoch;          %#ok<PROP,NASGU>
             epochTags = obj.epochTags;      %#ok<PROP,NASGU>
             epochLast = obj.epochLast;      %#ok<PROP,NASGU>
-            save(filename,'d','tabs','tabs_orig','fs','mults','header','sce','PsyDataP','epochtime','CH','els','plotES','plotH','RjCh','RjEpoch','epochTags','epochLast','-v7.3');            
+            save(filename,'d','tabs','tabs_orig','fs','mults','header','sce','PsyDataP','epochtime','CH_H','els','plotES','plotH','RjCh','RjEpoch','epochTags','epochLast','-v7.3');            
         end
         function obj = Load(obj,filename)
             % nacte veskere promenne tridy ze souboru
-            load(filename,'d','tabs','tabs_orig','fs','mults','header','sce','epochtime','CH','els','plotES','plotH','RjCh','RjEpoch','epochTags','epochLast');            
+            load(filename,'d','tabs','tabs_orig','fs','mults','header','sce','epochtime','els','plotES','plotH','RjCh','RjEpoch','epochTags','epochLast');            
             obj.d = d;                      %#ok<CPROP,PROP>
             obj.tabs = tabs;                %#ok<CPROP,PROP>
             obj.tabs_orig = tabs_orig;      %#ok<CPROP,PROP>
@@ -336,10 +340,16 @@ classdef CiEEGData < handle
                 obj.PsyData = CPsyData(PsyDataP);%  %vytvorim objekt psydata ze struktury
             else
                 load(filename,'PsyData');
-                obj.PsyData = PsyData ;%#ok<CPROP,PROP> %  %drive ulozeny objekt, nez jsem zavedl ukladani struct
+                obj.PsyData = PsyData ; %#ok<CPROP,PROP> %  %drive ulozeny objekt, nez jsem zavedl ukladani struct
             end
             obj.epochtime = epochtime;      %#ok<CPROP,PROP>
-            obj.CH = CH;                    %#ok<CPROP,PROP>
+            if ismember('CH_H', {vars.name})
+                load(filename,'CH_H');
+                obj.CH = CHHeader(CH_H);
+            else
+                load(filename,'CH');
+                obj.CH = CH; %#ok<CPROP,PROP> %  %drive ulozeny objekt, nez jsem zavedl ukladani struct
+            end            
             obj.els = els;                  %#ok<CPROP,PROP>
             obj.plotES = plotES;            %#ok<CPROP,PROP>
             obj.plotH = plotH;              %#ok<CPROP,PROP>
@@ -399,11 +409,11 @@ classdef CiEEGData < handle
                    else
                         obj.PlotElectrode(obj.plotES(1),obj.epochs - obj.PlottedEpochs()+1,obj.plotES(3),obj.plotES(4));     
                    end                       
-               case 'uparrow'
+               case 'downarrow'
                    if(obj.plotES(1))<numel(obj.els) %pokud je cislo elektrody ne maximalni
                         obj.PlotElectrode(obj.plotES(1)+1,obj.plotES(2),obj.plotES(3),obj.plotES(4));
                    end                   
-               case 'downarrow'
+               case 'uparrow'
                    if(obj.plotES(1))>1 %pokud je cislo elektrody vetsi nez 1
                         obj.PlotElectrode(obj.plotES(1)-1,obj.plotES(2),obj.plotES(3),obj.plotES(4));
                    end

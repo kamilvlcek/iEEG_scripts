@@ -1,5 +1,6 @@
 classdef CHHeader < handle
     %CHHEADER Trida na praci s headerem od Jirky Hammera
+    %Kamil Vlcek, FGU AVCR, since 2016 04
     
     properties (Access = public)
         H; %data od Jirky Hammera
@@ -20,7 +21,7 @@ classdef CHHeader < handle
 %             for iE = 1:numel(idx)
 %                 obj.E{iE}= E{idx};
 %             end
-             obj = obj.SelChannels;   
+             obj = obj.SelChannels();   
         end
         
         function [chgroups, els] = ChannelGroups(obj)
