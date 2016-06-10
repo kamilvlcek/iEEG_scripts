@@ -48,15 +48,31 @@ classdef CPsyData < handle
             kat = obj.P.strings.podminka{katnum+1};
         end
         
-        function [resp,rt,kat] = GetResponses(obj)
+        function [blocks, srate, test, kategorie]= GetBlocks(obj)
+            %vraci promenne pro bloky o stejne kategorii
+            b1 = [find(obj.P.data(2:end,obj.P.sloupce.kategorie) ~= obj.P.data(1:end-1,7)); size(obj.P.data,1)]; %konce bloku
+            b0 = [ 1; (b1(1:end-1)+1)]; %zacatky bloku
+            kategorie = obj.P.data(b0,obj.P.sloupce.kategorie);
+            srate = zeros(numel(b0),1); % prumerna uspesnot za blok
+            test = ones(numel(b0),1);
+            for block = 1:numel(b0)
+                srate(block,1)=mean(obj.P.data(b0(block) : b1(block),obj.P.sloupce.spravne));    
+                test(block) = test(block) - mean(obj.P.data(b0(block) : b1(block),obj.P.sloupce.zpetnavazba));    
+            end
+            blocks = [b0 b1];
+        end
+        
+        function [resp,rt,kat,test] = GetResponses(obj)
             %vraci odpovedi cloveka - spravne/spatne, reakcni cas, kategorie 
             S = obj.P.sloupce;
             resp = obj.P.data(:,S.spravne); %vratim i reakcni casy
             rt = obj.P.data(:,S.rt); %vratim i reakcni casy
             kat = obj.P.data(:,S.kategorie); %vratim i reakcni casy
+            test = obj.P.data(:,S.zpetnavazba)==0; %vratim index testovych trialu
         end
         %% PLOT FUNCTIONS
         function [chyby] = PlotResponses(obj)
+            %nakresli graf rychlosti vsech odpovedi a bloku, vcetne chyb a uspesnosti za blok
             S = obj.P.sloupce;
             test = obj.P.data(:,:); %vyberu vsechny trialy
             if isempty(obj.fhR)
@@ -79,6 +95,17 @@ classdef CPsyData < handle
                 text (10,obj.P.strings.podminka{j,2}+0.05,obj.P.strings.podminka{j,1},'Color','r','FontSize',15);
             end
             chyby = find(obj.P.data(:,S.spravne)==0);
+            
+            [blocks,srate,blocktest]=obj.GetBlocks();
+            for b = 1:size(blocks,1)
+                if blocktest(b) == 1 %pokud se jedna o testovy blok
+                    procent = round(srate(b)*100);
+                    if procent < 75, color = 'r'; else color = 'b'; end %cervenou barvou, pokud je uspesnost pod 75%
+                    text( blocks(b,1) , -0.1, [ num2str(procent) '%'],'FontSize',8,'Color',color);
+                else
+                    text( blocks(b,1) , -0.1, '*','FontSize',8,'Color','k'); %treningove bloky jako hvezdicky
+                end
+            end
         end
     end
     
