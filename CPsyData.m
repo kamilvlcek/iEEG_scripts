@@ -9,6 +9,7 @@ classdef CPsyData < handle
     end
     
     methods (Access = public)
+        %% ELEMENTAL FUNCTIONS
         function obj = CPsyData(psy)
             %konstruktor
             obj.P = psy;
@@ -47,10 +48,17 @@ classdef CPsyData < handle
             kat = obj.P.strings.podminka{katnum+1};
         end
         
+        function [resp,rt,kat] = GetResponses(obj)
+            %vraci odpovedi cloveka - spravne/spatne, reakcni cas, kategorie 
+            S = obj.P.sloupce;
+            resp = obj.P.data(:,S.spravne); %vratim i reakcni casy
+            rt = obj.P.data(:,S.rt); %vratim i reakcni casy
+            kat = obj.P.data(:,S.kategorie); %vratim i reakcni casy
+        end
+        %% PLOT FUNCTIONS
         function [chyby] = PlotResponses(obj)
             S = obj.P.sloupce;
-            idata = obj.P.data(:,S.zpetnavazba)==0;            
-            test = obj.P.data(idata,:); %vyberu jen testove trialy, bez zpetne vazby
+            test = obj.P.data(:,:); %vyberu vsechny trialy
             if isempty(obj.fhR)
                 obj.fhR = figure('Name','Responses');
             else
@@ -59,12 +67,16 @@ classdef CPsyData < handle
             end
             plot(test(:,S.rt),'-o');
             hold on;
+            treningtrials = find(obj.P.data(:,S.zpetnavazba)==1);            
+            bar(treningtrials,test(treningtrials,S.rt),'FaceColor',[0.7 0.7 0.7],'EdgeColor',[0.7 0.7 0.7]); %oznacim treningove pokusy
+            
             chyby = find(test(:,S.spravne)==0);
             plot(chyby,test(chyby,S.kategorie),'sr','MarkerSize',10,'MarkerFaceColor','y'); %vykreslim chyby na hodnotu 1
             plot(chyby,test(chyby,S.rt),'or','MarkerFaceColor','y'); %vykreslim reakcni cas cervene
-            plot(test(:,S.kategorie),'g'); %vykreslim kategorie podnetu, jako zelenou caru
+            
+            plot(test(:,S.kategorie),'g','LineWidth',2); %vykreslim kategorie podnetu, jako zelenou caru
             for j = 1:size(obj.P.strings.podminka,1)
-                text (10,obj.P.strings.podminka{j,2}+0.05,obj.P.strings.podminka{j,1},'Color','r');
+                text (10,obj.P.strings.podminka{j,2}+0.05,obj.P.strings.podminka{j,1},'Color','r','FontSize',15);
             end
             chyby = find(obj.P.data(:,S.spravne)==0);
         end

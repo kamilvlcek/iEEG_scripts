@@ -29,6 +29,7 @@ classdef CiEEGData < handle
     end
     
     methods (Access = public)
+        %% ELEMENTAL FUNCTIONS 
         function obj = CiEEGData(d,tabs,fs,mults,header)
             %konstruktor, parametry d,tabs,fs[,mults,header]
             if ischar(d) && ~exist('tabs','var') %pokud je prvni parametr retezec, tak ho beru jako nazev souboru, ktery nactu
@@ -75,7 +76,57 @@ classdef CiEEGData < handle
             obj.CH = CHHeader(H);
             [~, obj.els] = obj.CH.ChannelGroups();            
         end
+         
+        function obj = RejectChannels(obj,RjCh)
+            %ulozi cisla vyrazenych kanalu - kvuli pocitani bipolarni reference 
+            obj.RjCh = RjCh;
+        end
         
+        function obj = RejectEpochs(obj,RjEpoch)
+            %ulozi cisla vyrazenych epoch - kvuli prevodu mezi touto tridou a CHilbert
+            obj.RjEpoch = RjEpoch;
+        end
+        
+        function ExtractEpochs(obj, psy,epochtime)
+            % epochuje data v poli d, pridava do objektu:
+            % cell array epochData, double(2) epochtime v sekundach, struct psy na tvorbu PsyData
+            % upravuje obj.mults, samples channels epochs
+            if obj.epochs > 1
+                disp('already epoched data');
+                return;
+            end
+            obj.PsyData = CPsyData(psy); %vytvorim objekt CPsyData
+            obj.epochtime = epochtime; %v sekundach cas pred a po udalosti  , prvni cislo je zaporne druhe kladne
+            iepochtime = round(epochtime.*obj.fs); %v poctu vzorku cas pred a po udalosti
+            ts_podnety = obj.PsyData.TimeStimuli(); %timestampy vsech podnetu
+            de = zeros(iepochtime(2)-iepochtime(1), size(obj.d,2), size(ts_podnety,1)); %nova epochovana data time x channel x epoch            
+            tabs = zeros(iepochtime(2)-iepochtime(1),size(ts_podnety,1)); %#ok<PROP> %udelam epochovane tabs
+            obj.epochData = cell(size(ts_podnety,1),3); % sloupce kategorie, cislo kategorie, timestamp
+            for epoch = 1:size(ts_podnety,1) %pro vsechny eventy
+                izacatek = find(obj.tabs<=ts_podnety(epoch), 1, 'last' ); %najdu index podnetu podle jeho timestampu
+                    %kvuli downsamplovani Hilberta, kdy se mi muze ztratit presny cas zacatku
+                    %epochy, beru posledni nizsi tabs nez je cas zacatku epochy
+                [Kstring Knum] = obj.PsyData.Category(epoch);    %jmeno a cislo kategorie
+                obj.epochData(epoch,:)= {Kstring Knum obj.tabs(izacatek)}; %zacatek epochy beru z tabs aby sedel na tabs pri downsamplovani
+                for ch = 1:obj.channels %pro vsechny kanaly                    
+                    baseline = mean(obj.d(izacatek+iepochtime(1):izacatek-1));
+                    de(:,ch,epoch) = double(obj.d( izacatek+iepochtime(1) : izacatek+iepochtime(2)-1,ch)).* obj.mults(ch) - baseline; 
+                    tabs(:,epoch) = obj.tabs(izacatek+iepochtime(1) : izacatek+iepochtime(2)-1); %#ok<PROP>
+                end
+            end
+            obj.d = de; %puvodni neepochovana budou epochovana
+            obj.mults = ones(1,size(obj.d,2)); %nove pole uz je double defaultove jednicky pro kazdy kanal
+            obj.tabs = tabs; %#ok<PROP>
+            [obj.samples,obj.channels, obj.epochs] = obj.DSize();
+        end
+        
+        function [d]= CategoryData(obj, katnum)
+            %vraci epochy ve kterych podnet byl kategorie/podminky katnum
+            assert(obj.epochs > 1,'data not yet epoched'); %vyhodi chybu pokud data nejsou epochovana
+            iEpochy = cell2mat(obj.epochData(:,2))==katnum ; %seznam epoch v ramci kategorie ve sloupci
+            d = obj.d(:,:,iEpochy);
+        end        
+        %% PLOT FUNCTIONS
         function PlotChannels(obj)  
             %vykresli korelace kazdeho kanalu s kazdym
             if obj.epochs <= 1
@@ -95,15 +146,24 @@ classdef CiEEGData < handle
                 line([1 size(CC,1)],[obj.els(j)+0.5 obj.els(j)+0.5],'color','black');
             end     
         end
-        
-        function obj = RejectChannels(obj,RjCh)
-            %ulozi cisla vyrazenych kanalu - kvuli pocitani bipolarni reference 
-            obj.RjCh = RjCh;
-        end
-        
-        function obj = RejectEpochs(obj,RjEpoch)
-            %ulozi cisla vyrazenych epoch - kvuli prevodu mezi touto tridou a CHilbert
-            obj.RjEpoch = RjEpoch;
+       
+        function PlotCategory(obj,katnum,channel)
+            %vykresli vsechny a prumernou odpoved na kategorii podnetu
+            d1=obj.CategoryData(katnum); %epochy jedne kategorie
+            d1m = mean(d1,3); %prumerne EEG z jedne kategorie
+            T = (0 : 1/obj.fs : (size(obj.d,1)-1)/obj.fs) + obj.epochtime(1); %cas zacatku a konce epochy
+            E = 1:obj.epochs; %vystupni parametr
+            h1 = figure('Name','Mean Epoch'); %#ok<NASGU> %prumerna odpoved na kategorii
+            plot(T,d1m(:,channel));
+            xlabel('Time [s]'); 
+            title(obj.PsyData.CategoryName(katnum));
+            h2 = figure('Name','All Epochs');  %#ok<NASGU> % vsechny epochy v barevnem obrazku
+            imagesc(T,E,squeeze(d1(:,channel,:))');
+            colorbar;
+            xlabel('Time [s]');
+            ylabel('Epochs');
+            title(obj.PsyData.CategoryName(katnum));
+            
         end
         
         function PlotElectrode(obj,e,s,range,time)
@@ -236,67 +296,15 @@ classdef CiEEGData < handle
             end
             
         end
-        
-        
-        function ExtractEpochs(obj, psy,epochtime)
-            % epochuje data v poli d, pridava do objektu:
-            % cell array epochData, double(2) epochtime v sekundach, struct psy na tvorbu PsyData
-            % upravuje obj.mults, samples channels epochs
-            if obj.epochs > 1
-                disp('already epoched data');
-                return;
-            end
-            obj.PsyData = CPsyData(psy); %vytvorim objekt CPsyData
-            obj.epochtime = epochtime; %v sekundach cas pred a po udalosti  , prvni cislo je zaporne druhe kladne
-            iepochtime = round(epochtime.*obj.fs); %v poctu vzorku cas pred a po udalosti
-            ts_podnety = obj.PsyData.TimeStimuli(); %timestampy vsech podnetu
-            de = zeros(iepochtime(2)-iepochtime(1), size(obj.d,2), size(ts_podnety,1)); %nova epochovana data time x channel x epoch            
-            tabs = zeros(iepochtime(2)-iepochtime(1),size(ts_podnety,1)); %#ok<PROP> %udelam epochovane tabs
-            obj.epochData = cell(size(ts_podnety,1),3); % sloupce kategorie, cislo kategorie, timestamp
-            for epoch = 1:size(ts_podnety,1) %pro vsechny eventy
-                izacatek = find(obj.tabs<=ts_podnety(epoch), 1, 'last' ); %najdu index podnetu podle jeho timestampu
-                    %kvuli downsamplovani Hilberta, kdy se mi muze ztratit presny cas zacatku
-                    %epochy, beru posledni nizsi tabs nez je cas zacatku epochy
-                [Kstring Knum] = obj.PsyData.Category(epoch);    %jmeno a cislo kategorie
-                obj.epochData(epoch,:)= {Kstring Knum obj.tabs(izacatek)}; %zacatek epochy beru z tabs aby sedel na tabs pri downsamplovani
-                for ch = 1:obj.channels %pro vsechny kanaly                    
-                    baseline = mean(obj.d(izacatek+iepochtime(1):izacatek-1));
-                    de(:,ch,epoch) = double(obj.d( izacatek+iepochtime(1) : izacatek+iepochtime(2)-1,ch)).* obj.mults(ch) - baseline; 
-                    tabs(:,epoch) = obj.tabs(izacatek+iepochtime(1) : izacatek+iepochtime(2)-1); %#ok<PROP>
-                end
-            end
-            obj.d = de; %puvodni neepochovana budou epochovana
-            obj.mults = ones(1,size(obj.d,2)); %nove pole uz je double defaultove jednicky pro kazdy kanal
-            obj.tabs = tabs; %#ok<PROP>
-            [obj.samples,obj.channels, obj.epochs] = obj.DSize();
+        function PlotResponses(obj)
+            obj.PsyData.PlotResponses();
+            figure(obj.PsyData.fhR); %kreslim dal do stejneho obrazku
+            [~,rt,kategorie] = obj.PsyData.GetResponses();            
+            plot(obj.RjEpoch,rt(obj.RjEpoch),'*','MarkerSize',10,'MarkerEdgeColor',[0.7 0.7 0.7],'MarkerFaceColor',[0.7 0.7 0.7]); %vykreslim vyrazene epochy
+            plot(obj.RjEpoch,kategorie(obj.RjEpoch),'*r','MarkerSize',5); %vykreslim vyrazene epochy
         end
-        
-        function [d]= CategoryData(obj, katnum)
-            %vraci epochy ve kterych podnet byl kategorie/podminky katnum
-            assert(obj.epochs > 1,'data not yet epoched'); %vyhodi chybu pokud data nejsou epochovana
-            iEpochy = cell2mat(obj.epochData(:,2))==katnum ; %seznam epoch v ramci kategorie ve sloupci
-            d = obj.d(:,:,iEpochy);
-        end
-        
-        function PlotCategory(obj,katnum,channel)
-            %vykresli vsechny a prumernou odpoved na kategorii podnetu
-            d1=obj.CategoryData(katnum); %epochy jedne kategorie
-            d1m = mean(d1,3); %prumerne EEG z jedne kategorie
-            T = (0 : 1/obj.fs : (size(obj.d,1)-1)/obj.fs) + obj.epochtime(1); %cas zacatku a konce epochy
-            E = 1:obj.epochs; %vystupni parametr
-            h1 = figure('Name','Mean Epoch'); %#ok<NASGU> %prumerna odpoved na kategorii
-            plot(T,d1m(:,channel));
-            xlabel('Time [s]'); 
-            title(obj.PsyData.CategoryName(katnum));
-            h2 = figure('Name','All Epochs');  %#ok<NASGU> % vsechny epochy v barevnem obrazku
-            imagesc(T,E,squeeze(d1(:,channel,:))');
-            colorbar;
-            xlabel('Time [s]');
-            ylabel('Epochs');
-            title(obj.PsyData.CategoryName(katnum));
-            
-        end
-        
+
+        %% SAVE AND LOAD FILE
         function Save(obj,filename)   
             %ulozi veskere promenne tridy do souboru
             if ~exist('filename','var')
@@ -360,6 +368,7 @@ classdef CiEEGData < handle
             obj.filename = filename;          %
         end
     end
+    %% privatni metody
     methods  (Access = private)
         function hybejPlot(obj,~,eventDat)           
            switch eventDat.Key
