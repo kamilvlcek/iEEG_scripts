@@ -26,6 +26,7 @@ classdef CiEEGData < handle
         epochTags; %seznam oznacenych epoch
         epochLast; %nejvyssi navstivena epocha
         filename;
+        reference; %slovni popis reference original, avg perHeadbox, perElectrode, Bipolar
     end
     
     methods (Access = public)
@@ -53,6 +54,7 @@ classdef CiEEGData < handle
                 end
                 obj.plotES = [1 1 150 5 0]; %nastavim defaultni hodnoty grafy
                 obj.epochLast = 1;
+                obj.reference = 'original';
             end
         end
         
@@ -125,7 +127,63 @@ classdef CiEEGData < handle
             assert(obj.epochs > 1,'data not yet epoched'); %vyhodi chybu pokud data nejsou epochovana
             iEpochy = cell2mat(obj.epochData(:,2))==katnum ; %seznam epoch v ramci kategorie ve sloupci
             d = obj.d(:,:,iEpochy);
-        end        
+        end      
+        
+        function ChangeReference(obj,ref)
+            H = obj.CH.H; %kopie headeru
+            assert(any(ref=='heb'),'neznama reference, mozne hodnoty h e b');
+            switch ref %jaky typ reference chci
+                case 'h'  %headbox          
+                    filterSettings.name = 'car'; % options: 'car','bip','nan'
+                    filterSettings.chGroups = 'perHeadbox';        % options: 'perHeadbox' (=global CAR), OR 'perElectrode' (=local CAR per el. shank)
+                case 'e'  %elektroda
+                    filterSettings.name = 'car'; % options: 'car','bip','nan'
+                    filterSettings.chGroups = 'perElectrode';        % options: 'perHeadbox' (=global CAR), OR 'perElectrode' (=local CAR per el. shank)
+                case 'b'  %bipolarni
+                    filterSettings.name = 'bip'; % options: 'car','bip','nan'           
+            end
+            filterMatrix = createSpatialFilter_kisarg(H, numel(H.selCh_H), filterSettings,obj.RjCh); %ve filterMatrix uz nejsou rejectovane kanaly
+                %assert(size(rawData,2) == size(filterMatrix,1));
+            % apply spatial filter
+            if ref=='b' %u bipolarni reference se mi meni pocet kanalu
+                H.channels = struct;
+                for ch = 1:size(filterMatrix,2)
+                    oldch = find(filterMatrix(:,ch)==1);
+                    fnames = fieldnames(obj.CH.H.channels(oldch)); %jmena poli struktury channels
+                    for f = 1:numel(fnames); %postupne zkopiruju vsechny pole struktury, najednou nevim jak to udelat
+                        fn = fnames{f};
+                        H.channels(ch).(fn) = obj.CH.H.channels(oldch).(fn); 
+                    end
+                    H.channels(ch).name = [H.channels(ch).name '-' obj.CH.H.channels(filterMatrix(:,ch)==-1).name]; %pojmenuju kanal jako rozdil
+                end                
+            end
+            
+            if obj.epochs <= 1
+                filtData = obj.d(:,H.selCh_H) * filterMatrix;
+                assert(size(filtData,1) == size(rawData,1)); %musi zustat stejna delka zaznamu  
+                obj.d=filtData;                
+            else
+                dd = zeros(obj.samples*obj.epochs,numel(H.selCh_H));
+                for ch = 1:numel(H.selCh_H) %predelam matici 3D na 2D
+                    dd(:,ch) = reshape(obj.d(:,ch,:),obj.samples*obj.epochs,1);
+                end                
+                filtData = dd(:,H.selCh_H) * filterMatrix;
+                assert(size(filtData,1) == size(dd,1)); %musi zustat stejna delka zaznamu  
+                obj.d = zeros(obj.samples,size(filtData,2),obj.epochs); %nove pole dat s re-referencovanymi daty
+                for ch=1:size(filtData,2)
+                    obj.d(:,ch,:) = reshape(filtData(:,ch),obj.samples,obj.epochs);
+                end
+            end
+            [obj.samples,obj.channels, obj.epochs] = obj.DSize();
+            obj.RjCh = []; %rejectovane kanaly uz byly vyrazeny, ted nejsou zadne
+            obj.GetHHeader(H); %novy header s vyrazenymi kanaly
+            obj.filename = []; %nechci si omylem prepsat puvodni data 
+            switch ref
+                case 'h', obj.reference = 'perHeadbox';
+                case 'e', obj.reference = 'perElectrode'; 
+                case 'b', obj.reference = 'Bipolar';                    
+            end
+        end
         %% PLOT FUNCTIONS
         function PlotChannels(obj)  
             %vykresli korelace kazdeho kanalu s kazdym
@@ -325,16 +383,17 @@ classdef CiEEGData < handle
             CH_H=obj.CH.H;                  %#ok<NASGU>
             els = obj.els;                  %#ok<PROP,NASGU>
             plotES = obj.plotES;            %#ok<PROP,NASGU>
-            plotH = obj.plotH;              %#ok<PROP,NASGU>
+            %plotH = obj.plotH;              %#ok<PROP,NASGU> %plotH je blbost ukladat, vytvori se novy, jen to brani vice grafum - 14.6.2016
             RjCh = obj.RjCh;                %#ok<PROP,NASGU>
             RjEpoch = obj.RjEpoch;          %#ok<PROP,NASGU>
             epochTags = obj.epochTags;      %#ok<PROP,NASGU>
             epochLast = obj.epochLast;      %#ok<PROP,NASGU>
-            save(filename,'d','tabs','tabs_orig','fs','mults','header','sce','PsyDataP','epochtime','CH_H','els','plotES','plotH','RjCh','RjEpoch','epochTags','epochLast','-v7.3');            
+            reference = obj.reference;      %#ok<PROP,NASGU>
+            save(filename,'d','tabs','tabs_orig','fs','mults','header','sce','PsyDataP','epochtime','CH_H','els','plotES','RjCh','RjEpoch','epochTags','epochLast','reference','-v7.3');            
         end
         function obj = Load(obj,filename)
             % nacte veskere promenne tridy ze souboru
-            load(filename,'d','tabs','tabs_orig','fs','mults','header','sce','epochtime','els','plotES','plotH','RjCh','RjEpoch','epochTags','epochLast');            
+            load(filename,'d','tabs','tabs_orig','fs','mults','header','sce','epochtime','els','plotES','RjCh','RjEpoch','epochTags','epochLast','reference');            
             obj.d = d;                      %#ok<CPROP,PROP>
             obj.tabs = tabs;                %#ok<CPROP,PROP>
             obj.tabs_orig = tabs_orig;      %#ok<CPROP,PROP>
@@ -360,11 +419,12 @@ classdef CiEEGData < handle
             end            
             obj.els = els;                  %#ok<CPROP,PROP>
             obj.plotES = plotES;            %#ok<CPROP,PROP>
-            obj.plotH = plotH;              %#ok<CPROP,PROP>
+            %obj.plotH = plotH;              %#ok<CPROP,PROP>
             obj.RjCh = RjCh;                %#ok<CPROP,PROP>     
             obj.RjEpoch = RjEpoch;          %#ok<CPROP,PROP>
             if exist('epochTags','var'),  obj.epochTags = epochTags;   else obj.epochTags = []; end         %#ok<CPROP,PROP>     
             if exist('epochLast','var'),  obj.epochLast = epochLast;   else obj.epochLast = []; end         %#ok<CPROP,PROP>
+            if exist('reference','var'),  obj.reference = reference;   else obj.reference = 'original'; end         %#ok<CPROP,PROP> %14.6.2016
             obj.filename = filename;          %
         end
     end

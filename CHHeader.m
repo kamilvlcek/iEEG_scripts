@@ -46,7 +46,7 @@ classdef CHHeader < handle
             for ch = 1:size(obj.H.channels,2)
                 if isfield(obj.H.channels(ch), 'signalType')
                     if ismember(obj.H.channels(ch).signalType, selSignals)
-                        selCh_H = [selCh_H, obj.H.channels(ch).numberOnAmplifier]; %#ok<AGROW>
+                        selCh_H = [selCh_H, ch]; %#ok<AGROW> %obj.H.channels(ch).numberOnAmplifier - kamil 14.6.2016 numberOnAmplifier nefunguje v pripade bipolarni reference kde jsou jina cisla kanalu
                     end
                 end
             end

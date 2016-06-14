@@ -1,4 +1,4 @@
-function filterMatrix = createSpatialFilter_kisarg(H, N_inputCh, filterSettings)
+function filterMatrix = createSpatialFilter_kisarg(H, N_inputCh, filterSettings,rejCh)
 % creates a spatial filter for (intracranial) EEG data
 % input vars:
 %   H: header structure
@@ -30,7 +30,7 @@ if strfind(filterSettings.name, 'car')        % ~ common average re-reference (C
     chGroups = getChannelGroups_kisarg(H, filterSettings.chGroups);
     
     % rejected channels
-    rejCh = [];         % set here indices of rejected channels !!!
+    %rejCh = [];         % set here indices of rejected channels !!!
     
     % design filter
     filterMatrix = zeros(N_inputCh);                        % init
@@ -47,22 +47,23 @@ if strcmp(filterSettings.name, 'bip')
     filterFound = true;
     
     % define channel groups
-    chGroups = getChannelGroups_kisarg(H, 'bip');
+    chGroups = getChannelGroups_kisarg(H, 'bip',rejCh);
     
     % rejected channels
-    rejCh = [];         % set here indices of rejected channels !!!
+    rejChJirka = [];         % set here indices of rejected channels !!!
+    % odstranuju RjCh v modifikovane getChannelGroups_kisarg, takze tohle bude vzdy prazdne - kamil 14.6.2016
     
     % design filter
     filterMatrix = zeros(N_inputCh, size(chGroups,2));      % init
     selCh_H = [];
     for grp = 1:size(chGroups,2)
-        selCh = setdiff(chGroups{grp}, rejCh);              % potential bug: if chGroups{grp} == rejCh (lets hope not!)
+        selCh = setdiff(chGroups{grp}, rejChJirka );              % potential bug: if chGroups{grp} == rejCh (lets hope not!)
         assert(~isempty(selCh));
         filterMatrix(selCh(1),grp) = 1;                     % set weights for BIP channels
         if size(selCh,2) == 2
             filterMatrix(selCh(2),grp) = -1;                % set weights for BIP channels
         else
-            warning(['BIP: only 1 channel on electrode shank, no referencing. Channel = ' num2str(grp)]);
+            warning(['BIP: only 1 channel on electrode shank, no referencing. Channel = ' num2str(grp)]); %zprava kvuli rjch, ted nikdy nenastane - kamil 14.6.2016
         end
         selCh_H = cat(2, selCh_H, selCh(1));
     end  

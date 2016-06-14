@@ -1,10 +1,10 @@
-function chGroups = getChannelGroups_kisarg(H, groupSpecification)
+function chGroups = getChannelGroups_kisarg(H, groupSpecification,RjCh)
 % returns channel groups (cell array) based on group specification
 
 % (c) Jiri, Apr16
 
 chGroups = [];
-
+if ~exist('RjCh','var'), RjCh = []; end
 %% selected channels (for example signal type = iEEG)
 assert(isfield(H,'selCh_H'));
 selCh_H = H.selCh_H;
@@ -61,12 +61,15 @@ end
 if strcmp(groupSpecification, 'bip')   
     chGroups = [];
     grp = 1;
+    chprev = 1; %matlab neumi menit index for smycky za jejiho behu
     for ch = 2:size(H.channels,2)
-        prevCh_shank = extractFromString(H.channels(ch-1).name, 'string');
+        if any(ch==RjCh), continue; end %preskocim rejectovane kanaly - kamil 14.6.2016          
+        prevCh_shank = extractFromString(H.channels(chprev).name, 'string');
         currCh_shank = extractFromString(H.channels(ch).name, 'string');        
-        if strcmp(prevCh_shank, currCh_shank) && strcmp(H.channels(ch-1).signalType, 'SEEG') && strcmp(H.channels(ch).signalType, 'SEEG')
-            chGroups{grp} = [ch-1, ch];
+        if strcmp(prevCh_shank, currCh_shank) && strcmp(H.channels(chprev).signalType, 'SEEG') && strcmp(H.channels(ch).signalType, 'SEEG')
+            chGroups{grp} = [chprev, ch]; %#ok<AGROW>
             grp = grp+1;
         end
+        chprev = ch; %predchozi neni rejectovany kanal
     end   
 end
