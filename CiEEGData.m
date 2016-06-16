@@ -27,13 +27,14 @@ classdef CiEEGData < handle
         epochLast; %nejvyssi navstivena epocha
         filename;
         reference; %slovni popis reference original, avg perHeadbox, perElectrode, Bipolar
+        yrange = [10 10 50 50]; %minimum y, krok y0, hranice y1, krok y1, viz funkce - a + v hybejPlot
     end
     
     methods (Access = public)
         %% ELEMENTAL FUNCTIONS 
         function obj = CiEEGData(d,tabs,fs,mults,header)
             %konstruktor, parametry d,tabs,fs[,mults,header]
-            if ischar(d) && ~exist('tabs','var') %pokud je prvni parametr retezec, tak ho beru jako nazev souboru, ktery nactu
+            if ischar(d) && (~exist('tabs','var') || isempty(tabs)) %pokud je prvni parametr retezec, tak ho beru jako nazev souboru, ktery nactu
                 assert(exist(d, 'file') == 2,['Soubor ' d ' neexistuje']);
                 obj.Load(d);
             else
@@ -160,7 +161,7 @@ classdef CiEEGData < handle
             
             if obj.epochs <= 1
                 filtData = obj.d(:,H.selCh_H) * filterMatrix;
-                assert(size(filtData,1) == size(rawData,1)); %musi zustat stejna delka zaznamu  
+                assert(size(filtData,1) == size(obj.d,1)); %musi zustat stejna delka zaznamu  
                 obj.d=filtData;                
             else
                 dd = zeros(obj.samples*obj.epochs,numel(H.selCh_H));
@@ -378,7 +379,11 @@ classdef CiEEGData < handle
             mults = obj.mults;              %#ok<PROP,NASGU>
             header = obj.header;            %#ok<PROP,NASGU>
             sce = [obj.samples obj.channels obj.epochs]; %#ok<NASGU>
-            PsyDataP = obj.PsyData.P;       %#ok<NASGU>         %ulozim pouze strukturu 
+            if exist('obj.PsyData.P','var')
+                PsyDataP = obj.PsyData.P;       %#ok<NASGU>         %ulozim pouze strukturu 
+            else
+                PsyDataP = []; %#ok<NASGU>
+            end
             epochtime = obj.epochtime;      %#ok<PROP,NASGU>
             CH_H=obj.CH.H;                  %#ok<NASGU>
             els = obj.els;                  %#ok<PROP,NASGU>
@@ -487,14 +492,14 @@ classdef CiEEGData < handle
                         obj.PlotElectrode(obj.plotES(1)-1,obj.plotES(2),obj.plotES(3),obj.plotES(4));
                    end
                case 'add'     %signal mensi - vetsi rozliseni 
-                   if obj.plotES(3)>=50, pricist = 50;
-                   else pricist = 10;                   
+                   if obj.plotES(3)>=obj.yrange(3), pricist = obj.yrange(4);
+                   else pricist = obj.yrange(2);                   
                    end
                    obj.PlotElectrode(obj.plotES(1),obj.plotES(2),obj.plotES(3)+pricist,obj.plotES(4));
                    
                case 'subtract' %signal vetsi - mensi rozliseni   
-                   if obj.plotES(3)>50, odecist = 50;
-                   elseif obj.plotES(3)>10 odecist = 10;
+                   if obj.plotES(3)>obj.yrange(3), odecist = obj.yrange(4);
+                   elseif obj.plotES(3)>obj.yrange(1), odecist = obj.yrange(2);
                    else odecist = 0;
                    end
                    obj.PlotElectrode(obj.plotES(1),obj.plotES(2),obj.plotES(3)-odecist,obj.plotES(4));

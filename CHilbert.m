@@ -7,12 +7,23 @@ classdef CHilbert < CiEEGData
     properties (Access = public)
         HFreq; %hilberova obalka pro kazde frekvenci pasmo - time x channel x freq (x kategorie)
         Hf; %frekvencni pasma pro ktere jsou pocitany obalky
+        hfilename; %jmeno souboru CHilbert        
     end
     methods (Access = public)
+        %% ELEMENTAL FUNCTIONS 
         function obj = CHilbert(d,tabs,fs,mults,header)
             if ~exist('header','var'), header = []; end %nejakou hodnotu dat musim
             if ~exist('mults','var'),  mults = []; end %nejakou hodnotu dat musim
-            obj@CiEEGData(d,tabs,fs,mults,header);
+            if ischar(d) && ~exist('tabs','var') %pokud je prvni parametr retezec, tak ho beru jako nazev souboru, ktery nactu
+                tabs=[]; fs = [];
+                filename = d;
+                d = CHilbert.filenameE(d); %predelam filename na filename pro CiEEGData                
+            end
+            obj@CiEEGData(d,tabs,fs,mults,header); %volani konstruktoru nemuze byt v if bloku ! Sakra
+            if exist('filename','var')
+                obj.LoadH(filename,1); %zkusim nacist jeste data z teto tridy
+            end
+            
         end
         
         function obj = PasmoFrekvence(obj,freq,channels)
@@ -43,30 +54,8 @@ classdef CHilbert < CiEEGData
             obj.tabs_orig = downsample(obj.tabs_orig,obj.decimatefactor); %potrebuju zdecimovat i druhy tabs. Orig znamena jen ze nepodleha epochovani
             obj.Hf = freq;
             obj.mults = ones(1,size(obj.d,2)); %nove pole uz je double defaultove jednicky pro kazdy kanal
+            obj.yrange = [1 1 5 5]; %zmenim rozliseni osy y v grafu
             fprintf('\n'); %ukoncim radku
-        end
-        
-        %dve funkce na ulozeni a nacteni vypocitane Hilbertovy obalky, protoze to trva hrozne dlouho
-        %ukladaji pouze vysledky funkce PasmoFrekvence
-        function SaveH(obj,filename)
-            HFreq = obj.HFreq; %#ok<PROP,NASGU>
-            d = obj.d;          %#ok<NASGU>
-            fs = obj.fs;        %#ok<NASGU>
-            tabs = obj.tabs;    %#ok<NASGU>
-            tabs_orig = obj.tabs_orig;    %#ok<NASGU>
-            Hf = obj.Hf;        %#ok<PROP,NASGU>
-            mults = obj.mults;  %#ok<NASGU>
-            save(filename,'HFreq','d','fs','tabs','tabs_orig','Hf','mults','-v7.3');
-        end
-        function obj = LoadH(obj,filename)
-            load(filename,'HFreq','d','fs','tabs','tabs_orig','mults','Hf');
-            obj.HFreq = HFreq; %#ok<CPROP,PROP>
-            obj.d = d;          
-            obj.fs = fs;        
-            obj.tabs = tabs;
-            obj.tabs_orig = tabs_orig;  
-            obj.mults = mults;
-            obj.Hf = Hf;        %#ok<CPROP,PROP>
         end
         
         function ExtractEpochs(obj, PsyData,epochtime)
@@ -97,6 +86,42 @@ classdef CHilbert < CiEEGData
             end
         end
         
+        %% SAVE AND LOAD FILE
+        %dve funkce na ulozeni a nacteni vypocitane Hilbertovy obalky, protoze to trva hrozne dlouho
+        %uklada se vcetne dat parenta CiEEGData
+        %trida se musi jmenovat jinak nez v parentovi, protoze jinak se vola tato overloaded function, i z parenta kdyz to nechci
+        function SaveH(obj,filename)
+            if ~exist('filename','var')
+                filename = obj.hfilename;
+                assert( ~isempty(filename), 'no filename given or saved before');
+            else
+                obj.hfilename = filename;
+            end            
+            obj.Save(CHilbert.filenameE(filename));  %ulozim do prvniho souboru data z nadrazene tridy          
+            if ~isempty(obj.HFreq)                
+                HFreq = obj.HFreq;  %#ok<PROP,NASGU>
+                Hf = obj.Hf;         %#ok<PROP,NASGU>           
+                yrange = obj.yrange; %#ok<NASGU> 
+                save(CHilbert.filenameH(filename),'HFreq','Hf','yrange','-v7.3'); %do druheho souboru data z teto tridy
+            end
+        end
+        
+        %pokud je treti parametr 1, nenacitaji se data z nadrazene tridy
+        function obj = LoadH(obj,filename,onlyself)            
+            if ~exist('onlyself','var') || onlyself == 0
+                obj.Load(obj,CHilbert.filenameE(filename));            
+            end
+            if exist(CHilbert.filenameH(filename),'file')                
+                load(CHilbert.filenameH(filename),'HFreq','Hf','yrange');
+                obj.HFreq = HFreq;  %#ok<CPROP,PROP>            
+                obj.Hf = Hf;                %#ok<CPROP,PROP>
+                obj.yrange = yrange;       
+            end
+            obj.hfilename = filename; 
+        end
+        
+        
+        
     end 
         
     %  --------- privatni metody ----------------------
@@ -123,6 +148,18 @@ classdef CHilbert < CiEEGData
             freqPow = abs(tmp).^2; %power je druha mocnicna, 
             % viz https://en.wikipedia.org/wiki/Spectral_density 
             %-  "power" is simply reckoned in terms of the square of the signal,
+        end
+    end
+    methods (Static,Access = public)
+        function filename2 = filenameE(filename)
+            %vraci jmeno souboru s daty tridy CiEEGData
+           [pathstr,fname,ext] = fileparts(filename); 
+           filename2 = fullfile(pathstr,[fname '_CiEEG' ext]);
+        end
+        function filename2 = filenameH(filename)
+             %vraci jmeno souboru s daty teto tridy
+           [pathstr,fname,ext] = fileparts(filename); 
+           filename2 = fullfile(pathstr,[fname '_CHilb' ext]);
         end
     end
     
