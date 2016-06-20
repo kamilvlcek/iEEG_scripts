@@ -16,14 +16,9 @@ classdef CHilbert < CiEEGData
             if ~exist('mults','var'),  mults = []; end %nejakou hodnotu dat musim
             if ischar(d) && ~exist('tabs','var') %pokud je prvni parametr retezec, tak ho beru jako nazev souboru, ktery nactu
                 tabs=[]; fs = [];
-                filename = d;
-                d = CHilbert.filenameE(d); %predelam filename na filename pro CiEEGData                
+                % volani Load z CiEEGData mi zavola Load z CHilbert, takze d=filename predelavat nemusim
             end
-            obj@CiEEGData(d,tabs,fs,mults,header); %volani konstruktoru nemuze byt v if bloku ! Sakra
-            if exist('filename','var')
-                obj.LoadH(filename,1); %zkusim nacist jeste data z teto tridy
-            end
-            
+            obj@CiEEGData(d,tabs,fs,mults,header); %volani konstruktoru nemuze byt v if bloku   
         end
         
         function obj = PasmoFrekvence(obj,freq,channels)
@@ -55,6 +50,7 @@ classdef CHilbert < CiEEGData
             obj.Hf = freq;
             obj.mults = ones(1,size(obj.d,2)); %nove pole uz je double defaultove jednicky pro kazdy kanal
             obj.yrange = [1 1 5 5]; %zmenim rozliseni osy y v grafu
+            [obj.samples,obj.channels, obj.epochs] = obj.DSize();
             fprintf('\n'); %ukoncim radku
         end
         
@@ -90,14 +86,14 @@ classdef CHilbert < CiEEGData
         %dve funkce na ulozeni a nacteni vypocitane Hilbertovy obalky, protoze to trva hrozne dlouho
         %uklada se vcetne dat parenta CiEEGData
         %trida se musi jmenovat jinak nez v parentovi, protoze jinak se vola tato overloaded function, i z parenta kdyz to nechci
-        function SaveH(obj,filename)
+        function Save(obj,filename)
             if ~exist('filename','var')
                 filename = obj.hfilename;
                 assert( ~isempty(filename), 'no filename given or saved before');
             else
                 obj.hfilename = filename;
             end            
-            obj.Save(CHilbert.filenameE(filename));  %ulozim do prvniho souboru data z nadrazene tridy          
+            Save@CiEEGData(obj,CHilbert.filenameE(filename));  %ulozim do prvniho souboru data z nadrazene tridy          
             if ~isempty(obj.HFreq)                
                 HFreq = obj.HFreq;  %#ok<PROP,NASGU>
                 Hf = obj.Hf;         %#ok<PROP,NASGU>           
@@ -107,9 +103,9 @@ classdef CHilbert < CiEEGData
         end
         
         %pokud je treti parametr 1, nenacitaji se data z nadrazene tridy
-        function obj = LoadH(obj,filename,onlyself)            
+        function obj = Load(obj,filename,onlyself)            
             if ~exist('onlyself','var') || onlyself == 0
-                obj.Load(obj,CHilbert.filenameE(filename));            
+                Load@CiEEGData(obj,CHilbert.filenameE(filename));            
             end
             if exist(CHilbert.filenameH(filename),'file')                
                 load(CHilbert.filenameH(filename),'HFreq','Hf','yrange');

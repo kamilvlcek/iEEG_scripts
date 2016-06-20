@@ -34,10 +34,12 @@ classdef CiEEGData < handle
         %% ELEMENTAL FUNCTIONS 
         function obj = CiEEGData(d,tabs,fs,mults,header)
             %konstruktor, parametry d,tabs,fs[,mults,header]
-            if ischar(d) && (~exist('tabs','var') || isempty(tabs)) %pokud je prvni parametr retezec, tak ho beru jako nazev souboru, ktery nactu
-                assert(exist(d, 'file') == 2,['Soubor ' d ' neexistuje']);
+            if ischar(d) && (~exist('tabs','var') || isempty(tabs)) %pokud je prvni parametr retezec, tak ho beru jako nazev souboru, ktery nactu                
                 obj.Load(d);
             else
+                assert(numel(fs)==1,'fs must be a single number');
+                assert(size(d,1)== size(tabs,1),'d and tabs have to be the same length');
+                assert(size(mults,1)<= 1 || size(mults,1)==size(d,2),'d and mults have to have same number of channels');
                 obj.d = d;
                 [obj.samples,obj.channels, obj.epochs] = obj.DSize();
                 obj.tabs = tabs;
@@ -479,7 +481,7 @@ classdef CiEEGData < handle
                         obj.PlotElectrode(obj.plotES(1),1,obj.plotES(3),obj.plotES(4)); 
                case 'end'     % na konec zaznamu        
                    if obj.epochs == 1
-                        obj.PlotElectrode(obj.plotES(1),obj.samples*obj.fs - obj.plotES(4),obj.plotES(3),obj.plotES(4));  
+                        obj.PlotElectrode(obj.plotES(1),obj.samples/obj.fs - obj.plotES(4),obj.plotES(3),obj.plotES(4));  
                    else
                         obj.PlotElectrode(obj.plotES(1),obj.epochs - obj.PlottedEpochs()+1,obj.plotES(3),obj.plotES(4));     
                    end                       
