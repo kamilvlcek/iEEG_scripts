@@ -187,6 +187,28 @@ classdef CiEEGData < handle
                 case 'b', obj.reference = 'Bipolar';                    
             end
         end
+        
+        function Wp = ResponseSearch(obj,timewindow)
+            %projede vsechny kanaly a hleda signif rozdil proti periode pred podnetem
+            %timewindow - pokud dve hodnoty - porovnava prumernou hodnotu mezi nimi
+            % -- pokud jedna hodnota, je to sirka klouzaveho okna - maximalni p z teto delky
+            assert(obj.epochs > 1,'only for epoched data');
+            iepochtime = round(obj.epochtime.*obj.fs); %v poctu vzorku cas pred a po udalosti, pred je zaporne cislo
+            itimewindow = round(timewindow.*obj.fs); %
+            
+            baseline = mean(obj.d(1: -iepochtime(1),:,:),1);  % 1 cas x kanaly x epochy - prumer za cas pred podnete,, pro vsechny epochy a jeden kanal
+            if numel(itimewindow) == 2  %chci prumernou hodnotu d od do
+                response = mean(obj.d( (itimewindow(1) : itimewindow(2)) - iepochtime(1) , : , : ),1); %prumer v case
+            else
+                response = obj.d(- iepochtime(1):end , :,:); %hodnot po podnetu
+            end
+            Wp = CStat.Wilcox2D(response,baseline,1);
+            if numel(itimewindow) == 1 %chci maximalni hodnotu p z casoveho okna
+                Wp = CStat.Klouzaveokno(Wp,itimewindow(1),'max',1);
+            end
+            
+        end
+        
         %% PLOT FUNCTIONS
         function PlotChannels(obj)  
             %vykresli korelace kazdeho kanalu s kazdym

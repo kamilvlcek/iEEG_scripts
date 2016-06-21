@@ -94,8 +94,7 @@ classdef CPsyData < handle
             for j = 1:size(obj.P.strings.podminka,1)
                 text (10,obj.P.strings.podminka{j,2}+0.05,obj.P.strings.podminka{j,1},'Color','r','FontSize',15);
             end
-            chyby = find(obj.P.data(:,S.spravne)==0);
-            
+                        
             [blocks,srate,blocktest]=obj.GetBlocks();
             for b = 1:size(blocks,1)
                 if blocktest(b) == 1 %pokud se jedna o testovy blok

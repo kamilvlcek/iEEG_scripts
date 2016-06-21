@@ -114,9 +114,7 @@ classdef CHilbert < CiEEGData
                 obj.yrange = yrange;       
             end
             obj.hfilename = filename; 
-        end
-        
-        
+        end                      
         
     end 
         
