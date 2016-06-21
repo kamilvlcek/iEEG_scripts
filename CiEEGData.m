@@ -28,6 +28,7 @@ classdef CiEEGData < handle
         filename;
         reference; %slovni popis reference original, avg perHeadbox, perElectrode, Bipolar
         yrange = [10 10 50 50]; %minimum y, krok y0, hranice y1, krok y1, viz funkce - a + v hybejPlot
+        Wp = {}; %pole signifikanci pro jednotlive kanaly vuci baseline, vysledek  ResponseSearch
     end
     
     methods (Access = public)
@@ -188,23 +189,35 @@ classdef CiEEGData < handle
             end
         end
         
-        function Wp = ResponseSearch(obj,timewindow)
+        function [iEp,epochsEx]=GetEpochsExclude(obj)
+            %vraci iEp=index epoch k vyhodnoceni - bez chyb, treningu a rucniho vyrazeni
+            %epochsEx=seznam vsech epoch s 1 u tech k vyrazeni
+            chyby = obj.PsyData.GetErrorTrials();
+            epochsEx = [chyby , zeros(size(chyby,1),1) ]; %pridam dalsi prazdny sloupec
+            epochsEx(obj.RjEpoch,4)=1; %rucne vyrazene epochy podle EEG
+            iEp = all(epochsEx==0,2); %index epoch k pouziti
+        end
+            
+        function ResponseSearch(obj,timewindow)
             %projede vsechny kanaly a hleda signif rozdil proti periode pred podnetem
             %timewindow - pokud dve hodnoty - porovnava prumernou hodnotu mezi nimi
             % -- pokud jedna hodnota, je to sirka klouzaveho okna - maximalni p z teto delky
             assert(obj.epochs > 1,'only for epoched data');
             iepochtime = round(obj.epochtime.*obj.fs); %v poctu vzorku cas pred a po udalosti, pred je zaporne cislo
             itimewindow = round(timewindow.*obj.fs); %
-            
-            baseline = mean(obj.d(1: -iepochtime(1),:,:),1);  % 1 cas x kanaly x epochy - prumer za cas pred podnete,, pro vsechny epochy a jeden kanal
+            iEp = obj.GetEpochsExclude(); %ziska seznam epoch k vyhodnoceni
+            baseline = mean(obj.d(1: -iepochtime(1),:,iEp),1);  % 1 cas x kanaly x epochy - prumer za cas pred podnete,, pro vsechny epochy a jeden kanal
             if numel(itimewindow) == 2  %chci prumernou hodnotu d od do
-                response = mean(obj.d( (itimewindow(1) : itimewindow(2)) - iepochtime(1) , : , : ),1); %prumer v case
+                response = mean(obj.d( (itimewindow(1) : itimewindow(2)) - iepochtime(1) , : , iEp ),1); %prumer v case
             else
-                response = obj.d(- iepochtime(1):end , :,:); %hodnot po podnetu
+                response = obj.d(- iepochtime(1):end , :, iEp ); %hodnot po podnetu
             end
-            Wp = CStat.Wilcox2D(response,baseline,1);
+            Wp = CStat.Wilcox2D(response,baseline,1); %#ok<PROP>
             if numel(itimewindow) == 1 %chci maximalni hodnotu p z casoveho okna
-                Wp = CStat.Klouzaveokno(Wp,itimewindow(1),'max',1);
+                Wp = CStat.Klouzaveokno(Wp,itimewindow(1),'max',1); %#ok<PROP>
+                obj.Wp.D2 = Wp; %#ok<PROP> %pole 2D signifikanci si ulozim kvuli kresleni - cas x channels
+            else
+                obj.Wp.D1 = Wp; %#ok<PROP>%pole 1D signifikanci - jedna hodnota pro kazdy kanal
             end
             
         end
@@ -227,7 +240,8 @@ classdef CiEEGData < handle
             for j = 1:numel(obj.els)
                 line([obj.els(j)+0.5 obj.els(j)+0.5],[1 size(CC,1)],'color','black');
                 line([1 size(CC,1)],[obj.els(j)+0.5 obj.els(j)+0.5],'color','black');
-            end     
+            end  
+            colorbar;
         end
        
         function PlotCategory(obj,katnum,channel)
@@ -379,14 +393,29 @@ classdef CiEEGData < handle
             end
             
         end
+        
         function PlotResponses(obj)
+            %vykresli uspesnost odpovedi spolu s chybami a vyrazenymi epochami
             obj.PsyData.PlotResponses();
             figure(obj.PsyData.fhR); %kreslim dal do stejneho obrazku
             [~,rt,kategorie] = obj.PsyData.GetResponses();            
             plot(obj.RjEpoch,rt(obj.RjEpoch),'*','MarkerSize',10,'MarkerEdgeColor',[0.7 0.7 0.7],'MarkerFaceColor',[0.7 0.7 0.7]); %vykreslim vyrazene epochy
             plot(obj.RjEpoch,kategorie(obj.RjEpoch),'*r','MarkerSize',5); %vykreslim vyrazene epochy
         end
-
+        
+        function PlotResponseP(obj)
+            %vykresli signifikanci odpovedi EEG vypocitanou pomoci ResponseSearch
+            T = 0:0.1:obj.epochtime(2); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
+            if 1 %isprop(obj,'Wp') && isfield(obj.Wp,'D2')
+                figure('Name','W map hilbert');
+                imagesc(T,1:obj.channels,1 - obj.Wp.D2', [0.95 1]); %mapa, od p>0.05 bude modra barva 
+                axis xy;
+                ylabel('channels');
+                xlabel('time [s]');
+                colorbar;
+            end
+        end
+        
         %% SAVE AND LOAD FILE
         function Save(obj,filename)   
             %ulozi veskere promenne tridy do souboru

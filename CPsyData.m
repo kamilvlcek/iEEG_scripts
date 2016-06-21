@@ -70,6 +70,24 @@ classdef CPsyData < handle
             kat = obj.P.data(:,S.kategorie); %vratim i reakcni casy
             test = obj.P.data(:,S.zpetnavazba)==0; %vratim index testovych trialu
         end
+        
+        function chyby = GetErrorTrials(obj)
+            %vrati pole indikujici chybu/vyrazeni pro kazdy trial=radky - podle sloupcu  chyby, chybne bloky a treningovy trial
+            %chybny blok ma < 75% uspesnost
+            S = obj.P.sloupce;
+            chyby = zeros(size(obj.P.data,1),3); %tri sloupce - chybne trials a chybne bloky, trening
+            chyby(:,1) = obj.P.data(:,S.spravne)==0;
+            [blocks,srate,blocktest]=obj.GetBlocks();
+            for b = 1:size(blocks,1)
+                if srate(b) < 0.75  %chybny blok
+                    chyby(blocks(b,1) : blocks(b,2) , 2) = ones( blocks(b,2) - blocks(b,1) +1,1); %vyplnim jednickami
+                end 
+                if  blocktest(b)==0 %treningovy blok
+                    chyby(blocks(b,1) : blocks(b,2) , 3) = ones( blocks(b,2) - blocks(b,1) +1,1); %vyplnim jednickami
+                end
+            end
+        end
+        
         %% PLOT FUNCTIONS
         function [chyby] = PlotResponses(obj)
             %nakresli graf rychlosti vsech odpovedi a bloku, vcetne chyb a uspesnosti za blok
