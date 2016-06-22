@@ -406,13 +406,42 @@ classdef CiEEGData < handle
         function PlotResponseP(obj)
             %vykresli signifikanci odpovedi EEG vypocitanou pomoci ResponseSearch
             T = 0:0.1:obj.epochtime(2); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
-            if 1 %isprop(obj,'Wp') && isfield(obj.Wp,'D2')
-                figure('Name','W map hilbert');
+            if isfield(obj.Wp,'D1') %první 2D plot
+                figure('Name','W plot 1D');
+                isignif = obj.Wp.D1<0.05;
+                plot(find(~isignif),obj.Wp.D1(~isignif),'o','MarkerSize',8,'MarkerEdgeColor','b','MarkerFaceColor','b');
+                hold on;
+                plot(find(isignif),obj.Wp.D1(isignif),'o','MarkerSize',8,'MarkerEdgeColor','r','MarkerFaceColor','r');
+                ylim([0 0.1]);
+                view(-90, 90); %# Swap the axes
+                set(gca, 'ydir', 'reverse'); %# Reverse the y-axis 
+                set(gca, 'xdir', 'reverse'); %# Reverse the x-axis 
+                for e = 1:numel(obj.els) %hranice elektrod a jmeno posledniho kontaktu
+                    line([obj.els(e)+0.5 obj.els(e)+0.5],[0 0.1],'color',[.5 0.5 0.5]);
+                    text(obj.els(e)-1,-0.01,obj.CH.H.channels(1,obj.els(e)).name);
+                end
+                for ch=1:obj.channels
+                    if obj.Wp.D1(ch)<0.1 %anatomicka jmena u signif kontaktu
+                        text(ch,0.102,obj.CH.H.channels(1,ch).neurologyLabel);
+                    end
+                end
+            end
+            if isfield(obj.Wp,'D2') %isprop(obj,'Wp') && isfield(obj.Wp,'D2')
+                figure('Name','W map 2D');
                 imagesc(T,1:obj.channels,1 - obj.Wp.D2', [0.95 1]); %mapa, od p>0.05 bude modra barva 
-                axis xy;
+                axis ij;
                 ylabel('channels');
                 xlabel('time [s]');
                 colorbar;
+                for e = 1:numel(obj.els) %hranice elektrod a jmeno posledniho kontaktu
+                    line([T(1) T(end)],[obj.els(e)+0.5 obj.els(e)+0.5],'color','w');
+                    text(-T(end)/10,obj.els(e)-1,obj.CH.H.channels(1,obj.els(e)).name);
+                end
+                for ch=1:obj.channels %anatomicka jmena u signif kontaktu
+                    if any(obj.Wp.D2(:,ch)<0.05)
+                        text(T(end)*1.1,ch,obj.CH.H.channels(1,ch).neurologyLabel);
+                    end
+                end
             end
         end
         
