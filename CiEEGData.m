@@ -216,8 +216,10 @@ classdef CiEEGData < handle
             if numel(itimewindow) == 1 %chci maximalni hodnotu p z casoveho okna
                 Wp = CStat.Klouzaveokno(Wp,itimewindow(1),'max',1); %#ok<PROP>
                 obj.Wp.D2 = Wp; %#ok<PROP> %pole 2D signifikanci si ulozim kvuli kresleni - cas x channels
+                obj.Wp.D2params = timewindow;
             else
                 obj.Wp.D1 = Wp; %#ok<PROP>%pole 1D signifikanci - jedna hodnota pro kazdy kanal
+                obj.Wp.D1params = timewindow;
             end
             
         end
@@ -403,43 +405,55 @@ classdef CiEEGData < handle
             plot(obj.RjEpoch,kategorie(obj.RjEpoch),'*r','MarkerSize',5); %vykreslim vyrazene epochy
         end
         
-        function PlotResponseP(obj)
-            %vykresli signifikanci odpovedi EEG vypocitanou pomoci ResponseSearch
-            T = 0:0.1:obj.epochtime(2); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
-            if isfield(obj.Wp,'D1') %první 2D plot
-                figure('Name','W plot 1D');
-                isignif = obj.Wp.D1<0.05;
-                plot(find(~isignif),obj.Wp.D1(~isignif),'o','MarkerSize',8,'MarkerEdgeColor','b','MarkerFaceColor','b');
+        function PlotResponseE(obj,ch)
+            %vykresli signifikanci odpovedi EEG vypocitanou pomoci ResponseSearch            
+            if exist('ch','var') %kreslim jeden kanal
+                T = linspace(obj.epochtime(1),obj.epochtime(2),size(obj.d,1)); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
+                figure('Name',['W plot chanel ' num2str(ch)]);
+                M = mean(obj.d(:,ch,:),3);                
+                E = std(obj.d(:,ch,:),[],3)/sqrt(size(obj.d,3)); %std err of mean
+                errorbar(T,M,E,'.','color',[.8 .8 .8]);
                 hold on;
-                plot(find(isignif),obj.Wp.D1(isignif),'o','MarkerSize',8,'MarkerEdgeColor','r','MarkerFaceColor','r');
-                ylim([0 0.1]);
-                view(-90, 90); %# Swap the axes
-                set(gca, 'ydir', 'reverse'); %# Reverse the y-axis 
-                set(gca, 'xdir', 'reverse'); %# Reverse the x-axis 
-                for e = 1:numel(obj.els) %hranice elektrod a jmeno posledniho kontaktu
-                    line([obj.els(e)+0.5 obj.els(e)+0.5],[0 0.1],'color',[.5 0.5 0.5]);
-                    text(obj.els(e)-1,-0.01,obj.CH.H.channels(1,obj.els(e)).name);
-                end
-                for ch=1:obj.channels
-                    if obj.Wp.D1(ch)<0.1 %anatomicka jmena u signif kontaktu
-                        text(ch,0.102,obj.CH.H.channels(1,ch).neurologyLabel);
+                plot(T,M);                
+                xlim(obj.epochtime);
+            else 
+                T = 0:0.1:obj.epochtime(2); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
+                if isfield(obj.Wp,'D1') %první 2D plot
+                    figure('Name','W plot 1D');
+                    isignif = obj.Wp.D1<0.05;
+                    plot(find(~isignif),obj.Wp.D1(~isignif),'o','MarkerSize',8,'MarkerEdgeColor','b','MarkerFaceColor','b');
+                    hold on;
+                    plot(find(isignif),obj.Wp.D1(isignif),'o','MarkerSize',8,'MarkerEdgeColor','r','MarkerFaceColor','r');
+                    ylim([0 0.1]);
+                    view(-90, 90); %# Swap the axes
+                    set(gca, 'ydir', 'reverse'); %# Reverse the y-axis 
+                    set(gca, 'xdir', 'reverse'); %# Reverse the x-axis 
+                    for e = 1:numel(obj.els) %hranice elektrod a jmeno posledniho kontaktu
+                        line([obj.els(e)+0.5 obj.els(e)+0.5],[0 0.1],'color',[.5 0.5 0.5]);
+                        text(obj.els(e)-1,-0.01,obj.CH.H.channels(1,obj.els(e)).name);
+                    end
+                    for ch=1:obj.channels
+                        if obj.Wp.D1(ch)<0.1 %anatomicka jmena u signif kontaktu
+                            text(ch,0.102,obj.CH.H.channels(1,ch).neurologyLabel);
+                        end
                     end
                 end
-            end
-            if isfield(obj.Wp,'D2') %isprop(obj,'Wp') && isfield(obj.Wp,'D2')
-                figure('Name','W map 2D');
-                imagesc(T,1:obj.channels,1 - obj.Wp.D2', [0.95 1]); %mapa, od p>0.05 bude modra barva 
-                axis ij;
-                ylabel('channels');
-                xlabel('time [s]');
-                colorbar;
-                for e = 1:numel(obj.els) %hranice elektrod a jmeno posledniho kontaktu
-                    line([T(1) T(end)],[obj.els(e)+0.5 obj.els(e)+0.5],'color','w');
-                    text(-T(end)/10,obj.els(e)-1,obj.CH.H.channels(1,obj.els(e)).name);
-                end
-                for ch=1:obj.channels %anatomicka jmena u signif kontaktu
-                    if any(obj.Wp.D2(:,ch)<0.05)
-                        text(T(end)*1.1,ch,obj.CH.H.channels(1,ch).neurologyLabel);
+                if isfield(obj.Wp,'D2') %isprop(obj,'Wp') && isfield(obj.Wp,'D2')
+                    figure('Name','W map 2D');
+                    imagesc(T,1:obj.channels,1 - obj.Wp.D2', [0.95 1]); %mapa, od p>0.05 bude modra barva 
+                    axis ij;
+                    ylabel('channels');
+                    xlabel('time [s]');
+                    colorbar;
+                    for e = 1:numel(obj.els) %hranice elektrod a jmeno posledniho kontaktu
+                        line([T(1) T(end)],[obj.els(e)+0.5 obj.els(e)+0.5],'color','w');
+                        text(-T(end)/10,obj.els(e)-1,obj.CH.H.channels(1,obj.els(e)).name);
+                    end
+                    for ch=1:obj.channels %anatomicka jmena u signif kontaktu
+                        if any(obj.Wp.D2(:,ch)<0.05)
+                            text(T(end)*1.1,ch,obj.CH.H.channels(1,ch).neurologyLabel);
+                            text(T(end)/10,ch,num2str(ch),'color','w');
+                        end
                     end
                 end
             end
