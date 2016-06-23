@@ -21,6 +21,7 @@ classdef CiEEGData < handle
         els; %cisla poslednich kanalu v kazde elektrode
         plotES; % current electrode, second of plot/epoch, range of y values, time range, allels, rangey all els
         plotH;  % handle to plot
+        plotRCh = struct; %stavove udaje o grafu PlotResponseCh
         RjCh; %seznam cisel rejectovanych kanalu
         RjEpoch; %seznam vyrazenych epoch
         epochTags; %seznam oznacenych epoch
@@ -28,7 +29,7 @@ classdef CiEEGData < handle
         filename;
         reference; %slovni popis reference original, avg perHeadbox, perElectrode, Bipolar
         yrange = [10 10 50 50]; %minimum y, krok y0, hranice y1, krok y1, viz funkce - a + v hybejPlot
-        Wp = {}; %pole signifikanci pro jednotlive kanaly vuci baseline, vysledek  ResponseSearch
+        Wp = {}; %pole signifikanci pro jednotlive kanaly vuci baseline, vysledek  ResponseSearch        
     end
     
     methods (Access = public)
@@ -130,7 +131,8 @@ classdef CiEEGData < handle
             %vraci epochy ve kterych podnet byl kategorie/podminky katnum
             assert(obj.epochs > 1,'data not yet epoched'); %vyhodi chybu pokud data nejsou epochovana
             iEpochy = cell2mat(obj.epochData(:,2))==katnum ; %seznam epoch v ramci kategorie ve sloupci
-            d = obj.d(:,:,iEpochy);
+            iEp=obj.GetEpochsExclude();            
+            d = obj.d(:,:,iEpochy & iEp); %epochy z kategorie, ktere nejsou excludovane
         end      
         
         function ChangeReference(obj,ref)
@@ -217,9 +219,11 @@ classdef CiEEGData < handle
                 Wp = CStat.Klouzaveokno(Wp,itimewindow(1),'max',1); %#ok<PROP>
                 obj.Wp.D2 = Wp; %#ok<PROP> %pole 2D signifikanci si ulozim kvuli kresleni - cas x channels
                 obj.Wp.D2params = timewindow;
+                obj.Wp.D2iEp = iEp; %index zpracovanych epoch pro zpetnou kontrolu
             else
                 obj.Wp.D1 = Wp; %#ok<PROP>%pole 1D signifikanci - jedna hodnota pro kazdy kanal
                 obj.Wp.D1params = timewindow;
+                obj.Wp.D1iEp = iEp; %index zpracovanych epoch pro zpetnou kontrolu
             end
             
         end
@@ -251,17 +255,17 @@ classdef CiEEGData < handle
             d1=obj.CategoryData(katnum); %epochy jedne kategorie
             d1m = mean(d1,3); %prumerne EEG z jedne kategorie
             T = (0 : 1/obj.fs : (size(obj.d,1)-1)/obj.fs) + obj.epochtime(1); %cas zacatku a konce epochy
-            E = 1:obj.epochs; %vystupni parametr
+            E = 1:size(d1,3); %cisla epoch
             h1 = figure('Name','Mean Epoch'); %#ok<NASGU> %prumerna odpoved na kategorii
             plot(T,d1m(:,channel));
             xlabel('Time [s]'); 
-            title(obj.PsyData.CategoryName(katnum));
+            title([ 'channel ' num2str(channel) ' - ' obj.PsyData.CategoryName(katnum)]);
             h2 = figure('Name','All Epochs');  %#ok<NASGU> % vsechny epochy v barevnem obrazku
             imagesc(T,E,squeeze(d1(:,channel,:))');
             colorbar;
             xlabel('Time [s]');
             ylabel('Epochs');
-            title(obj.PsyData.CategoryName(katnum));
+            title([ 'channel ' num2str(channel) ' - ' obj.PsyData.CategoryName(katnum)]);
             
         end
         
@@ -405,59 +409,101 @@ classdef CiEEGData < handle
             plot(obj.RjEpoch,kategorie(obj.RjEpoch),'*r','MarkerSize',5); %vykreslim vyrazene epochy
         end
         
-        function PlotResponseE(obj,ch)
-            %vykresli signifikanci odpovedi EEG vypocitanou pomoci ResponseSearch            
-            if exist('ch','var') %kreslim jeden kanal
-                T = linspace(obj.epochtime(1),obj.epochtime(2),size(obj.d,1)); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
-                figure('Name',['W plot chanel ' num2str(ch)]);
-                M = mean(obj.d(:,ch,:),3);                
-                E = std(obj.d(:,ch,:),[],3)/sqrt(size(obj.d,3)); %std err of mean
-                errorbar(T,M,E,'.','color',[.8 .8 .8]);
-                hold on;
-                plot(T,M);                
-                xlim(obj.epochtime);
-            else 
-                T = 0:0.1:obj.epochtime(2); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
-                if isfield(obj.Wp,'D1') %první 2D plot
-                    figure('Name','W plot 1D');
-                    isignif = obj.Wp.D1<0.05;
-                    plot(find(~isignif),obj.Wp.D1(~isignif),'o','MarkerSize',8,'MarkerEdgeColor','b','MarkerFaceColor','b');
-                    hold on;
-                    plot(find(isignif),obj.Wp.D1(isignif),'o','MarkerSize',8,'MarkerEdgeColor','r','MarkerFaceColor','r');
-                    ylim([0 0.1]);
-                    view(-90, 90); %# Swap the axes
-                    set(gca, 'ydir', 'reverse'); %# Reverse the y-axis 
-                    set(gca, 'xdir', 'reverse'); %# Reverse the x-axis 
-                    for e = 1:numel(obj.els) %hranice elektrod a jmeno posledniho kontaktu
-                        line([obj.els(e)+0.5 obj.els(e)+0.5],[0 0.1],'color',[.5 0.5 0.5]);
-                        text(obj.els(e)-1,-0.01,obj.CH.H.channels(1,obj.els(e)).name);
-                    end
-                    for ch=1:obj.channels
-                        if obj.Wp.D1(ch)<0.1 %anatomicka jmena u signif kontaktu
-                            text(ch,0.102,obj.CH.H.channels(1,ch).neurologyLabel);
-                        end
-                    end
+        function PlotResponseCh(obj,ch)
+            %vykresli odpovedi pro jednotlivy kanal
+            assert(obj.epochs > 1,'only for epoched data');
+            if ~exist('ch','var')
+                if isfield(obj.plotRCh,'ch')
+                    ch = obj.plotRCh.ch;
+                else
+                    ch = 1;
                 end
-                if isfield(obj.Wp,'D2') %isprop(obj,'Wp') && isfield(obj.Wp,'D2')
-                    figure('Name','W map 2D');
-                    imagesc(T,1:obj.channels,1 - obj.Wp.D2', [0.95 1]); %mapa, od p>0.05 bude modra barva 
-                    axis ij;
-                    ylabel('channels');
-                    xlabel('time [s]');
-                    colorbar;
-                    for e = 1:numel(obj.els) %hranice elektrod a jmeno posledniho kontaktu
-                        line([T(1) T(end)],[obj.els(e)+0.5 obj.els(e)+0.5],'color','w');
-                        text(-T(end)/10,obj.els(e)-1,obj.CH.H.channels(1,obj.els(e)).name);
-                    end
-                    for ch=1:obj.channels %anatomicka jmena u signif kontaktu
-                        if any(obj.Wp.D2(:,ch)<0.05)
-                            text(T(end)*1.1,ch,obj.CH.H.channels(1,ch).neurologyLabel);
-                            text(T(end)/10,ch,num2str(ch),'color','w');
-                        end
+            end
+            T = linspace(obj.epochtime(1),obj.epochtime(2),size(obj.d,1)); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
+            if isfield(obj.plotRCh,'fh')
+                figure(obj.plotRCh.fh); %pouziju uz vytvoreny graf
+                clf(obj.plotRCh.fh); %graf vycistim
+            else
+                obj.plotRCh.fh = figure('Name','W plot channel');
+            end
+            
+            iEp=obj.GetEpochsExclude();  
+            M = mean(obj.d(:,ch,iEp),3);                
+            E = std(obj.d(:,ch,iEp),[],3)/sqrt(size(obj.d,3)); %std err of mean
+            errorbar(T,M,E,'.','color',[.8 .8 .8]); %nejdriv vykreslim errorbars aby byly vzadu
+            hold on;
+            plot(T,M,'LineWidth',2);  %prumerna odpoved              
+            xlim(obj.epochtime);
+            ylim( [min(min(mean(obj.d(:,:,iEp),3))) max(max(mean(obj.d(:,:,iEp),3)))]);
+            if isfield(obj.Wp,'D2') %krivka p hodnot z W testu
+                Tr = linspace(0,obj.epochtime(2),size(obj.Wp.D2,1)); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
+                plot(Tr,obj.Wp.D2(:,ch),'Color',[.5 .5 .5]);
+                iWp = obj.Wp.D2(:,ch) <= 0.05;
+                plot(Tr(iWp),obj.Wp.D2(iWp,ch),'m.'); %fialove jsou p < 0.05
+                iWp = obj.Wp.D2(:,ch) <= 0.01;
+                plot(Tr(iWp),obj.Wp.D2(iWp,ch),'r.'); %cervene jsou p < 0.01
+            end
+            colorskat = 'kgr';
+            for katnum = obj.PsyData.Categories()
+                katdata = obj.CategoryData(katnum); %epochy jedne kategorie
+                M = mean(katdata(:,ch,:),3);
+                %E = std(katdata(:,ch,:),[],3)/sqrt(size(katdata,3)); %std err of mean
+                plot(T,M,'LineWidth',1,'Color',colorskat(katnum+1));  %prumerna odpoved  
+            end
+            title(['channel ' num2str(ch)]);
+            text(0,1,[ obj.CH.H.channels(1,ch).name ' : ' obj.CH.H.channels(1,ch).neurologyLabel]);
+            
+            methodhandle = @obj.hybejPlotCh;
+            set(obj.plotRCh.fh,'KeyPressFcn',methodhandle); 
+            obj.plotRCh.ch = ch;
+        end
+        
+        function PlotResponseP(obj)
+            %vykresli signifikanci odpovedi u vsech kanalu EEG vypocitanou pomoci ResponseSearch                                
+            assert(obj.epochs > 1,'only for epoched data');
+            T = 0:0.1:obj.epochtime(2); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
+            if isfield(obj.Wp,'D1') %první 2D plot
+                figure('Name','W plot 1D');
+                isignif = obj.Wp.D1<0.05;
+                plot(find(~isignif),obj.Wp.D1(~isignif),'o','MarkerSize',8,'MarkerEdgeColor','b','MarkerFaceColor','b');
+                hold on;
+                plot(find(isignif),obj.Wp.D1(isignif),'o','MarkerSize',8,'MarkerEdgeColor','r','MarkerFaceColor','r');
+                ylim([0 0.1]);
+                view(-90, 90); %# Swap the axes
+                set(gca, 'ydir', 'reverse'); %# Reverse the y-axis 
+                set(gca, 'xdir', 'reverse'); %# Reverse the x-axis 
+                for e = 1:numel(obj.els) %hranice elektrod a jmeno posledniho kontaktu
+                    line([obj.els(e)+0.5 obj.els(e)+0.5],[0 0.1],'color',[.5 0.5 0.5]);
+                    text(obj.els(e)-1,-0.01,obj.CH.H.channels(1,obj.els(e)).name);
+                end
+                for ch=1:obj.channels
+                    if obj.Wp.D1(ch)<0.1 %anatomicka jmena u signif kontaktu
+                        text(ch,0.102,obj.CH.H.channels(1,ch).neurologyLabel);
                     end
                 end
             end
-        end
+            if isfield(obj.Wp,'D2') %isprop(obj,'Wp') && isfield(obj.Wp,'D2')
+                figure('Name','W map 2D');
+                imagesc(T,1:obj.channels,1 - obj.Wp.D2', [0.95 1]); %mapa, od p>0.05 bude modra barva 
+                axis ij;
+                ylabel('channels');
+                xlabel('time [s]');
+                colorbar;
+                for e = 1:numel(obj.els) %hranice elektrod a jmeno posledniho kontaktu
+                    line([T(1) T(end)],[obj.els(e)+0.5 obj.els(e)+0.5],'color','w');
+                    text(-T(end)/10,obj.els(e)-1,obj.CH.H.channels(1,obj.els(e)).name);
+                end
+                for ch=1:obj.channels %anatomicka jmena u signif kontaktu
+                    if any(obj.Wp.D2(:,ch)<0.05)
+                        text(T(end)*1.1,ch,obj.CH.H.channels(1,ch).neurologyLabel);
+                        text(T(end)/10,ch,num2str(ch),'color','w');
+                    end
+                end
+            end
+        end 
+        
+        
+        
         
         %% SAVE AND LOAD FILE
         function Save(obj,filename)   
@@ -475,7 +521,7 @@ classdef CiEEGData < handle
             mults = obj.mults;              %#ok<PROP,NASGU>
             header = obj.header;            %#ok<PROP,NASGU>
             sce = [obj.samples obj.channels obj.epochs]; %#ok<NASGU>
-            if exist('obj.PsyData.P','var')
+            if isobject(obj.PsyData)
                 PsyDataP = obj.PsyData.P;       %#ok<NASGU>         %ulozim pouze strukturu 
             else
                 PsyDataP = []; %#ok<NASGU>
@@ -490,7 +536,9 @@ classdef CiEEGData < handle
             epochTags = obj.epochTags;      %#ok<PROP,NASGU>
             epochLast = obj.epochLast;      %#ok<PROP,NASGU>
             reference = obj.reference;      %#ok<PROP,NASGU>
-            save(filename,'d','tabs','tabs_orig','fs','mults','header','sce','PsyDataP','epochtime','CH_H','els','plotES','RjCh','RjEpoch','epochTags','epochLast','reference','-v7.3');            
+            epochData = obj.epochData;      %#ok<PROP,NASGU>
+            Wp = obj.Wp;                    %#ok<PROP,NASGU>
+            save(filename,'d','tabs','tabs_orig','fs','mults','header','sce','PsyDataP','epochtime','CH_H','els','plotES','RjCh','RjEpoch','epochTags','epochLast','reference','epochData','Wp','-v7.3');            
         end
         function obj = Load(obj,filename)
             % nacte veskere promenne tridy ze souboru
@@ -504,20 +552,29 @@ classdef CiEEGData < handle
             obj.samples = sce(1); obj.channels=sce(2); obj.epochs = sce(3); 
             vars = whos('-file',filename);
             if ismember('PsyDataP', {vars.name})
-                load(filename,'PsyDataP');
-                obj.PsyData = CPsyData(PsyDataP);%  %vytvorim objekt psydata ze struktury
+                load(filename,'PsyDataP'); obj.PsyData = CPsyData(PsyDataP);%  %vytvorim objekt psydata ze struktury
             else
-                load(filename,'PsyData');
-                obj.PsyData = PsyData ; %#ok<CPROP,PROP> %  %drive ulozeny objekt, nez jsem zavedl ukladani struct
+                load(filename,'PsyData');  obj.PsyData = PsyData ; %#ok<CPROP,PROP> %  %drive ulozeny objekt, nez jsem zavedl ukladani struct
             end
-            obj.epochtime = epochtime;      %#ok<CPROP,PROP>
+            if obj.epochs > 1
+                load(filename,'epochtime','epochData');                
+                obj.epochtime = epochtime;      %#ok<CPROP,PROP>
+                obj.epochData = epochData;      %#ok<CPROP,PROP>
+            else
+                obj.epochtime = [];
+                obj.epochData = [];
+            end
             if ismember('CH_H', {vars.name})
-                load(filename,'CH_H');
-                obj.CH = CHHeader(CH_H);
+                load(filename,'CH_H');      obj.CH = CHHeader(CH_H);
             else
                 load(filename,'CH');
                 obj.CH = CH; %#ok<CPROP,PROP> %  %drive ulozeny objekt, nez jsem zavedl ukladani struct
-            end            
+            end  
+            if ismember('Wp', {vars.name})
+                load(filename,'Wp');      obj.Wp = Wp;
+            else
+                obj.Wp = struct;
+            end
             obj.els = els;                  %#ok<CPROP,PROP>
             obj.plotES = plotES;            %#ok<CPROP,PROP>
             %obj.plotH = plotH;              %#ok<CPROP,PROP>
@@ -526,6 +583,7 @@ classdef CiEEGData < handle
             if exist('epochTags','var'),  obj.epochTags = epochTags;   else obj.epochTags = []; end         %#ok<CPROP,PROP>     
             if exist('epochLast','var'),  obj.epochLast = epochLast;   else obj.epochLast = []; end         %#ok<CPROP,PROP>
             if exist('reference','var'),  obj.reference = reference;   else obj.reference = 'original'; end         %#ok<CPROP,PROP> %14.6.2016
+           
             obj.filename = filename;          %
         end
     end
@@ -632,6 +690,19 @@ classdef CiEEGData < handle
                    obj.PlotElectrode(obj.plotES(1),obj.plotES(2),obj.plotES(3),obj.plotES(4));
                otherwise
                    disp(['You just pressed: ' eventDat.Key]);                      
+           end
+        end
+        function hybejPlotCh(obj,~,eventDat)  
+           %reaguje na udalosti v grafu PlotResponseCh
+           switch eventDat.Key
+               case 'rightarrow' 
+                   obj.PlotResponseCh( min( [obj.plotRCh.ch + 1 , obj.channels]));
+               case 'pagedown' 
+                   obj.PlotResponseCh( min( [obj.plotRCh.ch + 10 , obj.channels]));
+               case 'leftarrow'
+                   obj.PlotResponseCh( max( [obj.plotRCh.ch - 1 , 1]));
+               case 'pageup'
+                   obj.PlotResponseCh( max( [obj.plotRCh.ch - 10 , 1]));
            end
         end
         function obj = AddTag(obj,s)

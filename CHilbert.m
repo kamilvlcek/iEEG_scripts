@@ -147,11 +147,15 @@ classdef CHilbert < CiEEGData
     methods (Static,Access = public)
         function filename2 = filenameE(filename)
             %vraci jmeno souboru s daty tridy CiEEGData
-           [pathstr,fname,ext] = fileparts(filename); 
+           filename=strrep(filename,'_CHilb',''); %odstranim pripony vytvorene pri save
+           filename=strrep(filename,'_CiEEG','');
+           [pathstr,fname,ext] = fileparts(filename);           
            filename2 = fullfile(pathstr,[fname '_CiEEG' ext]);
         end
         function filename2 = filenameH(filename)
              %vraci jmeno souboru s daty teto tridy
+           filename=strrep(filename,'_CHilb',''); %odstranim pripony vytvorene pri save
+           filename=strrep(filename,'_CiEEG','');
            [pathstr,fname,ext] = fileparts(filename); 
            filename2 = fullfile(pathstr,[fname '_CHilb' ext]);
         end

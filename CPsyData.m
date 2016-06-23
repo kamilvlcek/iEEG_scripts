@@ -43,6 +43,10 @@ classdef CPsyData < handle
             kat = obj.P.strings.podminka{katnum+1};            
         end 
         
+        function kat = Categories(obj)
+            %vraci cisla vsech kategorii
+            kat = cell2mat(obj.P.strings.podminka(:,2))'; %kategorie v radku
+        end
         function [kat] = CategoryName(obj,katnum)
             %vraci jmeno kategorie z cisla
             kat = obj.P.strings.podminka{katnum+1};
