@@ -135,9 +135,10 @@ classdef CiEEGData < handle
             d = obj.d(:,:,iEpochy & iEp); %epochy z kategorie, ktere nejsou excludovane
         end      
         
-        function ChangeReference(obj,ref)
-            H = obj.CH.H; %kopie headeru
+        function ChangeReference(obj,ref)            
             assert(any(ref=='heb'),'neznama reference, mozne hodnoty h e b');
+            assert(isobject(obj.CH),'Hammer header not loaded');
+            H = obj.CH.H; %kopie headeru
             switch ref %jaky typ reference chci
                 case 'h'  %headbox          
                     filterSettings.name = 'car'; % options: 'car','bip','nan'
@@ -557,9 +558,9 @@ classdef CiEEGData < handle
                 load(filename,'PsyData');  obj.PsyData = PsyData ; %#ok<CPROP,PROP> %  %drive ulozeny objekt, nez jsem zavedl ukladani struct
             end
             if obj.epochs > 1
-                load(filename,'epochtime','epochData');                
-                obj.epochtime = epochtime;      %#ok<CPROP,PROP>
-                obj.epochData = epochData;      %#ok<CPROP,PROP>
+                if ismember('epochData', {vars.name}),           load(filename,'epochData');    obj.epochData = epochData;   end   %#ok<CPROP,PROP>             
+                load(filename,'epochtime');                
+                obj.epochtime = epochtime;      %#ok<CPROP,PROP>               
             else
                 obj.epochtime = [];
                 obj.epochData = [];
