@@ -21,7 +21,7 @@ sloupce.spravne=3;
 sloupce.rt = 4;
 sloupce.opakovani=5;
 sloupce.zpetnavazba=6;
-sloupce.podminka=7;
+sloupce.kategorie=7;
 sloupce.ts_podnet=8;
 sloupce.ts_odpoved=9;
 

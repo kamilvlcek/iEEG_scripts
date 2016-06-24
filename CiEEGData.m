@@ -42,7 +42,7 @@ classdef CiEEGData < handle
                 assert(numel(fs)==1,'fs must be a single number');
                 assert(size(d,1)== size(tabs,1),'d and tabs have to be the same length');
                 assert(size(mults,1)<= 1 || size(mults,1)==size(d,2),'d and mults have to have same number of channels');
-                obj.d = d;
+                obj.d = double(d);
                 [obj.samples,obj.channels, obj.epochs] = obj.DSize();
                 obj.tabs = tabs;
                 obj.tabs_orig = tabs;
@@ -116,7 +116,7 @@ classdef CiEEGData < handle
                 [Kstring Knum] = obj.PsyData.Category(epoch);    %jmeno a cislo kategorie
                 obj.epochData(epoch,:)= {Kstring Knum obj.tabs(izacatek)}; %zacatek epochy beru z tabs aby sedel na tabs pri downsamplovani
                 for ch = 1:obj.channels %pro vsechny kanaly                    
-                    baseline = mean(obj.d(izacatek+iepochtime(1):izacatek-1));
+                    baseline = mean(double(obj.d(izacatek+iepochtime(1):izacatek-1,ch)).* obj.mults(ch)); %baseline toho jednoho kanalu, jedne epochy
                     de(:,ch,epoch) = double(obj.d( izacatek+iepochtime(1) : izacatek+iepochtime(2)-1,ch)).* obj.mults(ch) - baseline; 
                     tabs(:,epoch) = obj.tabs(izacatek+iepochtime(1) : izacatek+iepochtime(2)-1); %#ok<PROP>
                 end
@@ -313,7 +313,7 @@ classdef CiEEGData < handle
             % -------- ziskam data k vykresleni do promenne dd -----------------
             if obj.epochs <= 1 %pokud data jeste nejsou epochovana
                 iD = [ (s-1)*obj.fs + 1,  (s-1)*obj.fs + obj.fs*time]; %indexy eeg, od kdy do kdy vykreslit
-                dd = obj.d( iD(1) : iD(2),elmin: elmax)';   %data k plotovani - prehodim poradi, prvni jsou kanaly
+                dd = obj.d( iD(1) : iD(2),elmin: elmax)' ;   %data k plotovani - prehodim poradi, prvni jsou kanaly
                 t = linspace(iD(1)/obj.fs, iD(2)/obj.fs, iD(2)-iD(1)+1); %casova osa            
             else %pokud data uz jsou epochovana 
                 time_n = time*obj.fs; %kolik vzorku v case chci zobrazit
@@ -347,7 +347,14 @@ classdef CiEEGData < handle
             c = 0;
             for el = els              %#ok<PROP>
                 rozsahel = (el(2):el(1))-els(2,1)+1;  %#ok<PROP>
-                plot(t, bsxfun(@minus,shift(end,:),shift( rozsahel,:)) + dd( rozsahel,:) ,colors(c+1) );  
+                rozsahel1 = setdiff(rozsahel,obj.RjCh); %nerejectovane kanaly                
+                plot(t, bsxfun(@minus,shift(end,:),shift( rozsahel1,:)) + dd( rozsahel1,:) ,colors(c+1) );  
+                %lepsi bude je nezobrazovat
+                %rozsahel0 = intersect(rozsahel,obj.RjCh); %rejectovane kanaly                
+                %if numel(rozsahel0)>0 
+                    %hrj = plot(t, bsxfun(@minus,shift(end,:),shift( rozsahel0,:)) + dd( rozsahel0,:) ,'color',[.8 .8 .8] );  
+                    %uistack(hrj,'bottom');
+                %end
                 hold on;
                 c = 1-c;
             end
@@ -370,7 +377,7 @@ classdef CiEEGData < handle
             
             for j = 1:size(shift,1)
                 yshift = shift(end,1)-shift(j,1);
-                text(t(end),yshift,[ ' ' obj.CH.H.channels(1,elmin+j-1).neurologyLabel]);
+                text(t(end),yshift,[ ' ' obj.CH.H.channels(1,elmin+j-1).neurologyLabel ',' obj.CH.H.channels(1,elmin+j-1).ass_brainAtlas]);
                 text(t(1)-size(dd,2)/obj.fs/10,yshift,[ ' ' obj.CH.H.channels(1,elmin+j-1).name]);
                 if find(obj.RjCh==elmin-1+j) %oznacim vyrazene kanaly
                     text(t(1),yshift+50,' REJECTED');
@@ -395,8 +402,9 @@ classdef CiEEGData < handle
                         line([0 0]+(sj-s)*(obj.epochtime(2)-obj.epochtime(1)),[shift(1,1) shift(end,1)],'Color','g','LineWidth',4);
                     end
                 end
-                title(titul);                
-                text(t(end)-((t(end)-t(1))/10),-shift(2,1),[ 'excluded ' num2str(numel(obj.RjEpoch))]); 
+                title(titul);    
+                if allels==1, ty = -shift(4,1); else ty = -shift(2,1); end
+                text(t(end)-((t(end)-t(1))/10),ty,[ 'excluded ' num2str(numel(obj.RjEpoch))]); 
             end
             
         end
@@ -435,7 +443,8 @@ classdef CiEEGData < handle
             hold on;
             plot(T,M,'LineWidth',2);  %prumerna odpoved              
             xlim(obj.epochtime);
-            ylim( [min(min(mean(obj.d(:,:,iEp),3))) max(max(mean(obj.d(:,:,iEp),3)))]);
+            ymax = max(max(mean(obj.d(:,:,iEp),3)));
+            ylim( [min(min(mean(obj.d(:,:,iEp),3))) ymax]);
             if isfield(obj.Wp,'D2') %krivka p hodnot z W testu
                 Tr = linspace(0,obj.epochtime(2),size(obj.Wp.D2,1)); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
                 plot(Tr,obj.Wp.D2(:,ch),'Color',[.5 .5 .5]);
@@ -452,7 +461,7 @@ classdef CiEEGData < handle
                 plot(T,M,'LineWidth',1,'Color',colorskat(katnum+1));  %prumerna odpoved  
             end
             title(['channel ' num2str(ch)]);
-            text(0,1,[ obj.CH.H.channels(1,ch).name ' : ' obj.CH.H.channels(1,ch).neurologyLabel]);
+            text(-0.1,ymax*.95,[ obj.CH.H.channels(1,ch).name ' : ' obj.CH.H.channels(1,ch).neurologyLabel ',' obj.CH.H.channels(1,ch).ass_brainAtlas]);
             
             methodhandle = @obj.hybejPlotCh;
             set(obj.plotRCh.fh,'KeyPressFcn',methodhandle); 
@@ -496,10 +505,11 @@ classdef CiEEGData < handle
                 end
                 for ch=1:obj.channels %anatomicka jmena u signif kontaktu
                     if any(obj.Wp.D2(:,ch)<0.05)
-                        text(T(end)*1.1,ch,obj.CH.H.channels(1,ch).neurologyLabel);
+                        text(T(end)*1.07,ch,[ ' ' obj.CH.H.channels(1,ch).neurologyLabel ',' obj.CH.H.channels(1,ch).ass_brainAtlas],'FontSize',8);
                         text(T(end)/10,ch,num2str(ch),'color','w');
                     end
                 end
+                text(0,-3,['rejected ' num2str(numel(obj.RjEpoch)) ' epochs']);
             end
         end 
         
