@@ -194,7 +194,7 @@ classdef CiEEGData < handle
             iEp = all(epochsEx==0,2); %index epoch k pouziti
         end
             
-        function ResponseSearch(obj,timewindow)
+        function ResponseSearch(obj,timewindow,kats)
             %projede vsechny kanaly a hleda signif rozdil proti periode pred podnetem
             %timewindow - pokud dve hodnoty - porovnava prumernou hodnotu mezi nimi
             % -- pokud jedna hodnota, je to sirka klouzaveho okna - maximalni p z teto delky
@@ -204,9 +204,9 @@ classdef CiEEGData < handle
             iEp = obj.GetEpochsExclude(); %ziska seznam epoch k vyhodnoceni
             baseline = mean(obj.d(1: -iepochtime(1),:,iEp),1);  % 1 cas x kanaly x epochy - prumer za cas pred podnete,, pro vsechny epochy a jeden kanal
             if numel(itimewindow) == 2  %chci prumernou hodnotu d od do
-                response = mean(obj.d( (itimewindow(1) : itimewindow(2)) - iepochtime(1) , : , iEp ),1); %prumer v case
+                response = mean(obj.d( (itimewindow(1) : itimewindow(2)) - iepochtime(1) , : , iEp ),1); %prumer v case                
             else
-                response = obj.d(- iepochtime(1):end , :, iEp ); %hodnot po podnetu
+                response = obj.d(- iepochtime(1):end , :, iEp ); %hodnoty po podnetu                  
             end
             Wp = CStat.Wilcox2D(response,baseline,1); %#ok<PROP>
             if numel(itimewindow) == 1 %chci maximalni hodnotu p z casoveho okna
@@ -218,6 +218,21 @@ classdef CiEEGData < handle
                 obj.Wp.D1 = Wp; %#ok<PROP>%pole 1D signifikanci - jedna hodnota pro kazdy kanal
                 obj.Wp.D1params = timewindow;
                 obj.Wp.D1iEp = iEp; %index zpracovanych epoch pro zpetnou kontrolu
+            end
+            if exist('kats','var') && numel(kats)>1  && numel(timewindow)==1                                      
+                responsekat = cell(numel(kats),1); %response zvlast pro kazdou kat
+                for k = 1:numel(kats)
+                    katdata = obj.CategoryData(k-1); %epochy jedne kategorie, uz jsou vyrazeny vyrazene epochy, Kategorie se pocitaji od 0
+                    responsekat{k,1} = katdata(- iepochtime(1):end,:,:); %jen cas po podnetu; 
+                end
+                WpKat = cell(numel(kats));
+                for k = 1:numel(kats) %budu statisticky porovnavat kazdou kat s kazdou, bez ohledu na poradi
+                    for j = k+1:numel(kats)
+                        Wp = CStat.Wilcox2D(responsekat{k}, responsekat{j},1); %#ok<PROP>
+                        WpKat{k,j} = Wp; %CStat.Klouzaveokno(Wp,itimewindow(1),'max',1); %#ok<PROP>
+                    end
+                end
+                obj.Wp.WpKat = WpKat;
             end
             
         end
@@ -436,11 +451,16 @@ classdef CiEEGData < handle
             hold on;
             plot(T,M,'LineWidth',2);  %prumerna odpoved              
             xlim(obj.epochtime);
-            ymax = max(max(mean(obj.d(:,:,iEp),3)));
-            ylim( [min(min(mean(obj.d(:,:,iEp),3))) ymax]);
+            ymax = 0; ymin = 0;
+            for katnum=obj.PsyData.Categories()
+                katdata = obj.CategoryData(katnum); %epochy jedne kategorie
+                ymax = max([ ymax max(mean(katdata(:,:,:),3))]);
+                ymin = min([ ymin min(mean(katdata(:,:,:),3))]);
+            end           
+            ylim( [ymin ymax]);
             if isfield(obj.Wp,'D2') %krivka p hodnot z W testu
                 Tr = linspace(0,obj.epochtime(2),size(obj.Wp.D2,1)); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
-                plot(Tr,obj.Wp.D2(:,ch),'Color',[.5 .5 .5]);
+                plot(Tr,obj.Wp.D2(:,ch),'b:');  %carkovana modra cara oznacuje signifikanci prumeru
                 iWp = obj.Wp.D2(:,ch) <= 0.05;
                 plot(Tr(iWp),obj.Wp.D2(iWp,ch),'m.'); %fialove jsou p < 0.05
                 iWp = obj.Wp.D2(:,ch) <= 0.01;
@@ -452,6 +472,14 @@ classdef CiEEGData < handle
                 M = mean(katdata(:,ch,:),3);
                 %E = std(katdata(:,ch,:),[],3)/sqrt(size(katdata,3)); %std err of mean
                 plot(T,M,'LineWidth',1,'Color',colorskat(katnum+1));  %prumerna odpoved  
+                for l = katnum+1:numel(obj.PsyData.Categories())-1 %katnum jde od nuly
+                    if katnum==0, color=colorskat(l+1); else color = colorskat(1); end %green a red jsou proti kategorii 0, cerna je kat 1 vs kat 2
+                    plot(Tr,obj.Wp.WpKat{katnum+1,l+1}(:,ch),[color ':']); %carkovana cara oznacuje signifikanci kategorie vuci jine kategorii
+                    iWp = obj.Wp.WpKat{katnum+1,l+1}(:,ch)  <= 0.1; 
+                    plot(Tr(iWp),ones(1,sum(iWp))*-0.2, [ color '.']); %
+                    iWp = obj.Wp.WpKat{katnum+1,l+1}(:,ch)  <= 0.05;               
+                    plot(Tr(iWp),ones(1,sum(iWp))*-0.2, [ color '*']); %
+                end
             end
             title(['channel ' num2str(ch)]);
             text(-0.1,ymax*.95,[ obj.CH.H.channels(1,ch).name ' : ' obj.CH.H.channels(1,ch).neurologyLabel ',' obj.CH.H.channels(1,ch).ass_brainAtlas]);
