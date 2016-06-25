@@ -41,17 +41,19 @@ classdef CiEEGData < handle
             else
                 assert(numel(fs)==1,'fs must be a single number');
                 assert(size(d,1)== size(tabs,1),'d and tabs have to be the same length');
-                assert(size(mults,1)<= 1 || size(mults,1)==size(d,2),'d and mults have to have same number of channels');
-                obj.d = double(d);
-                [obj.samples,obj.channels, obj.epochs] = obj.DSize();
+                assert(size(mults,1)<= 1 || size(mults,1)==size(d,2),'d and mults have to have same number of channels');                
+               
                 obj.tabs = tabs;
                 obj.tabs_orig = tabs;
                 obj.fs = fs;
                 if exist('mults','var') && ~isempty(mults)
                     obj.mults = mults;
+                    obj.d = bsxfun(@times,double(d), mults); %rovnou to roznasobim mults, nechci to resit dodatecne - 24.6.2016
                 else
                     obj.mults = ones(1,size(d,2)); %defaultove jednicky pro kazdy kanal
+                    obj.d = d;
                 end
+                [obj.samples,obj.channels, obj.epochs] = obj.DSize();
                 if exist('header','var')
                     obj.header = header;
                 else
@@ -68,16 +70,8 @@ classdef CiEEGData < handle
             samples = size(obj.d,1);
             channels = size(obj.d,2);
             epochs = size(obj.d,3);
-        end
-        
-        function dd = DData(obj,ch,epoch)
-            % vraci jeden kanal a jednu epochu ze zaznamu. Implementovano kvuli nasobeni mults
-            if ~exist('epoch','var')
-                epoch = 1;            
-            end
-            dd = double(obj.d(:,ch,epoch)) .* obj.mults(ch);                           
-        end
-        
+        end    
+              
         function obj = GetHHeader(obj,H)
             %nacte header z promenne H - 25.5.2016
             obj.CH = CHHeader(H);
@@ -116,13 +110,12 @@ classdef CiEEGData < handle
                 [Kstring Knum] = obj.PsyData.Category(epoch);    %jmeno a cislo kategorie
                 obj.epochData(epoch,:)= {Kstring Knum obj.tabs(izacatek)}; %zacatek epochy beru z tabs aby sedel na tabs pri downsamplovani
                 for ch = 1:obj.channels %pro vsechny kanaly                    
-                    baseline = mean(double(obj.d(izacatek+iepochtime(1):izacatek-1,ch)).* obj.mults(ch)); %baseline toho jednoho kanalu, jedne epochy
-                    de(:,ch,epoch) = double(obj.d( izacatek+iepochtime(1) : izacatek+iepochtime(2)-1,ch)).* obj.mults(ch) - baseline; 
+                    baseline = mean(obj.d(izacatek+iepochtime(1):izacatek-1,ch)); %baseline toho jednoho kanalu, jedne epochy
+                    de(:,ch,epoch) = obj.d( izacatek+iepochtime(1) : izacatek+iepochtime(2)-1,ch) - baseline; 
                     tabs(:,epoch) = obj.tabs(izacatek+iepochtime(1) : izacatek+iepochtime(2)-1); %#ok<PROP>
                 end
             end
-            obj.d = de; %puvodni neepochovana budou epochovana
-            obj.mults = ones(1,size(obj.d,2)); %nove pole uz je double defaultove jednicky pro kazdy kanal
+            obj.d = de; %puvodni neepochovana budou epochovana            
             obj.tabs = tabs; %#ok<PROP>
             [obj.samples,obj.channels, obj.epochs] = obj.DSize();
         end
@@ -528,8 +521,7 @@ classdef CiEEGData < handle
             d = obj.d;                      %#ok<PROP,NASGU>            
             tabs = obj.tabs;                %#ok<PROP,NASGU>
             tabs_orig = obj.tabs_orig;      %#ok<PROP,NASGU>
-            fs = obj.fs;                    %#ok<PROP,NASGU>
-            mults = obj.mults;              %#ok<PROP,NASGU>
+            fs = obj.fs;                    %#ok<PROP,NASGU>            
             header = obj.header;            %#ok<PROP,NASGU>
             sce = [obj.samples obj.channels obj.epochs]; %#ok<NASGU>
             if isobject(obj.PsyData)
@@ -549,16 +541,16 @@ classdef CiEEGData < handle
             reference = obj.reference;      %#ok<PROP,NASGU>
             epochData = obj.epochData;      %#ok<PROP,NASGU>
             Wp = obj.Wp;                    %#ok<PROP,NASGU>
-            save(filename,'d','tabs','tabs_orig','fs','mults','header','sce','PsyDataP','epochtime','CH_H','els','plotES','RjCh','RjEpoch','epochTags','epochLast','reference','epochData','Wp','-v7.3');            
+            save(filename,'d','tabs','tabs_orig','fs','header','sce','PsyDataP','epochtime','CH_H','els','plotES','RjCh','RjEpoch','epochTags','epochLast','reference','epochData','Wp','-v7.3');            
         end
         function obj = Load(obj,filename)
             % nacte veskere promenne tridy ze souboru
-            load(filename,'d','tabs','tabs_orig','fs','mults','header','sce','epochtime','els','plotES','RjCh','RjEpoch','epochTags','epochLast','reference');            
+            load(filename,'d','tabs','tabs_orig','fs','header','sce','epochtime','els','plotES','RjCh','RjEpoch','epochTags','epochLast','reference');            
             obj.d = d;                      %#ok<CPROP,PROP>
             obj.tabs = tabs;                %#ok<CPROP,PROP>
             obj.tabs_orig = tabs_orig;      %#ok<CPROP,PROP>
             obj.fs = fs;                    %#ok<CPROP,PROP>           
-            obj.mults = mults;              %#ok<CPROP,PROP>
+            obj.mults = ones(1,size(d,2));       %#ok<CPROP,PROP>
             obj.header = header;            %#ok<CPROP,PROP>
             obj.samples = sce(1); obj.channels=sce(2); obj.epochs = sce(3); 
             vars = whos('-file',filename);

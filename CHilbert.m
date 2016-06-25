@@ -36,7 +36,7 @@ classdef CHilbert < CiEEGData
                 for fno = 1:numel(freq)-1 %seznam frekvenci
                     loF = freq(fno);
                     hiF = freq(fno+1)-1; 
-                    hh = obj.hilbertJirka(obj.DData(ch),loF,hiF,obj.fs); %cista hilbertova obalka, tohle i skript hodne zrychli
+                    hh = obj.hilbertJirka(obj.d(:,ch),loF,hiF,obj.fs); %cista hilbertova obalka, tohle i skript hodne zrychli
                     hh = decimate(hh,obj.decimatefactor); % mensi sampling rate                    
                     obj.HFreq(:,ch,fno) = (hh./mean(hh)); %podil prumeru = prumerna hodnota
                     %fprintf('%i Hz, ',loF);

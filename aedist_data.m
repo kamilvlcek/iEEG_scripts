@@ -38,7 +38,7 @@ podminka(3,:)={'znacka' 2};
 
 aedist = struct('data',data,'sloupce',sloupce);
 aedist.strings.klavesa = klavesa;
-aedist.strings.kategorie = podminka; %kategorie, aby nazev byl stejny jako u PPA
+aedist.strings.podminka = podminka; %kategorie, aby nazev byl stejny jako u PPA
 
 %timestampy zacatku a konce dat z testu
 aedist.interval = [tabs(1) tabs(end)];
