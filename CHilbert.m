@@ -82,6 +82,30 @@ classdef CHilbert < CiEEGData
             end
         end
         
+        function PlotResponseFreq(obj,ch)
+            figure('Name','ResponseFreq','Position', [100, 100, 1300, 300]); %'position', [0, 0, 200, 500]
+            maxy = 0;
+            miny = 0;
+            for k = 1:numel(obj.PsyData.Categories())
+                subplot(1,numel(obj.PsyData.Categories()),k);
+                T = obj.epochtime(1):0.1:obj.epochtime(2);
+                F =  (obj.Hf(1:end-1) + obj.Hf(2:end)) ./ 2;
+                D = squeeze(obj.HFreq(:,ch,:,k));
+                imagesc(T,F, D');
+                maxy = max([maxy max(max( D ))]);
+                miny = min([miny min(min( D ))]);                
+                axis xy;               
+                xlabel('time [s]');                
+            end
+            for k = 1:numel(obj.PsyData.Categories())
+                subplot(1,numel(obj.PsyData.Categories()),k);
+                caxis([miny,maxy]);
+                title( obj.PsyData.CategoryName(k-1));
+                if k == 1, ylabel(['channel ' num2str(ch) ' - freq [Hz]']); end
+                if k == numel(obj.PsyData.Categories()), colorbar('Position',[0.92 0.1 0.02 0.82]); end
+            end
+        end 
+        
         %% SAVE AND LOAD FILE
         %dve funkce na ulozeni a nacteni vypocitane Hilbertovy obalky, protoze to trva hrozne dlouho
         %uklada se vcetne dat parenta CiEEGData

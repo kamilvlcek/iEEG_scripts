@@ -472,13 +472,15 @@ classdef CiEEGData < handle
                 M = mean(katdata(:,ch,:),3);
                 %E = std(katdata(:,ch,:),[],3)/sqrt(size(katdata,3)); %std err of mean
                 plot(T,M,'LineWidth',1,'Color',colorskat(katnum+1));  %prumerna odpoved  
-                for l = katnum+1:numel(obj.PsyData.Categories())-1 %katnum jde od nuly
-                    if katnum==0, color=colorskat(l+1); else color = colorskat(1); end %green a red jsou proti kategorii 0, cerna je kat 1 vs kat 2
-                    plot(Tr,obj.Wp.WpKat{katnum+1,l+1}(:,ch),[color ':']); %carkovana cara oznacuje signifikanci kategorie vuci jine kategorii
-                    iWp = obj.Wp.WpKat{katnum+1,l+1}(:,ch)  <= 0.1; 
-                    plot(Tr(iWp),ones(1,sum(iWp))*-0.2, [ color '.']); %
-                    iWp = obj.Wp.WpKat{katnum+1,l+1}(:,ch)  <= 0.05;               
-                    plot(Tr(iWp),ones(1,sum(iWp))*-0.2, [ color '*']); %
+                if isfield(obj.Wp,'WpKat')
+                    for l = katnum+1:numel(obj.PsyData.Categories())-1 %katnum jde od nuly
+                        if katnum==0, color=colorskat(l+1); else color = colorskat(1); end %green a red jsou proti kategorii 0, cerna je kat 1 vs kat 2
+                        plot(Tr,obj.Wp.WpKat{katnum+1,l+1}(:,ch),[color ':']); %carkovana cara oznacuje signifikanci kategorie vuci jine kategorii
+                        iWp = obj.Wp.WpKat{katnum+1,l+1}(:,ch)  <= 0.1; 
+                        plot(Tr(iWp),ones(1,sum(iWp))*-0.2, [ color '.']); %
+                        iWp = obj.Wp.WpKat{katnum+1,l+1}(:,ch)  <= 0.05;               
+                        plot(Tr(iWp),ones(1,sum(iWp))*-0.2, [ color '*']); %
+                    end
                 end
             end
             title(['channel ' num2str(ch)]);
@@ -487,8 +489,8 @@ classdef CiEEGData < handle
             methodhandle = @obj.hybejPlotCh;
             set(obj.plotRCh.fh,'KeyPressFcn',methodhandle); 
             obj.plotRCh.ch = ch;
-        end
-        
+        end        
+            
         function PlotResponseP(obj)
             %vykresli signifikanci odpovedi u vsech kanalu EEG vypocitanou pomoci ResponseSearch                                
             assert(obj.epochs > 1,'only for epoched data');
@@ -534,7 +536,7 @@ classdef CiEEGData < handle
             end
         end 
         
-        
+             
         
         
         %% SAVE AND LOAD FILE
