@@ -28,7 +28,7 @@ classdef CHilbert < CiEEGData
             %   freq    seznam freqvenci pro ktere se ma delat prumer - lo, .., ..., .., hi
             if ~exist('channels','var'), channels = 1:obj.channels; end
             obj.HFreq = zeros(ceil(obj.samples/obj.decimatefactor),obj.channels,numel(freq)-1); %inicializace pole   
-            fprintf('kanal ze %i: ', obj.channels);
+            fprintf('kanal ze %i: ', max(channels) );
             for ch = channels %jednotlive elektrody
                 %fprintf('channel %i: Hz ',ch);
                            
@@ -135,7 +135,9 @@ classdef CHilbert < CiEEGData
                 load(CHilbert.filenameH(filename),'HFreq','Hf','yrange');
                 obj.HFreq = HFreq;  %#ok<CPROP,PROP>            
                 obj.Hf = Hf;                %#ok<CPROP,PROP>
-                obj.yrange = yrange;       
+                obj.yrange = yrange;
+            else
+                warning(['soubor neexistuje ' CHilbert.filenameH(filename)]);
             end
             obj.hfilename = filename; 
         end                      
@@ -173,7 +175,8 @@ classdef CHilbert < CiEEGData
             %vraci jmeno souboru s daty tridy CiEEGData
            filename=strrep(filename,'_CHilb',''); %odstranim pripony vytvorene pri save
            filename=strrep(filename,'_CiEEG','');
-           [pathstr,fname,ext] = fileparts(filename);           
+           [pathstr,fname,ext] = fileparts(filename);  
+           if numel(ext)<1, ext = '.mat'; end
            filename2 = fullfile(pathstr,[fname '_CiEEG' ext]);
         end
         function filename2 = filenameH(filename)
@@ -181,6 +184,7 @@ classdef CHilbert < CiEEGData
            filename=strrep(filename,'_CHilb',''); %odstranim pripony vytvorene pri save
            filename=strrep(filename,'_CiEEG','');
            [pathstr,fname,ext] = fileparts(filename); 
+           if numel(ext)<1, ext = '.mat'; end
            filename2 = fullfile(pathstr,[fname '_CHilb' ext]);
         end
     end
