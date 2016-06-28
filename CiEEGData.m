@@ -22,6 +22,7 @@ classdef CiEEGData < handle
         plotES; % current electrode, second of plot/epoch, range of y values, time range, allels, rangey all els
         plotH;  % handle to plot
         plotRCh = struct; %stavove udaje o grafu PlotResponseCh
+        plotEp = struct; %stavove udaje o grafu PlotEpochs
         RjCh; %seznam cisel rejectovanych kanalu
         RjEpoch; %seznam vyrazenych epoch
         epochTags; %seznam oznacenych epoch
@@ -258,7 +259,42 @@ classdef CiEEGData < handle
             end  
             colorbar;
         end
-       
+        
+        function PlotEpochs(obj,ch)
+            %uchovani stavu grafu, abych ho mohl obnovit a ne kreslit novy
+            if ~exist('ch','var')
+                if isfield(obj.plotEp,'ch'), ch = obj.plotEp.ch;
+                else ch = 1;  end
+            end
+            if isfield(obj.plotEp,'fh') && ishandle(obj.plotEp.fh)
+                figure(obj.plotEp.fh); %pouziju uz vytvoreny graf
+                %clf(obj.plotEp.fh); %graf vycistim
+            else
+                obj.plotEp.fh = figure('Name','All Epochs','Position', [20, 100, 1200, 300]);
+            end
+            T = linspace(obj.epochtime(1),obj.epochtime(2),size(obj.d,1)); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
+            
+            maxy = 0; %budu pocitat za vsechny kategorie
+            miny = 0;
+            for katnum = obj.PsyData.Categories();
+                subplot(1,numel(obj.PsyData.Categories()),katnum+1);
+                dkat = obj.CategoryData(katnum);
+                E = 1:size(dkat,3); %cisla epoch - kazdou kategorii muze byt jine                
+                D = squeeze(dkat(:,ch,:));
+                imagesc(T,E,D');
+                maxy = max([maxy max(max( D ))]);
+                miny = min([miny min(min( D ))]);                
+                xlabel('Time [s]');                
+                title(obj.PsyData.CategoryName(katnum));
+            end       
+            for katnum = obj.PsyData.Categories();
+                subplot(1,numel(obj.PsyData.Categories()),katnum+1);
+                caxis([miny,maxy]);
+                if katnum == 0, ylabel([ 'Epochs - channel ' num2str(ch)]); end %ylabel jen u prniho obrazku
+                if katnum == numel(obj.PsyData.Categories())-1, colorbar('Position',[0.92 0.1 0.02 0.82]); end
+            end
+        end
+        
         function PlotCategory(obj,katnum,channel)
             %vykresli vsechny a prumernou odpoved na kategorii podnetu
             d1=obj.CategoryData(katnum); %epochy jedne kategorie
@@ -744,7 +780,8 @@ classdef CiEEGData < handle
                case 'pageup'
                    obj.PlotResponseCh( max( [obj.plotRCh.ch - 10 , 1]));
                case 'space' %zobrazi i prumerne krivky
-                   obj.PlotResponseFreq(obj.plotRCh.ch);
+                   obj.PlotResponseFreq(obj.plotRCh.ch); %vykreslim vsechna frekvencni pasma
+                   obj.PlotEpochs(obj.plotRCh.ch); %vykreslim prumery freq u vsech epoch
                    figure(obj.plotRCh.fh); %dam puvodni obrazek dopredu
            end
         end

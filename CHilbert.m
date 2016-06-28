@@ -84,18 +84,16 @@ classdef CHilbert < CiEEGData
         end
         
         function PlotResponseFreq(obj,ch)
+            %uchovani stavu grafu, abych ho mohl obnovit a ne kreslit novy
             if ~exist('ch','var')
-                if isfield(obj.plotF,'ch')
-                    ch = obj.plotF.ch;
-                else
-                    ch = 1;                    
-                end
+                if isfield(obj.plotF,'ch'), ch = obj.plotF.ch;
+                else ch = 1;  end
             end
-            if isfield(obj.plotF,'fh')
+            if isfield(obj.plotF,'fh') && ishandle(obj.plotEp.fh)
                 figure(obj.plotF.fh); %pouziju uz vytvoreny graf
-                clf(obj.plotF.fh); %graf vycistim
+                %clf(obj.plotF.fh); %graf vycistim
             else
-                obj.plotF.fh = figure('Name','ResponseFreq','Position', [20, 100, 1200, 300]);
+                obj.plotF.fh = figure('Name','ResponseFreq','Position', [20, 500, 1200, 300]);
             end             
             maxy = 0;
             miny = 0;
