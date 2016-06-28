@@ -27,7 +27,8 @@ classdef CStat
                 end
             end
             if fdr
-                [~, ~, adj_p]=fdr_bh(W,0.05,'dep','no'); %dep je striktnejsi nez pdep
+                if fdr == 2, method = 'dep'; else method = 'pdep'; end
+                [~, ~, adj_p]=fdr_bh(W,0.05,method,'no'); %dep je striktnejsi nez pdep
                 W = adj_p; %prepisu puvodni hodnoty korigovanymi podle FDR
             end
             if print, fprintf('%d .. done\n',j); end

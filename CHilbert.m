@@ -87,7 +87,9 @@ classdef CHilbert < CiEEGData
             %uchovani stavu grafu, abych ho mohl obnovit a ne kreslit novy
             if ~exist('ch','var')
                 if isfield(obj.plotF,'ch'), ch = obj.plotF.ch;
-                else ch = 1;  end
+                else ch = 1; obj.plotF.ch = ch; end
+            else
+                obj.plotF.ch = ch;
             end
             if isfield(obj.plotF,'fh') && ishandle(obj.plotEp.fh)
                 figure(obj.plotF.fh); %pouziju uz vytvoreny graf
@@ -108,6 +110,11 @@ classdef CHilbert < CiEEGData
                 axis xy;               
                 xlabel('time [s]');                
             end
+            if isfield(obj.plotF,'ylim') && numel(obj.plotF.ylim)>=2 %nactu nebo ulozim hodnoty y
+                miny = obj.plotF.ylim(1); maxy = obj.plotF.ylim(2);
+            else
+                obj.plotF.ylim = [miny maxy];
+            end
             for k = 1:numel(obj.PsyData.Categories())
                 subplot(1,numel(obj.PsyData.Categories()),k);
                 caxis([miny,maxy]);
@@ -116,10 +123,8 @@ classdef CHilbert < CiEEGData
                 if k == numel(obj.PsyData.Categories()), colorbar('Position',[0.92 0.1 0.02 0.82]); end
             end
             
-            obj.plotF.ch = ch;
             methodhandle = @obj.hybejPlotF;
-            set(obj.plotF.fh,'KeyPressFcn',methodhandle); 
-            
+            set(obj.plotF.fh,'KeyPressFcn',methodhandle);             
         end 
         
         %% SAVE AND LOAD FILE
@@ -219,6 +224,23 @@ classdef CHilbert < CiEEGData
                case 'space' %zobrazi i prumerne krivky
                    obj.PlotResponseCh(obj.plotF.ch);
                    figure(obj.plotF.fh); %dam puvodni obrazek dopredu
+               case 'multiply' %hvezdicka na numericke klavesnici
+                   %dialog na vlozeni minima a maxima osy y
+                   answ = inputdlg('Enter ymax and min:','Yaxis limits', [1 50],{num2str(obj.plotF.ylim)});
+                   if numel(answ)>0  %odpoved je vzdy cell 1x1 - pri cancel je to cell 0x0
+                       if isempty(answ{1}) || any(answ{1}=='*') %pokud vlozim hvezdicku nebo nic, chci znovy spocitat max a min
+                           obj.plotF.ylim = [];
+                       else %jinak predpokladam dve hodnoty
+                           data = str2num(answ{:});  %#ok<ST2NM>
+                           if numel(data)>= 2 %pokud nejsou dve hodnoty, nedelam nic
+                             obj.plotF.ylim = [data(1) data(2)];
+                           end
+                       end
+                   end
+                   obj.PlotResponseFreq( obj.plotF.ch); %prekreslim grafy
+                case 'delete' %Del na numericke klavesnici
+                   obj.plotF.ylim = [];
+                   obj.PlotResponseFreq( obj.plotEp.ch); %prekreslim grafy
            end
         end
     end

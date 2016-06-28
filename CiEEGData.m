@@ -209,11 +209,12 @@ classdef CiEEGData < handle
             else
                 response = obj.d(- iepochtime(1):end , :, iEp ); %hodnoty po podnetu                  
             end
-            Wp = CStat.Wilcox2D(response,baseline,1); %#ok<PROP>
+            Wp = CStat.Wilcox2D(response,baseline,1); %#ok<PROP> %1=mene striktni pdep, 2=striktnejsi dep;
             if numel(itimewindow) == 1 %chci maximalni hodnotu p z casoveho okna
                 Wp = CStat.Klouzaveokno(Wp,itimewindow(1),'max',1); %#ok<PROP>
                 obj.Wp.D2 = Wp; %#ok<PROP> %pole 2D signifikanci si ulozim kvuli kresleni - cas x channels
                 obj.Wp.D2params = timewindow;
+                obj.Wp.D2fdr = 1;
                 obj.Wp.D2iEp = iEp; %index zpracovanych epoch pro zpetnou kontrolu
             else
                 obj.Wp.D1 = Wp; %#ok<PROP>%pole 1D signifikanci - jedna hodnota pro kazdy kanal
@@ -264,7 +265,9 @@ classdef CiEEGData < handle
             %uchovani stavu grafu, abych ho mohl obnovit a ne kreslit novy
             if ~exist('ch','var')
                 if isfield(obj.plotEp,'ch'), ch = obj.plotEp.ch;
-                else ch = 1;  end
+                else ch = 1; obj.plotEp.ch = ch; end
+            else
+                obj.plotEp.ch = ch;
             end
             if isfield(obj.plotEp,'fh') && ishandle(obj.plotEp.fh)
                 figure(obj.plotEp.fh); %pouziju uz vytvoreny graf
@@ -286,13 +289,20 @@ classdef CiEEGData < handle
                 miny = min([miny min(min( D ))]);                
                 xlabel('Time [s]');                
                 title(obj.PsyData.CategoryName(katnum));
-            end       
+            end    
+            if isfield(obj.plotEp,'ylim') && numel(obj.plotEp.ylim)>=2 %nactu nebo ulozim hodnoty y
+                miny = obj.plotEp.ylim(1); maxy = obj.plotEp.ylim(2);
+            else
+                obj.plotEp.ylim = [miny maxy];
+            end
             for katnum = obj.PsyData.Categories();
                 subplot(1,numel(obj.PsyData.Categories()),katnum+1);
                 caxis([miny,maxy]);
                 if katnum == 0, ylabel([ 'Epochs - channel ' num2str(ch)]); end %ylabel jen u prniho obrazku
                 if katnum == numel(obj.PsyData.Categories())-1, colorbar('Position',[0.92 0.1 0.02 0.82]); end
             end
+            methodhandle = @obj.hybejPlotEpochs;
+            set(obj.plotEp.fh,'KeyPressFcn',methodhandle); 
         end
         
         function PlotCategory(obj,katnum,channel)
@@ -466,11 +476,10 @@ classdef CiEEGData < handle
             %vykresli odpovedi pro jednotlivy kanal
             assert(obj.epochs > 1,'only for epoched data');
             if ~exist('ch','var')
-                if isfield(obj.plotRCh,'ch')
-                    ch = obj.plotRCh.ch;
-                else
-                    ch = 1;
-                end
+                if isfield(obj.plotRCh,'ch'), ch = obj.plotRCh.ch;
+                else ch = 1; obj.plotRCh.ch = ch; end
+            else
+                obj.plotRCh.ch = ch;
             end
             T = linspace(obj.epochtime(1),obj.epochtime(2),size(obj.d,1)); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
             if isfield(obj.plotRCh,'fh')
@@ -487,7 +496,7 @@ classdef CiEEGData < handle
             hold on;
             plot(T,M,'LineWidth',2);  %prumerna odpoved              
             xlim(obj.epochtime);
-            if isfield(obj.plotRCh,'ylim')
+            if isfield(obj.plotRCh,'ylim') && numel(obj.plotRCh.ylim)>=2
                 ylim( obj.plotRCh.ylim);
                 ymax = obj.plotRCh.ylim(2);
             else
@@ -529,9 +538,7 @@ classdef CiEEGData < handle
             text(-0.1,ymax*.95,[ obj.CH.H.channels(1,ch).name ' : ' obj.CH.H.channels(1,ch).neurologyLabel ',' obj.CH.H.channels(1,ch).ass_brainAtlas]);
             
             methodhandle = @obj.hybejPlotCh;
-            set(obj.plotRCh.fh,'KeyPressFcn',methodhandle); 
-            obj.plotRCh.ch = ch;
-            
+            set(obj.plotRCh.fh,'KeyPressFcn',methodhandle);          
         end        
             
         function PlotResponseP(obj)
@@ -779,11 +786,51 @@ classdef CiEEGData < handle
                    obj.PlotResponseCh( max( [obj.plotRCh.ch - 1 , 1]));
                case 'pageup'
                    obj.PlotResponseCh( max( [obj.plotRCh.ch - 10 , 1]));
+               case 'multiply' %hvezdicka na numericke klavesnici
+                   %dialog na vlozeni minima a maxima osy y
+                   answ = inputdlg('Enter ymax and min:','Yaxis limits', [1 50],{num2str(obj.plotRCh.ylim)});
+                   if numel(answ)>0  %odpoved je vzdy cell 1x1 - pri cancel je to cell 0x0
+                       if isempty(answ{1}) || any(answ{1}=='*') %pokud vlozim hvezdicku nebo nic, chci znovy spocitat max a min
+                           obj.plotRCh.ylim = [];
+                       else %jinak predpokladam dve hodnoty
+                           data = str2num(answ{:});  %#ok<ST2NM>
+                           if numel(data)>= 2 %pokud nejsou dve hodnoty, nedelam nic
+                             obj.plotRCh.ylim = [data(1) data(2)];
+                           end
+                       end
+                   end
+                   obj.PlotResponseCh( obj.plotRCh.ch); %prekreslim grafy
                case 'space' %zobrazi i prumerne krivky
                    obj.PlotResponseFreq(obj.plotRCh.ch); %vykreslim vsechna frekvencni pasma
                    obj.PlotEpochs(obj.plotRCh.ch); %vykreslim prumery freq u vsech epoch
                    figure(obj.plotRCh.fh); %dam puvodni obrazek dopredu
+               otherwise
+                   disp(['You just pressed: ' eventDat.Key]);
            end
+        end
+        
+        function hybejPlotEpochs(obj,~,eventDat)
+            %reaguje na klavesy v PlotEpochs
+            switch eventDat.Key 
+                case 'multiply' %hvezdicka na numericke klavesnici
+                   %dialog na vlozeni minima a maxima osy y
+                   answ = inputdlg('Enter ymax and min:','Yaxis limits', [1 50],{num2str(obj.plotEp.ylim)});
+                   if numel(answ)>0  %odpoved je vzdy cell 1x1 - pri cancel je to cell 0x0
+                       if isempty(answ{1}) || any(answ{1}=='*') %pokud vlozim hvezdicku nebo nic, chci znovy spocitat max a min
+                           obj.plotEp.ylim = [];
+                       else %jinak predpokladam dve hodnoty
+                           data = str2num(answ{:});  %#ok<ST2NM>
+                           if numel(data)>= 2 %pokud nejsou dve hodnoty, nedelam nic
+                             obj.plotEp.ylim = [data(1) data(2)];
+                           end
+                       end
+                   end
+                   obj.PlotEpochs( obj.plotEp.ch); %prekreslim grafy
+               case 'delete' %Del na numericke klavesnici
+                   obj.plotEp.ylim = [];
+                   obj.PlotEpochs( obj.plotEp.ch); %prekreslim grafy
+            end
+                   
         end
         function obj = AddTag(obj,s)
            if ~exist('s','var')
