@@ -7,7 +7,8 @@ classdef CHilbert < CiEEGData
     properties (Access = public)
         HFreq; %hilberova obalka pro kazde frekvenci pasmo - time x channel x freq (x kategorie)
         Hf; %frekvencni pasma pro ktere jsou pocitany obalky
-        hfilename; %jmeno souboru CHilbert        
+        hfilename; %jmeno souboru CHilbert  
+        plotF = struct; %udaje o stavu plotu PlotResponseFreq
     end
     methods (Access = public)
         %% ELEMENTAL FUNCTIONS 
@@ -34,8 +35,8 @@ classdef CHilbert < CiEEGData
                            
                 fprintf('%i,',ch);
                 for fno = 1:numel(freq)-1 %seznam frekvenci
-                    loF = freq(fno);
-                    hiF = freq(fno+1)-1; 
+                    loF = freq(fno); 
+                    hiF = freq(fno+1)-0.1;  %napr 50 - 59.9
                     hh = obj.hilbertJirka(obj.d(:,ch),loF,hiF,obj.fs); %cista hilbertova obalka, tohle i skript hodne zrychli
                     hh = decimate(hh,obj.decimatefactor); % mensi sampling rate                    
                     obj.HFreq(:,ch,fno) = (hh./mean(hh)); %podil prumeru = prumerna hodnota
@@ -83,7 +84,19 @@ classdef CHilbert < CiEEGData
         end
         
         function PlotResponseFreq(obj,ch)
-            figure('Name','ResponseFreq','Position', [100, 100, 1300, 300]); %'position', [0, 0, 200, 500]
+            if ~exist('ch','var')
+                if isfield(obj.plotF,'ch')
+                    ch = obj.plotF.ch;
+                else
+                    ch = 1;                    
+                end
+            end
+            if isfield(obj.plotF,'fh')
+                figure(obj.plotF.fh); %pouziju uz vytvoreny graf
+                clf(obj.plotF.fh); %graf vycistim
+            else
+                obj.plotF.fh = figure('Name','ResponseFreq','Position', [20, 100, 1200, 300]);
+            end             
             maxy = 0;
             miny = 0;
             for k = 1:numel(obj.PsyData.Categories())
@@ -104,6 +117,11 @@ classdef CHilbert < CiEEGData
                 if k == 1, ylabel(['channel ' num2str(ch) ' - freq [Hz]']); end
                 if k == numel(obj.PsyData.Categories()), colorbar('Position',[0.92 0.1 0.02 0.82]); end
             end
+            
+            obj.plotF.ch = ch;
+            methodhandle = @obj.hybejPlotF;
+            set(obj.plotF.fh,'KeyPressFcn',methodhandle); 
+            
         end 
         
         %% SAVE AND LOAD FILE
@@ -188,6 +206,23 @@ classdef CHilbert < CiEEGData
            filename2 = fullfile(pathstr,[fname '_CHilb' ext]);
         end
     end
-    
+    methods  (Access = private)
+        function hybejPlotF(obj,~,eventDat)  
+           %reaguje na udalosti v grafu PlotResponseCh
+           switch eventDat.Key
+               case 'rightarrow' 
+                   obj.PlotResponseFreq( min( [obj.plotF.ch + 1 , obj.channels]));
+               case 'pagedown' 
+                   obj.PlotResponseFreq( min( [obj.plotF.ch + 10 , obj.channels]));
+               case 'leftarrow'
+                   obj.PlotResponseFreq( max( [obj.plotF.ch - 1 , 1]));
+               case 'pageup'
+                   obj.PlotResponseFreq( max( [obj.plotF.ch - 10 , 1]));
+               case 'space' %zobrazi i prumerne krivky
+                   obj.PlotResponseCh(obj.plotF.ch);
+                   figure(obj.plotF.fh); %dam puvodni obrazek dopredu
+           end
+        end
+    end
 end
 

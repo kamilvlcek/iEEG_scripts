@@ -451,13 +451,19 @@ classdef CiEEGData < handle
             hold on;
             plot(T,M,'LineWidth',2);  %prumerna odpoved              
             xlim(obj.epochtime);
-            ymax = 0; ymin = 0;
-            for katnum=obj.PsyData.Categories()
-                katdata = obj.CategoryData(katnum); %epochy jedne kategorie
-                ymax = max([ ymax max(mean(katdata(:,:,:),3))]);
-                ymin = min([ ymin min(mean(katdata(:,:,:),3))]);
-            end           
-            ylim( [ymin ymax]);
+            if isfield(obj.plotRCh,'ylim')
+                ylim( obj.plotRCh.ylim);
+                ymax = obj.plotRCh.ylim(2);
+            else
+                ymax = 0; ymin = 0;
+                for katnum=obj.PsyData.Categories()
+                    katdata = obj.CategoryData(katnum); %epochy jedne kategorie
+                    ymax = max([ ymax max(mean(katdata(:,:,:),3))]);
+                    ymin = min([ ymin min(mean(katdata(:,:,:),3))]);
+                end           
+                ylim( [ymin ymax]);
+                obj.plotRCh.ylim = [ymin ymax];
+            end
             if isfield(obj.Wp,'D2') %krivka p hodnot z W testu
                 Tr = linspace(0,obj.epochtime(2),size(obj.Wp.D2,1)); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
                 plot(Tr,obj.Wp.D2(:,ch),'b:');  %carkovana modra cara oznacuje signifikanci prumeru
@@ -489,6 +495,7 @@ classdef CiEEGData < handle
             methodhandle = @obj.hybejPlotCh;
             set(obj.plotRCh.fh,'KeyPressFcn',methodhandle); 
             obj.plotRCh.ch = ch;
+            
         end        
             
         function PlotResponseP(obj)
@@ -736,6 +743,9 @@ classdef CiEEGData < handle
                    obj.PlotResponseCh( max( [obj.plotRCh.ch - 1 , 1]));
                case 'pageup'
                    obj.PlotResponseCh( max( [obj.plotRCh.ch - 10 , 1]));
+               case 'space' %zobrazi i prumerne krivky
+                   obj.PlotResponseFreq(obj.plotRCh.ch);
+                   figure(obj.plotRCh.fh); %dam puvodni obrazek dopredu
            end
         end
         function obj = AddTag(obj,s)
