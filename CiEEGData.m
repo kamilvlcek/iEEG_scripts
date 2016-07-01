@@ -230,7 +230,7 @@ classdef CiEEGData < handle
                 for k = 1:numel(kats) %budu statisticky porovnavat kazdou kat s kazdou, bez ohledu na poradi
                     for j = k+1:numel(kats)
                         Wp = CStat.Wilcox2D(responsekat{k}, responsekat{j},1); %#ok<PROP>
-                        WpKat{k,j} = Wp; %CStat.Klouzaveokno(Wp,itimewindow(1),'max',1); %#ok<PROP>
+                        WpKat{k,j} = Wp; %#ok<PROP> %CStat.Klouzaveokno(Wp,itimewindow(1),'max',1); %#ok<PROP>
                     end
                 end
                 obj.Wp.WpKat = WpKat;
@@ -471,9 +471,15 @@ classdef CiEEGData < handle
             plot(obj.RjEpoch,kategorie(obj.RjEpoch),'*r','MarkerSize',5); %vykreslim vyrazene epochy
         end
         
-        function PlotResponseCh(obj,ch)
+        function PlotResponseCh(obj,ch,pvalue)
             %vykresli odpovedi pro jednotlivy kanal
             assert(obj.epochs > 1,'only for epoched data');
+            if ~exist('pvalue','var')
+                if isfield(obj.plotRCh,'pvalue'), pvalue = obj.plotRCh.pvalue;
+                else pvalue = 0; obj.plotRCh.pvalue = pvalue; end %defaulne se NEzobrazuje krivka p value, ale je mozne ji zobrazit
+            else
+                obj.plotRCh.pvalue = pvalue;
+            end
             if ~exist('ch','var')
                 if isfield(obj.plotRCh,'ch'), ch = obj.plotRCh.ch;
                 else ch = 1; obj.plotRCh.ch = ch; end
@@ -491,9 +497,9 @@ classdef CiEEGData < handle
             iEp=obj.GetEpochsExclude();  
             M = mean(obj.d(:,ch,iEp),3);                
             E = std(obj.d(:,ch,iEp),[],3)/sqrt(size(obj.d,3)); %std err of mean
-            errorbar(T,M,E,'.','color',[.8 .8 .8]); %nejdriv vykreslim errorbars aby byly vzadu
+            h_errbar = errorbar(T,M,E,'.','Color',[.6 .6 1]); %nejdriv vykreslim errorbars aby byly vzadu [.8 .8 .8]
             hold on;
-            plot(T,M,'LineWidth',2);  %prumerna odpoved              
+            h_mean = plot(T,M,'LineWidth',2,'Color',[0 0 1]);  %prumerna odpoved, ulozim si handle na krivku          
             xlim(obj.epochtime);
             if isfield(obj.plotRCh,'ylim') && numel(obj.plotRCh.ylim)>=2
                 ylim( obj.plotRCh.ylim);
@@ -510,29 +516,54 @@ classdef CiEEGData < handle
             end
             if isfield(obj.Wp,'D2') %krivka p hodnot z W testu
                 Tr = linspace(0,obj.epochtime(2),size(obj.Wp.D2,1)); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
-                plot(Tr,obj.Wp.D2(:,ch),'b:');  %carkovana modra cara oznacuje signifikanci prumeru
+                if pvalue %pokud chci zobrazovat hodnotu p value jako krivku
+                    plot(Tr,obj.Wp.D2(:,ch),'b:');  %carkovana modra cara oznacuje signifikanci prumeru
+                end
                 iWp = obj.Wp.D2(:,ch) <= 0.05;
-                plot(Tr(iWp),obj.Wp.D2(iWp,ch),'m.'); %fialove jsou p < 0.05
+                plot(Tr(iWp),ones(1,sum(iWp))*-0.1,'b.'); %tecky jsou p < 0.05                
+                iWpfirst = find(iWp,1,'first');  
+                if(numel(iWpfirst)>0) 
+                    text(-0.01,-0.1,[ num2str( round(Tr(iWpfirst)*1000)) 'ms']); %cas zacatku signifikance
+                    text(-0.18,-0.1,[ 'p=' num2str(CStat.round(min(obj.Wp.D2(:,ch)),3))]);  %cas zacatku signifikance 
+                    line([Tr(iWpfirst) Tr(iWpfirst)],obj.plotRCh.ylim,'Color','blue'); %modra svisla cara u zacatku signifikance
+                end
                 iWp = obj.Wp.D2(:,ch) <= 0.01;
-                plot(Tr(iWp),obj.Wp.D2(iWp,ch),'r.'); %cervene jsou p < 0.01
+                plot(Tr(iWp),ones(1,sum(iWp))*-0.1,'b*'); %hvezdicky jsou p < 0.01
             end
-            colorskat = 'kgr';
+            
+            hue = 0.8;
+            colorskat = {[0 0 0],[0 1 0],[1 0 0]; [hue hue hue],[hue 1 hue],[1 hue hue]}; % prvni radka - prumery, druha radka errorbars = svetlejsi
+            h_kat = zeros(numel(obj.PsyData.Categories())); 
             for katnum = obj.PsyData.Categories()
                 katdata = obj.CategoryData(katnum); %epochy jedne kategorie
                 M = mean(katdata(:,ch,:),3);
-                %E = std(katdata(:,ch,:),[],3)/sqrt(size(katdata,3)); %std err of mean
-                plot(T,M,'LineWidth',1,'Color',colorskat(katnum+1));  %prumerna odpoved  
+                E = std(katdata(:,ch,:),[],3)/sqrt(size(katdata,3)); %std err of mean
+                errorbar(T,M,E,'.','color',colorskat{2,katnum+1}); %nejdriv vykreslim errorbars aby byly vzadu[.8 .8 .8]
+                h_kat(katnum+1) = plot(T,M,'LineWidth',1,'Color',colorskat{1,katnum+1});  %prumerna odpoved,  ulozim si handle na krivku  
                 if isfield(obj.Wp,'WpKat')
                     for l = katnum+1:numel(obj.PsyData.Categories())-1 %katnum jde od nuly
-                        if katnum==0, color=colorskat(l+1); else color = colorskat(1); end %green a red jsou proti kategorii 0, cerna je kat 1 vs kat 2
-                        plot(Tr,obj.Wp.WpKat{katnum+1,l+1}(:,ch),[color ':']); %carkovana cara oznacuje signifikanci kategorie vuci jine kategorii
-                        iWp = obj.Wp.WpKat{katnum+1,l+1}(:,ch)  <= 0.1; 
-                        plot(Tr(iWp),ones(1,sum(iWp))*-0.2, [ color '.']); %
-                        iWp = obj.Wp.WpKat{katnum+1,l+1}(:,ch)  <= 0.05;               
-                        plot(Tr(iWp),ones(1,sum(iWp))*-0.2, [ color '*']); %
+                        if katnum==0, color=colorskat{1,l+1}; else color = colorskat{1,1}; end %green a red jsou proti kategorii 0, cerna je kat 1 vs kat 2
+                        if pvalue %pokud chci zobrazovat hodnotu p value jako krivku
+                            plot(Tr,obj.Wp.WpKat{katnum+1,l+1}(:,ch), ':','Color',color); %carkovana cara oznacuje signifikanci kategorie vuci jine kategorii
+                        end
+                        iWp = obj.Wp.WpKat{katnum+1,l+1}(:,ch)  <= 0.05; 
+                        plot(Tr(iWp),ones(1,sum(iWp))*-0.2, '.','Color',color); %                        
+                        iWpfirst = find(iWp,1,'first');                        
+                        if(numel(iWpfirst)>0)
+                            text(-0.01,-0.2,[ num2str(round(Tr(iWpfirst)*1000)) 'ms']);  %cas zacatku signifikance 
+                            text(-0.18,-0.2,[ 'p=' num2str(CStat.round(min(obj.Wp.WpKat{katnum+1,l+1}(:,ch)),3))]);  %cas zacatku signifikance 
+                            line([Tr(iWpfirst) Tr(iWpfirst)],obj.plotRCh.ylim,'Color',color); %modra svisla cara u zacatku signifikance
+                        end
+                        iWp = obj.Wp.WpKat{katnum+1,l+1}(:,ch)  <= 0.01;                          
+                        plot(Tr(iWp),ones(1,sum(iWp))*-0.2,  '*','Color',color); %
                     end
                 end
             end
+            for katnum=obj.PsyData.Categories()
+                uistack(h_kat(katnum+1), 'top'); %dam privky prumeru kategorii pred jejich errorbars
+            end
+            uistack(h_errbar, 'top');
+            uistack(h_mean, 'top'); %uplne nahoru dam prumer vsech kategorii
             title(['channel ' num2str(ch)]);
             text(-0.1,ymax*.95,[ obj.CH.H.channels(1,ch).name ' : ' obj.CH.H.channels(1,ch).neurologyLabel ',' obj.CH.H.channels(1,ch).ass_brainAtlas]);
             

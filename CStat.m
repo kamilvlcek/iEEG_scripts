@@ -64,6 +64,12 @@ classdef CStat
                 end
             end
         end
+        
+        function N = round(n,dig)
+            %zakrouhuje na dany pocet desetinnych mist
+            N = round(n * 10^dig) / 10 ^ dig;
+        end
+            
     end
     
 end
