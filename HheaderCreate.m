@@ -9,7 +9,7 @@ assert(exist(channelsfile,'file')==2,'soubor se jmeny kanalu neexistuje');
 channelnames = importdata(channelsfile,','); %file, kde na kazdem radku je jedno jmeno kanalu napr A1 
 chnum = size(channelnames,1);
 for ch = 1:chnum  
-    tmp = regexp(channelnames{ch,1},'([^ ,:]*)','tokens'); %na radce v channels muze byt jako druhe jmeno struktury oddelene carkou
+    tmp = regexp(channelnames{ch,1},'([^,:]*)','tokens'); %na radce v channels muze byt jako druhe jmeno struktury oddelene carkou
     names = cat(2,tmp{:});
     HH.channels(ch).name=names{1};
     HH.channels(ch).numberOnAmplifier=ch;
