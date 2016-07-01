@@ -41,13 +41,12 @@ classdef CiEEGData < handle
                 obj.Load(d);
             else
                 assert(numel(fs)==1,'fs must be a single number');
-                assert(size(d,1)== size(tabs,1),'d and tabs have to be the same length');
-                assert(size(mults,1)<= 1 || size(mults,1)==size(d,2),'d and mults have to have same number of channels');                
-               
+                assert(size(d,1)== size(tabs,1),'d and tabs have to be the same length');                                              
                 obj.tabs = tabs;
                 obj.tabs_orig = tabs;
                 obj.fs = fs;
                 if exist('mults','var') && ~isempty(mults)
+                    assert(size(mults,1)<= 1 || size(mults,1)==size(d,2),'d and mults have to have same number of channels');
                     obj.mults = mults;
                     obj.d = bsxfun(@times,double(d), mults); %rovnou to roznasobim mults, nechci to resit dodatecne - 24.6.2016
                 else
@@ -401,7 +400,7 @@ classdef CiEEGData < handle
             c = 0;
             for el = els              %#ok<PROP>
                 rozsahel = (el(2):el(1))-els(2,1)+1;  %#ok<PROP>
-                rozsahel1 = setdiff(rozsahel,obj.RjCh); %nerejectovane kanaly                
+                rozsahel1 = setdiff(rozsahel, obj.RjCh-els(2,1)+1); %#ok<PROP> %nerejectovane kanaly  - zde se pocitaji od 1 proto odecitam els               
                 plot(t, bsxfun(@minus,shift(end,:),shift( rozsahel1,:)) + dd( rozsahel1,:) ,colors(c+1) );  
                 %lepsi bude je nezobrazovat
                 %rozsahel0 = intersect(rozsahel,obj.RjCh); %rejectovane kanaly                
@@ -434,7 +433,7 @@ classdef CiEEGData < handle
                 text(t(end),yshift,[ ' ' obj.CH.H.channels(1,elmin+j-1).neurologyLabel ',' obj.CH.H.channels(1,elmin+j-1).ass_brainAtlas]);
                 text(t(1)-size(dd,2)/obj.fs/10,yshift,[ ' ' obj.CH.H.channels(1,elmin+j-1).name]);
                 if find(obj.RjCh==elmin-1+j) %oznacim vyrazene kanaly
-                    text(t(1),yshift+50,' REJECTED');
+                    text(t(1),yshift+20,' REJECTED');
                 end
             end  
             
