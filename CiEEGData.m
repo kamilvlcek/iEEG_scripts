@@ -262,6 +262,7 @@ classdef CiEEGData < handle
         
         function PlotEpochs(obj,ch)
             %uchovani stavu grafu, abych ho mohl obnovit a ne kreslit novy
+            assert(obj.epochs > 1,'only for epoched data');
             if ~exist('ch','var')
                 if isfield(obj.plotEp,'ch'), ch = obj.plotEp.ch;
                 else ch = 1; obj.plotEp.ch = ch; end
@@ -306,6 +307,7 @@ classdef CiEEGData < handle
         
         function PlotCategory(obj,katnum,channel)
             %vykresli vsechny a prumernou odpoved na kategorii podnetu
+            %nahrazeno funkcemi PlotResponseCh a PlotEpochs
             d1=obj.CategoryData(katnum); %epochy jedne kategorie
             d1m = mean(d1,3); %prumerne EEG z jedne kategorie
             T = (0 : 1/obj.fs : (size(obj.d,1)-1)/obj.fs) + obj.epochtime(1); %cas zacatku a konce epochy
@@ -831,7 +833,7 @@ classdef CiEEGData < handle
                    end
                    obj.PlotResponseCh( obj.plotRCh.ch); %prekreslim grafy
                case 'space' %zobrazi i prumerne krivky
-                   obj.PlotResponseFreq(obj.plotRCh.ch); %vykreslim vsechna frekvencni pasma
+                   if isa(obj,CHilbert), obj.PlotResponseFreq(obj.plotRCh.ch); end %vykreslim vsechna frekvencni pasma
                    obj.PlotEpochs(obj.plotRCh.ch); %vykreslim prumery freq u vsech epoch
                    figure(obj.plotRCh.fh); %dam puvodni obrazek dopredu
                otherwise
