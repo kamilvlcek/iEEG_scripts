@@ -29,6 +29,7 @@ classdef CHilbert < CiEEGData
             %   freq    seznam freqvenci pro ktere se ma delat prumer - lo, .., ..., .., hi
             if ~exist('channels','var'), channels = 1:obj.channels; end
             obj.HFreq = zeros(ceil(obj.samples/obj.decimatefactor),obj.channels,numel(freq)-1); %inicializace pole   
+            tic; %zadnu meric cas
             fprintf('kanal ze %i: ', max(channels) );
             for ch = channels %jednotlive elektrody
                 %fprintf('channel %i: Hz ',ch);
@@ -53,6 +54,7 @@ classdef CHilbert < CiEEGData
             obj.yrange = [1 1 5 5]; %zmenim rozliseni osy y v grafu
             [obj.samples,obj.channels, obj.epochs] = obj.DSize();
             fprintf('\n'); %ukoncim radku
+            toc; %ukoncim mereni casu a vypisu
         end
         
         function ExtractEpochs(obj, PsyData,epochtime)
@@ -83,7 +85,7 @@ classdef CHilbert < CiEEGData
             end
         end
         
-        function PlotResponseFreq(obj,ch)
+        function PlotResponseFreq(obj,ch,kategories)
             %uchovani stavu grafu, abych ho mohl obnovit a ne kreslit novy
             if ~exist('ch','var')
                 if isfield(obj.plotF,'ch'), ch = obj.plotF.ch;
@@ -91,19 +93,28 @@ classdef CHilbert < CiEEGData
             else
                 obj.plotF.ch = ch;
             end
+            
+            if ~exist('kategories','var')
+                if isfield(obj.plotF,'kategories'), ch = obj.plotF.kategories;
+                else kategories = obj.PsyData.Categories(); obj.plotF.kategories = kategories; end
+            else
+                obj.plotF.kategories = kategories;
+            end
+            
             if isfield(obj.plotF,'fh') && ishandle(obj.plotEp.fh)
                 figure(obj.plotF.fh); %pouziju uz vytvoreny graf
                 %clf(obj.plotF.fh); %graf vycistim
             else
                 obj.plotF.fh = figure('Name','ResponseFreq','Position', [20, 500, 1200, 300]);
-            end             
+            end   
+            
             maxy = 0;
             miny = 0;
-            for k = 1:numel(obj.PsyData.Categories())
-                subplot(1,numel(obj.PsyData.Categories()),k);
+            for k = 1:numel(kategories)
+                subplot(1,numel(kategories),k);
                 T = obj.epochtime(1):0.1:obj.epochtime(2);
                 F =  (obj.Hf(1:end-1) + obj.Hf(2:end)) ./ 2;
-                D = squeeze(obj.HFreq(:,ch,:,k));
+                D = squeeze(obj.HFreq(:,ch,:,kategories(k)+1));
                 imagesc(T,F, D');
                 maxy = max([maxy max(max( D ))]);
                 miny = min([miny min(min( D ))]);                
@@ -115,12 +126,12 @@ classdef CHilbert < CiEEGData
             else
                 obj.plotF.ylim = [miny maxy];
             end
-            for k = 1:numel(obj.PsyData.Categories())
-                subplot(1,numel(obj.PsyData.Categories()),k);
+            for k = 1:numel(kategories)
+                subplot(1,numel(kategories),k);
                 caxis([miny,maxy]);
-                title( obj.PsyData.CategoryName(k-1));
+                title( obj.PsyData.CategoryName(kategories(k)));
                 if k == 1, ylabel(['channel ' num2str(ch) ' - freq [Hz]']); end
-                if k == numel(obj.PsyData.Categories()), colorbar('Position',[0.92 0.1 0.02 0.82]); end
+                if k == numel(kategories), colorbar('Position',[0.92 0.1 0.02 0.82]); end
             end
             
             methodhandle = @obj.hybejPlotF;
@@ -150,7 +161,8 @@ classdef CHilbert < CiEEGData
         %pokud je treti parametr 1, nenacitaji se data z nadrazene tridy
         function obj = Load(obj,filename,onlyself)            
             if ~exist('onlyself','var') || onlyself == 0
-                Load@CiEEGData(obj,CHilbert.filenameE(filename));            
+                assert(exist(CHilbert.filenameE(filename),'file')==2, ['soubor s daty neexistuje:' char(10) CHilbert.filenameE(filename)]);    
+                Load@CiEEGData(obj,CHilbert.filenameE(filename));  
             end
             if exist(CHilbert.filenameH(filename),'file')                
                 load(CHilbert.filenameH(filename),'HFreq','Hf','yrange');
@@ -158,7 +170,7 @@ classdef CHilbert < CiEEGData
                 obj.Hf = Hf;                %#ok<CPROP,PROP>
                 obj.yrange = yrange;
             else
-                warning(['soubor neexistuje ' CHilbert.filenameH(filename)]);
+                warning(['soubor s frekvencnimi pasmy neexistuje ' CHilbert.filenameH(filename)]);
             end
             obj.hfilename = filename; 
         end                      

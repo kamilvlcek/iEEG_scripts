@@ -13,6 +13,7 @@ classdef CPsyData < handle
         function obj = CPsyData(psy)
             %konstruktor
             obj.P = psy;
+            obj.DoplnZpetnavazba();
         end
         function rt = ReactionTime(obj)
             %vrati matici vsech reakcnich casu roztridenych do sloupcu podle kategorii podnetu
@@ -43,12 +44,20 @@ classdef CPsyData < handle
             kat = obj.P.strings.podminka{katnum+1};            
         end 
         
-        function kat = Categories(obj)
+        function [katnum, katstr] = Categories(obj,tisk)
             %vraci cisla vsech kategorii
-            kat = cell2mat(obj.P.strings.podminka(:,2))'; %kategorie v radku
+            if ~exist('tisk','var'), tisk = 0; end %dfaultne netisknu kategorie
+            katnum = cell2mat(obj.P.strings.podminka(:,2))'; %kategorie v radku
+            katstr = cell(size(katnum));
+            for k = 1:numel(katnum)
+                katstr{k} = obj.P.strings.podminka{k};
+                if tisk
+                    disp([ num2str(katnum(k)) ': ' katstr{k}]);
+                end
+            end                
         end
         function [kat] = CategoryName(obj,katnum)
-            %vraci jmeno kategorie z cisla
+            %vraci jmeno kategorie z cisla, jmeno kategorie se pocita od 0
             kat = obj.P.strings.podminka{katnum+1};
         end
         
@@ -57,11 +66,13 @@ classdef CPsyData < handle
             b1 = [find(obj.P.data(2:end,obj.P.sloupce.kategorie) ~= obj.P.data(1:end-1,7)); size(obj.P.data,1)]; %konce bloku
             b0 = [ 1; (b1(1:end-1)+1)]; %zacatky bloku
             kategorie = obj.P.data(b0,obj.P.sloupce.kategorie);
-            srate = zeros(numel(b0),1); % prumerna uspesnot za blok
+            srate = zeros(numel(b0),1); % prumerna uspesnost za blok
             test = ones(numel(b0),1);
             for block = 1:numel(b0)
-                srate(block,1)=mean(obj.P.data(b0(block) : b1(block),obj.P.sloupce.spravne));    
-                test(block) = test(block) - mean(obj.P.data(b0(block) : b1(block),obj.P.sloupce.zpetnavazba));    
+                srate(block,1)=mean(obj.P.data(b0(block) : b1(block),obj.P.sloupce.spravne));   
+                %if isfield(obj.P.sloupce,'zpetnavazba') %pokud existuje sloupec zpetnavazba, oznacuje treningove trialy
+                    test(block) = test(block) - mean(obj.P.data(b0(block) : b1(block),obj.P.sloupce.zpetnavazba));    
+                %end %pokud neexistuje sloupec zpetnavazba, predpokladam, ze vsechny trialy jsou testove
             end
             blocks = [b0 b1];
         end
@@ -122,10 +133,23 @@ classdef CPsyData < handle
                 if blocktest(b) == 1 %pokud se jedna o testovy blok
                     procent = round(srate(b)*100);
                     if procent < 75, color = 'r'; else color = 'b'; end %cervenou barvou, pokud je uspesnost pod 75%
-                    text( blocks(b,1) , -0.1, [ num2str(procent) '%'],'FontSize',8,'Color',color);
-                else
+                    if procent < 75 || size(blocks,1)<100 %vypisuju uspesnost u vsech bloku jen pokud jich je min nez 100; jinak jen chybne
+                        text( blocks(b,1) , -0.1, [ num2str(procent) '%'],'FontSize',8,'Color',color);
+                    end
+                elseif size(blocks,1) < 100
                     text( blocks(b,1) , -0.1, '*','FontSize',8,'Color','k'); %treningove bloky jako hvezdicky
                 end
+            end
+            resp = obj.P.data(:,S.spravne); %vratim i reakcni casy            
+            text(0,-0.2, ['pocet chyb: ' num2str(numel(resp)-sum(resp)) ]);
+        end
+    end
+    methods  (Access = private)
+        function [obj] = DoplnZpetnavazba(obj)
+            %doplni sloupec zpetnavazba, pokud neexistuje a naplni ho nulama
+            if ~isfield(obj.P.sloupce,'zpetnavazba')                
+                obj.P.data = [ obj.P.data zeros(size(obj.P.data,1),1)]; %doplnim dalsi sloupec do dat
+                obj.P.sloupce.zpetnavazba = size(obj.P.data,2); %pojmenuju ho zpetnavazba
             end
         end
     end

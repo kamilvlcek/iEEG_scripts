@@ -96,6 +96,7 @@ classdef CiEEGData < handle
                 disp('already epoched data');
                 return;
             end
+            assert(isa(psy,'struct'),'prvni parametry musi by struktura s daty z psychopy');
             obj.PsyData = CPsyData(psy); %vytvorim objekt CPsyData
             obj.epochtime = epochtime; %v sekundach cas pred a po udalosti  , prvni cislo je zaporne druhe kladne
             iepochtime = round(epochtime.*obj.fs); %v poctu vzorku cas pred a po udalosti
@@ -223,7 +224,7 @@ classdef CiEEGData < handle
             if exist('kats','var') && numel(kats)>1  && numel(timewindow)==1                                      
                 responsekat = cell(numel(kats),1); %response zvlast pro kazdou kat
                 for k = 1:numel(kats)
-                    katdata = obj.CategoryData(k-1); %epochy jedne kategorie, uz jsou vyrazeny vyrazene epochy, Kategorie se pocitaji od 0
+                    katdata = obj.CategoryData(kats(k)); %epochy jedne kategorie, uz jsou vyrazeny vyrazene epochy
                     responsekat{k,1} = katdata(- iepochtime(1):end,:,:); %jen cas po podnetu; 
                 end
                 WpKat = cell(numel(kats));
@@ -234,6 +235,7 @@ classdef CiEEGData < handle
                     end
                 end
                 obj.Wp.WpKat = WpKat;
+                obj.Wp.kats = kats; %ulozim si cisla kategorii kvuli grafu PlotResponseCh
             end
             
         end
@@ -254,13 +256,17 @@ classdef CiEEGData < handle
             imagesc(CC); 
             
             for j = 1:numel(obj.els)
-                line([obj.els(j)+0.5 obj.els(j)+0.5],[1 size(CC,1)],'color','black');
-                line([1 size(CC,1)],[obj.els(j)+0.5 obj.els(j)+0.5],'color','black');
+                line([obj.els(j)+0.5 obj.els(j)+0.5],[1 size(CC,1)],'Color','black');
+                line([1 size(CC,1)],[obj.els(j)+0.5 obj.els(j)+0.5],'Color','black');
             end  
+            for j = 1:numel(obj.RjCh) %oznacim rejektovane kanaly
+                line([obj.RjCh(j) obj.RjCh(j)],[1 size(CC,1)],'Color','white', 'LineWidth',3);
+                line([1 size(CC,1)],[obj.RjCh(j) obj.RjCh(j)],'Color','white', 'LineWidth',3);
+            end    
             colorbar;
         end
         
-        function PlotEpochs(obj,ch)
+        function PlotEpochs(obj,ch,kategories)
             %uchovani stavu grafu, abych ho mohl obnovit a ne kreslit novy
             assert(obj.epochs > 1,'only for epoched data');
             if ~exist('ch','var')
@@ -268,6 +274,12 @@ classdef CiEEGData < handle
                 else ch = 1; obj.plotEp.ch = ch; end
             else
                 obj.plotEp.ch = ch;
+            end
+            if ~exist('kategories','var')
+                if isfield(obj.plotEp,'kategories'), kategories = obj.plotEp.kategories;
+                else kategories = obj.PsyData.Categories(); obj.plotEp.kategories = kategories; end
+            else
+                obj.plotEp.kategories = kategories;
             end
             if isfield(obj.plotEp,'fh') && ishandle(obj.plotEp.fh)
                 figure(obj.plotEp.fh); %pouziju uz vytvoreny graf
@@ -279,8 +291,9 @@ classdef CiEEGData < handle
             
             maxy = 0; %budu pocitat za vsechny kategorie
             miny = 0;
-            for katnum = obj.PsyData.Categories();
-                subplot(1,numel(obj.PsyData.Categories()),katnum+1);
+            for k=1:numel(kategories)
+                katnum = kategories(k);
+                subplot(1,numel(kategories),k);
                 dkat = obj.CategoryData(katnum);
                 E = 1:size(dkat,3); %cisla epoch - kazdou kategorii muze byt jine                
                 D = squeeze(dkat(:,ch,:));
@@ -295,11 +308,11 @@ classdef CiEEGData < handle
             else
                 obj.plotEp.ylim = [miny maxy];
             end
-            for katnum = obj.PsyData.Categories();
-                subplot(1,numel(obj.PsyData.Categories()),katnum+1);
+            for k=1:numel(kategories)
+                subplot(1,numel(kategories),k);
                 caxis([miny,maxy]);
-                if katnum == 0, ylabel([ 'Epochs - channel ' num2str(ch)]); end %ylabel jen u prniho obrazku
-                if katnum == numel(obj.PsyData.Categories())-1, colorbar('Position',[0.92 0.1 0.02 0.82]); end
+                if k == 1, ylabel([ 'Epochs - channel ' num2str(ch)]); end %ylabel jen u prniho obrazku
+                if k == numel(kategories), colorbar('Position',[0.92 0.1 0.02 0.82]); end
             end
             methodhandle = @obj.hybejPlotEpochs;
             set(obj.plotEp.fh,'KeyPressFcn',methodhandle); 
@@ -371,6 +384,7 @@ classdef CiEEGData < handle
                 dd = obj.d( iD(1) : iD(2),elmin: elmax)' ;   %data k plotovani - prehodim poradi, prvni jsou kanaly
                 t = linspace(iD(1)/obj.fs, iD(2)/obj.fs, iD(2)-iD(1)+1); %casova osa            
             else %pokud data uz jsou epochovana 
+                assert(s>=1,'cislo epochy musi byt alespon 1');
                 time_n = time*obj.fs; %kolik vzorku v case chci zobrazit
                 dd = zeros(elmax-elmin+1,time_n);
                 time_nsum = 0; %kolik vzorku v case uz mam v poli dd
@@ -473,7 +487,7 @@ classdef CiEEGData < handle
             plot(obj.RjEpoch,kategorie(obj.RjEpoch),'*r','MarkerSize',5); %vykreslim vyrazene epochy
         end
         
-        function PlotResponseCh(obj,ch,pvalue)
+        function PlotResponseCh(obj,ch,kategories,pvalue)
             %vykresli odpovedi pro jednotlivy kanal
             assert(obj.epochs > 1,'only for epoched data');
             if ~exist('pvalue','var')
@@ -487,6 +501,21 @@ classdef CiEEGData < handle
                 else ch = 1; obj.plotRCh.ch = ch; end
             else
                 obj.plotRCh.ch = ch;
+            end
+            if ~exist('kategories','var') || isempty(kategories)
+                if isfield(obj.plotRCh,'kategories')
+                    kategories = obj.plotRCh.kategories; %hodnoty drive pouzite v grafu, ty maji prednost pred statistikou
+                elseif isfield(obj.Wp,'kats')
+                    kategories = obj.Wp.kats; %hodnoty pouzite ve statistice
+                else
+                   if numel(obj.PsyData.Categories())<=3
+                     kategories = obj.PsyData.Categories(); %pokud neni vic nez 3 kategorie, vezmu vsechny
+                     obj.plotRCh.kategories = kategories;
+                   end %pokud je kategorii vic nez tri, neberu je v uvahu a zobrazim pouze prumer
+                end                
+            else
+                assert(numel(kategories)<=3,'kategorie mohou byt maximalne tri');
+                obj.plotRCh.kategories = kategories;    %hodnoty zadane parametrem, ty maji absolutni prednost
             end
             T = linspace(obj.epochtime(1),obj.epochtime(2),size(obj.d,1)); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
             if isfield(obj.plotRCh,'fh')
@@ -528,41 +557,52 @@ classdef CiEEGData < handle
                     text(-0.01,-0.1,[ num2str( round(Tr(iWpfirst)*1000)) 'ms']); %cas zacatku signifikance
                     text(-0.18,-0.1,[ 'p=' num2str(CStat.round(min(obj.Wp.D2(:,ch)),3))]);  %cas zacatku signifikance 
                     line([Tr(iWpfirst) Tr(iWpfirst)],obj.plotRCh.ylim,'Color','blue'); %modra svisla cara u zacatku signifikance
+                    text(0.05,-0.1, 'Mean');
                 end
                 iWp = obj.Wp.D2(:,ch) <= 0.01;
                 plot(Tr(iWp),ones(1,sum(iWp))*-0.1,'b*'); %hvezdicky jsou p < 0.01
             end
             
-            hue = 0.8;
-            colorskat = {[0 0 0],[0 1 0],[1 0 0]; [hue hue hue],[hue 1 hue],[1 hue hue]}; % prvni radka - prumery, druha radka errorbars = svetlejsi
-            h_kat = zeros(numel(obj.PsyData.Categories())); 
-            for katnum = obj.PsyData.Categories()
-                katdata = obj.CategoryData(katnum); %epochy jedne kategorie
-                M = mean(katdata(:,ch,:),3);
-                E = std(katdata(:,ch,:),[],3)/sqrt(size(katdata,3)); %std err of mean
-                errorbar(T,M,E,'.','color',colorskat{2,katnum+1}); %nejdriv vykreslim errorbars aby byly vzadu[.8 .8 .8]
-                h_kat(katnum+1) = plot(T,M,'LineWidth',1,'Color',colorskat{1,katnum+1});  %prumerna odpoved,  ulozim si handle na krivku  
-                if isfield(obj.Wp,'WpKat')
-                    for l = katnum+1:numel(obj.PsyData.Categories())-1 %katnum jde od nuly
-                        if katnum==0, color=colorskat{1,l+1}; else color = colorskat{1,1}; end %green a red jsou proti kategorii 0, cerna je kat 1 vs kat 2
-                        if pvalue %pokud chci zobrazovat hodnotu p value jako krivku
-                            plot(Tr,obj.Wp.WpKat{katnum+1,l+1}(:,ch), ':','Color',color); %carkovana cara oznacuje signifikanci kategorie vuci jine kategorii
+            if exist('kategories','var') %kategorie vykresluju jen pokud mam definovane karegorie                
+                hue = 0.8;
+                colorskat = {[0 0 0],[0 1 0],[1 0 0]; [hue hue hue],[hue 1 hue],[1 hue hue]}; % prvni radka - prumery, druha radka errorbars = svetlejsi
+                h_kat = zeros(numel(kategories)); 
+                for k= 1 : numel(kategories) %index 1-3
+                    katnum = kategories(k); %cislo kategorie
+                    katdata = obj.CategoryData(katnum); %epochy jedne kategorie
+                    M = mean(katdata(:,ch,:),3);
+                    E = std(katdata(:,ch,:),[],3)/sqrt(size(katdata,3)); %std err of mean
+                    errorbar(T,M,E,'.','color',colorskat{2,k}); %nejdriv vykreslim errorbars aby byly vzadu[.8 .8 .8]
+                    h_kat(k) = plot(T,M,'LineWidth',1,'Color',colorskat{1,k});  %prumerna odpoved,  ulozim si handle na krivku  
+                    if isfield(obj.Wp,'WpKat')
+                        for l = k+1:numel(kategories) %katnum jde od nuly
+                            y = -(k+l)/20;
+                            if k==1, color=colorskat{1,l}; else color = colorskat{1,1}; end %green a red jsou proti kategorii 0, cerna je kat 1 vs kat 2
+                            if pvalue %pokud chci zobrazovat hodnotu p value jako krivku
+                                plot(Tr,obj.Wp.WpKat{k,l}(:,ch), ':','Color',color); %carkovana cara oznacuje signifikanci kategorie vuci jine kategorii
+                            end
+                            %nejdriv p < 0.05
+                            iWp = obj.Wp.WpKat{k,l}(:,ch)  <= 0.05; 
+                            plot(Tr(iWp),ones(1,sum(iWp))*y, '.','Color',color); %                        
+                            iWpfirst = find(iWp,1,'first');                        
+                            if(numel(iWpfirst)>0)                                
+                                text(-0.01,y,[ num2str(round(Tr(iWpfirst)*1000)) 'ms']);  %cas zacatku signifikance 
+                                text(-0.18,y,[ 'p=' num2str(CStat.round(min(obj.Wp.WpKat{k,l}(:,ch)),3))]);  %cas zacatku signifikance 
+                                line([Tr(iWpfirst) Tr(iWpfirst)],obj.plotRCh.ylim,'Color',color); %modra svisla cara u zacatku signifikance
+                                text(0.05,y, ['\color[rgb]{' num2str(colorskat{1,l}) '}' obj.PsyData.CategoryName(kategories(l)) ...
+                                        '\color{black}|' ...
+                                        '\color[rgb]{' num2str(colorskat{1,k}) '}' obj.PsyData.CategoryName(kategories(k))]);
+                                    %kazde jmeno kategorie jinou barvou
+                            end
+                            %potom jeste p < 0.01
+                            iWp = obj.Wp.WpKat{k,l}(:,ch)  <= 0.01;                          
+                            plot(Tr(iWp),ones(1,sum(iWp))*y,  '*','Color',color); %
                         end
-                        iWp = obj.Wp.WpKat{katnum+1,l+1}(:,ch)  <= 0.05; 
-                        plot(Tr(iWp),ones(1,sum(iWp))*-0.2, '.','Color',color); %                        
-                        iWpfirst = find(iWp,1,'first');                        
-                        if(numel(iWpfirst)>0)
-                            text(-0.01,-0.2,[ num2str(round(Tr(iWpfirst)*1000)) 'ms']);  %cas zacatku signifikance 
-                            text(-0.18,-0.2,[ 'p=' num2str(CStat.round(min(obj.Wp.WpKat{katnum+1,l+1}(:,ch)),3))]);  %cas zacatku signifikance 
-                            line([Tr(iWpfirst) Tr(iWpfirst)],obj.plotRCh.ylim,'Color',color); %modra svisla cara u zacatku signifikance
-                        end
-                        iWp = obj.Wp.WpKat{katnum+1,l+1}(:,ch)  <= 0.01;                          
-                        plot(Tr(iWp),ones(1,sum(iWp))*-0.2,  '*','Color',color); %
                     end
                 end
-            end
-            for katnum=obj.PsyData.Categories()
-                uistack(h_kat(katnum+1), 'top'); %dam privky prumeru kategorii pred jejich errorbars
+                for k= 1 : numel(kategories) %index 1-3
+                    uistack(h_kat(k), 'top'); %dam krivky prumeru kategorii pred jejich errorbars
+                end
             end
             uistack(h_errbar, 'top');
             uistack(h_mean, 'top'); %uplne nahoru dam prumer vsech kategorii
@@ -833,8 +873,8 @@ classdef CiEEGData < handle
                    end
                    obj.PlotResponseCh( obj.plotRCh.ch); %prekreslim grafy
                case 'space' %zobrazi i prumerne krivky
-                   if isa(obj,CHilbert), obj.PlotResponseFreq(obj.plotRCh.ch); end %vykreslim vsechna frekvencni pasma
-                   obj.PlotEpochs(obj.plotRCh.ch); %vykreslim prumery freq u vsech epoch
+                   if isa(obj,'CHilbert'), obj.PlotResponseFreq(obj.plotRCh.ch,obj.Wp.kats); end %vykreslim vsechna frekvencni pasma
+                   obj.PlotEpochs(obj.plotRCh.ch,obj.Wp.kats); %vykreslim prumery freq u vsech epoch
                    figure(obj.plotRCh.fh); %dam puvodni obrazek dopredu
                otherwise
                    disp(['You just pressed: ' eventDat.Key]);
