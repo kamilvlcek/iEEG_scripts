@@ -33,6 +33,27 @@ classdef CHHeader < handle
             end
             els = sort(els);
         end
+        function [ch,name,MNI,brainAtlas] = ChannelNameFind(obj,name)
+            % najde kanal podle jmena kontaktu, napr 'R5', name musi byt na zacatku jmena, 
+            % ale nemusi byt cele
+            % vraci jeho cislo, cele jmeno, mni souradnice a pojmenovani podle brain atlasu 
+            MNI = [];
+            brainAtlas = '';
+            for ch = 1:size(obj.H.channels,2)
+                if 1==strfind(obj.H.channels(1,ch).name,name)
+                    if isfield(obj.H.channels,'MNI_x') %pokud mni souradnice existuji
+                        MNI = [obj.H.channels(ch).MNI_x obj.H.channels(ch).MNI_y obj.H.channels(ch).MNI_z];
+                    end
+                    if isfield(obj.H.channels,'ass_brainAtlas')
+                        brainAtlas = obj.H.channels(ch).ass_brainAtlas;
+                    end
+                    name = obj.H.channels(1,ch).name;
+                    return;
+                end
+            end
+            ch = 0;
+        end
+            
        
     end
     
