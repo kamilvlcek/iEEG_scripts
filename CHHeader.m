@@ -26,7 +26,7 @@ classdef CHHeader < handle
              obj = obj.SelChannels();   
         end
         
-        function [chgroups, els] = ChannelGroups(obj)
+        function [obj, chgroups, els] = ChannelGroups(obj)
             %vraci skupiny kanalu (cisla vsech channels na elekrode) + cisla nejvyssiho kanalu v na kazde elektrode v poli els
             if isempty(obj.chgroups)
                 chgroups = getChannelGroups_kisarg(obj.H,'perElectrode');
@@ -62,12 +62,12 @@ classdef CHHeader < handle
             end
             ch = 0;
         end
-        function ChannelPlot(obj,pohled)
+        function obj = ChannelPlot(obj,pohled)
             %zobrazi 3D obrazek elektrod v MNI prostoru. Obrazek ma rozmery podle rozmeru mozku
             %pohled muze urcti smer pohledu s-sagital,c-coronal,h-horizontal
             if isfield(obj.H.channels,'MNI_x')
                 figure('Name','ChannelPlot in MNI');                
-                chgroups = obj.ChannelGroups(); %#ok<PROP>
+                [obj,chgroups] = obj.ChannelGroups(); %#ok<PROP>
                 for chg = 1:size(chgroups,2) %#ok<PROP>
                     group = chgroups{chg}; %#ok<PROP>
                     X = zeros(1,numel(group)); Y = X; Z = X;

@@ -57,7 +57,7 @@ classdef CHilbert < CiEEGData
             toc; %ukoncim mereni casu a vypisu
         end
         
-        function ExtractEpochs(obj, PsyData,epochtime)
+        function obj = ExtractEpochs(obj, PsyData,epochtime)
             % rozdeli hilbertovu obalku podle epoch
             % i u ni odecte baseline pred podnetem
             
@@ -85,7 +85,7 @@ classdef CHilbert < CiEEGData
             end
         end
         
-        function PlotResponseFreq(obj,ch,kategories)
+        function obj = PlotResponseFreq(obj,ch,kategories)
             %uchovani stavu grafu, abych ho mohl obnovit a ne kreslit novy
             if ~exist('ch','var')
                 if isfield(obj.plotF,'ch'), ch = obj.plotF.ch;
@@ -142,7 +142,7 @@ classdef CHilbert < CiEEGData
         %dve funkce na ulozeni a nacteni vypocitane Hilbertovy obalky, protoze to trva hrozne dlouho
         %uklada se vcetne dat parenta CiEEGData
         %trida se musi jmenovat jinak nez v parentovi, protoze jinak se vola tato overloaded function, i z parenta kdyz to nechci
-        function Save(obj,filename)
+        function obj = Save(obj,filename)
             if ~exist('filename','var')
                 filename = obj.hfilename;
                 assert( ~isempty(filename), 'no filename given or saved before');
@@ -222,7 +222,7 @@ classdef CHilbert < CiEEGData
         end
     end
     methods  (Access = private)
-        function hybejPlotF(obj,~,eventDat)  
+        function obj = hybejPlotF(obj,~,eventDat)  
            %reaguje na udalosti v grafu PlotResponseCh
            switch eventDat.Key
                case 'rightarrow' 

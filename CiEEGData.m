@@ -88,7 +88,7 @@ classdef CiEEGData < handle
             obj.RjEpoch = RjEpoch;
         end
         
-        function ExtractEpochs(obj, psy,epochtime)
+        function obj = ExtractEpochs(obj, psy,epochtime)
             % epochuje data v poli d, pridava do objektu:
             % cell array epochData, double(2) epochtime v sekundach, struct psy na tvorbu PsyData
             % upravuje obj.mults, samples channels epochs
@@ -129,7 +129,7 @@ classdef CiEEGData < handle
             d = obj.d(:,:,iEpochy & iEp); %epochy z kategorie, ktere nejsou excludovane
         end      
         
-        function ChangeReference(obj,ref)            
+        function obj = ChangeReference(obj,ref)            
             assert(any(ref=='heb'),'neznama reference, mozne hodnoty h e b');
             assert(isobject(obj.CH),'Hammer header not loaded');
             H = obj.CH.H; %kopie headeru
@@ -195,7 +195,7 @@ classdef CiEEGData < handle
             iEp = all(epochsEx==0,2); %index epoch k pouziti
         end
             
-        function ResponseSearch(obj,timewindow,kats)
+        function obj = ResponseSearch(obj,timewindow,kats)
             %projede vsechny kanaly a hleda signif rozdil proti periode pred podnetem
             %timewindow - pokud dve hodnoty - porovnava prumernou hodnotu mezi nimi
             % -- pokud jedna hodnota, je to sirka klouzaveho okna - maximalni p z teto delky
@@ -266,7 +266,7 @@ classdef CiEEGData < handle
             colorbar;
         end
         
-        function PlotEpochs(obj,ch,kategories)
+        function obj = PlotEpochs(obj,ch,kategories)
             %uchovani stavu grafu, abych ho mohl obnovit a ne kreslit novy
             assert(obj.epochs > 1,'only for epoched data');
             if ~exist('ch','var')
@@ -338,7 +338,7 @@ classdef CiEEGData < handle
             
         end
         
-        function PlotElectrode(obj,e,s,range,time)
+        function obj = PlotElectrode(obj,e,s,range,time)
             %vykresli data (2 sekundy ) z jedne elektrody e od vteriny zaznamu s
             %osa y je v rozmezi [-r +r]
             %zatim jen neepochovana data
@@ -478,7 +478,7 @@ classdef CiEEGData < handle
             
         end
         
-        function PlotResponses(obj)
+        function obj = PlotResponses(obj)
             %vykresli uspesnost odpovedi spolu s chybami a vyrazenymi epochami
             obj.PsyData.PlotResponses();
             figure(obj.PsyData.fhR); %kreslim dal do stejneho obrazku
@@ -487,7 +487,7 @@ classdef CiEEGData < handle
             plot(obj.RjEpoch,kategorie(obj.RjEpoch),'*r','MarkerSize',5); %vykreslim vyrazene epochy
         end
         
-        function PlotResponseCh(obj,ch,kategories,pvalue)
+        function obj = PlotResponseCh(obj,ch,kategories,pvalue)
             %vykresli odpovedi pro jednotlivy kanal
             assert(obj.epochs > 1,'only for epoched data');
             if ~exist('pvalue','var')
@@ -613,7 +613,7 @@ classdef CiEEGData < handle
             set(obj.plotRCh.fh,'KeyPressFcn',methodhandle);          
         end        
             
-        function PlotResponseP(obj)
+        function obj = PlotResponseP(obj)
             %vykresli signifikanci odpovedi u vsech kanalu EEG vypocitanou pomoci ResponseSearch                                
             assert(obj.epochs > 1,'only for epoched data');
             T = 0:0.1:obj.epochtime(2); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
@@ -662,7 +662,7 @@ classdef CiEEGData < handle
         
         
         %% SAVE AND LOAD FILE
-        function Save(obj,filename)   
+        function obj = Save(obj,filename)   
             %ulozi veskere promenne tridy do souboru
             if ~exist('filename','var')
                 filename = obj.filename;
@@ -744,7 +744,7 @@ classdef CiEEGData < handle
     end
     %% privatni metody
     methods  (Access = private)
-        function hybejPlot(obj,~,eventDat)           
+        function obj = hybejPlot(obj,~,eventDat)           
            switch eventDat.Key
                case 'rightarrow' 
                    if obj.epochs == 1
@@ -847,7 +847,7 @@ classdef CiEEGData < handle
                    disp(['You just pressed: ' eventDat.Key]);                      
            end
         end
-        function hybejPlotCh(obj,~,eventDat)  
+        function obj = hybejPlotCh(obj,~,eventDat)  
            %reaguje na udalosti v grafu PlotResponseCh
            switch eventDat.Key
                case 'rightarrow' 
@@ -881,7 +881,7 @@ classdef CiEEGData < handle
            end
         end
         
-        function hybejPlotEpochs(obj,~,eventDat)
+        function obj = hybejPlotEpochs(obj,~,eventDat)
             %reaguje na klavesy v PlotEpochs
             switch eventDat.Key 
                 case 'multiply' %hvezdicka na numericke klavesnici

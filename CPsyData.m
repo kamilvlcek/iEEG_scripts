@@ -104,7 +104,7 @@ classdef CPsyData < handle
         end
         
         %% PLOT FUNCTIONS
-        function [chyby] = PlotResponses(obj)
+        function [obj, chyby] = PlotResponses(obj)
             %nakresli graf rychlosti vsech odpovedi a bloku, vcetne chyb a uspesnosti za blok
             S = obj.P.sloupce;
             test = obj.P.data(:,:); %vyberu vsechny trialy
