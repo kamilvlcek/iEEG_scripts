@@ -16,7 +16,8 @@ classdef CiEEGData < handle
         epochData; %cell array informaci o epochach; epochy v radcich, sloupce: kategorie, tab
         PsyData; %objekt ve formatu CPsyData (PPA, AEDist aj) podle prezentace KISARG
             %pole PsyData.P.data, sloupce, strings, interval, eegfile, pacientid
-        epochtime; %delka eventu pre a po event v sekundach    
+        epochtime; %delka eventu pre a po event v sekundach , treti cislo je 1, pokud podle responses
+        baseline; %delka baseline zacatek a konec v sekundach, vzhledem k podnetu/odpovedi podle epochtime(3)
         CH; %objekt formatu CHHeader s Hammer headerem 
         els; %cisla poslednich kanalu v kazde elektrode
         plotES; % current electrode, second of plot/epoch, range of y values, time range, allels, rangey all els
@@ -75,7 +76,7 @@ classdef CiEEGData < handle
         function obj = GetHHeader(obj,H)
             %nacte header z promenne H - 25.5.2016
             obj.CH = CHHeader(H);
-            [~, obj.els] = obj.CH.ChannelGroups();            
+            [~, ~, obj.els] = obj.CH.ChannelGroups();            
         end
          
         function obj = RejectChannels(obj,RjCh)
@@ -88,30 +89,39 @@ classdef CiEEGData < handle
             obj.RjEpoch = RjEpoch;
         end
         
-        function obj = ExtractEpochs(obj, psy,epochtime)
-            % epochuje data v poli d, pridava do objektu:
-            % cell array epochData, double(2) epochtime v sekundach, struct psy na tvorbu PsyData
+        function obj = ExtractEpochs(obj, psy,epochtime,baseline)
+            % psy je struct dat z psychopy, 
+            % epochtime je array urcujici delku epochy v sec pred a po podnetu/odpovedi: [pred pod podnet=0/odpoved=1]
+            % epochuje data v poli d, pridava do objektu: 1. cell array epochData, 2. double(3) epochtime v sekundach, 3. struct psy na tvorbu PsyData
             % upravuje obj.mults, samples channels epochs
             if obj.epochs > 1
                 disp('already epoched data');
                 return;
             end
             assert(isa(psy,'struct'),'prvni parametry musi by struktura s daty z psychopy');
+            if ~exist('baseline','var'), baseline = [epochtime(1) 0]; end %defaultni baseline je do 0 sec
             obj.PsyData = CPsyData(psy); %vytvorim objekt CPsyData
-            obj.epochtime = epochtime; %v sekundach cas pred a po udalosti  , prvni cislo je zaporne druhe kladne
-            iepochtime = round(epochtime.*obj.fs); %v poctu vzorku cas pred a po udalosti
-            ts_podnety = obj.PsyData.TimeStimuli(); %timestampy vsech podnetu
-            de = zeros(iepochtime(2)-iepochtime(1), size(obj.d,2), size(ts_podnety,1)); %nova epochovana data time x channel x epoch            
-            tabs = zeros(iepochtime(2)-iepochtime(1),size(ts_podnety,1)); %#ok<PROP> %udelam epochovane tabs
-            obj.epochData = cell(size(ts_podnety,1),3); % sloupce kategorie, cislo kategorie, timestamp
-            for epoch = 1:size(ts_podnety,1) %pro vsechny eventy
-                izacatek = find(obj.tabs<=ts_podnety(epoch), 1, 'last' ); %najdu index podnetu podle jeho timestampu
+            if numel(epochtime)==2, epochtime(3) = 0; end %defaultne epochuji podle podnetu
+            obj.epochtime = epochtime; %v sekundach cas pred a po udalosti, prvni cislo je zaporne druhe kladne
+            obj.baseline = baseline; %v sekundach
+            iepochtime = round(epochtime(1:2).*obj.fs); %v poctu vzorku cas pred a po udalosti
+            ibaseline =  round(baseline.*obj.fs); %v poctu vzorku cas pred a po udalosti
+            ts_events = obj.PsyData.TimeStimuli(epochtime(3)); %timestampy vsech podnetu/odpovedi
+            de = zeros(iepochtime(2)-iepochtime(1), size(obj.d,2), size(ts_events,1)); %nova epochovana data time x channel x epoch            
+            tabs = zeros(iepochtime(2)-iepochtime(1),size(ts_events,1)); %#ok<PROP> %udelam epochovane tabs
+            obj.epochData = cell(size(ts_events,1),3); % sloupce kategorie, cislo kategorie, timestamp
+            for epoch = 1:size(ts_events,1) %pro vsechny eventy
+                izacatek = find(obj.tabs<=ts_events(epoch), 1, 'last' ); %najdu index podnetu/odpovedi podle jeho timestampu
                     %kvuli downsamplovani Hilberta, kdy se mi muze ztratit presny cas zacatku
                     %epochy, beru posledni nizsi tabs nez je cas zacatku epochy
                 [Kstring Knum] = obj.PsyData.Category(epoch);    %jmeno a cislo kategorie
                 obj.epochData(epoch,:)= {Kstring Knum obj.tabs(izacatek)}; %zacatek epochy beru z tabs aby sedel na tabs pri downsamplovani
                 for ch = 1:obj.channels %pro vsechny kanaly                    
-                    baseline = mean(obj.d(izacatek+iepochtime(1):izacatek-1,ch)); %baseline toho jednoho kanalu, jedne epochy
+                    if ibaseline(1)==ibaseline(2)
+                        baseline = 0; %baseline nebudu pouzivat, pokud jsem zadal stejny cas jejiho zacatku a konce
+                    else
+                        baseline = mean(obj.d(izacatek+ibaseline(1) : izacatek+ibaseline(2)-1, ch)); %baseline toho jednoho kanalu, jedne epochy
+                    end
                     de(:,ch,epoch) = obj.d( izacatek+iepochtime(1) : izacatek+iepochtime(2)-1,ch) - baseline; 
                     tabs(:,epoch) = obj.tabs(izacatek+iepochtime(1) : izacatek+iepochtime(2)-1); %#ok<PROP>
                 end
@@ -197,17 +207,19 @@ classdef CiEEGData < handle
             
         function obj = ResponseSearch(obj,timewindow,kats)
             %projede vsechny kanaly a hleda signif rozdil proti periode pred podnetem
-            %timewindow - pokud dve hodnoty - porovnava prumernou hodnotu mezi nimi
+            %timewindow - pokud dve hodnoty - porovnava prumernou hodnotu mezi nimi - sekundy relativne k podnetu/odpovedi
             % -- pokud jedna hodnota, je to sirka klouzaveho okna - maximalni p z teto delky
             assert(obj.epochs > 1,'only for epoched data');
-            iepochtime = round(obj.epochtime.*obj.fs); %v poctu vzorku cas pred a po udalosti, pred je zaporne cislo
+            iepochtime = round(obj.epochtime(1:2).*obj.fs); %v poctu vzorku cas pred a po udalosti, pred je zaporne cislo
+            ibaseline = round(obj.baseline.*obj.fs); %zaporna cisla pokud pred synchro eventem
             itimewindow = round(timewindow.*obj.fs); %
             iEp = obj.GetEpochsExclude(); %ziska seznam epoch k vyhodnoceni
-            baseline = mean(obj.d(1: -iepochtime(1),:,iEp),1);  % 1 cas x kanaly x epochy - prumer za cas pred podnete,, pro vsechny epochy a jeden kanal
+            baseline = mean(obj.d( abs(iepochtime(1)-ibaseline(1))+1 : abs(iepochtime(1)-ibaseline(2)) , : , iEp),1); %#ok<PROP>
+                % cas x kanaly x epochy - prumer za cas pred podnetem, pro vsechny kanaly a nevyrazene epochyt
             if numel(itimewindow) == 2  %chci prumernou hodnotu d od do
                 response = mean(obj.d( (itimewindow(1) : itimewindow(2)) - iepochtime(1) , : , iEp ),1); %prumer v case                
             else
-                response = obj.d(- iepochtime(1):end , :, iEp ); %hodnoty po podnetu                  
+                response = obj.d(abs(iepochtime(1)-ibaseline(2))+1 : end , : , iEp ); %hodnoty po konci baseline                 
             end
             Wp = CStat.Wilcox2D(response,baseline,1); %#ok<PROP> %1=mene striktni pdep, 2=striktnejsi dep;
             if numel(itimewindow) == 1 %chci maximalni hodnotu p z casoveho okna
@@ -225,7 +237,7 @@ classdef CiEEGData < handle
                 responsekat = cell(numel(kats),1); %response zvlast pro kazdou kat
                 for k = 1:numel(kats)
                     katdata = obj.CategoryData(kats(k)); %epochy jedne kategorie, uz jsou vyrazeny vyrazene epochy
-                    responsekat{k,1} = katdata(- iepochtime(1):end,:,:); %jen cas po podnetu; 
+                    responsekat{k,1} = katdata(abs(iepochtime(1)-ibaseline(2))+1 :end,:,:); %jen cas po podnetu; 
                 end
                 WpKat = cell(numel(kats));
                 for k = 1:numel(kats) %budu statisticky porovnavat kazdou kat s kazdou, bez ohledu na poradi
@@ -531,7 +543,7 @@ classdef CiEEGData < handle
             h_errbar = errorbar(T,M,E,'.','Color',[.6 .6 1]); %nejdriv vykreslim errorbars aby byly vzadu [.8 .8 .8]
             hold on;
             h_mean = plot(T,M,'LineWidth',2,'Color',[0 0 1]);  %prumerna odpoved, ulozim si handle na krivku          
-            xlim(obj.epochtime);
+            xlim(obj.epochtime(1:2));
             if isfield(obj.plotRCh,'ylim') && numel(obj.plotRCh.ylim)>=2
                 ylim( obj.plotRCh.ylim);
                 ymax = obj.plotRCh.ylim(2);
@@ -682,6 +694,7 @@ classdef CiEEGData < handle
                 PsyDataP = []; %#ok<NASGU>
             end
             epochtime = obj.epochtime;      %#ok<PROP,NASGU>
+            baseline = obj.baseline;      %#ok<PROP,NASGU>
             CH_H=obj.CH.H;                  %#ok<NASGU>
             els = obj.els;                  %#ok<PROP,NASGU>
             plotES = obj.plotES;            %#ok<PROP,NASGU>
@@ -693,7 +706,7 @@ classdef CiEEGData < handle
             reference = obj.reference;      %#ok<PROP,NASGU>
             epochData = obj.epochData;      %#ok<PROP,NASGU>
             Wp = obj.Wp;                    %#ok<PROP,NASGU>
-            save(filename,'d','tabs','tabs_orig','fs','header','sce','PsyDataP','epochtime','CH_H','els','plotES','RjCh','RjEpoch','epochTags','epochLast','reference','epochData','Wp','-v7.3');            
+            save(filename,'d','tabs','tabs_orig','fs','header','sce','PsyDataP','epochtime','baseline','CH_H','els','plotES','RjCh','RjEpoch','epochTags','epochLast','reference','epochData','Wp','-v7.3');            
         end
         function obj = Load(obj,filename)
             % nacte veskere promenne tridy ze souboru
@@ -712,11 +725,13 @@ classdef CiEEGData < handle
                 load(filename,'PsyData');  obj.PsyData = PsyData ; %#ok<CPROP,PROP> %  %drive ulozeny objekt, nez jsem zavedl ukladani struct
             end
             if obj.epochs > 1
-                if ismember('epochData', {vars.name}),           load(filename,'epochData');    obj.epochData = epochData;   end   %#ok<CPROP,PROP>             
+                if ismember('epochData', {vars.name}), load(filename,'epochData');  obj.epochData = epochData;   end   %#ok<CPROP,PROP> 
+                if ismember('baseline',  {vars.name}), load(filename,'baseline');   obj.baseline = baseline;   end   %#ok<CPROP,PROP>     
                 load(filename,'epochtime');                
                 obj.epochtime = epochtime;      %#ok<CPROP,PROP>               
             else
                 obj.epochtime = [];
+                obj.baseline = [];
                 obj.epochData = [];
             end
             if ismember('CH_H', {vars.name})

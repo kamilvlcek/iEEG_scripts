@@ -33,11 +33,15 @@ classdef CPsyData < handle
             isi = 24*3600*(obj.P.data(2:end,obj.P.sloupce.ts_podnet) - obj.P.data(1:end-1,obj.P.sloupce.ts_podnet));
         end
         
-        function ts_podnety = TimeStimuli(obj)
-            %vraci matici timestampu vsech podnetu
-            ts_podnety = obj.P.data(:,obj.P.sloupce.ts_podnet);
+        function ts_podnety = TimeStimuli(obj,response)
+            %vraci matici timestampu vsech podnetu/odpovedi, pokud response=1 vracim odpovedi
+            if exist('response','var') && response==1
+                ts_podnety = obj.P.data(:,obj.P.sloupce.ts_response); %vratim timestampy odpovedi
+            else
+                ts_podnety = obj.P.data(:,obj.P.sloupce.ts_podnet); %vratim timestampy podnetu
+            end
         end
-        
+                       
         function [kat katnum] = Category(obj,event)
             %vrati 1 retezec s popisem kategorie eventu a 2. cislo kategorie
             katnum = obj.P.data(event,obj.P.sloupce.kategorie); %cislo kategorie
