@@ -2,7 +2,7 @@
 clear all; close all; clc;
 
 %% loading a patient mat-file
-load('IED_P001.mat');
+load('d:\eeg\motol\pacienti\p083 Kol VT10\VT10_2015-05-19_10-00_001_X_ppa.mat');
 % ----signal----
 % d... iEEG records: channels are in columns
 % fs... sampling frequency
@@ -36,12 +36,12 @@ load('IED_P001.mat');
 % DE.* ... other variables is not yet used
  
 
-
+%%
 % Example of visualization - channel 5
 
 M=zeros(size(d)); % making of signal markers
 for i=1:length(DE.pos)
-   M(round(DE.pos(i)*fs):round((DE.pos(i)+0.02)*fs),DE.chan(i))=1;
+   M(round(DE.pos(i)*fs):round((DE.pos(i)+0.02)*fs),DE.chan(i))=DE.weight(i);
 end
 
 figure(1)
@@ -52,7 +52,7 @@ stairs(M(:,5)*max(d(:,5)),'c')
 title('all detected events of channel 5')
 
 %% comparison to "gold standard"
-
+% kamil 31.8.2016 - dal to nefunguje, nemame REV promenne s rucni analyzou
 %--------------------------------------------------------------------------
 [total_stat,chan_stat,TP,FP,FN]=label_stat(DE,REV_GS,0.1);
 %--------------------------------------------------------------------------
@@ -73,7 +73,7 @@ plot(d(:,5),'k')
 hold on
 stairs(M_TP(:,5)*max(d(:,5)),'g')
 
-
+%%
 % Example of visualization FP - channel 5
 M_FP=zeros(size(d));
 for i=1:length(FP.pos)
@@ -82,7 +82,7 @@ end
 
 stairs(M_FP(:,5)*max(d(:,5)),'r')
 
-
+%%
 % Example of visualization FN - channel 5
 M_FN=zeros(size(d));
 for i=1:length(FN.pos)
