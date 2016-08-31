@@ -161,7 +161,7 @@ classdef CHilbert < CiEEGData
         %pokud je treti parametr 1, nenacitaji se data z nadrazene tridy
         function obj = Load(obj,filename,onlyself)            
             if ~exist('onlyself','var') || onlyself == 0
-                assert(exist(CHilbert.filenameE(filename),'file')==2, ['soubor s daty neexistuje:' char(10) CHilbert.filenameE(filename)]);    
+                assert(exist(CHilbert.filenameE(filename),'file')==2, ['soubor s daty neexistuje, mozna se jedna o data tridy CiEEGData?:' char(10) CHilbert.filenameE(filename)]);    
                 Load@CiEEGData(obj,CHilbert.filenameE(filename));  
             end
             if exist(CHilbert.filenameH(filename),'file')                

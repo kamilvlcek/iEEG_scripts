@@ -209,8 +209,11 @@ classdef CiEEGData < handle
             %projede vsechny kanaly a hleda signif rozdil proti periode pred podnetem
             %timewindow - pokud dve hodnoty - porovnava prumernou hodnotu mezi nimi - sekundy relativne k podnetu/odpovedi
             % -- pokud jedna hodnota, je to sirka klouzaveho okna - maximalni p z teto delky
-            assert(obj.epochs > 1,'only for epoched data');
+            assert(obj.epochs > 1,'only for epoched data');           
             iepochtime = round(obj.epochtime(1:2).*obj.fs); %v poctu vzorku cas pred a po udalosti, pred je zaporne cislo
+            if ~ismember(obj,'baseline')
+                obj.baseline = [obj.epochtime(1) 0];
+            end
             ibaseline = round(obj.baseline.*obj.fs); %zaporna cisla pokud pred synchro eventem
             itimewindow = round(timewindow.*obj.fs); %
             iEp = obj.GetEpochsExclude(); %ziska seznam epoch k vyhodnoceni
@@ -372,22 +375,26 @@ classdef CiEEGData < handle
             
             % -------- nastavim rozsah elektrod k zobrazeni -----------------
             if  allels==1  %chci zobrazit vsechny elektrody
-                if mod(e,2) 
-                        elmin = 1; 
-                        elmax = obj.els( floor(numel(obj.els)/2));
-                        els = obj.els(1 : find(obj.els==elmax)); %#ok<PROP> 
-                        els(2,1) = 1;   %#ok<PROP>  %do els davam hranice elektrod k postupnemu vykresleni - v prvni radce jsou konce kazde elektrody                       
-                else
-                        elmin = obj.els( floor(numel(obj.els)/2))+1; 
-                        elmax =  max(obj.els);
-                        els = obj.els( find(obj.els > elmin, 1 ) : size(obj.els,2)); %#ok<PROP>
-                        els(2,1) = elmin; %#ok<PROP>
-                end  
+                elektrodvsade = 5;  %31.8.2016 - chci zobrazovat vzdy pet elektrod, indexy v els jsou tedy 1 6 11
+                elsmax = 0; %kolik zobrazim kontaktu - rozliseni osy y v poctu kontaktu
+                elsdelsi = [0,obj.els]; %pridam jen nulu na zacatek, kvuli pocitani rozdilu 
+                for n = 1 : elektrodvsade : numel(elsdelsi)-elektrodvsade
+                    elsmax = max (elsmax , elsdelsi(n+elektrodvsade) - elsdelsi(n)); % pocitam jako maximum z petic elektrod
+                end
+                pocetsad = ceil(numel(obj.els)/elektrodvsade); %kolik ruznych sad petic elektrod budu zobrazovat, 2 pokud <= 10 els, jinak 3 pokud <=15 els%                 
+                emod = mod(e-1,pocetsad);
+                if emod==0, elmin=1; else elmin=obj.els(emod*elektrodvsade)+1; end                
+                elmaxmax = elmin + elsmax -1 ; % horni cislo el v sade, i kdyz bude pripadne prazdne
+                ielmax = find(obj.els <= min(elmaxmax,obj.els(end)) , 1, 'last') ; %horni cislo skutecne elektrody v sade
+                elmax = obj.els(ielmax);
+                els = obj.els( find(obj.els > elmin, 1,'first' )  : ielmax ); %#ok<PROP> %vyber z obj.els takze horni hranice cisel kontaktu
+                els(2,1) = elmin;%#ok<PROP>
                 els(2,2:end) = els(1,1:end-1)+1; %#ok<PROP> %doplnim dolni radku - zacatky kazde elektrody
             else
                 if e==1, elmin = 1; else elmin = obj.els(e-1)+1; end %index prvni elektrody kterou vykreslit
                 elmax = obj.els(e);            % index posledni elektrody kterou vykreslit
                 els = [elmax; elmin]; %#ok<PROP>
+                elmaxmax = elmax;
             end
             
             % -------- ziskam data k vykresleni do promenne dd -----------------
@@ -398,19 +405,19 @@ classdef CiEEGData < handle
             else %pokud data uz jsou epochovana 
                 assert(s>=1,'cislo epochy musi byt alespon 1');
                 time_n = time*obj.fs; %kolik vzorku v case chci zobrazit
-                dd = zeros(elmax-elmin+1,time_n);
+                dd = zeros(elmaxmax-elmin+1,time_n);
                 time_nsum = 0; %kolik vzorku v case uz mam v poli dd
                 ss = s-1; %cislo kreslene epochy
                 while time_nsum < time_n %pridavam hodnoty do pole dd z nekolika epoch, dokud nenaplnim pozadovanou delku
                     ss = ss+1;
                     if time_n - time_nsum >= obj.samples 
                         if ss <= obj.epochs
-                            dd(:,1+time_nsum : time_nsum+obj.samples) = squeeze(obj.d(:, elmin: elmax,ss))';  %data k plotovani - prehodim poradi, prvni jsou kanaly
+                            dd(1:elmax-elmin+1,1+time_nsum : time_nsum+obj.samples) = squeeze(obj.d(:, elmin: elmax,ss))';  %data k plotovani - prehodim poradi, prvni jsou kanaly
                         end
                         time_nsum = time_nsum + obj.samples;
                     else %pokud mi nezbyva cela epocha do konce pozadovaneho casoveho rozsahu
                         if ss <= obj.epochs
-                            dd(:,1+time_nsum : time_n ) = squeeze(obj.d(1:time_n - time_nsum, elmin: elmax,ss))';
+                            dd(1:elmax-elmin+1,1+time_nsum : time_n ) = squeeze(obj.d(1:time_n - time_nsum, elmin: elmax,ss))';
                         end
                         time_nsum = time_n ;
                     end
@@ -420,9 +427,9 @@ classdef CiEEGData < handle
             end
             % -------- KRESLIM -----------------
             %kod viz navod zde https://uk.mathworks.com/matlabcentral/newsreader/view_thread/294163            
-            mi = repmat(-range,[size(dd,1) 1]); % rozsahu osy y mi:ma
+            mi = repmat(-range,[size(dd,1) 1]); % rozsahu osy y mi:ma - repmat jen zopakuje hodnotu -range podle velikosti dd
             ma = repmat(+range,[size(dd,1) 1]);                        
-            shift = cumsum([0; abs(ma(1:end-1))+abs(mi(2:end))]);
+            shift = cumsum([0; abs(ma(1:end-1))+abs(mi(2:end))]); %soucet maxim s nasledujicimi minimy. kumulativne 0-nn
             shift = repmat(shift,1,size(dd,2));
             colors = [ 'b' 'k'];
             c = 0;
@@ -440,13 +447,13 @@ classdef CiEEGData < handle
                 c = 1-c;
             end
             hold off;
-            set(gca,'ytick',shift(:,1),'yticklabel',elmax:-1:elmin); %znacky a popisky osy y
+            set(gca,'ytick',shift(elmaxmax-elmax+1:elmax-elmin+1+elmaxmax-elmax,1),'yticklabel',elmax:-1:elmin); %znacky a popisky osy y
             grid on;
             
             ylim([min(min(shift))-range max(max(shift))+range]); %rozsah osy y
             ylabel(['Electrode ' num2str(e) '/' num2str(numel(obj.els)) ]);
             xlabel(['Seconds of ' num2str( round(obj.samples*obj.epochs/obj.fs)) ]);
-            text(t(1),-shift(2,1),[ 'resolution +/-' num2str(range) 'mV']);         
+            text(t(1),-shift(3,1),[ 'resolution +/-' num2str(range) 'uV']);         
             xlim([t(1) t(end)]);
             
             % -------- ulozim  handle na obrazek a nastaveni grafu -----------------
@@ -456,7 +463,7 @@ classdef CiEEGData < handle
             obj.plotES = [e s range time allels ]; %ulozim hodnoty pro pohyb klavesami
             obj.epochLast = max([s obj.epochLast]); %oznaceni nejvyssi navstivene epochy
             
-            for j = 1:size(shift,1)
+            for j = 1:elmax-elmin+1
                 yshift = shift(end,1)-shift(j,1);
                 text(t(end),yshift,[ ' ' obj.CH.H.channels(1,elmin+j-1).neurologyLabel ',' obj.CH.H.channels(1,elmin+j-1).ass_brainAtlas]);
                 text(t(1)-size(dd,2)/obj.fs/10,yshift,[ ' ' obj.CH.H.channels(1,elmin+j-1).name]);
