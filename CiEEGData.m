@@ -13,7 +13,7 @@ classdef CiEEGData < handle
         samples; %pocet vzorku v zaznamu = rozmer v case
         channels; %pocet kanalu v zaznamu
         epochs;   %pocet epoch
-        epochData; %cell array informaci o epochach; epochy v radcich, sloupce: kategorie, tab
+        epochData; %cell array informaci o epochach; epochy v radcich, sloupce: jmeno a cislo kategorie, tab(pondet/odpoved)
         PsyData; %objekt ve formatu CPsyData (PPA, AEDist aj) podle prezentace KISARG
             %pole PsyData.P.data, sloupce, strings, interval, eegfile, pacientid
         epochtime; %delka eventu pre a po event v sekundach , treti cislo je 1, pokud podle responses
@@ -31,7 +31,8 @@ classdef CiEEGData < handle
         filename;
         reference; %slovni popis reference original, avg perHeadbox, perElectrode, Bipolar
         yrange = [10 10 50 50]; %minimum y, krok y0, hranice y1, krok y1, viz funkce - a + v hybejPlot
-        Wp = {}; %pole signifikanci pro jednotlive kanaly vuci baseline, vysledek  ResponseSearch        
+        Wp = {}; %pole signifikanci pro jednotlive kanaly vuci baseline, vysledek  ResponseSearch     
+        DE = {}; %trida objektu CEpiEvents - epilepticke eventy ziskane pomoci skriptu spike_detector_hilbert_v16_byISARG
     end
     
     methods (Access = public)
@@ -79,6 +80,13 @@ classdef CiEEGData < handle
             [~, ~, obj.els] = obj.CH.ChannelGroups();            
         end
          
+        function obj = GetEpiEvents(obj,DE)
+           if exist('DE','var')
+               obj.DE = CEpiEvents(DE, obj.tabs, obj.fs);
+           else
+               obj.DE = CEpiEvents(obj.d, obj.tabs, obj.fs);    %vytvorim instanci tridy      
+           end
+        end
         function obj = RejectChannels(obj,RjCh)
             %ulozi cisla vyrazenych kanalu - kvuli pocitani bipolarni reference 
             obj.RjCh = RjCh;
@@ -115,7 +123,7 @@ classdef CiEEGData < handle
                     %kvuli downsamplovani Hilberta, kdy se mi muze ztratit presny cas zacatku
                     %epochy, beru posledni nizsi tabs nez je cas zacatku epochy
                 [Kstring Knum] = obj.PsyData.Category(epoch);    %jmeno a cislo kategorie
-                obj.epochData(epoch,:)= {Kstring Knum obj.tabs(izacatek)}; %zacatek epochy beru z tabs aby sedel na tabs pri downsamplovani
+                obj.epochData(epoch,:)= {Kstring Knum obj.tabs(izacatek)}; %zacatek podnetu beru z tabs aby sedel na tabs pri downsamplovani
                 for ch = 1:obj.channels %pro vsechny kanaly                    
                     if ibaseline(1)==ibaseline(2)
                         baseline = 0; %baseline nebudu pouzivat, pokud jsem zadal stejny cas jejiho zacatku a konce
@@ -398,13 +406,15 @@ classdef CiEEGData < handle
             end
             
             % -------- ziskam data k vykresleni do promenne dd -----------------
+            time_n = time*obj.fs; %kolik vzorku v case chci zobrazit
             if obj.epochs <= 1 %pokud data jeste nejsou epochovana
-                iD = [ (s-1)*obj.fs + 1,  (s-1)*obj.fs + obj.fs*time]; %indexy eeg, od kdy do kdy vykreslit
-                dd = obj.d( iD(1) : iD(2),elmin: elmax)' ;   %data k plotovani - prehodim poradi, prvni jsou kanaly
-                t = linspace(iD(1)/obj.fs, iD(2)/obj.fs, iD(2)-iD(1)+1); %casova osa            
+                iD = [ (s-1)*obj.fs + 1, min(size(obj.d,1), (s-1)*obj.fs + time_n) ]; %indexy eeg, od kdy do kdy vykreslit
+                dd = zeros(elmaxmax-elmin+1,time_n);%data k plotovani - prehodim poradi, prvni jsou kanaly
+                dd(1:elmax-elmin+1,1 : iD(2)-iD(1)+1 ) = obj.d(iD(1) : iD(2), elmin:elmax)';
+                %dd = obj.d( iD(1) : iD(2),elmin: elmaxmax)' ;   
+                t = linspace(iD(1)/obj.fs, iD(2)/obj.fs, iD(2)-iD(1)+1); %casova osa  v sekundach          
             else %pokud data uz jsou epochovana 
-                assert(s>=1,'cislo epochy musi byt alespon 1');
-                time_n = time*obj.fs; %kolik vzorku v case chci zobrazit
+                assert(s>=1,'cislo epochy musi byt alespon 1');                
                 dd = zeros(elmaxmax-elmin+1,time_n);
                 time_nsum = 0; %kolik vzorku v case uz mam v poli dd
                 ss = s-1; %cislo kreslene epochy
@@ -433,10 +443,12 @@ classdef CiEEGData < handle
             shift = repmat(shift,1,size(dd,2));
             colors = [ 'b' 'k'];
             c = 0;
+            h_els = cell(size(els,2)); %#ok<PROP> %budu si uklada handle plotu, abych je pak dal nahoru
+            iel = 1;
             for el = els              %#ok<PROP>
                 rozsahel = (el(2):el(1))-els(2,1)+1;  %#ok<PROP>
                 rozsahel1 = setdiff(rozsahel, obj.RjCh-els(2,1)+1); %#ok<PROP> %nerejectovane kanaly  - zde se pocitaji od 1 proto odecitam els               
-                plot(t, bsxfun(@minus,shift(end,:),shift( rozsahel1,:)) + dd( rozsahel1,:) ,colors(c+1) );  
+                h_els{iel} = plot(t, bsxfun(@minus,shift(end,:),shift( rozsahel1,:)) + dd( rozsahel1,:) ,colors(c+1) );  
                 %lepsi bude je nezobrazovat
                 %rozsahel0 = intersect(rozsahel,obj.RjCh); %rejectovane kanaly                
                 %if numel(rozsahel0)>0 
@@ -445,15 +457,17 @@ classdef CiEEGData < handle
                 %end
                 hold on;
                 c = 1-c;
+                iel = iel + 1 ;
             end
             hold off;
-            set(gca,'ytick',shift(elmaxmax-elmax+1:elmax-elmin+1+elmaxmax-elmax,1),'yticklabel',elmax:-1:elmin); %znacky a popisky osy y
+            set(gca,'ytick',shift(elmaxmax-elmax+1:elmaxmax-elmin+1,1),'yticklabel',elmax:-1:elmin); %znacky a popisky osy y
             grid on;
             
             ylim([min(min(shift))-range max(max(shift))+range]); %rozsah osy y
             ylabel(['Electrode ' num2str(e) '/' num2str(numel(obj.els)) ]);
             xlabel(['Seconds of ' num2str( round(obj.samples*obj.epochs/obj.fs)) ]);
-            text(t(1),-shift(3,1),[ 'resolution +/-' num2str(range) 'uV']);         
+            if allels==1, ty = -shift(4,1); else ty = -shift(2,1); end
+            text(t(1),ty,[ 'resolution +/-' num2str(range) 'uV']);         
             xlim([t(1) t(end)]);
             
             % -------- ulozim  handle na obrazek a nastaveni grafu -----------------
@@ -490,9 +504,38 @@ classdef CiEEGData < handle
                         line([0 0]+(sj-s)*(obj.epochtime(2)-obj.epochtime(1)),[shift(1,1) shift(end,1)],'Color','g','LineWidth',4);
                     end
                 end
-                title(titul);    
-                if allels==1, ty = -shift(4,1); else ty = -shift(2,1); end
+                title(titul);   
                 text(t(end)-((t(end)-t(1))/10),ty,[ 'excluded ' num2str(numel(obj.RjEpoch))]); 
+            end
+            
+            %vykresleni epileptickych eventu
+            if ~isempty(obj.DE)
+                hold on;
+                epieventsum = 0;  
+                weights = [];
+                for ch = elmin:elmax
+                    if ~ismember(ch,obj.RjCh)
+                        if obj.epochs <= 1
+                            [epitime weight] = obj.DE.GetEvents( [obj.tabs(iD(1)) obj.tabs(iD(2))],ch,obj.tabs_orig(1)); 
+                        else
+                            epochy = s : min(s+ceil(time_n/obj.samples)-1 , obj.epochs );
+                            tabs = [ obj.tabs(1,epochy)' obj.tabs(end,epochy)' ]; %#ok<PROP>
+                            [epitime weight] = obj.DE.GetEvents( tabs,ch,obj.tabs_orig(1)) ;      %#ok<PROP>                           
+                            epitime = epitime + obj.epochtime(1);
+                        end
+                        if numel(epitime) > 0
+                            plot(epitime,shift(elmaxmax-ch+1,1),'o', 'MarkerEdgeColor','r','MarkerFaceColor','r', 'MarkerSize',6);
+                            epieventsum = epieventsum + numel(epitime);
+                            weights = [weights; round(weight*100)/100]; %#ok<AGROW>
+                        end
+                    end
+                end             
+                text(t(1)+((t(end)-t(1))/10),ty,['epileptic events: ' num2str(epieventsum) ' (' num2str(min(weights)) '-' num2str(max(weights)) ')']); 
+                hold off;
+            end
+            
+            for k= 1 : size(els,2) %#ok<PROP> %
+                    uistack(h_els{k}, 'top'); %dam krivky eeg ulne dopredu
             end
             
         end
@@ -713,7 +756,9 @@ classdef CiEEGData < handle
             reference = obj.reference;      %#ok<PROP,NASGU>
             epochData = obj.epochData;      %#ok<PROP,NASGU>
             Wp = obj.Wp;                    %#ok<PROP,NASGU>
-            save(filename,'d','tabs','tabs_orig','fs','header','sce','PsyDataP','epochtime','baseline','CH_H','els','plotES','RjCh','RjEpoch','epochTags','epochLast','reference','epochData','Wp','-v7.3');            
+            DE = obj.DE;                    %#ok<PROP,NASGU>
+            save(filename,'d','tabs','tabs_orig','fs','header','sce','PsyDataP','epochtime','baseline','CH_H','els',...
+                    'plotES','RjCh','RjEpoch','epochTags','epochLast','reference','epochData','Wp','DE','-v7.3');            
         end
         function obj = Load(obj,filename)
             % nacte veskere promenne tridy ze souboru
@@ -748,7 +793,12 @@ classdef CiEEGData < handle
                 obj.CH = CH; %#ok<CPROP,PROP> %  %drive ulozeny objekt, nez jsem zavedl ukladani struct
             end  
             if ismember('Wp', {vars.name})
-                load(filename,'Wp');      obj.Wp = Wp;
+                load(filename,'Wp');      obj.Wp = Wp; %#ok<CPROP,PROP>
+            else
+                obj.Wp = struct;
+            end
+            if ismember('DE', {vars.name}) %1.9.2016
+                load(filename,'DE');      obj.DE = DE; %#ok<CPROP,PROP>
             else
                 obj.Wp = struct;
             end
