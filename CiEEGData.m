@@ -81,12 +81,13 @@ classdef CiEEGData < handle
         end
          
         function obj = GetEpiEvents(obj,DE)
-           if exist('DE','var')
+           if exist('DE','var') && isstruct(DE)
                obj.DE = CEpiEvents(DE, obj.tabs, obj.fs);
            else
                obj.DE = CEpiEvents(obj.d, obj.tabs, obj.fs);    %vytvorim instanci tridy      
            end
         end
+
         function obj = RejectChannels(obj,RjCh)
             %ulozi cisla vyrazenych kanalu - kvuli pocitani bipolarni reference 
             obj.RjCh = RjCh;
@@ -530,7 +531,7 @@ classdef CiEEGData < handle
                         end
                     end
                 end             
-                text(t(1)+((t(end)-t(1))/10),ty,['epileptic events: ' num2str(epieventsum) ' (' num2str(min(weights)) '-' num2str(max(weights)) ')']); 
+                text(t(1)+((t(end)-t(1))/8),ty,['epileptic events: ' num2str(epieventsum) ' (' num2str(min(weights)) '-' num2str(max(weights)) ')']); 
                 hold off;
             end
             

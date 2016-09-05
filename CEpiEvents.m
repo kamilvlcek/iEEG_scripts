@@ -3,8 +3,9 @@ classdef CEpiEvents < handle
     %Kamil Vlcek, FGU AVCR, since 2016 09   
     
     properties (Access = public)
-        DE; %matice eventu pro snadne vyhledavani
+        DE; %puvodni struct vygenerovany detektorem
         sloupce; %nazvy sloupcu matice pro indexovani
+        d; %matice eventu pro snadne vyhledavani
     end
     
     methods (Access = public)
@@ -15,7 +16,8 @@ classdef CEpiEvents < handle
                 DE = spike_detector_hilbert_v16_byISARG(d,fs);%#ok<PROP>             
              end
              %chci pridat jeste tabs do objektu, to se mi pak bude hodit pri zobrazovani v epochovanych datech
-             obj.DE = [DE.pos, DE.dur, DE.chan, DE.con, DE.weight, DE.pdf, tabs(round(DE.pos*fs))]; %#ok<PROP>
+             obj.DE=DE; %#ok<PROP> %ukladam jen do zalohy, abych mohl rucne ulozit na disk
+             obj.d = [DE.pos, DE.dur, DE.chan, DE.con, DE.weight, DE.pdf, tabs(round(DE.pos*fs))]; %#ok<PROP> %to budu dal pouzivat
              obj.sloupce = {};
              obj.sloupce.pos = 1; %pozice v sekundach zaznamu
              obj.sloupce.dur = 2; %trvani episod
@@ -24,6 +26,9 @@ classdef CEpiEvents < handle
              obj.sloupce.weight = 5; %váha 0-1
              obj.sloupce.pdf = 6; %statistical significance "PDF"
              obj.sloupce.tabs = 7;
+         end
+         function [DE] = GetDE(obj) %jen vrati originalni struct DE vypocitany detektorem; protoze ho nejak nejde ulozit
+             DE = obj.DE;
          end
          function [time,weight]= GetEvents(obj,tabs,ch,tabs0)
              % vraci casy a vahy udalosti v danem casovem intervalu (tabs(:,1) - tabs(:,2)) na danem kanalu
@@ -34,11 +39,11 @@ classdef CEpiEvents < handle
              time = []; %prazdny array, abych neco vratil
              weight = []; 
              for r = 1:size(tabs,1)                 
-                 iDE = obj.DE(:,obj.sloupce.tabs) >= tabs(r,1) & obj.DE(:,obj.sloupce.tabs) <= tabs(r,2) ...
-                    & obj.DE(:,obj.sloupce.chan)==ch & obj.DE(:,obj.sloupce.con) == 1;
-                 DEx = obj.DE(iDE,:); %nevim predem velikost, takze nemuzu pole vytvorit predem
+                 iDE = obj.d(:,obj.sloupce.tabs) >= tabs(r,1) & obj.d(:,obj.sloupce.tabs) <= tabs(r,2) ...
+                    & obj.d(:,obj.sloupce.chan)==ch & obj.d(:,obj.sloupce.con) == 1;
+                 DEx = obj.d(iDE,:); %nevim predem velikost, takze nemuzu pole vytvorit predem
                  if size(DEx,1)>0 
-                     if size(tabs,1)>0
+                     if size(tabs,1)>1 %epochovana data
                         % predpokladam, ze jsou vsechny epochy stejne dlouhe 
                         % u epochovanych dat chci casy od 0 a navazujici na sebe v navazujicich epochach
                         % nejdriv odectu pocet vterin mezi zacatkem epochy a zacatkem celeho zaznamu odkud je indexovane pos
