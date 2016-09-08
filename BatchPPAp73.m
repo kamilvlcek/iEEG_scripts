@@ -6,11 +6,17 @@ dir = 'D:\eeg\motol\pacienti\p073 Pech VT6\'; %nastaveni adresare, kde data na p
 
 %% 1 vytvoøení iEEG tøídy ze zdrojových dat
 load([dir 'VT6_INV Test Vlcek1_X_ppa.mat']);
+
+%% 1b vytvoøím objekt
 E = CiEEGData(d,tabs,fs,[],H);
 
 %% 2 Naètení headeru od Jirky Hammera
 load([dir 'p73_header_kamil.mat']);
 E.GetHHeader(H);
+
+%% 2b Naètení epileptických událostí 
+load([dir 'p73_ppa_epievents.mat']);
+E.GetEpiEvents(DE);
 
 %% 3 Zobrazení dat a vyøazení špatných kanálù
 E.PlotElectrode();
@@ -22,7 +28,7 @@ load([ dir 'p73_ppa.mat']);
 E.ExtractEpochs(ppa,[-0.3 0.8]);
 E.PlotElectrode();
 
-%TED projdu soubor a vyradim spatne epochy pomoci klavesy Delete
+%% 4b. TED projdu soubor a vyradim spatne epochy pomoci klavesy Delete
 E.Save([dir 'ppa CiEEGData.mat']);
 RjEpoch = E.RjEpoch; %ulozim vyrazene epochy pro pozdejsi pouziti
 save([dir 'ppa_RjEpoch.mat'],'RjEpoch','-v7.3');

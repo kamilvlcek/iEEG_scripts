@@ -19,7 +19,8 @@ classdef CHilbert < CiEEGData
                 tabs=[]; fs = [];
                 % volani Load z CiEEGData mi zavola Load z CHilbert, takze d=filename predelavat nemusim
             end
-            obj@CiEEGData(d,tabs,fs,mults,header); %volani konstruktoru nemuze byt v if bloku   
+            obj@CiEEGData(d,tabs,fs,mults,header); %volani konstruktoru nemuze byt v if bloku 
+            disp('vytvoren objekt CHilbert'); 
         end
         
         function obj = PasmoFrekvence(obj,freq,channels)
@@ -55,6 +56,7 @@ classdef CHilbert < CiEEGData
             [obj.samples,obj.channels, obj.epochs] = obj.DSize();
             fprintf('\n'); %ukoncim radku
             toc; %ukoncim mereni casu a vypisu
+            disp(['vytvoreno ' num2str(numel(obj.Hf)) ' frekvencnich pasem']); 
         end
         
         function obj = ExtractEpochs(obj, PsyData,epochtime)

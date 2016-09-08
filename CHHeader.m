@@ -103,6 +103,10 @@ classdef CHHeader < handle
                 disp('No MNI data');
             end
         end
+        function tag= PacientTag(obj)
+            %vraci tag pacienta, napriklad p73
+            if isfield(obj.H,'patientTag'), tag = obj.H.patientTag; else tag='x'; end
+        end
        
     end
     

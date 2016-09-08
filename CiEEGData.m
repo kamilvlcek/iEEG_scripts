@@ -3,7 +3,7 @@ classdef CiEEGData < handle
     %   Kamil Vlcek, FGU AVCR, since 2016 04
     
     properties (Access = public)
-        d; %double nebo int matrix: time x channel, muze byt i time x channel x epoch
+        d; %double matrix: time x channel, muze byt i time x channel x epoch
         tabs; 
         tabs_orig; %originalni tabs, ktere se zachovaji po epochaci. Downsamplovani se u nich dela
         fs; %vzorkovaci frekvence
@@ -43,7 +43,8 @@ classdef CiEEGData < handle
                 obj.Load(d);
             else
                 assert(numel(fs)==1,'fs must be a single number');
-                assert(size(d,1)== size(tabs,1),'d and tabs have to be the same length');                                              
+                assert(size(d,1)== size(tabs,1),'d and tabs have to be the same length'); 
+                assert(isfloat(d) || exist('mults','var'),'d neni float, musite zadat parametr mults');
                 obj.tabs = tabs;
                 obj.tabs_orig = tabs;
                 obj.fs = fs;
@@ -64,6 +65,7 @@ classdef CiEEGData < handle
                 obj.plotES = [1 1 150 5 0]; %nastavim defaultni hodnoty grafy
                 obj.epochLast = 1;
                 obj.reference = 'original';
+                disp('vytvoren objekt CiEEGData'); 
             end
         end
         
@@ -77,25 +79,30 @@ classdef CiEEGData < handle
         function obj = GetHHeader(obj,H)
             %nacte header z promenne H - 25.5.2016
             obj.CH = CHHeader(H);
-            [~, ~, obj.els] = obj.CH.ChannelGroups();            
+            [~, ~, obj.els] = obj.CH.ChannelGroups();  
+            disp(['header nacten: ' obj.CH.PacientTag()]);
         end
          
         function obj = GetEpiEvents(obj,DE)
            if exist('DE','var') && isstruct(DE)
                obj.DE = CEpiEvents(DE, obj.tabs, obj.fs);
            else
+               assert(obj.epochs <= 1, 'nelze pouzit, data jiz jsou epochovana');
                obj.DE = CEpiEvents(obj.d, obj.tabs, obj.fs);    %vytvorim instanci tridy      
            end
+           disp(['nacteno ' num2str(size(obj.DE.d,1)) ' epileptickych udalosti']);
         end
 
         function obj = RejectChannels(obj,RjCh)
             %ulozi cisla vyrazenych kanalu - kvuli pocitani bipolarni reference 
             obj.RjCh = RjCh;
+            disp(['vyrazeno ' num2str(numel(RjCh)) ' kanalu']); 
         end
         
         function obj = RejectEpochs(obj,RjEpoch)
             %ulozi cisla vyrazenych epoch - kvuli prevodu mezi touto tridou a CHilbert
             obj.RjEpoch = RjEpoch;
+            disp(['vyrazeno ' num2str(numel(RjEpoch)) ' epoch']); 
         end
         
         function obj = ExtractEpochs(obj, psy,epochtime,baseline)
@@ -138,6 +145,7 @@ classdef CiEEGData < handle
             obj.d = de; %puvodni neepochovana budou epochovana            
             obj.tabs = tabs; %#ok<PROP>
             [obj.samples,obj.channels, obj.epochs] = obj.DSize();
+            disp(['rozdeleno na ' num2str(obj.epochs) ' epoch']); 
         end
         
         function [d]= CategoryData(obj, katnum)
@@ -203,6 +211,7 @@ classdef CiEEGData < handle
                 case 'e', obj.reference = 'perElectrode'; 
                 case 'b', obj.reference = 'Bipolar';                    
             end
+            disp(['reference zmenena: ' obj.reference]); 
         end
         
         function [iEp,epochsEx]=GetEpochsExclude(obj)
@@ -261,7 +270,6 @@ classdef CiEEGData < handle
                 obj.Wp.WpKat = WpKat;
                 obj.Wp.kats = kats; %ulozim si cisla kategorii kvuli grafu PlotResponseCh
             end
-            
         end
         
         %% PLOT FUNCTIONS
@@ -366,6 +374,7 @@ classdef CiEEGData < handle
             %vykresli data (2 sekundy ) z jedne elektrody e od vteriny zaznamu s
             %osa y je v rozmezi [-r +r]
             %zatim jen neepochovana data
+            assert(~isempty(obj.els),'je nutne nacist header pomoci GetHHeader');
             if ~exist('e','var') || isempty(e), e= obj.plotES(1); end %cislo elektrody
             if ~exist('s','var') || isempty(s), s= obj.plotES(2); end %cislo epochy nebo vteriny zaznamu
             if ~exist('range','var') || isempty(range)
@@ -759,7 +768,8 @@ classdef CiEEGData < handle
             Wp = obj.Wp;                    %#ok<PROP,NASGU>
             DE = obj.DE;                    %#ok<PROP,NASGU>
             save(filename,'d','tabs','tabs_orig','fs','header','sce','PsyDataP','epochtime','baseline','CH_H','els',...
-                    'plotES','RjCh','RjEpoch','epochTags','epochLast','reference','epochData','Wp','DE','-v7.3');            
+                    'plotES','RjCh','RjEpoch','epochTags','epochLast','reference','epochData','Wp','DE','-v7.3');  
+            disp(['ulozeno do ' filename]); 
         end
         function obj = Load(obj,filename)
             % nacte veskere promenne tridy ze souboru
@@ -812,7 +822,8 @@ classdef CiEEGData < handle
             if exist('epochLast','var'),  obj.epochLast = epochLast;   else obj.epochLast = []; end         %#ok<CPROP,PROP>
             if exist('reference','var'),  obj.reference = reference;   else obj.reference = 'original'; end         %#ok<CPROP,PROP> %14.6.2016
            
-            obj.filename = filename;          %
+            obj.filename = filename;
+            disp(['nacten soubor ' filename]); 
         end
     end
     %% privatni metody
