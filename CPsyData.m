@@ -36,7 +36,7 @@ classdef CPsyData < handle
         function ts_podnety = TimeStimuli(obj,response)
             %vraci matici timestampu vsech podnetu/odpovedi, pokud response=1 vracim odpovedi
             if exist('response','var') && response==1
-                ts_podnety = obj.P.data(:,obj.P.sloupce.ts_response); %vratim timestampy odpovedi
+                ts_podnety = obj.P.data(:,obj.P.sloupce.ts_odpoved); %vratim timestampy odpovedi
             else
                 ts_podnety = obj.P.data(:,obj.P.sloupce.ts_podnet); %vratim timestampy podnetu
             end
@@ -84,9 +84,9 @@ classdef CPsyData < handle
         function [resp,rt,kat,test] = GetResponses(obj)
             %vraci odpovedi cloveka - spravne/spatne, reakcni cas, kategorie 
             S = obj.P.sloupce;
-            resp = obj.P.data(:,S.spravne); %vratim i reakcni casy
-            rt = obj.P.data(:,S.rt); %vratim i reakcni casy
-            kat = obj.P.data(:,S.kategorie); %vratim i reakcni casy
+            resp = obj.P.data(:,S.spravne); % spravnost odpovedi
+            rt = obj.P.data(:,S.rt); % reakcni casy
+            kat = obj.P.data(:,S.kategorie); %kategorie
             test = obj.P.data(:,S.zpetnavazba)==0; %vratim index testovych trialu
         end
         
@@ -151,7 +151,7 @@ classdef CPsyData < handle
     methods  (Access = private)
         function [obj] = DoplnZpetnavazba(obj)
             %doplni sloupec zpetnavazba, pokud neexistuje a naplni ho nulama
-            if ~isfield(obj.P.sloupce,'zpetnavazba')                
+            if isstruct(obj.P) && ~isfield(obj.P.sloupce,'zpetnavazba')                
                 obj.P.data = [ obj.P.data zeros(size(obj.P.data,1),1)]; %doplnim dalsi sloupec do dat
                 obj.P.sloupce.zpetnavazba = size(obj.P.data,2); %pojmenuju ho zpetnavazba
             end

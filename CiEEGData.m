@@ -134,11 +134,11 @@ classdef CiEEGData < handle
                 obj.epochData(epoch,:)= {Kstring Knum obj.tabs(izacatek)}; %zacatek podnetu beru z tabs aby sedel na tabs pri downsamplovani
                 for ch = 1:obj.channels %pro vsechny kanaly                    
                     if ibaseline(1)==ibaseline(2)
-                        baseline = 0; %baseline nebudu pouzivat, pokud jsem zadal stejny cas jejiho zacatku a konce
+                        baseline_mean = 0; %baseline nebudu pouzivat, pokud jsem zadal stejny cas jejiho zacatku a konce
                     else
-                        baseline = mean(obj.d(izacatek+ibaseline(1) : izacatek+ibaseline(2)-1, ch)); %baseline toho jednoho kanalu, jedne epochy
+                        baseline_mean = mean(obj.d(izacatek+ibaseline(1) : izacatek+ibaseline(2)-1, ch)); %baseline toho jednoho kanalu, jedne epochy
                     end
-                    de(:,ch,epoch) = obj.d( izacatek+iepochtime(1) : izacatek+iepochtime(2)-1,ch) - baseline; 
+                    de(:,ch,epoch) = obj.d( izacatek+iepochtime(1) : izacatek+iepochtime(2)-1,ch) - baseline_mean; 
                     tabs(:,epoch) = obj.tabs(izacatek+iepochtime(1) : izacatek+iepochtime(2)-1); %#ok<PROP>
                 end
             end
@@ -148,12 +148,21 @@ classdef CiEEGData < handle
             disp(['rozdeleno na ' num2str(obj.epochs) ' epoch']); 
         end
         
-        function [d]= CategoryData(obj, katnum)
-            %vraci epochy ve kterych podnet byl kategorie/podminky katnum
+        function [d,psy_rt]= CategoryData(obj, katnum,rt)
+            %vraci epochy ve kterych podnet byl kategorie/podminky katnum + reakcni casy 
+            %Pokud rt>0, vraci epochy serazene podle reakcniho casu 
             assert(obj.epochs > 1,'data not yet epoched'); %vyhodi chybu pokud data nejsou epochovana
-            iEpochy = cell2mat(obj.epochData(:,2))==katnum ; %seznam epoch v ramci kategorie ve sloupci
-            iEp=obj.GetEpochsExclude();            
-            d = obj.d(:,:,iEpochy & iEp); %epochy z kategorie, ktere nejsou excludovane
+            iEpochy = [ cell2mat(obj.epochData(:,2))==katnum , obj.GetEpochsExclude()]; %seznam epoch v ramci kategorie ve sloupci + epochy, ktere nejsou excludovane
+            d = obj.d(:,:,all(iEpochy,2)); %epochy z kategorie, ktere nejsou excludovane
+            [~,psy_rt,psy_katnum,~] = obj.PsyData.GetResponses();           
+            psy_rt = psy_rt(psy_katnum==katnum,:);
+            iEp = iEpochy( iEpochy(:,1)==1,2); %neexcludovane epochy v ramci kategorie
+            psy_rt = psy_rt(iEp); %doufam, ze to jsou stejne pocty
+            
+            if exist('rt','var') && ~isempty(rt) %chci hodnoty serazene podle reakcniho casu               
+                [psy_rt, isorted] = sort(psy_rt);
+                d = d(:,:,isorted); 
+            end   
         end      
         
         function obj = ChangeReference(obj,ref)            
@@ -326,7 +335,7 @@ classdef CiEEGData < handle
             for k=1:numel(kategories)
                 katnum = kategories(k);
                 subplot(1,numel(kategories),k);
-                dkat = obj.CategoryData(katnum);
+                [dkat,rt] = obj.CategoryData(katnum,1);
                 E = 1:size(dkat,3); %cisla epoch - kazdou kategorii muze byt jine                
                 D = squeeze(dkat(:,ch,:));
                 imagesc(T,E,D');
@@ -334,6 +343,13 @@ classdef CiEEGData < handle
                 miny = min([miny min(min( D ))]);                
                 xlabel('Time [s]');                
                 title(obj.PsyData.CategoryName(katnum));
+                hold on; 
+                if numel(obj.epochtime)<3 || obj.epochtime(3)==0
+                    plot(rt,E,'-k','LineWidth',1); %cara reakcnich casu, nebo podnetu, pokud zarovnano podle reakce      
+                else
+                    plot(-rt,E,'-k','LineWidth',1); %cara reakcnich casu, nebo podnetu, pokud zarovnano podle reakce      
+                end
+                plot(zeros(size(E,2),1),E,'-k','LineWidth',1); %cara podnetu
             end    
             if isfield(obj.plotEp,'ylim') && numel(obj.plotEp.ylim)>=2 %nactu nebo ulozim hodnoty y
                 miny = obj.plotEp.ylim(1); maxy = obj.plotEp.ylim(2);

@@ -59,15 +59,16 @@ classdef CHilbert < CiEEGData
             disp(['vytvoreno ' num2str(numel(obj.Hf)) ' frekvencnich pasem']); 
         end
         
-        function obj = ExtractEpochs(obj, PsyData,epochtime)
+        function obj = ExtractEpochs(obj, PsyData,epochtime,baseline)
             % rozdeli hilbertovu obalku podle epoch
             % i u ni odecte baseline pred podnetem
             
-            ExtractEpochs@CiEEGData(obj,PsyData, epochtime); %to mi zepochuje prumernou obalku za frekvencni pasma v poli d
+            ExtractEpochs@CiEEGData(obj,PsyData, epochtime,baseline); %to mi zepochuje prumernou obalku za frekvencni pasma v poli d
             if(numel(obj.HFreq)>0)
                 %ted epochace vsech frekvencnich pasem zvlast, hlavne kvuli obrazkum
                 %prumer za kazdou kategorii, statistiku z toho delat nechci
-                 iepochtime = round(epochtime.*obj.fs); %v poctu vzorku cas pred a po udalosti, prvni cislo je zaporne druhe kladne             
+                 iepochtime = round(epochtime(1:2).*obj.fs); %v poctu vzorku cas pred a po udalosti, prvni cislo je zaporne druhe kladne             
+                 ibaseline =  round(baseline.*obj.fs); %v poctu vzorku cas pred a po udalosti
                  kategorie = cell2mat(obj.PsyData.P.strings.podminka(:,2)); %cisla karegorii ve sloupcich
                  Hfreq2 = zeros(iepochtime(2)-iepochtime(1), size(obj.d,2), numel(obj.Hf)-1,size(kategorie,1)); %nova epochovana data time x channel x freq x kategorie=podminka
                  %cyklus po kategoriich ne po epochach
@@ -76,8 +77,8 @@ classdef CHilbert < CiEEGData
                      for epoch = Epochy' %potrebuji to v radcich
                          izacatek = find(obj.tabs_orig==obj.epochData{epoch,3}); %najdu index podnetu, podle jeho timestampu. v tretim sloupci epochData jsou timestampy
                          for ch=1:obj.channels
-                            baseline = mean(obj.HFreq(izacatek + iepochtime(1) : izacatek-1,ch,:),1); %baseline pro vsechny frekvencni pasma dohromady
-                            Hfreq2(:,ch,:,katnum+1) = Hfreq2(:,ch,:,katnum+1) +  bsxfun(@minus,obj.HFreq(izacatek + iepochtime(1) : izacatek+iepochtime(2)-1,ch,:) , baseline); 
+                            baseline_mean = mean(obj.HFreq(izacatek + ibaseline(1) : izacatek+ibaseline(2)-1,ch,:),1); %baseline pro vsechny frekvencni pasma dohromady
+                            Hfreq2(:,ch,:,katnum+1) = Hfreq2(:,ch,:,katnum+1) +  bsxfun(@minus,obj.HFreq(izacatek + iepochtime(1) : izacatek+iepochtime(2)-1,ch,:) , baseline_mean); 
                             %tady se mi to mozna odecetlo blbe? KOntrola
                          end
                      end
@@ -103,7 +104,7 @@ classdef CHilbert < CiEEGData
                 obj.plotF.kategories = kategories;
             end
             
-            if isfield(obj.plotF,'fh') && ishandle(obj.plotEp.fh)
+            if isfield(obj.plotF,'fh') && ishandle(obj.plotF.fh)
                 figure(obj.plotF.fh); %pouziju uz vytvoreny graf
                 %clf(obj.plotF.fh); %graf vycistim
             else
