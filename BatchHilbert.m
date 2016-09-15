@@ -1,21 +1,24 @@
+%15.9.2016 - AeDist zarovnani podle odpovedi
 basedir = 'd:\eeg\motol\pacienti\';
-timewindow = [-.2 1.2];
+timewindow = [-1.2 0.3 1]; %zarovnani podle odpovedi
+baseline = [-1.2 -1];
+suffix = ' Ep Resp';
 
 frekvence = struct;
 f=1;
-frekvence(f).todo = 1;
+frekvence(f).todo = 0;
 frekvence(f).freq = 4:2:150;
 frekvence(f).freqname = '4-150'; % all range
 f=2;
-frekvence(f).todo = 0;
+frekvence(f).todo = 1;
 frekvence(f).freq = 50:5:120;
 frekvence(f).freqname = '50-120'; % slow gamma
 f=3;
-frekvence(f).todo = 0;
+frekvence(f).todo = 1;
 frekvence(f).freq = 7:2:15;
 frekvence(f).freqname = '7-15'; % alpha
 f=4;
-frekvence(f).todo = 0;
+frekvence(f).todo = 1;
 frekvence(f).freq = 50:10:90;
 frekvence(f).freqname = '50-90'; %gamma 2
 f=5;
@@ -23,7 +26,7 @@ frekvence(f).todo = 0;
 frekvence(f).freq = 30:5:50;
 frekvence(f).freqname = '30-50'; % gamma 1
 f=6;
-frekvence(f).todo = 0;
+frekvence(f).todo = 1;
 frekvence(f).freq = 15:3:31;
 frekvence(f).freqname = '15-31'; % gamma 1
 f=7;
@@ -33,12 +36,12 @@ frekvence(f).freqname = '4-8'; % theta
 
 pacienti = struct;
 p = 1;
-pacienti(p).todo = 0;
+pacienti(p).todo = 1;
 pacienti(p).folder = 'p079 Plu VT8';
 pacienti(p).data = 'VT8_2015-04-09_09-46_001_concat_X_aedist.mat';
 pacienti(p).header = 'P79_header.mat';
 pacienti(p).aedist = 'p79_aedist.mat';
-pacienti(p).rjepoch = 'aedist RjEpoch.mat';
+pacienti(p).rjepoch = 'aedist RjEpoch Resp.mat';
 pacienti(p).rjch = [47 64 114]; %#ok<NBR%#ok<MSNU> AK> 
 pacienti(p).frekvence = struct;
 
@@ -52,12 +55,12 @@ pacienti(p).rjepoch = 'aedist RjEpoch.mat';
 pacienti(p).rjch = [47]; %#ok<NBRAK>
 
 p=3;
-pacienti(p).todo = 0;
+pacienti(p).todo = 1;
 pacienti(p).folder = 'p095 Hav VT11';
 pacienti(p).data = 'VT11_2015-12-15_aedist.mat';
 pacienti(p).header = 'P95_header.mat';
 pacienti(p).aedist = 'p95_aedist.mat';
-pacienti(p).rjepoch = 'aedist rjepoch.mat';
+pacienti(p).rjepoch = 'aedist rjepoch Resp.mat';
 pacienti(p).rjch = [47]; %#ok<NBRAK>
 
 p=4;
@@ -70,7 +73,7 @@ pacienti(p).rjepoch = 'aedist rj epoch.mat';
 pacienti(p).rjch = [47]; %#ok<NBRAK>
 
 p=5;
-pacienti(p).todo = 1;
+pacienti(p).todo = 0;
 pacienti(p).folder = 'p073 Pech VT6';
 pacienti(p).data = 'VT6_INV Test Vlcek1_X_aedist.mat';
 pacienti(p).header = 'p73_header_kamil.mat';
@@ -112,7 +115,7 @@ for f=1:numel(frekvence)
                 E.RejectEpochs(RjEpoch);
                 E.ResponseSearch(0.1,[0 1 2]); %statistika s klouzavym oknem 100ms
                 disp('saving data ...');
-                E.Save([ basedir pacienti(p).folder '\aedist CHilbert' frekvence(f).freqname ' Ep']);
+                E.Save([ basedir pacienti(p).folder '\aedist CHilbert' frekvence(f).freqname suffix]);
                 disp([ pacienti(p).folder ' OK']);
                 clear E d tabs fs mults header RjEpoch aedist H ans; 
             end
@@ -120,3 +123,4 @@ for f=1:numel(frekvence)
     end
 end
 
+system('shutdown -s')
