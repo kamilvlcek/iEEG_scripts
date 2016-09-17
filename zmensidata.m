@@ -1,12 +1,14 @@
-function [fs, delka] = zmensidata(filename,podil)
+function [fs, delka] = zmensidata(filename,podil,fsforce)
 % ZMENSIDATA funkce na zmenseni vzorkovaci frekvence dat z Motola
 % prevedeno na funkce 30.8.2016
 % vraci vyslednou frekvenci a delku dat
 
 %prvni pulka souboru - s celym najednou se spatne pracuje
 load(filename,'d','tabs','fs'); 
-
-assert( rem(fs,podil) ==0, 'vysledna frekvence musi byt cele cislo'); %#ok<NODEF>
+if (exist('fsforce','var'))
+    fs = fsforce;
+end
+assert( rem(fs,podil) ==0, 'vysledna frekvence musi byt cele cislo'); 
 frek = num2str(fs/podil); %vysledna frekvence
 fs = fs / podil;
 

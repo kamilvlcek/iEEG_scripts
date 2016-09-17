@@ -1,10 +1,10 @@
-function [ iSTART,iEND ] = dataview(d,tabs,fs,mults, start,konec, annotations, channel)
+function [ iSTART,iEND ] = dataview(d,tabs,fs,mults, start,konec, annotations, channel,Events)
 %DATAVIEW zobrazi synchronizacni puls s polu s anotacema
 %   pracuje s datama EEG z Motola
 %   delka i start jsou v sekundach
 %   nepovinny channel je cislo kanalu se synchronizaci
 
-if ~exist('channel','var') %muzu zadat kanal se synchronizaci - 15.4.2015
+if ~exist('channel','var') || isempty(channel) %muzu zadat kanal se synchronizaci - 15.4.2015
     channel = size(d,2)-2; %synchronizace byva 2 kanaly pred koncem - pred EKG
 end  
 if ~exist('start','var') || start == 0
@@ -25,6 +25,7 @@ end
 if ~exist('mults','var') || numel(mults)<size(d,2)
     mults = ones(1,size(d,2));
 end
+
 %fs = H.samplerate(1); %sampling rate
 
 pauzyvdatech = kontrolacasu(tabs(iStart:iKonec),fs);
@@ -56,6 +57,23 @@ x = start;
                 text(anotace_index,2900-zobrazenych*80,annotations.event{a},'Color','red');
                 zobrazenych = zobrazenych+1;
             end
+        end
+    end
+    if exist('Events','var') && isstruct(Events);
+        for k = 1:numel(Events.c.timestamps)
+            secs = find(tabs >= Events.c.timestamps(k),1) / fs;
+            line([secs secs],[-3000 3000],'Color','black');
+            text(secs,100,['c' num2str(k)],'Color','black');
+        end
+        for k = 1:numel(Events.g.timestamps)
+            secs = find(tabs >= Events.g.timestamps(k),1) / fs;
+            line([secs secs],[-3000 3000],'Color','red');
+            text(secs,200,['g' num2str(k)],'Color','red');
+        end
+        for k = 1:numel(Events.e.timestamps)
+            secs = find(tabs >= Events.e.timestamps(k),1) / fs;
+            line([secs secs],[-3000 3000],'Color','magenta');
+            text(secs,300,'e','Color','magenta');
         end
     end
     iSTART = x*fs; %index zacatku v poli d a tabs

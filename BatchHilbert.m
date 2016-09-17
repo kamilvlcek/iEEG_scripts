@@ -111,7 +111,7 @@ for f=1:numel(frekvence)
                 E.ChangeReference('b');
                 E.PasmoFrekvence(frekvence(f).freq);
                 disp('extracting epochs ...');
-                E.ExtractEpochs(aedist,timewindow);        
+                E.ExtractEpochs(aedist,timewindow,baseline);        
                 E.RejectEpochs(RjEpoch);
                 E.ResponseSearch(0.1,[0 1 2]); %statistika s klouzavym oknem 100ms
                 disp('saving data ...');
@@ -123,4 +123,4 @@ for f=1:numel(frekvence)
     end
 end
 
-system('shutdown -s')
+%system('shutdown -s')

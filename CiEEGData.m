@@ -80,6 +80,7 @@ classdef CiEEGData < handle
             %nacte header z promenne H - 25.5.2016
             obj.CH = CHHeader(H);
             [~, ~, obj.els] = obj.CH.ChannelGroups();  
+            assert(max(obj.els)<=size(obj.d,2),'nesouhlasi pocet elektrod - spatny header?');
             disp(['header nacten: ' obj.CH.PacientTag()]);
         end
          
@@ -409,7 +410,7 @@ classdef CiEEGData < handle
             
             % -------- nastavim rozsah elektrod k zobrazeni -----------------
             if  allels==1  %chci zobrazit vsechny elektrody
-                elektrodvsade = 5;  %31.8.2016 - chci zobrazovat vzdy pet elektrod, indexy v els jsou tedy 1 6 11
+                elektrodvsade = iff(obj.channels/numel(obj.els) > 6, 5, 8);  %31.8.2016 - chci zobrazovat vzdy pet elektrod, indexy v els jsou tedy 1 6 11
                 elsmax = 0; %kolik zobrazim kontaktu - rozliseni osy y v poctu kontaktu
                 elsdelsi = [0,obj.els]; %pridam jen nulu na zacatek, kvuli pocitani rozdilu 
                 for n = 1 : elektrodvsade : numel(elsdelsi)-elektrodvsade
