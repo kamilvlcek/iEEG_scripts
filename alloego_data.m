@@ -1,8 +1,22 @@
-function [alloego] = alloego_data(Events)
+function [alloego] = alloego_data(Events,smazat)
 %ALLOEGO_DATA vytvori a vraci strukturu s udalostmi experimentu AlloEgo v BVA. 
 % vychází ze struktury Events of Lukase 
 
 %tabulka odpovedi pacienta
+%musim profiltrovat stlacene klavesy a setoff goal aby to byla sekvence c off f g
+%zatim to udelam jen pole smazat
+if exist('smazat','var') && isstruct(smazat) %pole obsahuje indexy ke smazani , smazat = struct;
+    if isfield(smazat,'f')
+        Events.f.timestamps(smazat.f) = []; 
+        disp(['smazano f BVA_frames:' mat2str(Events.f.BVA_frames(smazat.f))]); %napr. p83 smazat.f = [6 12 15];
+    end
+    if isfield(smazat,'g')
+        Events.g.timestamps(smazat.g) = [];
+        disp(['smazano g BVA_frames:' mat2str(Events.g.BVA_frames(smazat.g))]); %napr. p83 smazat.g = 11;
+    end
+end
+    
+
 
 assert(numel(Events.set_off_goal.timestamps) == numel(Events.f.timestamps),'ruzne delky setoffgoal a f');
 assert(numel(Events.set_off_goal.timestamps) == numel(Events.c.timestamps),'ruzne delky setoffgoal a c');
@@ -13,6 +27,7 @@ data(:,4)=(Events.f.timestamps-Events.c.timestamps)*3600*24; %reakcni cas - rozd
 data(:,8)=Events.set_off_goal.timestamps; %casy zacatku pohybu
 data(:,9)=Events.f.timestamps; %casy stlaceni f - zadne konce pohybu nejsou
 
+assert(sum(data(:,8) < data(:,9)) == size(data,1),'stimuli nejsou vzdy driv nez odpovedi');
 %nazvy sloupcu tabulky
 sloupce = {};
 sloupce.soubor=1;
