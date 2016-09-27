@@ -105,7 +105,7 @@ classdef CHHeader < handle
         end
         function tag= PacientTag(obj)
             %vraci tag pacienta, napriklad p73
-            if isfield(obj.H,'patientTag'), tag = obj.H.patientTag; else tag='x'; end
+            if isfield(obj.H,'patientTag'), tag = obj.H.patientTag; else tag=obj.H.subjName; end
         end
        
     end

@@ -68,6 +68,7 @@ classdef CiEEGData < handle
                 disp('vytvoren objekt CiEEGData'); 
             end
             disp(['epochs: ' num2str(obj.epochs) ', rejected: ' num2str(numel(obj.RjEpoch)), '; channels: ' num2str(obj.channels) ', rejected: ' num2str(numel(obj.RjCh)) ]); 
+            disp(['reference: ' obj.reference]);
             if ~isempty(obj.DE) 
                     disp(['epievents: ' num2str(size(obj.DE.d,1))]);
             else
@@ -276,7 +277,7 @@ classdef CiEEGData < handle
                 obj.Wp.D1iEp = iEp; %index zpracovanych epoch pro zpetnou kontrolu
             end
             if exist('kats','var') && numel(kats)>1  && numel(timewindow)==1                                      
-                responsekat = cell(numel(kats),1); %response zvlast pro kazdou kat
+                responsekat = cell(numel(kats),1); %eeg response zvlast pro kazdou kat
                 for k = 1:numel(kats)
                     katdata = obj.CategoryData(kats(k)); %epochy jedne kategorie, uz jsou vyrazeny vyrazene epochy
                     responsekat{k,1} = katdata(abs(iepochtime(1)-ibaseline(2))+1 :end,:,:); %jen cas po podnetu; 
@@ -630,7 +631,7 @@ classdef CiEEGData < handle
             
             iEp=obj.GetEpochsExclude();  
             M = mean(obj.d(:,ch,iEp),3);                
-            E = std(obj.d(:,ch,iEp),[],3)/sqrt(size(obj.d,3)); %std err of mean
+            E = std(obj.d(:,ch,iEp),[],3)/sqrt(size(obj.d,3)); %std err of mean          
             h_errbar = errorbar(T,M,E,'.','Color',[.6 .6 1]); %nejdriv vykreslim errorbars aby byly vzadu [.8 .8 .8]
             hold on;
             h_mean = plot(T,M,'LineWidth',2,'Color',[0 0 1]);  %prumerna odpoved, ulozim si handle na krivku          
@@ -638,6 +639,7 @@ classdef CiEEGData < handle
             if isfield(obj.plotRCh,'ylim') && numel(obj.plotRCh.ylim)>=2
                 ylim( obj.plotRCh.ylim);
                 ymax = obj.plotRCh.ylim(2);
+                ymin = obj.plotRCh.ylim(1);
             else
                 ymax = 0; ymin = 0;
                 for katnum=obj.PsyData.Categories()
@@ -648,22 +650,24 @@ classdef CiEEGData < handle
                 ylim( [ymin ymax]);
                 obj.plotRCh.ylim = [ymin ymax];
             end
+            obj.plotRCh.range = [min(M)-max(E) max(M)+max(E)]; %zjistim a ulozim rozsah hodnot pro moznost nastaveni osy y
             if isfield(obj.Wp,'D2') %krivka p hodnot z W testu
                 Tr = linspace(0,obj.epochtime(2),size(obj.Wp.D2,1)); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
                 if pvalue %pokud chci zobrazovat hodnotu p value jako krivku
                     plot(Tr,obj.Wp.D2(:,ch),'b:');  %carkovana modra cara oznacuje signifikanci prumeru
                 end
+                y = ymin + (ymax-ymin)*0.2;
                 iWp = obj.Wp.D2(:,ch) <= 0.05;
-                plot(Tr(iWp),ones(1,sum(iWp))*-0.1,'b.'); %tecky jsou p < 0.05                
-                iWpfirst = find(iWp,1,'first');  
+                plot(Tr(iWp),ones(1,sum(iWp))*y,'b.'); %tecky jsou p < 0.05                
+                iWpfirst = find(iWp,1,'first');                 
                 if(numel(iWpfirst)>0) 
-                    text(-0.01,-0.1,[ num2str( round(Tr(iWpfirst)*1000)) 'ms']); %cas zacatku signifikance
-                    text(-0.18,-0.1,[ 'p=' num2str(CStat.round(min(obj.Wp.D2(:,ch)),3))]);  %cas zacatku signifikance 
+                    text(-0.01,y,[ num2str( round(Tr(iWpfirst)*1000)) 'ms']); %cas zacatku signifikance
+                    text(-0.18,y,[ 'p=' num2str(CStat.round(min(obj.Wp.D2(:,ch)),3))]);  %cas zacatku signifikance 
                     line([Tr(iWpfirst) Tr(iWpfirst)],obj.plotRCh.ylim,'Color','blue'); %modra svisla cara u zacatku signifikance
-                    text(0.05,-0.1, 'Mean');
+                    text(0.05,y, 'Mean');
                 end
                 iWp = obj.Wp.D2(:,ch) <= 0.01;
-                plot(Tr(iWp),ones(1,sum(iWp))*-0.1,'b*'); %hvezdicky jsou p < 0.01
+                plot(Tr(iWp),ones(1,sum(iWp))*y,'b*'); %hvezdicky jsou p < 0.01
             end
             
             if exist('kategories','var') %kategorie vykresluju jen pokud mam definovane karegorie                
@@ -677,9 +681,10 @@ classdef CiEEGData < handle
                     E = std(katdata(:,ch,:),[],3)/sqrt(size(katdata,3)); %std err of mean
                     errorbar(T,M,E,'.','color',colorskat{2,k}); %nejdriv vykreslim errorbars aby byly vzadu[.8 .8 .8]
                     h_kat(k) = plot(T,M,'LineWidth',1,'Color',colorskat{1,k});  %prumerna odpoved,  ulozim si handle na krivku  
+                    obj.plotRCh.range = [ min(obj.plotRCh.range(1),min(M)-max(E)) max(obj.plotRCh.range(2),max(M)+max(E))]; %pouziju to pak pri stlaceni / z obrazku
                     if isfield(obj.Wp,'WpKat')
                         for l = k+1:numel(kategories) %katnum jde od nuly
-                            y = -(k+l)/20;
+                            y = ymin + (ymax-ymin)*((k+l)*0.05-0.1)  ;
                             if k==1, color=colorskat{1,l}; else color = colorskat{1,1}; end %green a red jsou proti kategorii 0, cerna je kat 1 vs kat 2
                             if pvalue %pokud chci zobrazovat hodnotu p value jako krivku
                                 plot(Tr,obj.Wp.WpKat{k,l}(:,ch), ':','Color',color); %carkovana cara oznacuje signifikanci kategorie vuci jine kategorii
@@ -986,6 +991,9 @@ classdef CiEEGData < handle
                            end
                        end
                    end
+                   obj.PlotResponseCh( obj.plotRCh.ch); %prekreslim grafy
+               case 'divide' %lomeno na numericke klavesnici
+                   obj.plotRCh.ylim = obj.plotRCh.range; %spocitalo se pri volani PlotResponseCh
                    obj.PlotResponseCh( obj.plotRCh.ch); %prekreslim grafy
                case 'space' %zobrazi i prumerne krivky
                    if isa(obj,'CHilbert'), obj.PlotResponseFreq(obj.plotRCh.ch,obj.Wp.kats); end %vykreslim vsechna frekvencni pasma
