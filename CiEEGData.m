@@ -279,6 +279,9 @@ classdef CiEEGData < handle
                 end
                 obj.Wp.WpKat = WpKat;
                 obj.Wp.kats = kats; %ulozim si cisla kategorii kvuli grafu PlotResponseCh
+            else
+                obj.Wp.kats = kats;
+                obj.Wp.WpKat = cell(0);
             end
         end
         
