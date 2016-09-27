@@ -20,7 +20,7 @@ classdef CHilbert < CiEEGData
                 % volani Load z CiEEGData mi zavola Load z CHilbert, takze d=filename predelavat nemusim
             end
             obj@CiEEGData(d,tabs,fs,mults,header); %volani konstruktoru nemuze byt v if bloku 
-            disp('vytvoren objekt CHilbert'); 
+            disp(['Frequency bands: ' num2str(numel(obj.Hf)) ': ' num2str(obj.Hf(1)) ' - ' num2str(obj.Hf(end)) ' Hz' ]);
         end
         
         function obj = PasmoFrekvence(obj,freq,channels)

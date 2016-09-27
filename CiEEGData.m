@@ -67,6 +67,17 @@ classdef CiEEGData < handle
                 obj.reference = 'original';
                 disp('vytvoren objekt CiEEGData'); 
             end
+            disp(['epochs: ' num2str(obj.epochs) ', rejected: ' num2str(numel(obj.RjEpoch)), '; channels: ' num2str(obj.channels) ', rejected: ' num2str(numel(obj.RjCh)) ]); 
+            if ~isempty(obj.DE) 
+                    disp(['epievents: ' num2str(size(obj.DE.d,1))]);
+            else
+                    disp('no epievents');
+            end
+            if ~isempty(obj.Wp)
+                disp (['Wilcox stats done, kats: ' num2str(obj.Wp.kats)]);
+            else
+                disp('no Wilcox stats');
+            end
         end
         
         function [samples, channels, epochs] = DSize(obj)
@@ -86,10 +97,10 @@ classdef CiEEGData < handle
          
         function obj = GetEpiEvents(obj,DE)
            if exist('DE','var') && isstruct(DE)
-               obj.DE = CEpiEvents(DE, obj.tabs, obj.fs);
+               obj.DE = CEpiEvents(DE, obj.tabs_orig, obj.fs);
            else
                assert(obj.epochs <= 1, 'nelze pouzit, data jiz jsou epochovana');
-               obj.DE = CEpiEvents(obj.d, obj.tabs, obj.fs);    %vytvorim instanci tridy      
+               obj.DE = CEpiEvents(obj.d, obj.tabs_orig, obj.fs);    %vytvorim instanci tridy      
            end
            disp(['nacteno ' num2str(size(obj.DE.d,1)) ' epileptickych udalosti']);
         end
