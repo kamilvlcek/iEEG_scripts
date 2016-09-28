@@ -161,14 +161,21 @@ classdef CiEEGData < handle
             disp(['rozdeleno na ' num2str(obj.epochs) ' epoch']); 
         end
         
-        function [d,psy_rt]= CategoryData(obj, katnum,rt)
-            %vraci epochy ve kterych podnet byl kategorie/podminky katnum + reakcni casy 
+        function [d,psy_rt]= CategoryData(obj, katnum,rt,opak)
+            %vraci eegdata epoch ve kterych podnet byl kategorie/podminky=katnum + reakcni casy 
             %Pokud rt>0, vraci epochy serazene podle reakcniho casu 
+            %pokud opak>0, vraci jen jedno opakovani obrazku - hlavne kvuli PPA test 
             assert(obj.epochs > 1,'data not yet epoched'); %vyhodi chybu pokud data nejsou epochovana
-            iEpochy = [ cell2mat(obj.epochData(:,2))==katnum , obj.GetEpochsExclude()]; %seznam epoch v ramci kategorie ve sloupci + epochy, ktere nejsou excludovane
+            if exist('opak','var') && ~isempty(opak)
+                epochyopak = obj.PsyData.GetOpakovani();
+                iOpak = ismember(epochyopak , opak);
+            else
+                iOpak = true(obj.epochs,1);                
+            end
+            iEpochy = [ ismember(cell2mat(obj.epochData(:,2)),katnum) , obj.GetEpochsExclude() , iOpak]; %seznam epoch v ramci kategorie ve sloupci + epochy, ktere nejsou excludovane
             d = obj.d(:,:,all(iEpochy,2)); %epochy z kategorie, ktere nejsou excludovane
             [~,psy_rt,psy_katnum,~] = obj.PsyData.GetResponses();           
-            psy_rt = psy_rt(psy_katnum==katnum,:);
+            psy_rt = psy_rt(ismember(psy_katnum,katnum),:);
             iEp = iEpochy( iEpochy(:,1)==1,2); %neexcludovane epochy v ramci kategorie
             psy_rt = psy_rt(iEp); %doufam, ze to jsou stejne pocty
             
@@ -279,7 +286,7 @@ classdef CiEEGData < handle
             if exist('kats','var') && numel(kats)>1  && numel(timewindow)==1                                      
                 responsekat = cell(numel(kats),1); %eeg response zvlast pro kazdou kat
                 for k = 1:numel(kats)
-                    katdata = obj.CategoryData(kats(k)); %epochy jedne kategorie, uz jsou vyrazeny vyrazene epochy
+                    katdata = obj.CategoryData(kats(k)); %epochy time*channel*epochs jedne kategorie, uz jsou vyrazeny vyrazene epochy
                     responsekat{k,1} = katdata(abs(iepochtime(1)-ibaseline(2))+1 :end,:,:); %jen cas po podnetu; 
                 end
                 WpKat = cell(numel(kats));
@@ -295,8 +302,15 @@ classdef CiEEGData < handle
                 obj.Wp.kats = kats;
                 obj.Wp.WpKat = cell(0);
             end
+            if exist('repetition','var') && numel(kats)== 1 && numel(timewindow)==1                
+               %zatim nic, tady budu pocitat statistiku
+            end
         end
         
+        function Categories(obj)
+            %funkce ktera jen vypise kategorie
+            obj.PsyData.Categories(1);
+        end
         %% PLOT FUNCTIONS
         function PlotChannels(obj)  
             %vykresli korelace kazdeho kanalu s kazdym
@@ -591,10 +605,10 @@ classdef CiEEGData < handle
             plot(obj.RjEpoch,kategorie(obj.RjEpoch),'*r','MarkerSize',5); %vykreslim vyrazene epochy
         end
         
-        function obj = PlotResponseCh(obj,ch,kategories,pvalue)
+        function obj = PlotResponseCh(obj,ch,kategories,pvalue,opakovani)
             %vykresli odpovedi pro jednotlivy kanal
             assert(obj.epochs > 1,'only for epoched data');
-            if ~exist('pvalue','var')
+            if ~exist('pvalue','var') || isempty(pvalue) || numel(pvalue)>1 %0 neni isempty
                 if isfield(obj.plotRCh,'pvalue'), pvalue = obj.plotRCh.pvalue;
                 else pvalue = 0; obj.plotRCh.pvalue = pvalue; end %defaulne se NEzobrazuje krivka p value, ale je mozne ji zobrazit
             else
@@ -621,6 +635,21 @@ classdef CiEEGData < handle
                 assert(numel(kategories)<=3,'kategorie mohou byt maximalne tri');
                 obj.plotRCh.kategories = kategories;    %hodnoty zadane parametrem, ty maji absolutni prednost
             end
+            %opakovani obrazku kvuli PPA - 28.9.2016
+            if ~exist('opakovani','var') || isempty(opakovani)
+                if isfield(obj.plotRCh,'opakovani')
+                    opakovani = obj.plotRCh.opakovani; %hodnoty drive pouzite v grafu, ty maji prednost pred statistikou
+                else
+                    opakovani = {};
+                end
+            else
+                assert(numel(opakovani)<=3,'kategorie opakovani mohou byt maximalne tri');
+                obj.plotRCh.opakovani = opakovani;    %hodnoty zadane parametrem, ty maji absolutni prednost
+            end
+            KATNUM = kategories; % kategorie, ktere chci vykreslovat - vsechny dohromady     
+            if ~isempty(opakovani)                
+                kategories = opakovani; %POZOR - misto kategorii jsou nyni opakovane - cell array
+            end 
             T = linspace(obj.epochtime(1),obj.epochtime(2),size(obj.d,1)); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
             if isfield(obj.plotRCh,'fh')
                 figure(obj.plotRCh.fh); %pouziju uz vytvoreny graf
@@ -629,9 +658,10 @@ classdef CiEEGData < handle
                 obj.plotRCh.fh = figure('Name','W plot channel');
             end
             
-            iEp=obj.GetEpochsExclude();  
-            M = mean(obj.d(:,ch,iEp),3);                
-            E = std(obj.d(:,ch,iEp),[],3)/sqrt(size(obj.d,3)); %std err of mean          
+            %ZACINAM VYKRESLOVAT - NEJDRIV MEAN VSECH KATEGORII
+            katdata =  obj.CategoryData(KATNUM);
+            M = mean(katdata(:,ch,:),3);             
+            E = std(katdata(:,ch,:),[],3)/sqrt(size(katdata,3)); %std err of mean          
             h_errbar = errorbar(T,M,E,'.','Color',[.6 .6 1]); %nejdriv vykreslim errorbars aby byly vzadu [.8 .8 .8]
             hold on;
             h_mean = plot(T,M,'LineWidth',2,'Color',[0 0 1]);  %prumerna odpoved, ulozim si handle na krivku          
@@ -670,19 +700,25 @@ classdef CiEEGData < handle
                 plot(Tr(iWp),ones(1,sum(iWp))*y,'b*'); %hvezdicky jsou p < 0.01
             end
             
-            if exist('kategories','var') %kategorie vykresluju jen pokud mam definovane karegorie                
+            
+            if exist('kategories','var') || exist('opakovani','var') %kategorie vykresluju jen pokud mam definovane karegorie                   
                 hue = 0.8;
                 colorskat = {[0 0 0],[0 1 0],[1 0 0]; [hue hue hue],[hue 1 hue],[1 hue hue]}; % prvni radka - prumery, druha radka errorbars = svetlejsi
-                h_kat = zeros(numel(kategories)); 
+                h_kat = zeros(numel(kategories),1); 
                 for k= 1 : numel(kategories) %index 1-3
-                    katnum = kategories(k); %cislo kategorie
-                    katdata = obj.CategoryData(katnum); %epochy jedne kategorie
+                    if exist('opakovani','var') && ~isempty(opakovani)
+                        opaknum = kategories{k}; %v kategories jsou opakovani k vykresleni, a je to cell array
+                        katdata = obj.CategoryData(KATNUM,[],opaknum); %eegdata - epochy pro tato opakovani
+                    else
+                        katnum = kategories(k); %cislo kategorie
+                        katdata = obj.CategoryData(katnum); %eegdata - epochy jedne kategorie
+                    end    
                     M = mean(katdata(:,ch,:),3);
                     E = std(katdata(:,ch,:),[],3)/sqrt(size(katdata,3)); %std err of mean
                     errorbar(T,M,E,'.','color',colorskat{2,k}); %nejdriv vykreslim errorbars aby byly vzadu[.8 .8 .8]
                     h_kat(k) = plot(T,M,'LineWidth',1,'Color',colorskat{1,k});  %prumerna odpoved,  ulozim si handle na krivku  
                     obj.plotRCh.range = [ min(obj.plotRCh.range(1),min(M)-max(E)) max(obj.plotRCh.range(2),max(M)+max(E))]; %pouziju to pak pri stlaceni / z obrazku
-                    if isfield(obj.Wp,'WpKat')
+                    if isfield(obj.Wp,'WpKat') && isempty(opakovani)
                         for l = k+1:numel(kategories) %katnum jde od nuly
                             y = ymin + (ymax-ymin)*((k+l)*0.05-0.1)  ;
                             if k==1, color=colorskat{1,l}; else color = colorskat{1,1}; end %green a red jsou proti kategorii 0, cerna je kat 1 vs kat 2

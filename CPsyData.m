@@ -106,7 +106,17 @@ classdef CPsyData < handle
                 end
             end
         end
-        
+        function opak = GetOpakovani(obj)
+            %vraci cislo opakovani obrazku pro kazdou epochu
+            S = obj.P.sloupce;
+            if isfield(S,'opakovani_obrazku')
+                opak = obj.P.data(:,S.opakovani_obrazku); % ppa test
+            elseif isfield(S,'opakovani_obrazku')
+                opak = obj.P.data(:,S.opakovani);  %aedist test
+            else
+                opak = zeros(size(obj.P.data,1),1); %opakovani 0
+            end
+        end
         %% PLOT FUNCTIONS
         function [obj, chyby] = PlotResponses(obj)
             %nakresli graf rychlosti vsech odpovedi a bloku, vcetne chyb a uspesnosti za blok
