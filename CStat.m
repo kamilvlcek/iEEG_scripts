@@ -23,7 +23,11 @@ classdef CStat
                 for k = 1:size(A,2)                   
                    aa = squeeze (A(j,k,:)); 
                    bb = squeeze (B( min(j,size(B,1)) , min(k,size(B,2)) , :));
-                   W(j,k)= ranksum(aa,bb);
+                   if numel(aa) >= 2 && numel(bb) >= 2 
+                      W(j,k) = ranksum(aa,bb);
+                   else
+                      W(j,k) = 1; %pokud jen jedna hodnota, nelze delat statistika
+                   end
                 end
             end
             if fdr

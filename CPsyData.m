@@ -64,7 +64,7 @@ classdef CPsyData < handle
             %vraci jmeno kategorie z cisla, jmeno kategorie se pocita od 0
             kat = obj.P.strings.podminka{katnum+1};
         end
-        
+                
         function [blocks, srate, test, kategorie]= GetBlocks(obj)
             %vraci promenne pro bloky o stejne kategorii
             b1 = [find(obj.P.data(2:end,obj.P.sloupce.kategorie) ~= obj.P.data(1:end-1,7)); size(obj.P.data,1)]; %konce bloku
@@ -165,6 +165,12 @@ classdef CPsyData < handle
                 obj.P.data = [ obj.P.data zeros(size(obj.P.data,1),1)]; %doplnim dalsi sloupec do dat
                 obj.P.sloupce.zpetnavazba = size(obj.P.data,2); %pojmenuju ho zpetnavazba
             end
+        end
+    end
+    methods (Static,Access = public)
+        function [opakname] = OpakovaniName(opakovani)
+            %vrati jmeno opakovani. predpoklada jako parametr array
+            opakname = ['Opak' num2str(opakovani)];
         end
     end
     

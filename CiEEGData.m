@@ -75,7 +75,8 @@ classdef CiEEGData < handle
                     disp('no epievents');
             end
             if ~isempty(obj.Wp)
-                disp (['Wilcox stats done, kats: ' num2str(obj.Wp.kats)]);
+                if isfield(obj.Wp,'opakovani'), opakstat = num2str(obj.Wp.opakovani); else opakstat = 'ne'; end
+                disp (['Wilcox stats done, kats: ' num2str(obj.Wp.kats) ', opakovani: ' opakstat]);
             else
                 disp('no Wilcox stats');
             end
@@ -252,7 +253,7 @@ classdef CiEEGData < handle
             iEp = all(epochsEx==0,2); %index epoch k pouziti
         end
             
-        function obj = ResponseSearch(obj,timewindow,kats)
+        function obj = ResponseSearch(obj,timewindow,kats,opakovani)
             %projede vsechny kanaly a hleda signif rozdil proti periode pred podnetem
             %timewindow - pokud dve hodnoty - porovnava prumernou hodnotu mezi nimi - sekundy relativne k podnetu/odpovedi
             % -- pokud jedna hodnota, je to sirka klouzaveho okna - maximalni p z teto delky
@@ -283,10 +284,22 @@ classdef CiEEGData < handle
                 obj.Wp.D1params = timewindow;
                 obj.Wp.D1iEp = iEp; %index zpracovanych epoch pro zpetnou kontrolu
             end
+            if exist('opakovani','var') && ~isempty(opakovani)
+                if iscell(opakovani) 
+                    assert(numel(opakovani)<=3,'kategorie opakovani mohou byt maximalne tri');
+                    KATNUM = kats;
+                    kats = opakovani;   %POZOR kats se meni na opakovani, abych mohl pouzit kod dole             
+                end
+            end
+            
             if exist('kats','var') && numel(kats)>1  && numel(timewindow)==1                                      
                 responsekat = cell(numel(kats),1); %eeg response zvlast pro kazdou kat
                 for k = 1:numel(kats)
-                    katdata = obj.CategoryData(kats(k)); %epochy time*channel*epochs jedne kategorie, uz jsou vyrazeny vyrazene epochy
+                    if exist('KATNUM','var') 
+                        katdata = obj.CategoryData(KATNUM,[],kats{k}); %v kats jsou ted opakovani
+                    else
+                        katdata = obj.CategoryData(kats(k)); %epochy time*channel*epochs jedne kategorie, uz jsou vyrazeny vyrazene epochy
+                    end
                     responsekat{k,1} = katdata(abs(iepochtime(1)-ibaseline(2))+1 :end,:,:); %jen cas po podnetu; 
                 end
                 WpKat = cell(numel(kats));
@@ -297,14 +310,17 @@ classdef CiEEGData < handle
                     end
                 end
                 obj.Wp.WpKat = WpKat;
-                obj.Wp.kats = kats; %ulozim si cisla kategorii kvuli grafu PlotResponseCh
+                if exist('KATNUM','var') 
+                    obj.Wp.kats = KATNUM;
+                    obj.Wp.opakovani = kats;
+                else
+                    obj.Wp.kats = kats; %ulozim si cisla kategorii kvuli grafu PlotResponseCh
+                end                    
             else
                 obj.Wp.kats = kats;
                 obj.Wp.WpKat = cell(0);
             end
-            if exist('repetition','var') && numel(kats)== 1 && numel(timewindow)==1                
-               %zatim nic, tady budu pocitat statistiku
-            end
+           
         end
         
         function Categories(obj)
@@ -621,7 +637,9 @@ classdef CiEEGData < handle
                 obj.plotRCh.ch = ch;
             end
             if ~exist('kategories','var') || isempty(kategories)
-                if isfield(obj.plotRCh,'kategories')
+                if isfield(obj.Wp, 'kats')
+                    kategories = obj.Wp.kats; %pokud jsou kategorie v parametru, prvni volba je pouzit je ze statistiky
+                elseif isfield(obj.plotRCh,'kategories')
                     kategories = obj.plotRCh.kategories; %hodnoty drive pouzite v grafu, ty maji prednost pred statistikou
                 elseif isfield(obj.Wp,'kats')
                     kategories = obj.Wp.kats; %hodnoty pouzite ve statistice
@@ -631,19 +649,30 @@ classdef CiEEGData < handle
                      obj.plotRCh.kategories = kategories;
                    end %pokud je kategorii vic nez tri, neberu je v uvahu a zobrazim pouze prumer
                 end                
-            else
+            else                
                 assert(numel(kategories)<=3,'kategorie mohou byt maximalne tri');
+                if ~isempty(obj.Wp.WpKat) && (isempty(obj.Wp.kats) || ~isequal(obj.Wp.kats, kategories))
+                    disp('Statistika spocitana bez kategorii nebo pro jine kategorie')
+                end
                 obj.plotRCh.kategories = kategories;    %hodnoty zadane parametrem, ty maji absolutni prednost
             end
             %opakovani obrazku kvuli PPA - 28.9.2016
-            if ~exist('opakovani','var') || isempty(opakovani)
-                if isfield(obj.plotRCh,'opakovani')
-                    opakovani = obj.plotRCh.opakovani; %hodnoty drive pouzite v grafu, ty maji prednost pred statistikou
-                else
-                    opakovani = {};
+            if ~exist('opakovani','var') || isempty(opakovani)     
+                if isfield(obj.Wp,'opakovani')
+                    opakovani = obj.Wp.opakovani;
+                elseif isfield(obj.plotRCh,'opakovani')  %neni zadne drive ulozene
+                    opakovani = obj.plotRCh.opakovani; %hodnoty drive pouzite v grafu, ty maji prednost pred statistikou    
+                else 
+                    opakovani = {};                    
                 end
+            elseif opakovani == 0 %nulou vyresetuju opakovani, ze se nebude pouzivat
+                opakovani = {};
+                obj.plotRCh.opakovani = opakovani;  
             else
                 assert(numel(opakovani)<=3,'kategorie opakovani mohou byt maximalne tri');
+                if ~isempty(obj.Wp.WpKat) && (isempty(obj.Wp.opakovani) || ~isequal(obj.Wp.opakovani, opakovani))
+                    disp('Statistika spocitana bez opakovani nebo pro jina opakovani')
+                end
                 obj.plotRCh.opakovani = opakovani;    %hodnoty zadane parametrem, ty maji absolutni prednost
             end
             KATNUM = kategories; % kategorie, ktere chci vykreslovat - vsechny dohromady     
@@ -718,9 +747,9 @@ classdef CiEEGData < handle
                     errorbar(T,M,E,'.','color',colorskat{2,k}); %nejdriv vykreslim errorbars aby byly vzadu[.8 .8 .8]
                     h_kat(k) = plot(T,M,'LineWidth',1,'Color',colorskat{1,k});  %prumerna odpoved,  ulozim si handle na krivku  
                     obj.plotRCh.range = [ min(obj.plotRCh.range(1),min(M)-max(E)) max(obj.plotRCh.range(2),max(M)+max(E))]; %pouziju to pak pri stlaceni / z obrazku
-                    if isfield(obj.Wp,'WpKat') && isempty(opakovani)
+                    if isfield(obj.Wp,'WpKat') 
                         for l = k+1:numel(kategories) %katnum jde od nuly
-                            y = ymin + (ymax-ymin)*((k+l)*0.05-0.1)  ;
+                            y = ymin + (ymax-ymin)*(0.3 - (k+l)*0.05)  ;
                             if k==1, color=colorskat{1,l}; else color = colorskat{1,1}; end %green a red jsou proti kategorii 0, cerna je kat 1 vs kat 2
                             if pvalue %pokud chci zobrazovat hodnotu p value jako krivku
                                 plot(Tr,obj.Wp.WpKat{k,l}(:,ch), ':','Color',color); %carkovana cara oznacuje signifikanci kategorie vuci jine kategorii
@@ -732,15 +761,23 @@ classdef CiEEGData < handle
                             if(numel(iWpfirst)>0)                                
                                 text(-0.01,y,[ num2str(round(Tr(iWpfirst)*1000)) 'ms']);  %cas zacatku signifikance 
                                 text(-0.18,y,[ 'p=' num2str(CStat.round(min(obj.Wp.WpKat{k,l}(:,ch)),3))]);  %cas zacatku signifikance 
-                                line([Tr(iWpfirst) Tr(iWpfirst)],obj.plotRCh.ylim,'Color',color); %modra svisla cara u zacatku signifikance
-                                text(0.05,y, ['\color[rgb]{' num2str(colorskat{1,l}) '}' obj.PsyData.CategoryName(kategories(l)) ...
-                                        '\color{black}|' ...
-                                        '\color[rgb]{' num2str(colorskat{1,k}) '}' obj.PsyData.CategoryName(kategories(k))]);
-                                    %kazde jmeno kategorie jinou barvou
+                                line([Tr(iWpfirst) Tr(iWpfirst)],obj.plotRCh.ylim,'Color',color); %modra svisla cara u zacatku signifikance                                
                             end
                             %potom jeste p < 0.01
                             iWp = obj.Wp.WpKat{k,l}(:,ch)  <= 0.01;                          
                             plot(Tr(iWp),ones(1,sum(iWp))*y,  '*','Color',color); %
+                            % jmena kategorii vypisuju vzdy
+                            if exist('opakovani','var') && ~isempty(opakovani)
+                                kat1name =  obj.PsyData.OpakovaniName(kategories{l});
+                                kat2name =  obj.PsyData.OpakovaniName(kategories{k});
+                            else
+                                kat1name =  obj.PsyData.CategoryName(kategories{l});
+                                kat2name =  obj.PsyData.CategoryName(kategories{k});
+                            end
+                            text(0.05,y, ['\color[rgb]{' num2str(colorskat{1,l}) '}' kat1name ...
+                                    '\color[rgb]{' num2str(color) '} *X* '  ...
+                                    '\color[rgb]{' num2str(colorskat{1,k}) '}' kat2name ]);
+                                %kazde jmeno kategorie jinou barvou
                         end
                     end
                 end
@@ -845,6 +882,9 @@ classdef CiEEGData < handle
         end
         function obj = Load(obj,filename)
             % nacte veskere promenne tridy ze souboru
+            assert(exist(filename,'file')==2, 'soubor s daty neexistuje, nejde o data tridy CHilbert?');
+            vars = whos('-file',filename) ;
+            assert(ismember('d', {vars.name}), 'soubor neobsahuje promennou d, nejde o data tridy CHilbert?'); 
             load(filename,'d','tabs','tabs_orig','fs','header','sce','epochtime','els','plotES','RjCh','RjEpoch','epochTags','epochLast','reference');            
             obj.d = d;                      %#ok<CPROP,PROP>
             obj.tabs = tabs;                %#ok<CPROP,PROP>
