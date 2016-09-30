@@ -20,7 +20,11 @@ classdef CHilbert < CiEEGData
                 % volani Load z CiEEGData mi zavola Load z CHilbert, takze d=filename predelavat nemusim
             end
             obj@CiEEGData(d,tabs,fs,mults,header); %volani konstruktoru nemuze byt v if bloku 
-            disp(['Frequency bands: ' num2str(numel(obj.Hf)) ': ' num2str(obj.Hf(1)) ' - ' num2str(obj.Hf(end)) ' Hz' ]);
+            if isfield(obj,'Hf') && ~isempty(obj.Hf)
+                disp(['Frequency bands: ' num2str(numel(obj.Hf)) ': ' num2str(obj.Hf(1)) ' - ' num2str(obj.Hf(end)) ' Hz' ]);
+            else
+                disp('no Frequency bands');
+            end
         end
         
         function obj = PasmoFrekvence(obj,freq,channels)
@@ -98,8 +102,14 @@ classdef CHilbert < CiEEGData
             end
             
             if ~exist('kategories','var')
-                if isfield(obj.plotF,'kategories'), ch = obj.plotF.kategories;
-                else kategories = obj.PsyData.Categories(); obj.plotF.kategories = kategories; end
+                if isfield(obj.Wp, 'kats')
+                    kategories = obj.Wp.kats; 
+                elseif isfield(obj.plotF,'kategories')
+                    kategories = obj.plotF.kategories;
+                else
+                    kategories = obj.PsyData.Categories(); 
+                    obj.plotF.kategories = kategories;
+                end
             else
                 obj.plotF.kategories = kategories;
             end
@@ -239,7 +249,7 @@ classdef CHilbert < CiEEGData
                case 'space' %zobrazi i prumerne krivky
                    obj.PlotResponseCh(obj.plotF.ch);
                    figure(obj.plotF.fh); %dam puvodni obrazek dopredu
-               case 'multiply' %hvezdicka na numericke klavesnici
+               case {'multiply','8'} %hvezdicka na numericke klavesnici
                    %dialog na vlozeni minima a maxima osy y
                    answ = inputdlg('Enter ymax and min:','Yaxis limits', [1 50],{num2str(obj.plotF.ylim)});
                    if numel(answ)>0  %odpoved je vzdy cell 1x1 - pri cancel je to cell 0x0

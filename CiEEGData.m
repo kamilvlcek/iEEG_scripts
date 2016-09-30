@@ -771,8 +771,8 @@ classdef CiEEGData < handle
                                 kat1name =  obj.PsyData.OpakovaniName(kategories{l});
                                 kat2name =  obj.PsyData.OpakovaniName(kategories{k});
                             else
-                                kat1name =  obj.PsyData.CategoryName(kategories{l});
-                                kat2name =  obj.PsyData.CategoryName(kategories{k});
+                                kat1name =  obj.PsyData.CategoryName(kategories(l));
+                                kat2name =  obj.PsyData.CategoryName(kategories(k));
                             end
                             text(0.05,y, ['\color[rgb]{' num2str(colorskat{1,l}) '}' kat1name ...
                                     '\color[rgb]{' num2str(color) '} *X* '  ...
@@ -789,7 +789,11 @@ classdef CiEEGData < handle
             uistack(h_mean, 'top'); %uplne nahoru dam prumer vsech kategorii
             title(['channel ' num2str(ch)]);
             text(-0.1,ymax*.95,[ obj.CH.H.channels(1,ch).name ' : ' obj.CH.H.channels(1,ch).neurologyLabel ',' obj.CH.H.channels(1,ch).ass_brainAtlas]);
-            
+            if  isfield(obj.CH.H.channels,'MNI_x') %vypisu MNI souradnice
+                text(-0.1,ymax*.90,[ 'MNI:' num2str(obj.CH.H.channels(1,ch).MNI_x) ',' num2str(obj.CH.H.channels(1,ch).MNI_y ) ',' num2str(obj.CH.H.channels(1,ch).MNI_z)]);
+            else
+                text(-0.1,ymax*.90,'no MNI');
+            end
             methodhandle = @obj.hybejPlotCh;
             set(obj.plotRCh.fh,'KeyPressFcn',methodhandle);          
         end        
@@ -995,14 +999,13 @@ classdef CiEEGData < handle
                case 'uparrow'
                    if(obj.plotES(1))>1 %pokud je cislo elektrody vetsi nez 1
                         obj.PlotElectrode(obj.plotES(1)-1,obj.plotES(2),obj.plotES(3),obj.plotES(4));
-                   end
-               case 'add'     %signal mensi - vetsi rozliseni 
+                   end               
+               case {'add' ,  'equal'}     %signal mensi - vetsi rozliseni %u terezy na notebooku 
                    if obj.plotES(3)>=obj.yrange(3), pricist = obj.yrange(4);
                    else pricist = obj.yrange(2);                   
                    end
-                   obj.PlotElectrode(obj.plotES(1),obj.plotES(2),obj.plotES(3)+pricist,obj.plotES(4));
-                   
-               case 'subtract' %signal vetsi - mensi rozliseni   
+                   obj.PlotElectrode(obj.plotES(1),obj.plotES(2),obj.plotES(3)+pricist,obj.plotES(4));                
+               case {'subtract' , 'hyphen'} %signal vetsi - mensi rozliseni   %u terezy na notebooku  
                    if obj.plotES(3)>obj.yrange(3), odecist = obj.yrange(4);
                    elseif obj.plotES(3)>obj.yrange(1), odecist = obj.yrange(2);
                    else odecist = 0;
@@ -1068,7 +1071,7 @@ classdef CiEEGData < handle
                        end
                    end
                    obj.PlotResponseCh( obj.plotRCh.ch); %prekreslim grafy
-               case 'divide' %lomeno na numericke klavesnici
+               case {'divide','slash'} %lomeno na numericke klavesnici
                    obj.plotRCh.ylim = obj.plotRCh.range; %spocitalo se pri volani PlotResponseCh
                    obj.PlotResponseCh( obj.plotRCh.ch); %prekreslim grafy
                case 'space' %zobrazi i prumerne krivky
