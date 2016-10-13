@@ -315,10 +315,12 @@ classdef CiEEGData < handle
                     obj.Wp.opakovani = kats;
                 else
                     obj.Wp.kats = kats; %ulozim si cisla kategorii kvuli grafu PlotResponseCh
+                    obj.Wp.opakovani = {};
                 end                    
             else
                 obj.Wp.kats = kats;
                 obj.Wp.WpKat = cell(0);
+                obj.Wp.opakovani = {};
             end
            
         end

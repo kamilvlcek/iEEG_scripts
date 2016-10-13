@@ -20,9 +20,13 @@ classdef CHilbert < CiEEGData
                 % volani Load z CiEEGData mi zavola Load z CHilbert, takze d=filename predelavat nemusim
             end
             obj@CiEEGData(d,tabs,fs,mults,header); %volani konstruktoru nemuze byt v if bloku 
-            if isfield(obj,'Hf') && ~isempty(obj.Hf)
-                disp(['Frequency bands: ' num2str(numel(obj.Hf)) ': ' num2str(obj.Hf(1)) ' - ' num2str(obj.Hf(end)) ' Hz' ]);
-            else
+            try                
+                if ~isempty(obj.Hf)
+                    disp(['Frequency bands: ' num2str(numel(obj.Hf)) ': ' num2str(obj.Hf(1)) ' - ' num2str(obj.Hf(end)) ' Hz' ]);
+                else
+                    disp('no Frequency bands');
+                end
+            catch exception %#ok<NASGU>
                 disp('no Frequency bands');
             end
         end
