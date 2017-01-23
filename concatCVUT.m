@@ -28,15 +28,23 @@ for j = 1:numel(spojit)
         if exist('fs','var') 
             fs0 = fs; %#ok<NODEF>
             clear fs;
-        end        
-        d0 = d;
+        end  
+        if exist('evts','var')
+            evts0 = evts; %#ok<NODEF>
+            clear evts;
+        end
+        d0 = d; %#ok<NODEF>
         clear d;
        
     else
-        tabs0 = [tabs0; tabs]; %#ok<AGROW>
+        disp(['rozdil ' num2str((tabs(1)-tabs0(end))*24*3600) ' sekund']);
+        tabs0 = [tabs0; tabs]; %#ok<AGROW>        
         clear tabs;
         d0 = [d0; d]; %#ok<NODEF,AGROW>
         clear d;
+        if exist('evts','var')
+            evts0 = [evts0, evts]; %#ok<AGROW,NODEF>
+        end
         if exist('header','var') 
             header0.length = header0.length + header.length; %#ok<NODEF>
             header0.records = header0.records + header.records;
@@ -60,7 +68,10 @@ if exist('fs','var')
     fs = fs0; %#ok<NASGU>
     clear fs0;
 end
-
+if exist('evts','var')
+    evts = evts0; %#ok<NASGU>
+    clear evts0;
+end
 delka = num2str(size(tabs,1));
 disp(['vysledna delka ' delka]);
 dot = strfind(spojit{1},'.');
