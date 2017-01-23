@@ -75,7 +75,7 @@ classdef CiEEGData < handle
                     disp('no epievents');
             end
             if ~isempty(obj.Wp)
-                if isfield(obj.Wp,'opakovani'), opakstat = num2str(obj.Wp.opakovani); else opakstat = 'ne'; end
+                if isfield(obj.Wp,'opakovani'), opakstat = num2str(obj.Wp.opakovani); else, opakstat = 'ne'; end
                 disp (['Wilcox stats done, kats: ' num2str(obj.Wp.kats) ', opakovani: ' opakstat]);
             else
                 disp('no Wilcox stats');
@@ -138,7 +138,7 @@ classdef CiEEGData < handle
             ibaseline =  round(baseline.*obj.fs); %v poctu vzorku cas pred a po udalosti
             ts_events = obj.PsyData.TimeStimuli(epochtime(3)); %timestampy vsech podnetu/odpovedi
             de = zeros(iepochtime(2)-iepochtime(1), size(obj.d,2), size(ts_events,1)); %nova epochovana data time x channel x epoch            
-            tabs = zeros(iepochtime(2)-iepochtime(1),size(ts_events,1)); %#ok<PROP> %udelam epochovane tabs
+            tabs = zeros(iepochtime(2)-iepochtime(1),size(ts_events,1)); %#ok<*PROPLC,PROP> %udelam epochovane tabs
             obj.epochData = cell(size(ts_events,1),3); % sloupce kategorie, cislo kategorie, timestamp
             for epoch = 1:size(ts_events,1) %pro vsechny eventy
                 izacatek = find(obj.tabs<=ts_events(epoch), 1, 'last' ); %najdu index podnetu/odpovedi podle jeho timestampu
@@ -683,7 +683,7 @@ classdef CiEEGData < handle
             end 
             T = linspace(obj.epochtime(1),obj.epochtime(2),size(obj.d,1)); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
             if isfield(obj.plotRCh,'fh')
-                figure(obj.plotRCh.fh); %pouziju uz vytvoreny graf
+                figure(obj.plotRCh.fh); %pouziju uz vytvoreny graf - tohle nefunguje v matlab 2016b
                 clf(obj.plotRCh.fh); %graf vycistim
             else
                 obj.plotRCh.fh = figure('Name','W plot channel');
