@@ -16,6 +16,11 @@ for f = 1:numel(files)
             disp(['*** ' files(f).name]);
             anotace(header,tabs);    
             clear header d tabs fs;
+        elseif ismember('evts', {vars.name})
+            load(filename,'evts','tabs');
+            disp(['*** ' files(f).name]);
+            anotace([],tabs,evts);
+            clear header d tabs fs;
         else
            disp(['*** ' files(f).name '- no header']);
         end
