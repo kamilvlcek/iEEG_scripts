@@ -4,6 +4,10 @@ function []=anotacenajdi(adresar,filter)
 % filter je retezec, ktery musi obsahovat jmeno souboru
 
 if ~exist('filter','var'), filter = []; end %pokud neni definovan filter, vytvorim jako prazdny
+if ~exist(adresar,'file')
+    adresar = adresar_najdi(adresar);
+    disp(adresar);
+end
 files = dir(fullfile(adresar, '*.mat'));
 
 for f = 1:numel(files)

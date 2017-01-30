@@ -69,7 +69,7 @@ if exist('fs','var')
     clear fs0;
 end
 if exist('evts','var')
-    evts = evts0; %#ok<NASGU>
+    evts = remdupstruct(evts0); %#ok<NASGU>
     clear evts0;
 end
 delka = num2str(size(tabs,1));
@@ -80,4 +80,5 @@ disp(['ukladam ' dir '\' spojit{1}(1:dot(1)-1) '_concat.mat']);
 save([ dir '\' spojit{1}(1:dot(1)-1) '_concat.mat'], '-regexp', '^(?!(spojit|j|dot|OBJ)$).','-v7.3');
 
 end
+
 

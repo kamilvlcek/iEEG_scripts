@@ -1,8 +1,9 @@
-function [ iSTART,iEND ] = dataview(d,tabs,fs,mults, start,konec, annotations, channel,Events)
+function [ iSTART,iEND ] = dataview(d,tabs,fs,mults, start,konec,evts, annotations,  channel,Events)
 %DATAVIEW zobrazi synchronizacni puls s polu s anotacema
 %   pracuje s datama EEG z Motola
 %   delka i start jsou v sekundach
 %   nepovinny channel je cislo kanalu se synchronizaci
+%  (d,tabs,fs,mults,start,konec, evts, annotations,  channel,evts,Events)
 
 if ~exist('channel','var') || isempty(channel) %muzu zadat kanal se synchronizaci - 15.4.2015
     channel = size(d,2)-2; %synchronizace byva 2 kanaly pred koncem - pred EKG
@@ -55,6 +56,16 @@ x = start;
                 anotace_index = annotations.starttime(a);
                 line([anotace_index anotace_index],[-3000 3000],'Color','red');
                 text(anotace_index,2900-zobrazenych*80,annotations.event{a},'Color','red');
+                zobrazenych = zobrazenych+1;
+            end
+        end
+    end
+    if exist('evts','var') && isstruct(evts)
+        for a = 1:numel(evts)
+            secs = find(tabs >= datenum(evts(a).dateStr),1) / fs; %v kolika vterichan od zacatku tabs
+            if secs>sekund_zac && secs<sekund_konec && ~isempty(evts(a).annotation)                
+                line([secs secs],[-3000 3000],'Color','red');
+                text(secs,2900-zobrazenych*80,evts(a).annotation,'Color','red');
                 zobrazenych = zobrazenych+1;
             end
         end
