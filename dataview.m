@@ -63,7 +63,7 @@ x = start;
     if exist('evts','var') && isstruct(evts)
         for a = 1:numel(evts)
             secs = find(tabs >= datenum(evts(a).dateStr),1) / fs; %v kolika vterichan od zacatku tabs
-            if secs>sekund_zac && secs<sekund_konec && ~isempty(evts(a).annotation)                
+            if ~isempty(secs) && secs>sekund_zac && secs<sekund_konec && ~isempty(evts(a).annotation)                
                 line([secs secs],[-3000 3000],'Color','red');
                 text(secs,2900-zobrazenych*80,evts(a).annotation,'Color','red');
                 zobrazenych = zobrazenych+1;
