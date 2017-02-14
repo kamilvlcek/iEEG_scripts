@@ -9,7 +9,11 @@ classdef CEpiEvents < handle
     end
     
     methods (Access = public)
-         function obj = CEpiEvents(d,tabs,fs)
+         function obj = CEpiEvents(d,tabs,fs,mults)
+             if exist('mults','var') && ~isempty(mults)
+                    assert(size(mults,1)<= 1 || size(mults,1)==size(d,2),'d and mults have to have same number of channels');
+                    d = bsxfun(@times,double(d), mults); %rovnou to roznasobim mults, nechci to resit dodatecne - 14.2.2017            
+             end
              if isstruct(d)
                 DE = d; %#ok<PROP>                
              else %pokud neni zadano fs, predpoklada se, ze prvni parametr jsou uz vyhodnocene eventy v DE
