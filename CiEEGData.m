@@ -540,7 +540,7 @@ classdef CiEEGData < handle
             ylim([min(min(shift))-range max(max(shift))+range]); %rozsah osy y
             ylabel(['Electrode ' num2str(e) '/' num2str(numel(obj.els)) ]);
             xlabel(['Seconds of ' num2str( round(obj.samples*obj.epochs/obj.fs)) ]);
-            if allels==1, ty = -shift(4,1); else ty = -shift(2,1); end
+            if allels==1, ty = -shift(4,1); else ty = -shift(2,1); end %jak muze byt size(shift)=[1,2560] - 119Bucko
             text(t(1),ty,[ 'resolution +/-' num2str(range) 'uV']);         
             xlim([t(1) t(end)]);
             

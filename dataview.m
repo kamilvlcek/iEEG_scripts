@@ -49,6 +49,7 @@ x = start;
     %sekund_delka = delka/fs;
     %set(gca,'XTickLabel',cellstr(int2str( ( sekund_zac : (sekund_delka/10) : sekund_konec)'))');
     xlabel(['sekundy z ' num2str(zaznamvterin) ' s celkove']); 
+    ylabel(['channel ' num2str(channel)]); 
     zobrazenych = 0;
     if exist('annotations','var') && isstruct(annotations);
         for a = 1:numel(annotations.starttime)
