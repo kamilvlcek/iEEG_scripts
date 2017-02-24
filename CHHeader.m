@@ -42,6 +42,26 @@ classdef CHHeader < handle
                 els = obj.els;
             end
         end
+        function [obj,els2plot ] = ElsForPlot(obj)
+            %vrati cisla nejvyssiho kanalu pro zobrazeni - kdyz je nejaka elektroda moc dlouha, tak ji rozdeli
+            els2plot = zeros(1,numel(obj.els));
+            e0 = 0; %cislo elektrody z minuleho cyklu
+            iEls =  1; %index v els2plot;
+            kontaktumax = 15;
+            for e = 1:numel(obj.els)
+                while obj.els(e)-e0 > kontaktumax %pokud je nejaka elektroda moc dlouha, rozdelim ji do zobrazeni po padesati kouscich
+                    els2plot(iEls) = e0 + kontaktumax;
+                    e0 = e0+kontaktumax;
+                    iEls = iEls+1;
+                end
+                if obj.els(e)-e0 > 3 %pokud je elektroda prilis kratka, nebudu ji zobrazovat samostatne
+                    els2plot(iEls) = obj.els(e);
+                    e0= obj.els(e);
+                    iEls = iEls+1;
+                end
+            end 
+            els2plot(els2plot==0)=[];
+        end
         function [ch,name,MNI,brainAtlas] = ChannelNameFind(obj,name)
             % najde kanal podle jmena kontaktu, napr 'R5', name musi byt na zacatku jmena, 
             % ale nemusi byt cele

@@ -75,8 +75,9 @@ classdef CiEEGData < handle
                     disp('no epievents');
             end
             if ~isempty(obj.Wp)
-                if isfield(obj.Wp,'opakovani'), opakstat = num2str(obj.Wp.opakovani); else, opakstat = 'ne'; end
-                disp (['Wilcox stats done, kats: ' num2str(obj.Wp.kats) ', opakovani: ' opakstat]);
+                if isfield(obj.Wp,'opakovani'), opakstat = num2str(obj.Wp.opakovani); else, opakstat = 'no'; end
+                if isfield(obj.Wp,'kats'), kats = num2str(obj.Wp.kats); else, kats = 'no'; end
+                disp (['Wilcox stats done, kats: ' kats ', opakovani: ' opakstat]);
             else
                 disp('no Wilcox stats');
             end
@@ -438,7 +439,7 @@ classdef CiEEGData < handle
             %vykresli data (2 sekundy ) z jedne elektrody e od vteriny zaznamu s
             %osa y je v rozmezi [-r +r]
             %zatim jen neepochovana data
-            assert(~isempty(obj.els),'je nutne nacist header pomoci GetHHeader');
+            assert(~isempty(obj.els) || ~isempty(obj.CH.els),'je nutne nacist header pomoci GetHHeader');
             if ~exist('e','var') || isempty(e), e= obj.plotES(1); end %cislo elektrody
             if ~exist('s','var') || isempty(s), s= obj.plotES(2); end %cislo epochy nebo vteriny zaznamu
             if ~exist('range','var') || isempty(range)
@@ -456,25 +457,26 @@ classdef CiEEGData < handle
             end
             
             % -------- nastavim rozsah elektrod k zobrazeni -----------------
+            [~,els2plot] = obj.CH.ElsForPlot();
             if  allels==1  %chci zobrazit vsechny elektrody
-                elektrodvsade = iff(obj.channels/numel(obj.els) > 6, 5, 8);  %31.8.2016 - chci zobrazovat vzdy pet elektrod, indexy v els jsou tedy 1 6 11
+                elektrodvsade = iff(obj.channels/numel(els2plot) > 6, 5, 8);  %31.8.2016 - chci zobrazovat vzdy pet elektrod, indexy v els jsou tedy 1 6 11
                 elsmax = 0; %kolik zobrazim kontaktu - rozliseni osy y v poctu kontaktu
-                elsdelsi = [0,obj.els]; %pridam jen nulu na zacatek, kvuli pocitani rozdilu 
+                elsdelsi = [0,els2plot]; %pridam jen nulu na zacatek, kvuli pocitani rozdilu 
                 for n = 1 : elektrodvsade : numel(elsdelsi)-elektrodvsade
                     elsmax = max (elsmax , elsdelsi(n+elektrodvsade) - elsdelsi(n)); % pocitam jako maximum z petic elektrod
                 end
-                pocetsad = ceil(numel(obj.els)/elektrodvsade); %kolik ruznych sad petic elektrod budu zobrazovat, 2 pokud <= 10 els, jinak 3 pokud <=15 els%                 
+                pocetsad = ceil(numel(els2plot)/elektrodvsade); %kolik ruznych sad petic elektrod budu zobrazovat, 2 pokud <= 10 els, jinak 3 pokud <=15 els%                 
                 emod = mod(e-1,pocetsad);
-                if emod==0, elmin=1; else elmin=obj.els(emod*elektrodvsade)+1; end                
+                if emod==0, elmin=1; else elmin=els2plot(emod*elektrodvsade)+1; end                
                 elmaxmax = elmin + elsmax -1 ; % horni cislo el v sade, i kdyz bude pripadne prazdne
-                ielmax = find(obj.els <= min(elmaxmax,obj.els(end)) , 1, 'last') ; %horni cislo skutecne elektrody v sade
-                elmax = obj.els(ielmax);
-                els = obj.els( find(obj.els > elmin, 1,'first' )  : ielmax ); %#ok<PROP> %vyber z obj.els takze horni hranice cisel kontaktu
+                ielmax = find(els2plot <= min(elmaxmax,els2plot(end)) , 1, 'last') ; %horni cislo skutecne elektrody v sade
+                elmax = els2plot(ielmax);
+                els = els2plot( find(els2plot > elmin, 1,'first' )  : ielmax ); %#ok<PROP> %vyber z els2plot takze horni hranice cisel kontaktu
                 els(2,1) = elmin;%#ok<PROP>
                 els(2,2:end) = els(1,1:end-1)+1; %#ok<PROP> %doplnim dolni radku - zacatky kazde elektrody
             else
-                if e==1, elmin = 1; else elmin = obj.els(e-1)+1; end %index prvni elektrody kterou vykreslit
-                elmax = obj.els(e);            % index posledni elektrody kterou vykreslit
+                if e==1, elmin = 1; else elmin = els2plot(e-1)+1; end %index prvni elektrody kterou vykreslit
+                elmax = els2plot(e);            % index posledni elektrody kterou vykreslit
                 els = [elmax; elmin]; %#ok<PROP>
                 elmaxmax = elmax;
             end
@@ -538,7 +540,7 @@ classdef CiEEGData < handle
             grid on;
             
             ylim([min(min(shift))-range max(max(shift))+range]); %rozsah osy y
-            ylabel(['Electrode ' num2str(e) '/' num2str(numel(obj.els)) ]);
+            ylabel(['Electrode ' num2str(e) '/' num2str(numel(els2plot)) ]);
             xlabel(['Seconds of ' num2str( round(obj.samples*obj.epochs/obj.fs)) ]);
             if allels==1, ty = -shift(4,1); else ty = -shift(2,1); end %jak muze byt size(shift)=[1,2560] - 119Bucko
             text(t(1),ty,[ 'resolution +/-' num2str(range) 'uV']);         
@@ -625,6 +627,8 @@ classdef CiEEGData < handle
         
         function obj = PlotResponseCh(obj,ch,kategories,pvalue,opakovani)
             %vykresli odpovedi pro jednotlivy kanal
+            %opakovani je cell - maximalne tri hodnoty nebo arrays 
+            %kategories 
             assert(obj.epochs > 1,'only for epoched data');
             if ~exist('pvalue','var') || isempty(pvalue) || numel(pvalue)>1 %0 neni isempty
                 if isfield(obj.plotRCh,'pvalue'), pvalue = obj.plotRCh.pvalue;
@@ -667,7 +671,7 @@ classdef CiEEGData < handle
                 else 
                     opakovani = {};                    
                 end
-            elseif opakovani == 0 %nulou vyresetuju opakovani, ze se nebude pouzivat
+            elseif ~iscell(opakovani) && opakovani == 0 %nulou vyresetuju opakovani, ze se nebude pouzivat
                 opakovani = {};
                 obj.plotRCh.opakovani = opakovani;  
             else
@@ -697,7 +701,7 @@ classdef CiEEGData < handle
             hold on;
             h_mean = plot(T,M,'LineWidth',2,'Color',[0 0 1]);  %prumerna odpoved, ulozim si handle na krivku          
             xlim(obj.epochtime(1:2));
-            if isfield(obj.plotRCh,'ylim') && numel(obj.plotRCh.ylim)>=2
+            if isfield(obj.plotRCh,'ylim') && numel(obj.plotRCh.ylim)>=2 %pokud mam drive ulozene ylim
                 ylim( obj.plotRCh.ylim);
                 ymax = obj.plotRCh.ylim(2);
                 ymin = obj.plotRCh.ylim(1);
@@ -869,8 +873,8 @@ classdef CiEEGData < handle
                 PsyDataP = []; %#ok<NASGU>
             end
             epochtime = obj.epochtime;      %#ok<PROP,NASGU>
-            baseline = obj.baseline;      %#ok<PROP,NASGU>
-            CH_H=obj.CH.H;                  %#ok<NASGU>
+            baseline = obj.baseline;        %#ok<PROP,NASGU>
+            CH_H=obj.CH.H;                  %#ok<NASGU>            
             els = obj.els;                  %#ok<PROP,NASGU>
             plotES = obj.plotES;            %#ok<PROP,NASGU>
             %plotH = obj.plotH;              %#ok<PROP,NASGU> %plotH je blbost ukladat, vytvori se novy, jen to brani vice grafum - 14.6.2016
@@ -917,10 +921,12 @@ classdef CiEEGData < handle
             end
             if ismember('CH_H', {vars.name})
                 load(filename,'CH_H');      obj.CH = CHHeader(CH_H);
+                [~, ~, obj.els] = obj.CH.ChannelGroups();  
             else
                 load(filename,'CH');
                 obj.CH = CH; %#ok<CPROP,PROP> %  %drive ulozeny objekt, nez jsem zavedl ukladani struct
-            end  
+            end 
+            
             if ismember('Wp', {vars.name})
                 load(filename,'Wp');      obj.Wp = Wp; %#ok<CPROP,PROP>
             else
@@ -946,7 +952,7 @@ classdef CiEEGData < handle
     end
     %% privatni metody
     methods  (Access = private)
-        function obj = hybejPlot(obj,~,eventDat)           
+        function obj = hybejPlot(obj,~,eventDat)    %pohybuje grafem PlotElectrode       
            switch eventDat.Key
                case 'rightarrow' 
                    if obj.epochs == 1
@@ -995,7 +1001,8 @@ classdef CiEEGData < handle
                         obj.PlotElectrode(obj.plotES(1),obj.epochs - obj.PlottedEpochs()+1,obj.plotES(3),obj.plotES(4));     
                    end                       
                case 'downarrow'
-                   if(obj.plotES(1))<numel(obj.els) %pokud je cislo elektrody ne maximalni
+                   [~,els2plot] = obj.CH.ElsForPlot();
+                   if(obj.plotES(1))<numel(els2plot) %pokud je cislo elektrody ne maximalni
                         obj.PlotElectrode(obj.plotES(1)+1,obj.plotES(2),obj.plotES(3),obj.plotES(4));
                    end                   
                case 'uparrow'
