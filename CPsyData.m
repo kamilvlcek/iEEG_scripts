@@ -157,6 +157,26 @@ classdef CPsyData < handle
             resp = obj.P.data(:,S.spravne); %vratim i reakcni casy            
             text(0,-0.2, ['pocet chyb: ' num2str(numel(resp)-sum(resp)) ]);
         end
+        function [obj] = PlotITI(obj)
+            %graf intervalu mezi obrazky
+            figure('Name','ITI');
+            subplot(1,2,1);
+            isi = obj.InterStimulusInterval();
+            plot(isi,'x');
+            ylim([0,5]); %rozsah do 5 sec
+            title('PPA ITI');
+            ylabel('sec');
+            
+            subplot(1,2,2);
+            rt = obj.ReactionTime(); %ctyri sloupce reakcnich casu
+            rt = rt(:);      % jeden sloupec
+            plot(rt,'o');    
+            title('PPA RT');
+            ylabel('sec');
+            hold on;
+            plot(obj.P.data(:,obj.P.sloupce.rt),'x'); %tohle ma nejake jine x meritko?
+       
+        end
     end
     methods  (Access = private)
         function [obj] = DoplnZpetnavazba(obj)
