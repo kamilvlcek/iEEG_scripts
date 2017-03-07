@@ -330,6 +330,20 @@ classdef CiEEGData < handle
             %funkce ktera jen vypise kategorie
             obj.PsyData.Categories(1);
         end
+        function Fourier(obj,ch,epoch)
+           % perform FFT and plot
+            if ~exist('epoch','var'),  epoch = 1;        end
+            dd = obj.d(:,ch,epoch); 
+            frequencies       = linspace(0,obj.fs/2,length(dd)/2+1); %maximalni frekvence je fs/2, ale frekvencni rozliseni je N/2+1
+            fft_d    = fft(dd)/length(dd);
+            figure('Name','Fourier');
+            %vezmu jen tolik frekvenci, kolik je v frequencies - realnych frekvenci. ostatni jsou imaginarni frekvence
+            fft_d_abs = abs(fft_d(1:length(frequencies)))*2; %dvema nasobim kvuli tem imaginarnim frekvencim. Viz MikeCohenP.
+            plot(frequencies,fft_d_abs); %
+            xlim([0 20]);
+            %set(gca,'xlim',[0 max(frex)*2])
+            title(['Channel ' num2str(ch)]);
+        end
         %% PLOT FUNCTIONS
         function PlotChannels(obj)  
             %vykresli korelace kazdeho kanalu s kazdym
