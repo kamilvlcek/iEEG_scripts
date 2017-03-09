@@ -4,3 +4,5 @@
 *.zip
 *.png
 *.log
+*.mat
+*.nii

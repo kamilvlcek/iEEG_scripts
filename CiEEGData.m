@@ -339,8 +339,8 @@ classdef CiEEGData < handle
             figure('Name','Fourier');
             %vezmu jen tolik frekvenci, kolik je v frequencies - realnych frekvenci. ostatni jsou imaginarni frekvence
             fft_d_abs = abs(fft_d(1:length(frequencies)))*2; %dvema nasobim kvuli tem imaginarnim frekvencim. Viz MikeCohenP.
-            plot(frequencies,fft_d_abs); %
-            xlim([0 20]);
+            plot(frequencies(2:end),fft_d_abs(2:end),'.'); %neplotuju prvni frekvenci, cili DC
+            xlim([0 50]);
             %set(gca,'xlim',[0 max(frex)*2])
             title(['Channel ' num2str(ch)]);
         end
@@ -608,8 +608,8 @@ classdef CiEEGData < handle
                         if obj.epochs <= 1
                             [epitime weight] = obj.DE.GetEvents( [obj.tabs(iD(1)) obj.tabs(iD(2))],ch,obj.tabs_orig(1)); 
                         else
-                            epochy = s : min(s+ceil(time_n/obj.samples)-1 , obj.epochs );
-                            tabs = [ obj.tabs(1,epochy)' obj.tabs(end,epochy)' ]; %#ok<PROP>
+                            epochy = s : min(s+ceil(time_n/obj.samples)-1 , obj.epochs ); %cisla zobrazenych epoch
+                            tabs = [ obj.tabs(1,epochy)' obj.tabs(end,epochy)' ]; %#ok<PROP> %zacatky a konce zobrazenych epoch
                             [epitime weight] = obj.DE.GetEvents( tabs,ch,obj.tabs_orig(1)) ;      %#ok<PROP>                           
                             epitime = epitime + obj.epochtime(1);
                         end
