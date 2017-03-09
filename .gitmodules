@@ -1,0 +1,3 @@
+[submodule "SEEG-visualization"]
+	path = SEEG-visualization
+	url = https://github.com/JiriHammer/SEEG-visualization
