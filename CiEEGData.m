@@ -339,8 +339,9 @@ classdef CiEEGData < handle
             figure('Name','Fourier');
             %vezmu jen tolik frekvenci, kolik je v frequencies - realnych frekvenci. ostatni jsou imaginarni frekvence
             fft_d_abs = abs(fft_d(1:length(frequencies)))*2; %dvema nasobim kvuli tem imaginarnim frekvencim. Viz MikeCohenP.
-            plot(frequencies(2:end),fft_d_abs(2:end),'.'); %neplotuju prvni frekvenci, cili DC
-            xlim([0 50]);
+            %plot(frequencies(2:end),fft_d_abs(2:end),'.'); %neplotuju prvni frekvenci, cili DC
+            loglog(frequencies,fft_d_abs);
+            %xlim([0 250]);
             %set(gca,'xlim',[0 max(frex)*2])
             title(['Channel ' num2str(ch)]);
         end
