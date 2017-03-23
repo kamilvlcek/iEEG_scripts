@@ -791,13 +791,15 @@ classdef CiEEGData < handle
                             if exist('opakovani','var') && ~isempty(opakovani)
                                 kat1name =  obj.PsyData.OpakovaniName(kategories{l});
                                 kat2name =  obj.PsyData.OpakovaniName(kategories{k});
+                                kat3name = obj.PsyData.CategoryName(obj.Wp.kats); %jmeno kategorie obrazku, ze ktere se opakovani pocitalo
                             else
                                 kat1name =  obj.PsyData.CategoryName(kategories(l));
                                 kat2name =  obj.PsyData.CategoryName(kategories(k));
+                                kat3name = '';
                             end
                             text(0.05,y, ['\color[rgb]{' num2str(colorskat{1,l}) '}' kat1name ...
                                     '\color[rgb]{' num2str(color) '} *X* '  ...
-                                    '\color[rgb]{' num2str(colorskat{1,k}) '}' kat2name ]);
+                                    '\color[rgb]{' num2str(colorskat{1,k}) '}' kat2name ' (' kat3name ')']);
                                 %kazde jmeno kategorie jinou barvou
                         end
                     end
@@ -808,7 +810,7 @@ classdef CiEEGData < handle
             end
             uistack(h_errbar, 'top');
             uistack(h_mean, 'top'); %uplne nahoru dam prumer vsech kategorii
-            title(['channel ' num2str(ch)]);
+            title(['channel ' num2str(ch) ' - ' obj.PsyData.PacientID()]); % v titulu obrazku bude i pacientID napriklad p132-VT18
             text(-0.1,ymax*.95,[ obj.CH.H.channels(1,ch).name ' : ' obj.CH.H.channels(1,ch).neurologyLabel ',' obj.CH.H.channels(1,ch).ass_brainAtlas]);
             if  isfield(obj.CH.H.channels,'MNI_x') %vypisu MNI souradnice
                 text(-0.1,ymax*.90,[ 'MNI:' num2str(obj.CH.H.channels(1,ch).MNI_x) ',' num2str(obj.CH.H.channels(1,ch).MNI_y ) ',' num2str(obj.CH.H.channels(1,ch).MNI_z)]);

@@ -62,7 +62,18 @@ classdef CPsyData < handle
         end
         function [kat] = CategoryName(obj,katnum)
             %vraci jmeno kategorie z cisla, jmeno kategorie se pocita od 0
-            kat = obj.P.strings.podminka{katnum+1};
+            if numel(katnum) == 1
+                kat = obj.P.strings.podminka{katnum+1};
+            else
+                kat = '';
+                for k = katnum
+                    if numel(kat) == 0
+                        kat = obj.P.strings.podminka{k+1};
+                    else
+                        kat = [ kat '+' obj.P.strings.podminka{k+1}]; %#ok<AGROW>
+                    end
+                end
+            end
         end
                 
         function [blocks, srate, test, kategorie]= GetBlocks(obj)
@@ -176,6 +187,14 @@ classdef CPsyData < handle
             hold on;
             plot(obj.P.data(:,obj.P.sloupce.rt),'x'); %tohle ma nejake jine x meritko?
        
+        end
+        function [id] = PacientID(obj)
+            %funkce ktera bude vracet id pacienta
+            id = obj.P.pacientid;
+            if length(id) <= 5 %pokud id obsahuje jen napr p132
+                podtrzitko = strfind(obj.P.eegfile,'_');
+                id = [id '-' obj.P.eegfile(1 : podtrzitko-1)]; %pritam jeste zacatke jmena eeg souboru, naprilad VT18
+             end
         end
     end
     methods  (Access = private)
