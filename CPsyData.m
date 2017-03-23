@@ -162,8 +162,8 @@ classdef CPsyData < handle
             figure('Name','ITI');
             subplot(1,2,1);
             isi = obj.InterStimulusInterval();
-            plot(isi,'x');
-            ylim([0,5]); %rozsah do 5 sec
+            plot(isi,'.');
+            ylim([1 1.6]); %rozsah do 5 sec
             title('PPA ITI');
             ylabel('sec');
             
