@@ -18,9 +18,9 @@ classdef CStat
             
             W = zeros(size(A,1),size(A,2));
             if print, fprintf('Wilcox Test 2D, 1.dim :'); end
-            for j = 1:size(A,1)
+            for j = 1:size(A,1) % napr cas
                 if print && mod(j,50)==0, fprintf('%d ', j); end %tisknu jen cele padesatky
-                for k = 1:size(A,2)                   
+                for k = 1:size(A,2) %napr kanaly                  
                    aa = squeeze (A(j,k,:)); 
                    bb = squeeze (B( min(j,size(B,1)) , min(k,size(B,2)) , :));
                    if numel(aa) >= 2 && numel(bb) >= 2 

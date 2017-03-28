@@ -264,16 +264,22 @@ classdef CiEEGData < handle
                 obj.baseline = [obj.epochtime(1) 0];
             end
             ibaseline = round(obj.baseline.*obj.fs); %zaporna cisla pokud pred synchro eventem
+            ibaselineA =  [ibaseline(1) ,    floor((ibaseline(2)-ibaseline(1))/2)+ibaseline(1)]; %prvni pulka baseline - 28.3.2017
+            ibaselineB =  [ibaselineA(2)+1 , ibaseline(2) ]; %druha pulka baseline
             itimewindow = round(timewindow.*obj.fs); %
             iEp = obj.GetEpochsExclude(); %ziska seznam epoch k vyhodnoceni
-            baseline = mean(obj.d( abs(iepochtime(1)-ibaseline(1))+1 : abs(iepochtime(1)-ibaseline(2)) , : , iEp),1); %#ok<PROP>
+            %proc driv?  mean(obj.d( abs(iepochtime(1)-ibaselineA(1))+1 : abs(iepochtime(1)-ibaselineA(2))  - 28.3.2017            
+            baselineA = mean(obj.d( ibaselineA(1)-iepochtime(1)+1 : ibaselineA(2)-iepochtime(1) , : , iEp),1); %#ok<PROP>
+            baselineB = mean(obj.d( ibaselineB(1)-iepochtime(1) : ibaselineB(2)-iepochtime(1) , : , iEp),1); %#ok<PROP>
                 % cas x kanaly x epochy - prumer za cas pred podnetem, pro vsechny kanaly a nevyrazene epochyt
             if numel(itimewindow) == 2  %chci prumernou hodnotu d od do
                 response = mean(obj.d( (itimewindow(1) : itimewindow(2)) - iepochtime(1) , : , iEp ),1); %prumer v case                
             else
                 response = obj.d(abs(iepochtime(1)-ibaseline(2))+1 : end , : , iEp ); %hodnoty po konci baseline                 
             end
-            Wp = CStat.Wilcox2D(response,baseline,1); %#ok<PROP> %1=mene striktni pdep, 2=striktnejsi dep;
+            WpA = CStat.Wilcox2D(response,baselineA,1); %#ok<PROP> %1=mene striktni pdep, 2=striktnejsi dep;
+            WpB = CStat.Wilcox2D(response,baselineB,1); %#ok<PROP> %1=mene striktni pdep, 2=striktnejsi dep;
+            Wp = max(WpA,WpB); %#ok<PROP> %vyssi hodnota z kazde poloviny baseline
             if numel(itimewindow) == 1 %chci maximalni hodnotu p z casoveho okna
                 Wp = CStat.Klouzaveokno(Wp,itimewindow(1),'max',1); %#ok<PROP>
                 obj.Wp.D2 = Wp; %#ok<PROP> %pole 2D signifikanci si ulozim kvuli kresleni - cas x channels
