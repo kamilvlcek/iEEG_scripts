@@ -367,6 +367,28 @@ classdef CiEEGData < handle
             %set(gca,'xlim',[0 max(frex)*2])
             title(['Channel ' num2str(ch)]);
         end
+        function [prumery, MNI] = IntervalyResp(obj, intervaly)
+            %vypocita hodnoty v jednotlivych intervalech casu pro jednotlive kategorie i pro celkovy prumer            
+            assert(isfield(obj.Wp, 'kats'),'musi byt definovany kategorie podnetu');
+            kats = obj.Wp.kats; 
+            prumery = zeros(size(intervaly,1),1+numel(kats),obj.channels);   % casy x kategorie x channels - celkova data a jednotlive kategorie
+            
+            for j = 1:size(intervaly,1) 
+                %spocitam prumery celkove i za kazdou kategorii v kazdem casovem intervalu
+                % dve cisla v kazdem sloupci - od do ve vterinach   
+                iintervalyData = round((intervaly(j,:)-obj.epochtime(1)).*obj.fs); % pro data kde je na zacatku baseline             
+                iintervalyStat = round(intervaly(j,:).*obj.fs); % pro statistiku, kde na zacatku neni baseline              
+                katdata = obj.CategoryData(kats); 
+                iCh = min(obj.Wp.D2(iintervalyStat(1):iintervalyStat(2),:),[],1) < 0.05; %kanaly kde je signifikantni rozdil vuci baseline, alesponjednou
+                prumery(j,1,iCh) = mean(mean(katdata(iintervalyData(1):iintervalyData(2),iCh,:),3),1); %prumer za vsechy epochy a cely casovy interval
+                for k = 1: numel(kats)
+                    katdata = obj.CategoryData(k); 
+                    iCh = min(obj.Wp.WpKatBaseline{k,1}(iintervalyStat(1):iintervalyStat(2),:),[],1) < 0.05; %kanaly kde je signifikantni rozdil vuci baseline, alespon jednou
+                    prumery(j,1+k,iCh) = mean(mean(katdata(iintervalyData(1):iintervalyData(2),iCh,:),3),1);
+                end                  
+            end 
+            MNI = obj.CH.GetMNI();
+        end
         %% PLOT FUNCTIONS
         function PlotChannels(obj)  
             %vykresli korelace kazdeho kanalu s kazdym
