@@ -127,10 +127,12 @@ classdef CHHeader < handle
             %vraci tag pacienta, napriklad p73
             if isfield(obj.H,'patientTag'), tag = obj.H.patientTag; else tag=obj.H.subjName; end
         end
-        function [MNI_coors]= GetMNI(obj)   
+        function [MNI_coors]= GetMNI(obj,channels)   
             %vraci koordinaty MNI pro Jirkovy skripty na SEEG-vizualizaci
-            MNI_coors = repmat(struct('MNI_x',0,'MNI_y',0,'MNI_z',0),size(obj.H.channels,2),1);
-            for ch = 1:size(obj.H.channels,2)
+            if ~exist('channels','var'), channels = 1:size(obj.H.channels,2); end
+            MNI_coors = repmat(struct('MNI_x',0,'MNI_y',0,'MNI_z',0),numel(channels),1);
+            
+            for ch = 1:numel(channels)
              MNI_coors(ch).MNI_x = obj.H.channels(ch).MNI_x;
              MNI_coors(ch).MNI_y = obj.H.channels(ch).MNI_y;
              MNI_coors(ch).MNI_z = obj.H.channels(ch).MNI_z;
