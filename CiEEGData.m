@@ -277,8 +277,8 @@ classdef CiEEGData < handle
             else
                 response = obj.d(abs(iepochtime(1)-ibaseline(2))+1 : end , : , iEp ); %hodnoty po konci baseline                 
             end
-            WpA = CStat.Wilcox2D(response,baselineA,1); %#ok<PROP> %1=mene striktni pdep, 2=striktnejsi dep;
-            WpB = CStat.Wilcox2D(response,baselineB,1); %#ok<PROP> %1=mene striktni pdep, 2=striktnejsi dep;
+            WpA = CStat.Wilcox2D(response,baselineA,1,[],'mean vs baseline A'); %#ok<PROP> %1=mene striktni pdep, 2=striktnejsi dep;
+            WpB = CStat.Wilcox2D(response,baselineB,1,[],'mean vs baseline B'); %#ok<PROP> %1=mene striktni pdep, 2=striktnejsi dep;
             Wp = max(WpA,WpB); %#ok<PROP> %vyssi hodnota z kazde poloviny baseline
             if numel(itimewindow) == 1 %chci maximalni hodnotu p z casoveho okna
                 Wp = CStat.Klouzaveokno(Wp,itimewindow(1),'max',1); %#ok<PROP>
@@ -300,29 +300,45 @@ classdef CiEEGData < handle
             end
             
             if exist('kats','var') && numel(kats)>1  && numel(timewindow)==1                                      
-                responsekat = cell(numel(kats),1); %eeg response zvlast pro kazdou kat
+                %ziskam eeg data od jednotlivych kategorii
+                responsekat = cell(numel(kats),1); %eeg response zvlast pro kazdou kategorii 
+                baselinekat = cell(numel(kats),1); %baseline zvlast pro kazdou kategorii 
                 for k = 1:numel(kats)
                     if exist('KATNUM','var') 
                         katdata = obj.CategoryData(KATNUM,[],kats{k}); %v kats jsou ted opakovani
                     else
                         katdata = obj.CategoryData(kats(k)); %epochy time*channel*epochs jedne kategorie, uz jsou vyrazeny vyrazene epochy
                     end
-                    responsekat{k,1} = katdata(abs(iepochtime(1)-ibaseline(2))+1 :end,:,:); %jen cas po podnetu; 
+                    responsekat{k,1} = katdata( ibaseline(2) - iepochtime(1)+1 :end,:,:); %jen cas po podnetu : cas x channel x epochs; 
+                    baselinekat{k,1} = katdata( ibaseline(1) - iepochtime(1)+1 : ibaseline(2) - iepochtime(1),:,:); %jen cas po podnetu : cas x channel x epochs; 
                 end
+                %rozdily kategorii vuci sobe
                 WpKat = cell(numel(kats));
                 for k = 1:numel(kats) %budu statisticky porovnavat kazdou kat s kazdou, bez ohledu na poradi
                     for j = k+1:numel(kats)
-                        Wp = CStat.Wilcox2D(responsekat{k}, responsekat{j},1); %#ok<PROP>
+                        Wp = CStat.Wilcox2D(responsekat{k}, responsekat{j},1,[],['kat ' num2str(k) ' vs ' num2str(j)]); %#ok<PROP> % -------- WILCOX kazda kat s kazdou 
                         WpKat{k,j} = Wp; %#ok<PROP> %CStat.Klouzaveokno(Wp,itimewindow(1),'max',1); %#ok<PROP>
                     end
                 end
-                obj.Wp.WpKat = WpKat;
-                if exist('KATNUM','var') 
-                    obj.Wp.kats = KATNUM;
-                    obj.Wp.opakovani = kats;
+                %rozdily kategorii vuci baseline - 28.3.2017
+                WpKatBaseline = cell(numel(kats),1);
+                for k =  1: numel(kats)
+                        baselineall = baselinekat{k};
+                        baselineA = mean(baselineall(1:floor(size(baselineall,1)/2)      ,:,:));
+                        baselineB = mean(baselineall(  floor(size(baselineall,1)/2)+1:end,:,:));
+                        WpBA = CStat.Wilcox2D(responsekat{k},baselineA,1,[],['kat ' num2str(k) ' vs baseline A']);
+                        WpBB = CStat.Wilcox2D(responsekat{k},baselineB,1,[],['kat ' num2str(k) ' vs baseline B']);
+                        WpKatBaseline{k,1} = max (WpBA,WpBB);
+                end
+                %ukladam vysledky
+                obj.Wp.WpKat = WpKat; %rozdily mezi kategorieme
+                obj.Wp.WpKatBaseline = WpKatBaseline; %rozdily kategorii vuci baseline
+                if exist('KATNUM','var') %pokud vyhodnocuju opakovani
+                    obj.Wp.kats = KATNUM;    %puvodni kategorie
+                    obj.Wp.opakovani = kats; %v kats jsou ted opakovani
                 else
                     obj.Wp.kats = kats; %ulozim si cisla kategorii kvuli grafu PlotResponseCh
-                    obj.Wp.opakovani = {};
+                    obj.Wp.opakovani = {}; %opakovani nedelam
                 end                    
             else
                 obj.Wp.kats = kats;
@@ -776,7 +792,7 @@ classdef CiEEGData < handle
                     obj.plotRCh.range = [ min(obj.plotRCh.range(1),min(M)-max(E)) max(obj.plotRCh.range(2),max(M)+max(E))]; %pouziju to pak pri stlaceni / z obrazku
                     if isfield(obj.Wp,'WpKat') 
                         for l = k+1:numel(kategories) %katnum jde od nuly
-                            y = ymin + (ymax-ymin)*(0.3 - (k+l)*0.05)  ;
+                            y = ymin + (ymax-ymin)*(0.3 - (k+l)*0.05)  ; %pozice na ose y
                             if k==1, color=colorskat{1,l}; else color = colorskat{1,1}; end %green a red jsou proti kategorii 0, cerna je kat 1 vs kat 2
                             if pvalue %pokud chci zobrazovat hodnotu p value jako krivku
                                 plot(Tr,obj.Wp.WpKat{k,l}(:,ch), ':','Color',color); %carkovana cara oznacuje signifikanci kategorie vuci jine kategorii
@@ -789,7 +805,7 @@ classdef CiEEGData < handle
                                 text(-0.01,y,[ num2str(round(Tr(iWpfirst)*1000)) 'ms']);  %cas zacatku signifikance 
                                 text(-0.18,y,[ 'p=' num2str(CStat.round(min(obj.Wp.WpKat{k,l}(:,ch)),3))]);  %cas zacatku signifikance 
                                 line([Tr(iWpfirst) Tr(iWpfirst)],obj.plotRCh.ylim,'Color',color); %modra svisla cara u zacatku signifikance                                
-                            end
+                            end                            
                             %potom jeste p < 0.01
                             iWp = obj.Wp.WpKat{k,l}(:,ch)  <= 0.01;                          
                             plot(Tr(iWp),ones(1,sum(iWp))*y,  '*','Color',color); %
@@ -807,6 +823,17 @@ classdef CiEEGData < handle
                                     '\color[rgb]{' num2str(color) '} *X* '  ...
                                     '\color[rgb]{' num2str(colorskat{1,k}) '}' kat2name ' (' kat3name ')']);
                                 %kazde jmeno kategorie jinou barvou
+                        end
+                        if pvalue %pokud chci zobrazovat hodnotu p value jako krivku
+                           plot(Tr,obj.Wp.WpKatBaseline{k,1}(:,ch), '.','Color',colorskat{1,k}); %tesckovana cara oznacuje signifikanci kategorie vuci baseline
+                        end
+                        if isfield(obj.Wp,'WpKatBaseline') 
+                            iWpB = obj.Wp.WpKatBaseline{k,1}(:,ch)  <= 0.05;
+                            y = ymin + (ymax-ymin)*(0.28 - (k+2)*0.05)  ;
+                            plot(Tr(iWpB),ones(1,sum(iWpB))*y, '.','Color',colorskat{1,k}); % 
+                            iWpB = obj.Wp.WpKatBaseline{k,1}(:,ch)  <= 0.01; 
+                            y = ymin + (ymax-ymin)*(0.28 - (k+2)*0.05)  ;
+                            plot(Tr(iWpB),ones(1,sum(iWpB))*y, 'p','Color',colorskat{1,k}); % 
                         end
                     end
                 end

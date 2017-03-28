@@ -7,17 +7,19 @@ classdef CStat
     
     methods (Static,Access = public)
         
-        function W = Wilcox2D(A,B,print,fdr)
+        function W = Wilcox2D(A,B,print,fdr,msg)
             %srovna dve 3D matice proti sobe, ohledne hodnot v poslednim rozmeru
             %A musi mit oba prvni rozmery > rozmery B, 
             %B muze mit jeden nebo oba prvni rozmer = 1 - pak se porovnava se vsemi hodnotami v A
             %pokud fdr=1 nebo prazne, provadi fdr korekci
             %pokud print = 0 nebo prazne, netiskne nic
             if ~exist('print','var'), print = 0; end
-            if ~exist('fdr','var'), fdr = 1; end            
+            if ~exist('fdr','var') || isempty(fdr), fdr = 1; end            
+            if ~exist('msg','var'), msg = ''; end
             
             W = zeros(size(A,1),size(A,2));
-            if print, fprintf('Wilcox Test 2D, 1.dim :'); end
+           
+            if print, fprintf(['Wilcox Test 2D - ' msg ': ']); end
             for j = 1:size(A,1) % napr cas
                 if print && mod(j,50)==0, fprintf('%d ', j); end %tisknu jen cele padesatky
                 for k = 1:size(A,2) %napr kanaly                  
