@@ -130,7 +130,7 @@ classdef CHHeader < handle
         function [MNI_coors]= GetMNI(obj,channels)   
             %vraci koordinaty MNI pro Jirkovy skripty na SEEG-vizualizaci
             if ~exist('channels','var'), channels = 1:size(obj.H.channels,2); end
-            MNI_coors = repmat(struct('MNI_x',0,'MNI_y',0,'MNI_z',0),numel(channels),1);
+            MNI_coors = repmat(struct('MNI_x',0,'MNI_y',0,'MNI_z',0),1,numel(channels));
             
             for ch = 1:numel(channels)
              MNI_coors(ch).MNI_x = obj.H.channels(ch).MNI_x;
