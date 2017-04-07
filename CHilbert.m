@@ -6,7 +6,8 @@ classdef CHilbert < CiEEGData
     end
     properties (Access = public)
         HFreq; %hilberova obalka pro kazde frekvenci pasmo - time x channel x freq (x kategorie)
-        Hf; %frekvencni pasma pro ktere jsou pocitany obalky
+        Hf; %frekvencni pasma pro ktere jsou pocitany obalky - okraje pasem, pocet je tedy vetsi o 1 nez pocet spocitanych pasem
+        Hfmean; %stredni hodnoty pasem  - pocet = pocet spocitanych pasem
         hfilename; %jmeno souboru CHilbert  
         plotF = struct; %udaje o stavu plotu PlotResponseFreq
     end
@@ -59,13 +60,14 @@ classdef CHilbert < CiEEGData
             obj.tabs = downsample(obj.tabs,obj.decimatefactor);
             obj.tabs_orig = downsample(obj.tabs_orig,obj.decimatefactor); %potrebuju zdecimovat i druhy tabs. Orig znamena jen ze nepodleha epochovani
             obj.Hf = freq;
+            obj.Hfmean = (freq(1:end-1) + freq(2:end)) ./ 2;
             obj.mults = ones(1,size(obj.d,2)); %nove pole uz je double defaultove jednicky pro kazdy kanal
             obj.yrange = [1 1 5 5]; %zmenim rozliseni osy y v grafu
             [obj.samples,obj.channels, obj.epochs] = obj.DSize();
             fprintf('\n'); %ukoncim radku
             toc; %ukoncim mereni casu a vypisu
             obj.DatumCas.HilbertComputed = datestr(now);
-            disp(['vytvoreno ' num2str(numel(obj.Hf)) ' frekvencnich pasem']); 
+            disp(['vytvoreno ' num2str(numel(obj.Hfmean)) ' frekvencnich pasem']); 
         end
         
         function obj = ExtractEpochs(obj, PsyData,epochtime,baseline)
@@ -79,7 +81,7 @@ classdef CHilbert < CiEEGData
                  iepochtime = round(epochtime(1:2).*obj.fs); %v poctu vzorku cas pred a po udalosti, prvni cislo je zaporne druhe kladne             
                  ibaseline =  round(baseline.*obj.fs); %v poctu vzorku cas pred a po udalosti
                  kategorie = cell2mat(obj.PsyData.P.strings.podminka(:,2)); %cisla karegorii ve sloupcich
-                 Hfreq2 = zeros(iepochtime(2)-iepochtime(1), size(obj.d,2), numel(obj.Hf)-1,size(kategorie,1)); %nova epochovana data time x channel x freq x kategorie=podminka
+                 Hfreq2 = zeros(iepochtime(2)-iepochtime(1), size(obj.d,2), numel(obj.Hfmean),size(kategorie,1)); %nova epochovana data time x channel x freq x kategorie=podminka
                  %cyklus po kategoriich ne po epochach
                  for katnum = kategorie' %potrebuji to v radcich
                      Epochy = find(cell2mat(obj.epochData(:,2))==katnum); %seznam epoch v ramci kategorie ve sloupci 
@@ -131,7 +133,7 @@ classdef CHilbert < CiEEGData
             for k = 1:numel(kategories)
                 subplot(1,numel(kategories),k);
                 T = obj.epochtime(1):0.1:obj.epochtime(2);
-                F =  (obj.Hf(1:end-1) + obj.Hf(2:end)) ./ 2;
+                F =  obj.Hfmean;
                 D = squeeze(obj.HFreq(:,ch,:,kategories(k)+1));
                 imagesc(T,F, D');
                 maxy = max([maxy max(max( D ))]);
@@ -170,9 +172,10 @@ classdef CHilbert < CiEEGData
             Save@CiEEGData(obj,CHilbert.filenameE(filename));  %ulozim do prvniho souboru data z nadrazene tridy          
             if ~isempty(obj.HFreq)                
                 HFreq = obj.HFreq;  %#ok<PROP,NASGU>
-                Hf = obj.Hf;         %#ok<PROP,NASGU>           
+                Hf = obj.Hf;         %#ok<PROP,NASGU>  
+                Hfmean = obj.Hfmean; %#ok<PROP,NASGU>  
                 yrange = obj.yrange; %#ok<NASGU> 
-                save(CHilbert.filenameH(filename),'HFreq','Hf','yrange','-v7.3'); %do druheho souboru data z teto tridy
+                save(CHilbert.filenameH(filename),'HFreq','Hf','Hfmean','yrange','-v7.3'); %do druheho souboru data z teto tridy
             end
         end
         
@@ -187,6 +190,12 @@ classdef CHilbert < CiEEGData
                 obj.HFreq = HFreq;  %#ok<CPROP,PROP>            
                 obj.Hf = Hf;                %#ok<CPROP,PROP>
                 obj.yrange = yrange;
+                vars = whos('-file',filename);
+                if ismember('Hfmean', {vars.name}) %7.4.2017
+                    load(filename,'Hfmean');      obj.Hfmean = Hfmean; %#ok<CPROP,PROP>
+                else
+                    obj.Hfmean = (obj.Hf(1:end-1) + obj.Hf(2:end)) ./ 2;
+                end
             else
                 warning(['soubor s frekvencnimi pasmy neexistuje ' CHilbert.filenameH(filename)]);
             end
