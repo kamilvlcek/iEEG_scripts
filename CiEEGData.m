@@ -33,6 +33,7 @@ classdef CiEEGData < handle
         yrange = [10 10 50 50]; %minimum y, krok y0, hranice y1, krok y1, viz funkce - a + v hybejPlot
         Wp = {}; %pole signifikanci pro jednotlive kanaly vuci baseline, vysledek  ResponseSearch     
         DE = {}; %trida objektu CEpiEvents - epilepticke eventy ziskane pomoci skriptu spike_detector_hilbert_v16_byISARG
+        DatumCas = {}; %ruzne casove udaje, kdy bylo co spocitano. Abych mel historii vypoctu pro zpetnou referenci
     end
     
     methods (Access = public)
@@ -50,6 +51,7 @@ classdef CiEEGData < handle
                 obj.fs = fs;
                 if exist('mults','var') && ~isempty(mults)
                     assert(size(mults,1)<= 1 || size(mults,1)==size(d,2),'d and mults have to have same number of channels');
+                    assert(~isstruct(mults),'mults cant be structure');
                     obj.mults = mults;
                     obj.d = bsxfun(@times,double(d), mults); %rovnou to roznasobim mults, nechci to resit dodatecne - 24.6.2016
                 else
@@ -65,6 +67,7 @@ classdef CiEEGData < handle
                 obj.plotES = [1 1 150 5 0]; %nastavim defaultni hodnoty grafy
                 obj.epochLast = 1;
                 obj.reference = 'original';
+                obj.DatumCas.Created = datestr(now);
                 disp('vytvoren objekt CiEEGData'); 
             end
             disp(['epochs: ' num2str(obj.epochs) ', rejected: ' num2str(numel(obj.RjEpoch)), '; channels: ' num2str(obj.channels) ', rejected: ' num2str(numel(obj.RjCh)) ]); 
@@ -160,6 +163,7 @@ classdef CiEEGData < handle
             obj.d = de; %puvodni neepochovana budou epochovana            
             obj.tabs = tabs; %#ok<PROP>
             [obj.samples,obj.channels, obj.epochs] = obj.DSize();
+            obj.DatumCas.Epoched = datestr(now);
             disp(['rozdeleno na ' num2str(obj.epochs) ' epoch']); 
         end
         
@@ -345,7 +349,7 @@ classdef CiEEGData < handle
                 obj.Wp.WpKat = cell(0);
                 obj.Wp.opakovani = {};
             end
-           
+            obj.DatumCas.ResponseSearch = datestr(now);
         end
         
         function Categories(obj)
@@ -970,8 +974,9 @@ classdef CiEEGData < handle
             epochData = obj.epochData;      %#ok<PROP,NASGU>
             Wp = obj.Wp;                    %#ok<PROP,NASGU>
             DE = obj.DE;                    %#ok<PROP,NASGU>
+            DatumCas = obj.DatumCas;        %#ok<PROP,NASGU>
             save(filename,'d','tabs','tabs_orig','fs','header','sce','PsyDataP','epochtime','baseline','CH_H','els',...
-                    'plotES','RjCh','RjEpoch','epochTags','epochLast','reference','epochData','Wp','DE','-v7.3');  
+                    'plotES','RjCh','RjEpoch','epochTags','epochLast','reference','epochData','Wp','DE','DatumCas','-v7.3');  
             disp(['ulozeno do ' filename]); 
         end
         function obj = Load(obj,filename)
@@ -1020,6 +1025,11 @@ classdef CiEEGData < handle
                 load(filename,'DE');      obj.DE = DE; %#ok<CPROP,PROP>
             else
                 obj.Wp = struct;
+            end
+            if ismember('DatumCas', {vars.name}) %7.4.2017
+                load(filename,'DatumCas');      obj.DatumCas = DatumCas; %#ok<CPROP,PROP>
+            else
+                obj.DatumCas = {};
             end
             obj.els = els;                  %#ok<CPROP,PROP>
             obj.plotES = plotES;            %#ok<CPROP,PROP>

@@ -64,6 +64,7 @@ classdef CHilbert < CiEEGData
             [obj.samples,obj.channels, obj.epochs] = obj.DSize();
             fprintf('\n'); %ukoncim radku
             toc; %ukoncim mereni casu a vypisu
+            obj.DatumCas.HilbertComputed = datestr(now);
             disp(['vytvoreno ' num2str(numel(obj.Hf)) ' frekvencnich pasem']); 
         end
         
