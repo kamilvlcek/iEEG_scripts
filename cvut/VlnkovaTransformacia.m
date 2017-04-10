@@ -91,8 +91,9 @@ end;
 N=size(x,1);
 Nsig=size(x,2);
 
-S=zeros(length(scales),N,Nsig);
+S=zeros(length(scales),N,Nsig); %rozmery frekvence x delka x kanaly
 
+fprintf('kanal ze %i: ', Nsig );
 for n=1:Nsig    
     for k=1:length(scales)
         a=scales(k);
@@ -101,6 +102,7 @@ for n=1:Nsig
         y=conv(x(:,n),w,'same')/fs;
         S(k,:,n)=y;
     end
+    fprintf('%i,',n);
 end
 
 if min(x_size)~=1 || length(x_size)~=2

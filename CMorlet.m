@@ -64,5 +64,37 @@ classdef  CMorlet < CHilbert
             toc; %ukoncim mereni casu a vypisu
             disp(['vytvoreno ' num2str(numel(obj.Hf)) ' frekvencnich pasem']); 
         end
+        function PasmoFrekvenceCVUT(obj,freq,channels)
+            %   pouzivam VlnkovaTransformacia od Bortela            
+            %   pouziva data d z parentu a take fs
+            %   freq    seznam freqvenci pro ktere se ma delat prumer - lo, .., ..., .., hi
+            if ~exist('channels','var'), channels = 1:obj.channels; end
+            obj.HFreq = zeros(ceil(obj.samples/obj.decimatefactor), obj.channels,numel(freq)); %inicializace pole   cas x kanal x freq
+            tic; %zacnu merit cas
+            %fprintf('kanal ze %i: ', numel(channels) ); 
+            
+            scales = 5./(2*pi*(freq)); %prevedu frekvence na scales - to jsem okopiroval z Mike X Cohena a funguje to
+            [S,f,t] = VlnkovaTransformacia(obj.d(:,channels),scales,obj.fs); %#ok<NASGU,ASGLU> %rozmery S: frekvence x delka x kanaly
+            S = permute(S,[ 2 3 1]); % predelam freq 1 x cas 2 x kanal 3  na cas x kanal x freq 
+            fprintf('... computing mean'); %ukoncim radku
+            for ch = 1:numel(channels) %S ma v sobe jen jeden kanal, ale Hfreq vsechny kanaly
+                for s = 1:numel(scales)
+                    eegconv = decimate(squeeze(abs(S(:,ch,s))),obj.decimatefactor); % mensi sampling rate  
+                    obj.HFreq(:,channels(ch),s) = (eegconv./mean(eegconv)); %podil prumeru = prumerna hodnota
+                end
+            end            
+            obj.d = squeeze(mean(obj.HFreq,3)); %11.5.2016 - prepisu puvodni data prumerem
+            obj.fs = obj.fs/obj.decimatefactor;
+            obj.tabs = downsample(obj.tabs,obj.decimatefactor);
+            obj.tabs_orig = downsample(obj.tabs_orig,obj.decimatefactor); %potrebuju zdecimovat i druhy tabs. Orig znamena jen ze nepodleha epochovani
+            obj.Hf = freq;
+            obj.Hfmean = freq; %wavelety nepocitaji silu rozmezi frekvenci,ale primo zadanych frekvenci
+            obj.mults = ones(1,size(obj.d,2)); %nove pole uz je double - defaultove jednicky pro kazdy kanal
+            obj.yrange = [1 1 5 5]; %zmenim rozliseni osy y v grafu
+            [obj.samples,obj.channels, obj.epochs] = obj.DSize();
+            fprintf('\n'); %ukoncim radku
+            toc; %ukoncim mereni casu a vypisu
+            disp(['vytvoreno ' num2str(numel(obj.Hf)) ' frekvencnich pasem']);      
+        end
     end
  end
