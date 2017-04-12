@@ -1,4 +1,4 @@
-function [delka] = concatCVUT(dir,spojit)
+function [delka] = concatCVUT(adresar,spojit)
 %spoji dva rozdelene soubory
 % CVUT data
 % nefunguje to na notebooku protoze to potrebuje prilis mnoho pameti - 18.6.2015
@@ -9,10 +9,18 @@ function [delka] = concatCVUT(dir,spojit)
 %        'f:\eeg\motol\pacienti\p97 Novak VT13\VT13_2016-02-11_10-20_002.mat'
 %        
 %        };
-
+if ~exist('spojit','var')  
+    %mam udelat vsechny soubory v adresari    
+    files = dir(fullfile(adresar, '*.mat'));
+    spojit = cell(numel(files),1);
+    for f = 1:numel(files)
+        spojit{f} = [ files(f).name];        
+    end
+end
+    
 for j = 1:numel(spojit)
-    disp([dir spojit{j}]);
-    load([dir spojit{j}]);
+    disp([ num2str(j) '/' num2str(numel(spojit)) ': ' adresar spojit{j}]);
+    load([adresar spojit{j}]);
     disp(['delka ' num2str(size(tabs,1))]); %#ok<NODEF>
     if j == 1 
         tabs0 = tabs;
@@ -38,6 +46,10 @@ for j = 1:numel(spojit)
        
     else
         disp(['rozdil ' num2str((tabs(1)-tabs0(end))*24*3600) ' sekund']);
+        if (tabs(1)-tabs0(end))*24*3600 >= 1 %rozdil jedne vteriny je velmi zvlastni, nejspis se soubory nemaji spojit            
+            m=input('Do you want to continue, Y/N [N]:','s');
+            if m~='y',   break; end
+        end
         tabs0 = [tabs0; tabs]; %#ok<AGROW>        
         clear tabs;
         d0 = [d0; d]; %#ok<NODEF,AGROW>
@@ -75,9 +87,9 @@ end
 delka = num2str(size(tabs,1));
 disp(['vysledna delka ' delka]);
 dot = strfind(spojit{1},'.');
-disp(['ukladam ' dir '\' spojit{1}(1:dot(1)-1) '_concat.mat']);
+disp(['ukladam ' adresar '\' spojit{1}(1:dot(1)-1) '_concat.mat']);
 
-save([ dir '\' spojit{1}(1:dot(1)-1) '_concat.mat'], '-regexp', '^(?!(spojit|j|dot|OBJ)$).','-v7.3');
+save([ adresar '\' spojit{1}(1:dot(1)-1) '_concat.mat'], '-regexp', '^(?!(spojit|j|dot|OBJ,f|delka|filename|adresar)$).','-v7.3');
 
 end
 
