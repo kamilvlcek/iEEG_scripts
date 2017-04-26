@@ -1,4 +1,4 @@
-function [ UU ] = udalosti2( d, fs, tabs, nahoru, mults,kresli, interval )
+function [ UU ] = udalosti2( d, fs, tabs, nahoru, mults,kresli, interval, diffsec,threshold)
 %UDALOSTI vrati indexy udalosti v poli d a jejich timestampy
 %pouziva se pro import dat z Motola do EEGlabu
 %  fs je pocet udalosti v jedne s, sampling rate
@@ -6,15 +6,22 @@ function [ UU ] = udalosti2( d, fs, tabs, nahoru, mults,kresli, interval )
 %  prepoklada hodnoty ve sloupci d(:,1)
 %  kresli=1 - vykresli synchro kanal se zachycenymi udalostmi
 %  interval - muzu nepovinne zadat cast souboru k detekci udalosti - obsahuje timestampy
+%  diffsec - nejmensi interval mezi nasledujicimi udalostim v sekundach, default 0.125
 
-if ~exist('inverval','var') 
+if ~exist('inverval','var')  || isempty(interval)
     interval = [ tabs(1) tabs(end)];
 end
-if ~exist('kresli','var') 
+if ~exist('kresli','var') || isempty(kresli)
     kresli = 1; %defaultni hodnota
 end
 if ~exist('mults','var') || numel(mults)<size(d,2)
     mults = ones(1,size(d,2));
+end
+if ~exist('diffsec','var') || isempty(diffsec)
+    diffsec = 0.125; %nejmensi interval mezi nasledujicimi udalostim
+end
+if ~exist('threshold','var') 
+    threshold = 2000; %hodnota kterou vsechny udalosti prekracuji
 end
 if size(d,2) > 1    
     LPT = size(d,2)-2; %synchronizace byva 2 kanaly pred koncem - pred EKG
@@ -24,11 +31,11 @@ else
     LPT = 1; %cislo kanalu synchronize - d ted obsahuje jen jeden sloupec
     d = double(d) * mults(LPT); 
 end
-Th = 2000; %me kterou vsechny udalosti prekracuji
+
 if nahoru 
-    U = find(d(:,LPT)>Th);
+    U = find(d(:,LPT)>threshold);
 else
-    U = find(d(:,LPT)<-Th); %zatim vsechny hodnoty, ktere prekracuji limit
+    U = find(d(:,LPT)<-threshold); %zatim vsechny hodnoty, ktere prekracuji limit
 end
 
 % do druheho sloupce dam rozdil soucasne proti predchozi radce
@@ -36,10 +43,11 @@ U(2:end,2)=U(2:end,1)-U(1:end-1);
 U(1,2) = 1000; %prvni hodnotu nechci smazat, nema definovany casovy rozdil vuci predchozi
 
 %smazu udalosti blize nez 0.125 sec od predchozi - nasel jsem spravnou udalost 0.23 od predchozi
-iU = U(:,2)< fs/4/2; %vice nez 0.125 sec
+iU = U(:,2)/fs < diffsec; % minimalni casovy interval
 U(iU,:)=[]; 
 %smazu udalosti ktere jsou sum - do tretiho a ctvrteho sloupce dam uroven sumu pred a po udalosti
 for j = 1:size(U,1)
+    %pole 3-5 jsou tu jen kvuli obrazku kresli=2
     U(j,3)=std(d(  U(j,1)-200:U(j,1)-100  ,LPT)); %stdev 100 bodu pred zacatkem udalosti
     U(j,4)=std(d(  U(j,1)+100:U(j,1)+200  ,LPT)); %stdev 100 bodu 100 po zacatku udalosti
     U(j,5)=mean(d(  U(j,1)+20:U(j,1)+80  ,LPT)); %prumer 60 bodu hned po zacatku udalosti - je tam spicka dolu?
@@ -55,10 +63,24 @@ U(iU,:)=[]; %**********
 
 if kresli == 1 %defaultni obrazek
     figure('Name','Udalosti na synchronizacnim pulsu'); 
-    plot(d(:,LPT)); %osa x je index v poli d a tabs
+    subplot(2,1,1); %prvni obrazek se sychronizacnimi pulsy a pres nej udalostmi
+    secs = [1:size(d,1)]'/fs; %#ok<NBRAK> %sekundy zaznamy
+    plot(secs,d(:,LPT)); %osa x jsou sekundy zaznamu - 26.4.2017 drive index v poli d a tabs
+    hold on;
     for j = 1:size(U,1)
-        line([U(j,1) U(j,1)],[0 iff(nahoru==1,Th,-Th)],'LineWidth',2,'Color',iff(nahoru==1,'red','green'));
+        line([U(j,1) U(j,1)]/fs,[0 iff(nahoru==1,threshold,-threshold)],'LineWidth',2,'Color',iff(nahoru==1,'red','green'));
+        %text( U(j,1)/fs, iff(nahoru==1,threshold,-threshold)/mod(j,5) ,num2str(j),'Color',iff(nahoru==1,'red','green'));
+        % ten text to hrozne zdrzuje, tak si ho necham v komentari
     end
+    title('synchronizacni puls a na nem udalosti');
+    xlabel('sec');
+    
+    subplot(2,1,2); %druhy obrazek s intervaly mezi pulsy
+    plot(U(:,2)/fs,'.-');
+    ylim([-0.1 5]); 
+    xlim([-10 700]);
+    title('intervaly mezi udalostmi v sekundach');
+    ylabel('sec');
 end;
 
 

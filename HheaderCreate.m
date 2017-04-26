@@ -12,6 +12,7 @@ chnum = size(channelnames,1);
 if ~exist('triggerCh','var')
     triggerCh = chnum - 2; %defaultni cislo trigerovaciho kanalu
 end
+fprintf('last channels: ');
 for ch = 1:chnum  
     tmp = regexp(channelnames{ch,1},'([^,:]*)','tokens'); %na radce v channels muze byt jako druhe jmeno struktury oddelene carkou
     names = cat(2,tmp{:});
@@ -19,7 +20,7 @@ for ch = 1:chnum
     HH.channels(ch).numberOnAmplifier=ch;
     if ch==triggerCh
         signalType = 'triggerCh'; %vetsinou 2 pred koncem, kdyztak opravim rucne
-    elseif chnum-ch < 2
+    elseif chnum-ch < 2 && chnum % >= triggerCh %26.4.2017 - trigerovaci kanal nikdy neni az za EKG, to spis neni zadne EKG
         signalType = 'ECG'; %EKG
     else
         signalType = 'SEEG'; %iEEG channel
@@ -36,7 +37,11 @@ for ch = 1:chnum
     else
         HH.channels(ch).neurologyLabel='n.a.';
     end
+    if ch >= chnum -5
+        fprintf('%i:%s,',ch,names{1});
+    end    
 end
+fprintf('\n');
 
 end
 

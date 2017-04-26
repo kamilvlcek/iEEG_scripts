@@ -18,6 +18,7 @@ classdef CEpiEvents < handle
                 DE = d; %#ok<PROP>                
              else %pokud neni zadano fs, predpoklada se, ze prvni parametr jsou uz vyhodnocene eventy v DE
                 DE = spike_detector_hilbert_v16_byISARG(d,fs);%#ok<PROP>             
+                disp(['nalezeno ' num2str(numel(DE.pos)) ' epileptickych udalosti']); %#ok<PROP>
              end
              %chci pridat jeste tabs do objektu, to se mi pak bude hodit pri zobrazovani v epochovanych datech
              obj.DE=DE; %#ok<PROP> %ukladam jen do zalohy, abych mohl rucne ulozit na disk
@@ -29,7 +30,7 @@ classdef CEpiEvents < handle
              obj.sloupce.con = 4; %type (1-obvious 0.5-ambiguous)
              obj.sloupce.weight = 5; %váha 0-1
              obj.sloupce.pdf = 6; %statistical significance "PDF"
-             obj.sloupce.tabs = 7;
+             obj.sloupce.tabs = 7;             
          end
          function [DE] = GetDE(obj) %jen vrati originalni struct DE vypocitany detektorem; protoze ho nejak nejde ulozit
              DE = obj.DE;

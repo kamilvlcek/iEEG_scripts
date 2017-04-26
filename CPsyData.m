@@ -16,8 +16,9 @@ classdef CPsyData < handle
             obj.DoplnZpetnavazba();
         end
         function rt = ReactionTime(obj)
-            %vrati matici vsech reakcnich casu roztridenych do sloupcu podle kategorii podnetu
+            %vrati matici vsech reakcnich casu roztridenych do sloupcu podle kategorii podnetu            %
             %kde je min hodnot v kategorii, zarovnano pomoci NaN, takze se musi pouzit nanmean
+            %reakcni casy se berou ze synchronizacnich pulzu
             kat = unique(obj.P.data(:,obj.P.sloupce.kategorie)); %ciselne vyjadreni kategorie podnetu 0-n
             rt = nan(size(obj.P.data,1),numel(kat)); %pole kam budu ukladat reakcni casy v sekundach
             
@@ -175,17 +176,20 @@ classdef CPsyData < handle
             isi = obj.InterStimulusInterval();
             plot(isi,'.');
             ylim([1 1.6]); %rozsah do 5 sec
-            title('PPA ITI');
+            title('ITI');
             ylabel('sec');
             
             subplot(1,2,2);
-            rt = obj.ReactionTime(); %ctyri sloupce reakcnich casu
-            rt = rt(:);      % jeden sloupec
-            plot(rt,'o');    
-            title('PPA RT');
+            rt = obj.ReactionTime(); %ctyri sloupce reakcnich casu podle synchropulsu
+            rt = rt(:);      % jeden sloupec, v poradi ovoce, 
+            plot(rt,'o');
+            for j = 1:3
+                line([200*j 200*j],[0.4 1.4]);
+            end
+            title('RT');
             ylabel('sec');
             hold on;
-            plot(obj.P.data(:,obj.P.sloupce.rt),'x'); %tohle ma nejake jine x meritko?
+            plot(obj.P.data(:,obj.P.sloupce.rt),'xm'); %reakcni casy podle PsychoPy - tohle neni serazene podle kategorii je tam 0 pokud zadna reakce
        
         end
         function [id] = PacientID(obj)
