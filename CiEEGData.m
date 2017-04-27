@@ -34,6 +34,7 @@ classdef CiEEGData < handle
         Wp = {}; %pole signifikanci pro jednotlive kanaly vuci baseline, vysledek  ResponseSearch     
         DE = {}; %trida objektu CEpiEvents - epilepticke eventy ziskane pomoci skriptu spike_detector_hilbert_v16_byISARG
         DatumCas = {}; %ruzne casove udaje, kdy bylo co spocitano. Abych mel historii vypoctu pro zpetnou referenci
+        PL = {}; %objekt CPlots
     end
     
     methods (Access = public)
@@ -84,6 +85,7 @@ classdef CiEEGData < handle
             else
                 disp('no Wilcox stats');
             end
+            obj.PL = CPlots();
         end
         
         function [samples, channels, epochs] = DSize(obj)
@@ -662,26 +664,7 @@ classdef CiEEGData < handle
             %vykresleni epileptickych eventu
             if ~isempty(obj.DE)
                 hold on;
-                epieventsum = 0;  
-                weights = [];
-                for ch = elmin:elmax
-                    if ~ismember(ch,obj.RjCh)
-                        if obj.epochs <= 1
-                            [epitime weight] = obj.DE.GetEvents( [obj.tabs(iD(1)) obj.tabs(iD(2))],ch,obj.tabs_orig(1)); 
-                        else
-                            epochy = s : min(s+ceil(time_n/obj.samples)-1 , obj.epochs ); %cisla zobrazenych epoch
-                            tabs = [ obj.tabs(1,epochy)' obj.tabs(end,epochy)' ]; %#ok<PROP> %zacatky a konce zobrazenych epoch
-                            [epitime weight] = obj.DE.GetEvents( tabs,ch,obj.tabs_orig(1)) ;      %#ok<PROP>                           
-                            epitime = epitime + obj.epochtime(1);
-                        end
-                        if numel(epitime) > 0
-                            plot(epitime,shift(elmaxmax-ch+1,1),'o', 'MarkerEdgeColor','r','MarkerFaceColor','r', 'MarkerSize',6);
-                            epieventsum = epieventsum + numel(epitime);
-                            weights = [weights; round(weight*100)/100]; %#ok<AGROW>
-                        end
-                    end
-                end             
-                text(t(1)+((t(end)-t(1))/8),ty,['epileptic events: ' num2str(epieventsum) ' (' num2str(min(weights)) '-' num2str(max(weights)) ')']); 
+                obj.PL.PlotElectrodeEpiEvents(elmin:elmax,obj.RjCh,obj.DE,obj.tabs,obj.tabs_orig,obj.epochs,obj.samples,obj.epochtime,t,ty,s,time_n,elmaxmax,shift);                
                 hold off;
             end
             
@@ -936,7 +919,66 @@ classdef CiEEGData < handle
                 text(0,-3,['rejected ' num2str(numel(obj.RjEpoch)) ' epochs']);
             end
         end 
-        
+        function PlotEpiEvents(obj)
+            %vykresli pocty epileptickych events u jednotlivych kanalu. U epochovanych dat i pocty epoch s epi udalostmi
+            %since 27.4.2017
+            assert(isobject(obj.CH),'Hammer header not loaded');
+            evts = zeros(numel(obj.CH.H.selCh_H),1); %pocet epievents pro kazdy kanal
+            names = cell(numel(obj.CH.H.selCh_H));  %jmena kanalu
+            epochs = evts; %#ok<PROP>
+            namelast = ''; %tam budu ukladat pismeno jmena elektrody
+            obj.DE.Clear_iDEtabs();
+            if obj.epochs > 1 %epochovana data
+                tabs = [ obj.tabs(1,:)' obj.tabs(end,:)' ]; %#ok<PROP> %zacatky a konce vsech epoch
+            end 
+            for ch = obj.CH.H.selCh_H                
+                if obj.epochs==1
+                    [epitime ~] = obj.DE.GetEvents([obj.tabs(1) obj.tabs(end)],ch);
+                else %epochovana data                   
+                    [epitime ~] = obj.DE.GetEvents(tabs,ch,obj.tabs_orig(1)); %#ok<PROP>                     
+                    if numel(epitime) > 0 
+                        epochs(ch) = numel( unique(epitime(:,2))); %#ok<PROP>                        
+                    end
+                end
+                evts(ch) = size(epitime,1); 
+                if strcmp(namelast,obj.CH.H.channels(ch).name(1))
+                   names{ch} = obj.CH.H.channels(ch).name(end); %cislo elektrody bez pismene, u druhe elektrody stejneho jmena abych usetril misto
+                else
+                   names{ch} = obj.CH.H.channels(ch).name(1);
+                   namelast = obj.CH.H.channels(ch).name(1);                     
+                end
+            end
+            figure('Name','Epievents in individual channels');
+            if obj.epochs > 1
+                subplot(2,1,1);                
+            end
+            
+            plot(evts,'.-');
+            set(gca,'xtick',obj.CH.H.selCh_H ,'xticklabel',names); %znacky a popisky osy y
+            for el = 1:numel(obj.els)-1
+                line([obj.els(el) obj.els(el)]+1,[0 max(evts)],'Color',[0.5 0.5 0.5]);
+            end
+            xlabel('channels');
+            title('pocet epi eventu celkove');
+            
+            if obj.epochs > 1 %epochovana data - druhy graf
+                subplot(2,1,2);
+               
+                plot(epochs./obj.epochs,'.-'); %#ok<PROP>
+                set(gca,'xtick',obj.CH.H.selCh_H ,'xticklabel',names); %znacky a popisky osy y
+                for el = 1:numel(obj.els)-1
+                    line([obj.els(el) obj.els(el)]+1,[0 max(evts)],'Color',[0.5 0.5 0.5]);
+                end
+                ylim([0 1]);
+                line([1 obj.CH.H.selCh_H(end)],[0.30 0.30],'Color','red');
+                xlabel('channels');
+                spatne = find(epochs./obj.epochs >= 0.30); %#ok<PROP>
+                disp('kanaly s pocet epi epoch >= 0.3');
+                disp(spatne');
+                title('podil epoch s epi eventy');
+            end
+            
+        end
              
         
         

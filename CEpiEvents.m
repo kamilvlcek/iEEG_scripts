@@ -6,6 +6,7 @@ classdef CEpiEvents < handle
         DE; %puvodni struct vygenerovany detektorem
         sloupce; %nazvy sloupcu matice pro indexovani
         d; %matice eventu pro snadne vyhledavani
+        iDEtabs;
     end
     
     methods (Access = public)
@@ -35,6 +36,7 @@ classdef CEpiEvents < handle
          function [DE] = GetDE(obj) %jen vrati originalni struct DE vypocitany detektorem; protoze ho nejak nejde ulozit
              DE = obj.DE;
          end
+         
          function [time,weight]= GetEvents(obj,tabs,ch,tabs0)
              % vraci casy a vahy udalosti v danem casovem intervalu (tabs(:,1) - tabs(:,2)) na danem kanalu
              % tabs muze byt i matice o vice radcich, pak to odpovida vice opocham a udalosti se
@@ -43,9 +45,16 @@ classdef CEpiEvents < handle
              %weight  = zeros(size(obj.DE,1)*size(tabs,1),1);  
              time = []; %prazdny array, abych neco vratil
              weight = []; 
+             if numel(obj.iDEtabs)==0 %pokud zadny index pres tabs neexistuje, vytvorim ho
+                 obj.iDEtabs = false([size(obj.d,1) size(tabs,1)]);
+                 for r = 1:size(tabs)
+                     %tohle v profileru trvalo hrozne dlouho protoze se to delal pro kazdy kanala a kazdy event (kdy jsou). 
+                     %ted se to dela jen pro kazdy event
+                     obj.iDEtabs(:,r) = obj.d(:,obj.sloupce.tabs) >= tabs(r,1) & obj.d(:,obj.sloupce.tabs) <= tabs(r,2) & obj.d(:,obj.sloupce.con) == 1;
+                 end
+             end
              for r = 1:size(tabs,1)                 
-                 iDE = obj.d(:,obj.sloupce.tabs) >= tabs(r,1) & obj.d(:,obj.sloupce.tabs) <= tabs(r,2) ...
-                    & obj.d(:,obj.sloupce.chan)==ch & obj.d(:,obj.sloupce.con) == 1;
+                 iDE = obj.iDEtabs(:,r) & obj.d(:,obj.sloupce.chan)==ch; %pouziju index iDEtabs vytvoreny drive
                  DEx = obj.d(iDE,:); %nevim predem velikost, takze nemuzu pole vytvorit predem
                  if size(DEx,1)>0 
                      if size(tabs,1)>1 %epochovana data
@@ -58,10 +67,14 @@ classdef CEpiEvents < handle
                         %u neepochovanych dat chci puvodni cas - sec od zacatky
                         pos =  DEx(:,obj.sloupce.pos); 
                      end
-                     time = [time ; pos]; %#ok<AGROW> %cas udalosti  v sec
+                     time = [time ; pos repmat(r,size(pos))]; %#ok<AGROW> %cas udalosti  v sec
                      weight = [weight ; DEx(:,obj.sloupce.weight)]; %#ok<AGROW> %vaha udalosti                     
                  end
              end
+         end
+         function obj = Clear_iDEtabs(obj)
+             %vymaza index obj.iDEtabs vytvoreny ve funkci GetEvents - pouziva se pri jejichopakovanych volanich 
+             obj.iDEtabs = [];
          end
     end
     
