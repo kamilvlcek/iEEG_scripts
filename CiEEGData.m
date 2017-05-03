@@ -567,6 +567,7 @@ classdef CiEEGData < handle
                 %dd = obj.d( iD(1) : iD(2),elmin: elmaxmax)' ;   
                 t = linspace(iD(1)/obj.fs, iD(2)/obj.fs, iD(2)-iD(1)+1); %casova osa  v sekundach          
             else %pokud data uz jsou epochovana 
+                iD = []; %potrebuju to predat jako parametr
                 assert(s>=1,'cislo epochy musi byt alespon 1');                
                 dd = zeros(elmaxmax-elmin+1,time_n);
                 time_nsum = 0; %kolik vzorku v case uz mam v poli dd
@@ -664,7 +665,7 @@ classdef CiEEGData < handle
             %vykresleni epileptickych eventu
             if ~isempty(obj.DE)
                 hold on;
-                obj.PL.PlotElectrodeEpiEvents(elmin:elmax,obj.RjCh,obj.DE,obj.tabs,obj.tabs_orig,obj.epochs,obj.samples,obj.epochtime,t,ty,s,time_n,elmaxmax,shift);                
+                obj.PL.PlotElectrodeEpiEvents(elmin:elmax,obj.RjCh,obj.DE,obj.tabs,obj.tabs_orig,obj.epochs,obj.samples,obj.epochtime,t,ty,s,time_n,elmaxmax,shift,iD);                
                 hold off;
             end
             
@@ -927,26 +928,32 @@ classdef CiEEGData < handle
             names = cell(numel(obj.CH.H.selCh_H));  %jmena kanalu
             epochs = evts; %#ok<PROP>
             namelast = ''; %tam budu ukladat pismeno jmena elektrody
+            evts_nonseeg = 0; %pocet epi udalost v nonseeg kanalech
             obj.DE.Clear_iDEtabs();
             if obj.epochs > 1 %epochovana data
                 tabs = [ obj.tabs(1,:)' obj.tabs(end,:)' ]; %#ok<PROP> %zacatky a konce vsech epoch
             end 
-            for ch = obj.CH.H.selCh_H                
+            for ch = 1:obj.channels; %obj.CH.H.selCh_H                
                 if obj.epochs==1
                     [epitime ~] = obj.DE.GetEvents([obj.tabs(1) obj.tabs(end)],ch);
                 else %epochovana data                   
                     [epitime ~] = obj.DE.GetEvents(tabs,ch,obj.tabs_orig(1)); %#ok<PROP>                     
-                    if numel(epitime) > 0 
+                    if numel(epitime) > 0 && ~isempty(find(obj.CH.H.selCh_H==ch, 1))
                         epochs(ch) = numel( unique(epitime(:,2))); %#ok<PROP>                        
                     end
                 end
-                evts(ch) = size(epitime,1); 
-                if strcmp(namelast,obj.CH.H.channels(ch).name(1))
-                   names{ch} = obj.CH.H.channels(ch).name(end); %cislo elektrody bez pismene, u druhe elektrody stejneho jmena abych usetril misto
+                if ~isempty(find(obj.CH.H.selCh_H==ch, 1)) %pokud je kanal ve vyjmenovanych SEEG kanalech podle headeru
+                    evts(ch) = size(epitime,1); 
+                    if strcmp(namelast,obj.CH.H.channels(ch).name(1))
+                       names{ch} = obj.CH.H.channels(ch).name(end); %cislo elektrody bez pismene, u druhe elektrody stejneho jmena abych usetril misto
+                    else
+                       names{ch} = obj.CH.H.channels(ch).name(1);
+                       namelast = obj.CH.H.channels(ch).name(1);                     
+                    end
                 else
-                   names{ch} = obj.CH.H.channels(ch).name(1);
-                   namelast = obj.CH.H.channels(ch).name(1);                     
+                   evts_nonseeg = evts_nonseeg + size(epitime,1);
                 end
+                
             end
             figure('Name','Epievents in individual channels');
             if obj.epochs > 1
@@ -960,6 +967,7 @@ classdef CiEEGData < handle
             end
             xlabel('channels');
             title('pocet epi eventu celkove');
+            disp(['celkem vykresleno epieventu: ' num2str(sum(evts)) ', + nevykresleno ' num2str(evts_nonseeg) ' v non eeg kanalech']);
             
             if obj.epochs > 1 %epochovana data - druhy graf
                 subplot(2,1,2);

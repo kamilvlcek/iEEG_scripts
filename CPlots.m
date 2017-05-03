@@ -6,7 +6,7 @@ classdef CPlots < handle
     end
     
     methods (Static,Access = public)
-        function PlotElectrodeEpiEvents(els,RjCh,DE,objtabs,tabs_orig,epochs,samples,epochtime,timeax,timeaxy,sec,time_n,elmaxmax,shift)
+        function PlotElectrodeEpiEvents(els,RjCh,DE,objtabs,tabs_orig,epochs,samples,epochtime,timeax,timeaxy,sec,time_n,elmaxmax,shift,iD)
             %27.4. - nahrazuju cast funkce CiEEGData.PlotElectrode toutu funkci, kvuli zkraceni, ale predavam strasne moc argumentu
             %treba bych mohl uz driv predat hodne z nich? A mit je jako properties tehle tridy?
             epieventsum = 0;  
