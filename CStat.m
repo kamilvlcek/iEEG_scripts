@@ -75,7 +75,35 @@ classdef CStat
             %zakrouhuje na dany pocet desetinnych mist
             N = round(n * 10^dig) / 10 ^ dig;
         end
+        function [frequencies,fft_d_abs]=Fourier(dd,fs)
+            %[frequencies,fft_d_abs]=Fourier(dd,fs) 
+            % spocita Fourierovu fransformaci dat z jednoho kanalu 
+            %predpoklada data s casem v prvnim rozmeru, ostatni rozmery nejsou nebo 1
+            % 4.5.2017 kopie z CiEEGdata.Fourier
             
+            frequencies       = linspace(0,fs/2,length(dd)/2+1); %maximalni frekvence je fs/2, ale frekvencni rozliseni je N/2+1
+            fft_d    = fft(dd)/length(dd); %fast fourier transform
+           
+            %vezmu jen tolik frekvenci, kolik je v frequencies - realnych frekvenci. ostatni jsou imaginarni frekvence
+            fft_d_abs = abs(fft_d(1:length(frequencies)))*2; %dvema nasobim kvuli tem imaginarnim frekvencim. Viz MikeCohenP.
+            %prvni frekvence je DC
+        end
+            
+        function [filter_result] = FIR(freq,dd,fs)
+            %[filter_result] = FIR(freq,dd,fs) 
+            % provede FIR filter podle Cohen Ch 14.  
+            % 4.5.2017           
+            nyquist =fs/2;
+            freqspread    = (freq(2)-freq(1))/2; % Hz +/- the center frequency
+            center_freq   = freq(1) + freqspread;
+            transwid      = .10; % transition zone withth
+            ffrequencies  = [ 0 (1-transwid)*(center_freq-freqspread) (center_freq-freqspread) (center_freq+freqspread) (1+transwid)*(center_freq+freqspread) nyquist ]/nyquist;
+            idealresponse = [ 0 0 1 1 0 0 ];
+            filter_order       = round(3*(fs/freq(1))); %trojnasobek dolni frekvence
+            filterweights = firls(filter_order,ffrequencies,idealresponse); %vytvorim filter kernel
+            filter_result = filtfilt(filterweights,1,dd);
+            
+        end
     end
     
 end

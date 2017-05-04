@@ -360,19 +360,40 @@ classdef CiEEGData < handle
         end
         function Fourier(obj,ch,epoch)
            % perform FFT and plot
-            if ~exist('epoch','var'),  epoch = 1;        end
-            dd = obj.d(:,ch,epoch); 
-            frequencies       = linspace(0,obj.fs/2,length(dd)/2+1); %maximalni frekvence je fs/2, ale frekvencni rozliseni je N/2+1
-            fft_d    = fft(dd)/length(dd);
-            figure('Name','Fourier');
-            %vezmu jen tolik frekvenci, kolik je v frequencies - realnych frekvenci. ostatni jsou imaginarni frekvence
-            fft_d_abs = abs(fft_d(1:length(frequencies)))*2; %dvema nasobim kvuli tem imaginarnim frekvencim. Viz MikeCohenP.
+            if ~exist('epoch','var'),  epoch = 1;        end            
+            [frequencies,fft_d_abs] = CStat.Fourier(obj.d(:,ch,epoch),obj.fs);                      
+            figure('Name','Fourier');          
             %plot(frequencies(2:end),fft_d_abs(2:end),'.'); %neplotuju prvni frekvenci, cili DC
-            loglog(frequencies,fft_d_abs);
+            loglog(frequencies,fft_d_abs); %log log plot, kde muze byt i prvni frekvence
             %xlim([0 250]);
             %set(gca,'xlim',[0 max(frex)*2])
             title(['Channel ' num2str(ch)]);
         end
+        function Filter(obj,freq,channels,epoch)            
+            if ~exist('channels','var'), channels  = 1:obj.channels;        end 
+            if ~exist('epoch','var'),  epoch = 1;        end 
+            vykresli = 1;
+            fprintf('channels to filter (z %i):',numel(channels));
+            for ch = channels
+                fprintf('%i, ',ch);
+                dd = squeeze(obj.d(:,ch,epoch));
+                dd2 = CStat.FIR(freq,dd,obj.fs); %vyfiltruju data
+                obj.d(:,ch,epoch) = dd2;                
+                if vykresli %vykreslim jenom prvni kanal
+                    [frequencies,fft_d_abs] = CStat.Fourier(dd,obj.fs);  
+                    figure('Name','Filter effects');   
+                    plot(frequencies(2:end),fft_d_abs(2:end),'k.'); %neplotuju prvni frekvenci, cili DC
+                    xlim([0 250]);            
+                    hold on;                
+                    [frequencies,fft_d_abs] = CStat.Fourier(dd2,obj.fs);   %spocitam znova frekvencni charakteristiku
+                    plot(frequencies(2:end),fft_d_abs(2:end),'b.'); %vykreslim modre
+                    vykresli = 0;
+                    title(['Channel ' num2str(ch)]);
+                end
+            end
+            fprintf('... done\n');
+        end
+            
         function [prumery, MNI] = IntervalyResp(obj, intervaly,channels)
             %vypocita hodnoty v jednotlivych intervalech casu pro jednotlive kategorie i pro celkovy prumer       
             %vykresli graf pro kazdy interval do spolecneho plotu
