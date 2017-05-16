@@ -38,6 +38,7 @@ else
     U = find(d(:,LPT)<-threshold); %zatim vsechny hodnoty, ktere prekracuji limit
 end
 
+assert( size(U,1) > 1, ['nenalezeny zadne synchronizacni udalosti v synchro kanalu ']);  %#ok<NBRAK>
 % do druheho sloupce dam rozdil soucasne proti predchozi radce
 U(2:end,2)=U(2:end,1)-U(1:end-1); 
 U(1,2) = 1000; %prvni hodnotu nechci smazat, nema definovany casovy rozdil vuci predchozi
@@ -77,8 +78,8 @@ if kresli == 1 %defaultni obrazek
     
     subplot(2,1,2); %druhy obrazek s intervaly mezi pulsy
     plot(U(:,2)/fs,'.-');
-    ylim([-0.1 5]); 
-    xlim([-10 700]);
+    ylim([-0.1 10]); 
+    xlim([-10 size(U,1)+10]);
     title('intervaly mezi udalostmi v sekundach');
     ylabel('sec');
 end;

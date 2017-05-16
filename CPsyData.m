@@ -175,16 +175,19 @@ classdef CPsyData < handle
             subplot(1,2,1);
             isi = obj.InterStimulusInterval();
             plot(isi,'.');
-            ylim([1 1.6]); %rozsah do 5 sec
+            ylim([1 prctile(isi,99)]); %rozsah do 99  percentilu - odstranim odlehle hondoty
             title('ITI');
             ylabel('sec');
             
             subplot(1,2,2);
             rt = obj.ReactionTime(); %ctyri sloupce reakcnich casu podle synchropulsu
+            numkatvals = size(rt,1);
+            numkats = size(rt,2);
             rt = rt(:);      % jeden sloupec, v poradi ovoce, 
             plot(rt,'o');
-            for j = 1:3
-                line([200*j 200*j],[0.4 1.4]);
+            for j = 1:numkats
+                line([numkatvals*j numkatvals*j],[0.4 1.4]);
+                text(numkatvals*(j-0.5),0.1,obj.P.strings.podminka{j},'Color','blue');
             end
             title('RT');
             ylabel('sec');
