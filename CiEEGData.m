@@ -223,19 +223,19 @@ classdef CiEEGData < handle
                 end                
             end
             
-            if obj.epochs <= 1
+            if obj.epochs <= 1 %ne epochovana data
                 filtData = obj.d(:,H.selCh_H) * filterMatrix;
-                assert(size(filtData,1) == size(obj.d,1)); %musi zustat stejna delka zaznamu  
+                assert(size(filtData,1) == size(obj.d,1),'zmenila se delka zaznamu'); %musi zustat stejna delka zaznamu  
                 obj.d=filtData;                
-            else
+            else %epochovana data
                 dd = zeros(obj.samples*obj.epochs,numel(H.selCh_H));
                 for ch = 1:numel(H.selCh_H) %predelam matici 3D na 2D
                     dd(:,ch) = reshape(obj.d(:,ch,:),obj.samples*obj.epochs,1);
                 end                
                 filtData = dd(:,H.selCh_H) * filterMatrix;
-                assert(size(filtData,1) == size(dd,1)); %musi zustat stejna delka zaznamu  
+                assert(size(filtData,1) == size(dd,1),'zmenila se delka zaznamu'); %musi zustat stejna delka zaznamu  
                 obj.d = zeros(obj.samples,size(filtData,2),obj.epochs); %nove pole dat s re-referencovanymi daty
-                for ch=1:size(filtData,2)
+                for ch=1:size(filtData,2) %vratim puvodni 3D tvar matice
                     obj.d(:,ch,:) = reshape(filtData(:,ch),obj.samples,obj.epochs);
                 end
             end
@@ -395,7 +395,30 @@ classdef CiEEGData < handle
             end
             fprintf('... done\n');
         end
-            
+          
+        function [obj]= Decimate(obj,podil)
+            %zmensi data na nizsi vzorkovaci frekvenci podle urceneho podilu, naprilkad 4x 512-128Hz, pokud podil=4
+            dd = zeros(ceil(size(obj.d,1)/podil) , size(obj.d,2), size(obj.d,3)); % d uz obsahuje jen svoji prvni pulku a delka je delitelna podilem
+            fprintf('channels to decimate (z %i):',numel(obj.channels));
+            for ch = 1:obj.channels %musim decimovat kazdou elektrodu zvlast
+                fprintf('%i, ',ch);
+                if obj.epochs == 1
+                    dd(:,ch) = decimate(obj.d(:,ch),podil); %na 500 Hz z 8000 Hz
+                    if ch==1, obj.tabs = downsample(obj.tabs,podil); end % to delam jen jednou, treba u prvniho kanalu                   
+                else
+                    for ep = 1:obj.epochs
+                        dd(:,ch,ep) = decimate(obj.d(:,ch,ep),podil); %na 500 Hz z 8000 Hz
+                        if ch==1, obj.tabs(:,ep) = downsample(obj.tabs(:,ep),podil); end 
+                    end
+                end                
+            end
+            obj.tabs_orig = downsample(obj.tabs_orig,podil); % 
+            obj.fs = obj.fs/podil;
+            obj.d = dd;
+            fprintf('... done\n');
+            disp(['decimated to ' num2str(obj.fs) ' Hz']);
+        end
+        
         function [prumery, MNI] = IntervalyResp(obj, intervaly,channels)
             %vypocita hodnoty v jednotlivych intervalech casu pro jednotlive kategorie i pro celkovy prumer       
             %vykresli graf pro kazdy interval do spolecneho plotu

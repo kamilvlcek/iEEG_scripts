@@ -96,17 +96,18 @@ classdef CStat
             if ~exist('firtype','var'), firtype = 'fir1'; end
             assert(strcmp(firtype,'fir1') || strcmp(firtype,'firls'), ['neznamy typ kernelu ' firtype]);
             
-            nyquist =fs/2;      
-                     
-            filter_order       = round(3*(fs/freq(1))); %trojnasobek dolni frekvence - delka filter kernelu 
-            
+            nyquist =fs/2;                      
+                        
             if strcmp(firtype,'fir1')
                 %FIR1 - jednodussy kernel doporuceny v eeglab
                 if numel(freq)==1 %highpass
+                    filter_order       = round(3*(fs/freq(1))); %trojnasobek dolni frekvence - delka filter kernelu 
                     filterweights = fir1(filter_order,freq./nyquist, 'high'); %vytvorim filter kernel 
                 elseif freq(1)==0 %lowpass
+                    filter_order       = round(3*(fs/freq(2))); %trojnasobek dolni frekvence - delka filter kernelu 
                     filterweights = fir1(filter_order,freq(2)./nyquist); %vytvorim filter kernel 
                 else
+                    filter_order       = round(3*(fs/freq(1))); %trojnasobek dolni frekvence - delka filter kernelu 
                     filterweights = fir1(filter_order,freq./nyquist); %vytvorim filter kernel
                 end
                 %kdyz u fir1 dam jen jednu frekvenci, automaticky pocita lowpass - viz eeglab:eegfilt
@@ -115,7 +116,7 @@ classdef CStat
                 %freqspread    = (freq(2)-freq(1))/2; % Hz +/- the center frequency
                 %center_freq   = freq(1) + freqspread;   
                 assert(numel(freq)>1 && freq(1)>0,'firls muze byt jen bandpass');
-                
+                filter_order       = round(3*(fs/freq(1))); %trojnasobek dolni frekvence - delka filter kernelu 
                 transwid      = .10; % transition zone withth
                 ffrequencies  = [ 0 (1-transwid)*(freq(1)) (freq(1)) (freq(2)) (1+transwid)*(freq(2)) nyquist ]/nyquist;
                 ffrequencies( ffrequencies>1 ) = 1; %pokud jsem nastavil jako pasmo=nyquist, zlobilo by to jinak
