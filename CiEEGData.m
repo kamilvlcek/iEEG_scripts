@@ -378,13 +378,15 @@ classdef CiEEGData < handle
                 fprintf('%i, ',ch);
                 dd = squeeze(obj.d(:,ch,epoch));
                 dd2 = CStat.FIR(freq,dd,obj.fs); %vyfiltruju data
-                obj.d(:,ch,epoch) = dd2;                
+                obj.d(:,ch,epoch) = dd2;  %ulozim vysledek filtrovani do puvodnich dat              
                 if vykresli %vykreslim jenom prvni kanal
+                    %charakteristika kanalu pred filtrovanim
                     [frequencies,fft_d_abs] = CStat.Fourier(dd,obj.fs);  
                     figure('Name','Filter effects');   
                     plot(frequencies(2:end),fft_d_abs(2:end),'k.'); %neplotuju prvni frekvenci, cili DC
                     xlim([0 250]);            
                     hold on;                
+                    %charakterisika kanalu po filtrovani
                     [frequencies,fft_d_abs] = CStat.Fourier(dd2,obj.fs);   %spocitam znova frekvencni charakteristiku
                     plot(frequencies(2:end),fft_d_abs(2:end),'b.'); %vykreslim modre
                     vykresli = 0;

@@ -89,18 +89,40 @@ classdef CStat
             %prvni frekvence je DC
         end
             
-        function [filter_result] = FIR(freq,dd,fs)
+        function [filter_result] = FIR(freq,dd,fs,firtype)
             %[filter_result] = FIR(freq,dd,fs) 
             % provede FIR filter podle Cohen Ch 14.  
-            % 4.5.2017           
-            nyquist =fs/2;
-            freqspread    = (freq(2)-freq(1))/2; % Hz +/- the center frequency
-            center_freq   = freq(1) + freqspread;
-            transwid      = .10; % transition zone withth
-            ffrequencies  = [ 0 (1-transwid)*(center_freq-freqspread) (center_freq-freqspread) (center_freq+freqspread) (1+transwid)*(center_freq+freqspread) nyquist ]/nyquist;
-            idealresponse = [ 0 0 1 1 0 0 ];
-            filter_order       = round(3*(fs/freq(1))); %trojnasobek dolni frekvence
-            filterweights = firls(filter_order,ffrequencies,idealresponse); %vytvorim filter kernel
+            % 4.5.2017   
+            if ~exist('firtype','var'), firtype = 'fir1'; end
+            assert(strcmp(firtype,'fir1') || strcmp(firtype,'firls'), ['neznamy typ kernelu ' firtype]);
+            
+            nyquist =fs/2;      
+                     
+            filter_order       = round(3*(fs/freq(1))); %trojnasobek dolni frekvence - delka filter kernelu 
+            
+            if strcmp(firtype,'fir1')
+                %FIR1 - jednodussy kernel doporuceny v eeglab
+                if numel(freq)==1 %highpass
+                    filterweights = fir1(filter_order,freq./nyquist, 'high'); %vytvorim filter kernel 
+                elseif freq(1)==0 %lowpass
+                    filterweights = fir1(filter_order,freq(2)./nyquist); %vytvorim filter kernel 
+                else
+                    filterweights = fir1(filter_order,freq./nyquist); %vytvorim filter kernel
+                end
+                %kdyz u fir1 dam jen jednu frekvenci, automaticky pocita lowpass - viz eeglab:eegfilt
+            else
+                %FIRLS
+                %freqspread    = (freq(2)-freq(1))/2; % Hz +/- the center frequency
+                %center_freq   = freq(1) + freqspread;   
+                assert(numel(freq)>1 && freq(1)>0,'firls muze byt jen bandpass');
+                
+                transwid      = .10; % transition zone withth
+                ffrequencies  = [ 0 (1-transwid)*(freq(1)) (freq(1)) (freq(2)) (1+transwid)*(freq(2)) nyquist ]/nyquist;
+                ffrequencies( ffrequencies>1 ) = 1; %pokud jsem nastavil jako pasmo=nyquist, zlobilo by to jinak
+                ffrequencies( ffrequencies<0 ) = 0; %pokud jsem nastavil jako pasmo=0, zlobilo by to jinak
+                idealresponse = [ 0 0 1 1 0 0 ];
+                filterweights = firls(filter_order,ffrequencies,idealresponse); %vytvorim filter kernel                          
+            end
             filter_result = filtfilt(filterweights,1,dd);
             
         end
