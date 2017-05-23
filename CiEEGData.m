@@ -62,6 +62,7 @@ classdef CiEEGData < handle
                 [obj.samples,obj.channels, obj.epochs] = obj.DSize();
                 if exist('header','var')
                     obj.header = header;
+                    
                 else
                     obj.header = [];
                 end
@@ -71,13 +72,19 @@ classdef CiEEGData < handle
                 obj.DatumCas.Created = datestr(now);
                 disp('vytvoren objekt CiEEGData'); 
             end
-            disp(['epochs: ' num2str(obj.epochs) ', rejected: ' num2str(numel(obj.RjEpoch)), '; channels: ' num2str(obj.channels) ', rejected: ' num2str(numel(obj.RjCh)) ]); 
-            disp(['reference: ' obj.reference]);
+            disp(['epochs: ' num2str(obj.epochs) ', rejected: ' num2str(numel(obj.RjEpoch)), '; channels: ' num2str(obj.channels) ', rejected: ' num2str(numel(obj.RjCh)) ...
+                ', fs: ' num2str(obj.fs)]); 
+            disp(['reference: ' obj.reference]);            
             if ~isempty(obj.DE) 
                     disp(['epievents: ' num2str(size(obj.DE.d,1))]);
             else
                     disp('no epievents');
             end
+            if ~isempty(obj.CH) 
+                disp(['Hheader ' obj.CH.H.subjName ', triggerch: ' num2str(obj.CH.GetTriggerCh())]);
+            else
+                disp('no Hheader');
+            end 
             if ~isempty(obj.Wp)
                 if isfield(obj.Wp,'opakovani'), opakstat = num2str(obj.Wp.opakovani); else, opakstat = 'no'; end
                 if isfield(obj.Wp,'kats'), kats = num2str(obj.Wp.kats); else, kats = 'no'; end
@@ -100,7 +107,7 @@ classdef CiEEGData < handle
             obj.CH = CHHeader(H);
             [~, ~, obj.els] = obj.CH.ChannelGroups();  
             assert(max(obj.els)<=size(obj.d,2),'nesouhlasi pocet elektrod - spatny header?');
-            disp(['header nacten: ' obj.CH.PacientTag()]);
+            disp(['header nacten: ' obj.CH.PacientTag() ', triggerch: ' num2str(obj.CH.GetTriggerCh())]);
         end
          
         function obj = GetEpiEvents(obj,DE)
@@ -807,17 +814,19 @@ classdef CiEEGData < handle
             h_mean = plot(T,M,'LineWidth',2,'Color',[0 0 1]);  %prumerna odpoved, ulozim si handle na krivku          
             xlim(obj.epochtime(1:2));
             if isfield(obj.plotRCh,'ylim') && numel(obj.plotRCh.ylim)>=2 %pokud mam drive ulozene ylim
-                ylim( obj.plotRCh.ylim);
+                ylim( obj.plotRCh.ylim .*1.1); %udelam rozsah y o 10% vetsi
                 ymax = obj.plotRCh.ylim(2);
                 ymin = obj.plotRCh.ylim(1);
             else
                 ymax = 0; ymin = 0;
                 for katnum=obj.PsyData.Categories()
                     katdata = obj.CategoryData(katnum); %epochy jedne kategorie
-                    ymax = max([ ymax max(mean(katdata(:,:,:),3))]);
-                    ymin = min([ ymin min(mean(katdata(:,:,:),3))]);
+                    channels = 1:obj.channels; %#ok<PROP>
+                    channels(ismember(channels, [obj.RjCh obj.CH.GetTriggerCh()]))=[]; %#ok<PROP> %vymazu rejectovana a triggerovane channels 
+                    ymax = max([ ymax max(mean(katdata(:,channels,:),3))]); %#ok<PROP>
+                    ymin = min([ ymin min(mean(katdata(:,channels,:),3))]); %#ok<PROP>
                 end           
-                ylim( [ymin ymax]);
+                ylim( [ymin ymax].*1.1); %udelam rozsah y o 10% vetsi
                 obj.plotRCh.ylim = [ymin ymax];
             end
             obj.plotRCh.range = [min(M)-max(E) max(M)+max(E)]; %zjistim a ulozim rozsah hodnot pro moznost nastaveni osy y

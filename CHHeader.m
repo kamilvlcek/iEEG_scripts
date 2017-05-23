@@ -138,6 +138,20 @@ classdef CHHeader < handle
              MNI_coors(ch).MNI_z = obj.H.channels(ch).MNI_z;
             end
         end
+        function tch = GetTriggerCh(obj)
+            %ziska cislo trigerovaciho kanalu, pokud existuje
+            tch = find(strcmp({obj.H.channels.signalType}, 'triggerCh')==1);         
+        end
+        function [tch,obj] = SetTriggerCh(obj,tch,trigger)
+            %nastavi, ze kanal je trigger
+            if ~exist('trigger','var'), trigger = 1; end 
+            if trigger == 1  %defaultne nastavi, ze kanal je trigger
+                obj.H.channels(tch).signalType = 'triggerCh'; 
+            else
+                obj.H.channels(tch).signalType = 'SEEG'; %nebo nastavi ze to naopak neni trigger
+            end
+            tch = find(strcmp({obj.H.channels.signalType}, 'triggerCh')==1);
+        end
     end
     
     %  --------- privatni metody ----------------------
