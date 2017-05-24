@@ -73,7 +73,7 @@ classdef CHilbert < CiEEGData
         function obj = ExtractEpochs(obj, PsyData,epochtime,baseline)
             % rozdeli hilbertovu obalku podle epoch
             % i u ni odecte baseline pred podnetem
-            if ~exist('baseline','var'), baseline = [epochtime(1) 0]; end %defaultni baseline je do 0 sec
+            if ~exist('baseline','var') || isempty(baseline), baseline = [epochtime(1) 0]; end %defaultni baseline je do 0 sec
             ExtractEpochs@CiEEGData(obj,PsyData, epochtime,baseline); %to mi zepochuje prumernou obalku za frekvencni pasma v poli d
             if(numel(obj.HFreq)>0)
                 %ted epochace vsech frekvencnich pasem zvlast, hlavne kvuli obrazkum

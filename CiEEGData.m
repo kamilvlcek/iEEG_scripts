@@ -142,7 +142,7 @@ classdef CiEEGData < handle
                 return;
             end
             assert(isa(psy,'struct'),'prvni parametry musi by struktura s daty z psychopy');
-            if ~exist('baseline','var'), baseline = [epochtime(1) 0]; end %defaultni baseline je do 0 sec
+            if ~exist('baseline','var') || isempty(baseline), baseline = [epochtime(1) 0]; end %defaultni baseline je do 0 sec
             obj.PsyData = CPsyData(psy); %vytvorim objekt CPsyData
             if numel(epochtime)==2, epochtime(3) = 0; end %defaultne epochuji podle podnetu
             obj.epochtime = epochtime; %v sekundach cas pred a po udalosti, prvni cislo je zaporne druhe kladne
@@ -376,10 +376,11 @@ classdef CiEEGData < handle
             %set(gca,'xlim',[0 max(frex)*2])
             title(['Channel ' num2str(ch)]);
         end
-        function Filter(obj,freq,channels,epoch)            
-            if ~exist('channels','var'), channels  = 1:obj.channels;        end 
-            if ~exist('epoch','var'),  epoch = 1;        end 
-            vykresli = 1;
+        function Filter(obj,freq,channels,epoch,vykresli)            
+            if ~exist('channels','var') || isempty(channels), channels  = 1:obj.channels;        end 
+            if ~exist('epoch','var') || isempty(epoch)     ,  epoch = 1;        end 
+            if ~exist('vykresli','var'),  vykresli = 1;        end  %defaultne se dela obrazek
+            
             fprintf('channels to filter (z %i):',numel(channels));
             for ch = channels
                 fprintf('%i, ',ch);
