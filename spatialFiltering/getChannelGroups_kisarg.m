@@ -33,7 +33,9 @@ if strcmp(groupSpecification, 'perHeadbox')
     else                                            % only 1 headbox in recording
         chGroups{1,1} = selCh_raw;
     end
-    
+    %v chGroups maji byt dve cell - kazda pro jeden head - 1:64 a 1:61 napriklad
+    %v H.channels je headboxNumber 1 nebo 2 
+    assert(numel(chGroups)<=2, 'chybny header - vice nez dva headboxy');
 end
 
 %% CAR: channel groups = SEEG electrode shanks

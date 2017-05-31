@@ -3,8 +3,9 @@ function [ HH ] = HheaderCreate( pacID, nick,channelsfile,triggerCh )
 %   pacID = id pacienta, nick - zkracene prijmeni, channelsfile - soubor se jmeny kanalu
 
 HH = struct;
-HH.patientTag = pacID;
-HH.patientNick = nick;
+HH.patientTag = pacID; %tohle jirka v headeru asi nema
+HH.patientNick = nick; %tohle jirka v headeru asi nema
+HH.subjName = [pacID ' ' nick]; % to je i headeru od Jirky
 HH.channels = struct;
 assert(exist(channelsfile,'file')==2,'soubor se jmeny kanalu neexistuje');
 channelnames = importdata(channelsfile,','); %file, kde na kazdem radku je jedno jmeno kanalu napr A1 
