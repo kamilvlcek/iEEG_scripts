@@ -1,18 +1,20 @@
 %15.9.2016 - AlloEgo zarovnani podle odpovedi
 %25.5.2017 - Pridani reference a ERP
+hybernovat = 0; %jestli chci po konci skriptu pocitac uspat - ma prednost
+vypnout = 0; %jestli chci po konci skriptu pocitac vypnout (a nechci ho hybernovat) 
 
 basedir = 'd:\eeg\motol\pacienti\';
 timewindow =  [-0.3 0.8];  % hranice epochy [-0.3 0.8] PPA, zarovnani podle odpovedi/podnetu [-1 1];
 baseline = []; %baseline [-1 0.8]
 suffix = 'Ep';
-prefix = 'PPA'; %AlloEgo, PPA 
+prefix = 'PPA'; %musi byt bud AlloEgo, PPA, AEdist
 stat_kats = [2 3 1];  % PPA [2 3 1] Face, Object, Scene ; AlloEgo [0 1 2] Control, Ego, Allo; 
 stat_opak = {}; %{[1 2],[4 5]}; %PPA opakovani 12 vs 45
-subfolder = 'PPA'; %podadresar, specificky pro test
+subfolder = 'PPA'; %podadresar, specificky pro test, muze byt prazdne pokud se nepouzivaji podadresare
 
 frekvence = struct;
 f=1;
-frekvence(f).todo = 0;
+frekvence(f).todo = 1;
 frekvence(f).freq = [];
 frekvence(f).freqname = 'ERP'; % slow gamma
 f=2;
@@ -47,8 +49,8 @@ frekvence(f).freqname = '4-150'; % all range
 refence = struct;
 r=1;
 reference(r).todo = 1;
-reference(r).name = 'refBipo';
-reference(r).char = 'b';
+reference(r).name = 'refOrig';
+reference(r).char = '';
 r=2;
 reference(r).todo = 1;
 reference(r).name = 'refEle';
@@ -57,15 +59,19 @@ r=3;
 reference(r).todo = 1;
 reference(r).name = 'refHead';
 reference(r).char = 'h';
+r=4;
+reference(r).todo = 1;
+reference(r).name = 'refBipo';
+reference(r).char = 'b';
 
 pacienti = struct;
 p = 1;
 pacienti(p).todo = 0;
 pacienti(p).folder = 'p079 Plu VT8';
-pacienti(p).data = 'VT8_2015-04-09_09-46_001_concat_X_aedist.mat';
+pacienti(p).data = 'VT8_2015-04-09_09-46_001_concat_X_ppa.mat'; %'VT8_2015-04-09_09-46_001_concat_X_aedist.mat';
 pacienti(p).header = 'P79_header.mat';
-pacienti(p).psychopy = 'p79_aedist.mat';
-pacienti(p).rjepoch = 'aedist RjEpoch Resp.mat';
+pacienti(p).psychopy = 'p79_ppa.mat'; %'p79_aedist.mat';
+pacienti(p).rjepoch = 'ppa_RjEpoch-p79.mat'; %'aedist RjEpoch Resp.mat';
 pacienti(p).rjch = [47 64 114]; %#ok<NBR%#ok<MSNU> AK> 
 pacienti(p).frekvence = struct;
 
@@ -100,7 +106,7 @@ p=5;
 pacienti(p).todo = 1;
 pacienti(p).folder = 'p073 Pech VT6';
 pacienti(p).data = 'VT6_INV Test Vlcek1_X_ppa.mat'; %'VT6_INV Test Vlcek1_X_aedist.mat';
-pacienti(p).header = 'p73_header_kamil.mat';
+pacienti(p).header = 'p73_header.mat'; % p73_header.mat je ten nejnovejsi od Jirky - 26.5.2017 'p73_header_kamil.mat';
 pacienti(p).psychopy = 'p73_ppa.mat'; %'p73_aedist.mat';
 pacienti(p).rjepoch = 'ppa_RjEpoch.mat'; %'aedist_RjEpoch.mat';
 pacienti(p).rjch = [47 68]; %#ok<NB%#ok<MSNU> RAK>
@@ -136,7 +142,7 @@ disp('vsechny soubory ok');
  
 for f=1:numel(frekvence)        
     if frekvence(f).todo
-        disp(frekvence(f).freqname); 
+        disp([ '*****' frekvence(f).freqname '*****' ]); 
         if numel(frekvence(f).freq) == 0
             ERP = 1; 
         else
@@ -144,18 +150,19 @@ for f=1:numel(frekvence)
         end
         for p = 1:numel(pacienti)            
             if pacienti(p).todo
+                disp( [ ' ---- ' pacienti(p).folder ' ---- ']);
                 for r = 1:numel(reference)
                     if reference(r).todo
-                        disp(pacienti(p).folder);
+                        disp( [ ' ..... ' reference(r).name ' ..... ']);
                         load([basedir pacienti(p).folder '\' pacienti(p).data]);
                         load([basedir pacienti(p).folder '\' pacienti(p).header]);
                         load([basedir pacienti(p).folder '\' subfolder '\' pacienti(p).psychopy]);
-                        if strcmp(subfolder,'PPA')
+                        if strcmp(prefix,'PPA')
                             psychopy = ppa; clear ppa;
-                        elseif strcmp(subfolder ,'AEdist')
+                        elseif strcmp(prefix ,'AEdist')
                             psychopy = aedist; clear aedistl
                         else
-                            error(['neznamy typ testu ' subfolder']);
+                            error(['neznamy typ testu ' prefix']);
                         end
                         load([basedir pacienti(p).folder '\' subfolder '\' pacienti(p).rjepoch]);
                         if ~exist('mults','var'),  mults = []; end
@@ -174,7 +181,9 @@ for f=1:numel(frekvence)
                         end
                         clear d;                        
                         E.RejectChannels(pacienti(p).rjch);
-                        E.ChangeReference(reference(r).char);
+                        if numel(reference(r).char)>0 %pokud se ma zmenit reference
+                            E.ChangeReference(reference(r).char);
+                        end
                         if ~ERP 
                             E.PasmoFrekvence(frekvence(f).freq);
                         end
@@ -194,4 +203,8 @@ for f=1:numel(frekvence)
     end
 end
 
-system('shutdown -s')
+if hybernovat
+    system('shutdown -h') %#ok<UNRCH>
+elseif vypnout
+    system('shutdown -s') %#ok<UNRCH>
+end
