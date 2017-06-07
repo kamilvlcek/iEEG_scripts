@@ -374,7 +374,8 @@ classdef CiEEGData < handle
             [frequencies,fft_d_abs] = CStat.Fourier(obj.d(:,ch,epoch),obj.fs);                      
             figure('Name','Fourier');          
             %plot(frequencies(2:end),fft_d_abs(2:end),'.'); %neplotuju prvni frekvenci, cili DC
-            loglog(frequencies,fft_d_abs); %log log plot, kde muze byt i prvni frekvence
+            loglog(frequencies,fft_d_abs); %log log plot, kde muze byt i prvni frekvence - viz zhang 2015
+            %semilogy(frequencies,fft_d_abs); % log linearni plot - y = log10 
             %xlim([0 250]);
             %set(gca,'xlim',[0 max(frex)*2])
             title(['Channel ' num2str(ch)]);
@@ -1274,7 +1275,7 @@ classdef CiEEGData < handle
                    obj.PlotResponseCh( max( [obj.plotRCh.ch - 1 , 1]));
                case 'pageup'
                    obj.PlotResponseCh( max( [obj.plotRCh.ch - 10 , 1]));
-               case 'multiply' %hvezdicka na numericke klavesnici
+               case {'multiply','8'} %hvezdicka na numericke klavesnici, nebo hvezdicka nad osmickou
                    %dialog na vlozeni minima a maxima osy y
                    answ = inputdlg('Enter ymax and min:','Yaxis limits', [1 50],{num2str(obj.plotRCh.ylim)});
                    if numel(answ)>0  %odpoved je vzdy cell 1x1 - pri cancel je to cell 0x0
