@@ -809,7 +809,7 @@ classdef CiEEGData < handle
             else
                 obj.plotRCh.fh = figure('Name','W plot channel');
             end
-            [ymin ymax] = obj.responseChYLim(kategories);
+            [ymin ymax] = obj.responseChYLim(iff(~isempty(opakovani),KATNUM,kategories));
             
             %ZACINAM VYKRESLOVAT - NEJDRIV MEAN VSECH KATEGORII
             if ~exist('kategories','var') && ~exist('opakovani','var') %26.5.2017 - jen kdyz neexistuji kategorie
@@ -865,6 +865,7 @@ classdef CiEEGData < handle
                     M = mean(katdata(:,ch,:),3);
                     E = std(katdata(:,ch,:),[],3)/sqrt(size(katdata,3)); %std err of mean
                     errorbar(T,M,E,'.','color',colorskat{2,k}); %nejdriv vykreslim errorbars aby byly vzadu[.8 .8 .8]
+                    xlim(obj.epochtime(1:2)); 
                     hold on;
                     h_kat(k) = plot(T,M,'LineWidth',katlinewidth,'Color',colorskat{1,k});  %prumerna odpoved,  ulozim si handle na krivku  
                     obj.plotRCh.range = [ min(obj.plotRCh.range(1),min(M)-max(E)) max(obj.plotRCh.range(2),max(M)+max(E))]; %pouziju to pak pri stlaceni / z obrazku
@@ -889,7 +890,7 @@ classdef CiEEGData < handle
                             iWp = obj.Wp.WpKat{k,l}(:,ch)  <= 0.01;                          
                             plot(Tr(iWp),ones(1,sum(iWp))*y,  '*','Color',color); %
                             % jmena kategorii vypisuju vzdy
-                            if exist('opakovani','var') && ~isempty(opakovani)
+                            if exist('opakovani','var') && ~isempty(opakovani)   %pokud vyhodnocuju opakovani
                                 kat1name =  obj.PsyData.OpakovaniName(kategories{l});
                                 kat2name =  obj.PsyData.OpakovaniName(kategories{k});
                                 kat3name =  [ ' (' obj.PsyData.CategoryName(obj.Wp.kats) ')' ]; %jmeno kategorie obrazku, ze ktere se opakovani pocitalo
@@ -900,25 +901,29 @@ classdef CiEEGData < handle
                             end
                             text(0.05,y, ['\color[rgb]{' num2str(colorskat{1,l}) '}' kat1name ...
                                     '\color[rgb]{' num2str(color) '} *X* '  ...
-                                    '\color[rgb]{' num2str(colorskat{1,k}) '}' kat2name kat3name]);
-                            line([0 1],[y y]+(ymax-ymin)*0.02 ,'Color',[0.5 0.5 0.5]);
-                                %kazde jmeno kategorie jinou barvou
-                        end
+                                    '\color[rgb]{' num2str(colorskat{1,k}) '}' kat2name kat3name]);                            
+                        end                      
                         
-                        if isfield(obj.Wp,'WpKatBaseline') %signifikance vuci baseline
+                    end
+                    if isfield(obj.Wp,'WpKatBaseline') %signifikance vuci baseline
                             iWpB = obj.Wp.WpKatBaseline{k,1}(:,ch)  <= 0.05; %nizsi signifikance
                             y = ymin + (ymax-ymin)*(0.28 - (k+2)*0.05)  ;
-                            plot(Tr(iWpB),ones(1,sum(iWpB))*y, '.','Color',colorskat{1,k},'MarkerSize',3); % 
+                            plot(Tr(iWpB),ones(1,sum(iWpB))*y, '.','Color',colorskat{1,k},'MarkerSize',5); % 
                             iWpB = obj.Wp.WpKatBaseline{k,1}(:,ch)  <= 0.01; % vyssi signifikance
                             %y = ymin + (ymax-ymin)*(0.28 - (k+2)*0.05)  ;
-                            plot(Tr(iWpB),ones(1,sum(iWpB))*y, 'p','Color',colorskat{1,k},'MarkerSize',3); % 
-                            kat2name =  obj.PsyData.CategoryName(kategories(k));
+                            plot(Tr(iWpB),ones(1,sum(iWpB))*y, 'p','Color',colorskat{1,k},'MarkerSize',5); % 
+                            if exist('opakovani','var') && ~isempty(opakovani)
+                                kat2name =  obj.PsyData.OpakovaniName(kategories{k}); %pokud vyhodnocuju opakovani
+                            else
+                                kat2name =  obj.PsyData.CategoryName(kategories(k));
+                            end
                             text(0.05, y, ['\color[rgb]{' num2str(colorskat{1,k}) '}' kat2name ' vs.baseline'] );
+                            line([0 1],[y y]+(ymax-ymin)*0.03 ,'Color',[0.5 0.5 0.5]);
+                                %kazde jmeno kategorie jinou barvou
                             if pvalue %pokud chci zobrazovat hodnotu p value jako krivku
                                plot(Tr,obj.Wp.WpKatBaseline{k,1}(:,ch), '.','Color',colorskat{1,k}); %tesckovana cara oznacuje signifikanci kategorie vuci baseline
                             end
-                        end
-                    end
+                     end
                 end
                 for k= 1 : numel(kategories) %index 1-3
                     uistack(h_kat(k), 'top'); %dam krivky prumeru kategorii pred jejich errorbars
