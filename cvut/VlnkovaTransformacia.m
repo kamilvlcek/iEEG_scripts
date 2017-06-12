@@ -88,18 +88,19 @@ else
 end;
 
 
-N=size(x,1);
-Nsig=size(x,2);
+N=size(x,1); %delka vektoru = cas
+Nsig=size(x,2); %pocet kanalu
 
 S=zeros(length(scales),N,Nsig); %rozmery frekvence x delka x kanaly
 
 fprintf('kanal ze %i: ', Nsig );
 for n=1:Nsig    
     for k=1:length(scales)
-        a=scales(k);
-        t=(-5*a:1/fs:a*5);
-        w=conj(1/sqrt(a*sqrt(pi))*exp(-(t/a).^2/2).*(exp(j*5*(t/a))-exp(-(5^2)/2)));
-        y=conv(x(:,n),w,'same')/fs;
+        a=scales(k); %sirka waveletu 
+        t=(-5*a:1/fs:a*5); %cas - delka waveletu v sec
+        w=conj(  1/sqrt(a*sqrt(pi)) *   exp(-(t/a).^2/2) .* (exp(1i*5*(t/a))-exp(-(5^2)/2)));
+        % complex conjugate (  (A=frequency band-specific scaling factor) * gaussian * complex sin  )
+        y=conv(x(:,n),w,'same')/fs; %convolution - kvuli tomu conj predtim je vysledek rovnou power?
         S(k,:,n)=y;
     end
     fprintf('%i,',n);

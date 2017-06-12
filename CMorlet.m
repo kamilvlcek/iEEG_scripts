@@ -1,5 +1,7 @@
 classdef  CMorlet < CHilbert
-    
+    properties (Access = public)
+        fphase; %faze vsech zpracovavanych frekvenci 
+    end    
     methods (Access = public)
         %% ELEMENTAL FUNCTIONS 
         function obj = CMorlet(d,tabs,fs,mults,header)
@@ -18,14 +20,15 @@ classdef  CMorlet < CHilbert
             %   pouziva data d z parentu a take fs
             %   freq    seznam freqvenci pro ktere se ma delat prumer - lo, .., ..., .., hi
             if ~exist('channels','var'), channels = 1:obj.channels; end
-            obj.HFreq = zeros(ceil(obj.samples/obj.decimatefactor),obj.channels,numel(freq)); %inicializace pole   
+            obj.HFreq = zeros(ceil(obj.samples/obj.decimatefactor),obj.channels,numel(freq)); %inicializace pole - power
+            obj.fphase = zeros(ceil(obj.samples/obj.decimatefactor),obj.channels,numel(freq)); % inicializace pole - faze
             tic; %zacnu merit cas
             fprintf('kanal ze %i: ', numel(channels) );
             
-            if freq(1) < 10 
-                time = -2:1/obj.fs:2; %pro nizke frekvence pouziju delsi wavelet - +- 2s
+            if freq(1) < 10
+                time = -2:1/obj.fs:2; %pro nizke frekvence pouziju delsi wavelet - +- 2s - % 40 cyklu wavelet pro 10Hz
             else
-                time = -1:1/obj.fs:1; %pro vyssi frekvence staci wv +- 1s
+                time = -1:1/obj.fs:1; %pro vyssi frekvence staci wv +- 1s %alespon 20 cyklu waveletu pro 10Hz. Neni to zbytecne moc ?
             end
             s    =  5./(2*pi*freq);   %gaussian width (or stdev) - 5=pet cyklu waveletu - pro kazdou frekvenci zvlas
             n_wavelet            = length(time); %delka waveletu ve vzorcich - 1025 pro 512 a 1s
@@ -36,22 +39,28 @@ classdef  CMorlet < CHilbert
             
             for ch = channels %jednotlive elektrody                                           
                 fprintf('%i,',ch);
-                eegfft = fft(obj.d(:,ch)',n_conv_pow2); %FFT of eeg data, potrebuju to dat do radku aby stejne jako wavelet
+                eegfft = fft(obj.d(:,ch)',n_conv_pow2); %FFT of eeg data, potrebuju to dat do radku aby stejne jak-o wavelet
                 for fno = 1:numel(freq) %seznam frekvenci                    
                     wavelet = fft( sqrt(1/(s(fno)*sqrt(pi))) * exp(1i*2*pi*freq(fno).*time) .* exp(-time.^2./(2*(s(fno)^2))) , n_conv_pow2 );
-                    % (A=frequency band-specific scaling factor) * complex sin * gaussian
+                    % fft ( (A=frequency band-specific scaling factor) * complex sin * gaussian )
                     
                     eegconv = ifft(wavelet.*eegfft); %convoluce pomoci convolution theorem
                     eegconv = eegconv(1:n_convolution);
                     eegconv = eegconv(half_of_wavelet_size+1:end-half_of_wavelet_size);    
-                    eegconv = abs(eegconv).^2; %z komplexniho cisla vypocitam power
-                    eegconv = decimate(eegconv,obj.decimatefactor); % mensi sampling rate                    
-                    obj.HFreq(:,ch,fno) = (eegconv./mean(eegconv)); %podil prumeru = prumerna hodnota
+                    fpower = eegconv .* conj(eegconv); % nasobeni conj je pry 2x rychlejsi  - abs(eegconv).^2; %z komplexniho cisla vypocitam power
+                    if obj.decimatefactor > 1
+                        fpower = decimate(fpower,obj.decimatefactor); % mensi sampling rate (moving average vubec nepomohl)
+                    end
+                    obj.HFreq(:,ch,fno) = (fpower./mean(fpower)); %podil prumeru = prumerna hodnota                   
                     %fprintf('%i Hz, ',loF);
+                    fphase = imag(eegconv); %#ok<PROP> %faze frekvence 
+                    if obj.decimatefactor > 1
+                        obj.fphase(:,ch,fno) = decimate(fphase,obj.decimatefactor);    %#ok<PROP>                         
+                    end
                 end
                 %fprintf('\n'); %tisk znova na stejnou radku
             end
-            obj.d = squeeze(mean(obj.HFreq,3)); %11.5.2016 - prepisu puvodni data prumerem
+            obj.d = squeeze(mean(obj.HFreq,3)); %11.5.2016 - prepisu puvodni data prumerem pres frekvence
             obj.fs = obj.fs/obj.decimatefactor;
             obj.tabs = downsample(obj.tabs,obj.decimatefactor);
             obj.tabs_orig = downsample(obj.tabs_orig,obj.decimatefactor); %potrebuju zdecimovat i druhy tabs. Orig znamena jen ze nepodleha epochovani
@@ -74,6 +83,7 @@ classdef  CMorlet < CHilbert
             %fprintf('kanal ze %i: ', numel(channels) ); 
             
             scales = 5./(2*pi*(freq)); %prevedu frekvence na scales - to jsem okopiroval z Mike X Cohena a funguje to
+              % = gaussian width (or stdev) - 5=pet cyklu waveletu - pro kazdou frekvenci zvlas
             [S,f,t] = VlnkovaTransformacia(obj.d(:,channels),scales,obj.fs); %#ok<NASGU,ASGLU> %rozmery S: frekvence x delka x kanaly
             S = permute(S,[ 2 3 1]); % predelam freq 1 x cas 2 x kanal 3  na cas x kanal x freq 
             fprintf('... computing mean'); %ukoncim radku
