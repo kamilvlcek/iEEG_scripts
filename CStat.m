@@ -75,18 +75,34 @@ classdef CStat
             %zakrouhuje na dany pocet desetinnych mist
             N = round(n * 10^dig) / 10 ^ dig;
         end
-        function [frequencies,fft_d_abs]=Fourier(dd,fs)
+        function [frequencies,fft_d_abs]=Fourier(dd,fs,method)
             %[frequencies,fft_d_abs]=Fourier(dd,fs) 
             % spocita Fourierovu fransformaci dat z jednoho kanalu 
             %predpoklada data s casem v prvnim rozmeru, ostatni rozmery nejsou nebo 1
-            % 4.5.2017 kopie z CiEEGdata.Fourier
-            
+            % 4.5.2017 kopie z CiEEGdata.Fourier           
+            switch method   
+                
+                case 'fft'
+            %1. varianta podle MikeXCohen
             frequencies       = linspace(0,fs/2,length(dd)/2+1); %maximalni frekvence je fs/2, ale frekvencni rozliseni je N/2+1
             fft_d    = fft(dd)/length(dd); %fast fourier transform
            
             %vezmu jen tolik frekvenci, kolik je v frequencies - realnych frekvenci. ostatni jsou imaginarni frekvence
-            fft_d_abs = abs(fft_d(1:length(frequencies)))*2; %dvema nasobim kvuli tem imaginarnim frekvencim. Viz MikeCohenP.
+            fft_d_abs = abs(fft_d(1:length(frequencies)))*2; %dvema nasobim kvuli tem imaginarnim frekvencim. Viz MikeCohenP.            
             %prvni frekvence je DC
+            fft_d_abs = 10*log10(fft_d_abs);
+            
+                case 'periodogram'
+            %2. varianta z Matlab Answers https://uk.mathworks.com/matlabcentral/answers/114942-how-to-calculate-and-plot-power-spectral-density-of-a-given-signal
+            %ale je to v podstate stejne jako fft
+            [pxx,frequencies] = periodogram(dd,[],length(dd),fs);  %tohle je jen abs(fft())^2/n
+            fft_d_abs = pxx; %10*log10(pxx);
+            
+                case 'pwelch'
+            %3. pouziti pwelch, viz https://stackoverflow.com/questions/27079289/on-the-use-and-understanding-of-pwelch-in-matlab            
+            [pxx, frequencies] = pwelch(dd,[],[],[],fs);
+            fft_d_abs = 10*log10(pxx);
+            end
         end
             
         function [filter_result] = FIR(freq,dd,fs,firtype)

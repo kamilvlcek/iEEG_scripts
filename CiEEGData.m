@@ -368,15 +368,28 @@ classdef CiEEGData < handle
             %funkce ktera jen vypise kategorie
             obj.PsyData.Categories(1);
         end
-        function Fourier(obj,ch,epoch)
+        function Fourier(obj,ch,epochs,freq)
            % perform FFT and plot
-            if ~exist('epoch','var'),  epoch = 1;        end            
-            [frequencies,fft_d_abs] = CStat.Fourier(obj.d(:,ch,epoch),obj.fs);                      
+            if ~exist('epochs','var') || isempty(epochs),  epochs = 1:obj.epochs;        end    
+            if numel(epochs) > 1 %'pwelch' nebo 'fft'
+                method = 'fft';
+            else
+                method = 'pwelch'; %mensi rozliseni frekvenci, na epochovana data uz nema smysl
+            end
+            for ep = 1:numel(epochs) %spocitam to pro kazdou epochu zvlast a pak z toho udelam prumer
+                [f,fft_d_abs] = CStat.Fourier(obj.d(:,ch,ep),obj.fs,method);
+                if ep == 1
+                  frexs = zeros(numel(epochs),length(f));  % epochy x frekvence - pro fft je pocet freq floor(size(obj.d,1)/2+1);, ale pro pwelch nejak jinak
+                end
+                frexs(ep,:) = f;
+                %frexs(ep,:) = movingmean(frexs(ep,:),1001,2); %nic nepomuze
+            end
+            frequencies = mean(frexs,1); %prumery pres epochy - kazdy sloupec zvlast
             figure('Name','Fourier');          
-            %plot(frequencies(2:end),fft_d_abs(2:end),'.'); %neplotuju prvni frekvenci, cili DC
-            loglog(frequencies,fft_d_abs); %log log plot, kde muze byt i prvni frekvence - viz zhang 2015
-            %semilogy(frequencies,fft_d_abs); % log linearni plot - y = log10 
-            %xlim([0 250]);
+            plot(frequencies,fft_d_abs,'.'); %neplotuju prvni frekvenci, cili DC
+%             loglog(frequencies,fft_d_abs,'.'); %log log plot, kde muze byt i prvni frekvence - viz zhang 2015
+%             semilogy(frequencies,fft_d_abs); % log linearni plot - y = log10 
+            xlim(freq);
             %set(gca,'xlim',[0 max(frex)*2])
             title(['Channel ' num2str(ch)]);
         end

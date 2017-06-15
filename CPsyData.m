@@ -13,6 +13,8 @@ classdef CPsyData < handle
         function obj = CPsyData(psy)
             %konstruktor
             obj.P = psy;
+            if ~isfield(psy,'pacientid'), obj.P.pacientid = ''; end
+            if ~isfield(psy,'eegfile'), obj.P.eegfile = ''; end
             obj.DoplnZpetnavazba();
         end
         function rt = ReactionTime(obj)
