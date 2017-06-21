@@ -31,7 +31,7 @@ classdef CHHeader < handle
             if isempty(obj.chgroups)
                 chgroups = getChannelGroups_kisarg(obj.H,'perElectrode');
                 els = zeros(1,numel(chgroups));
-                for j = 1:numel(chgroups);
+                for j = 1:numel(chgroups)
                     els(j)=max(chgroups{j});
                 end
                 els = sort(els);
@@ -133,9 +133,11 @@ classdef CHHeader < handle
             MNI_coors = repmat(struct('MNI_x',0,'MNI_y',0,'MNI_z',0),1,numel(channels));
             
             for ch = 1:numel(channels)
-             MNI_coors(ch).MNI_x = obj.H.channels(ch).MNI_x;
-             MNI_coors(ch).MNI_y = obj.H.channels(ch).MNI_y;
-             MNI_coors(ch).MNI_z = obj.H.channels(ch).MNI_z;
+                if strcmpi(obj.H.channels(ch).signalType,'SEEG')
+                     MNI_coors(ch).MNI_x = obj.H.channels(ch).MNI_x;
+                     MNI_coors(ch).MNI_y = obj.H.channels(ch).MNI_y;
+                     MNI_coors(ch).MNI_z = obj.H.channels(ch).MNI_z;
+                end
             end
         end
         function tch = GetTriggerCh(obj)
