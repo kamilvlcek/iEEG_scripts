@@ -1,12 +1,14 @@
 function [ UU ] = udalosti2( d, fs, tabs, nahoru, mults,kresli, interval, diffsec,threshold)
 %UDALOSTI vrati indexy udalosti v poli d a jejich timestampy
 %pouziva se pro import dat z Motola do EEGlabu
+%udalosti2( d, fs, tabs, nahoru, mults,kresli, interval, diffsec,threshold)
 %  fs je pocet udalosti v jedne s, sampling rate
 %  nahoru je 1 pokud je udalost do pozitivnich hodnot
 %  prepoklada hodnoty ve sloupci d(:,1)
 %  kresli=1 - vykresli synchro kanal se zachycenymi udalostmi
 %  interval - muzu nepovinne zadat cast souboru k detekci udalosti - obsahuje timestampy
 %  diffsec - nejmensi interval mezi nasledujicimi udalostim v sekundach, default 0.125
+%  threshold - vyska trigerovaciho pulsu, default je 2000
 
 if ~exist('inverval','var')  || isempty(interval)
     interval = [ tabs(1) tabs(end)];

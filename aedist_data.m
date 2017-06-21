@@ -7,8 +7,8 @@ dir = 'd:\prace\homolka\epileptici EEG\vysledky\AEDist\';
 %tabulka odpovedi pacienta
 data = load([dir pacientid '_aedist.txt']);
 if size(U1,1) ~= size(data,1) || size(U2,1) ~= size(data,1)
-    disp('ruzne delky dat a  udalosti, nelze zpracovat!');
-    return;
+    disp(['data:' num2str(size(data,1)) ' U1:' num2str(size(U1,1)) ' U2:' num2str(size(U2,1))]);
+    error('ruzne delky dat a  udalosti, nelze zpracovat!');    
 end
 data(:,8)=U1(:,2);
 data(:,9)=U2(:,2);

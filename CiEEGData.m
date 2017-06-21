@@ -266,7 +266,7 @@ classdef CiEEGData < handle
             %epochsEx=seznam vsech epoch s 1 u tech k vyrazeni
             chyby = obj.PsyData.GetErrorTrials();
             epochsEx = [chyby , zeros(size(chyby,1),1) ]; %pridam dalsi prazdny sloupec
-            epochsEx(obj.RjEpoch,4)=1; %rucne vyrazene epochy podle EEG
+            epochsEx(obj.RjEpoch,5)=1; %rucne vyrazene epochy podle EEG
             iEp = all(epochsEx==0,2); %index epoch k pouziti
         end
             

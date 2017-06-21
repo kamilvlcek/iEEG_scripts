@@ -17,18 +17,23 @@ classdef CPsyData < handle
             if ~isfield(psy,'eegfile'), obj.P.eegfile = ''; end
             obj.DoplnZpetnavazba();
         end
-        function rt = ReactionTime(obj)
-            %vrati matici vsech reakcnich casu roztridenych do sloupcu podle kategorii podnetu            %
+        function rt = ReactionTime(obj,nokategories)
+            %vrati matici vsech reakcnich casu roztridenych do sloupcu podle kategorii podnetu            
             %kde je min hodnot v kategorii, zarovnano pomoci NaN, takze se musi pouzit nanmean
             %reakcni casy se berou ze synchronizacnich pulzu
-            kat = unique(obj.P.data(:,obj.P.sloupce.kategorie)); %ciselne vyjadreni kategorie podnetu 0-n
-            rt = nan(size(obj.P.data,1),numel(kat)); %pole kam budu ukladat reakcni casy v sekundach
-            
-            for k = kat' %funguje jen pro radky, kat je sloupec
-                ikat = obj.P.data(:,obj.P.sloupce.kategorie)==k;
-                rt(1:sum(ikat),k+1) = 24*3600*(obj.P.data(ikat,obj.P.sloupce.ts_odpoved) - obj.P.data(ikat,obj.P.sloupce.ts_podnet));
+            % pokud nokategories= 1, tak jen jeden sloupec reakcnich casu, bez rozliseni na kategorie
+            if ~exist('nokategories','var') || nokategories == 0
+                kat = unique(obj.P.data(:,obj.P.sloupce.kategorie)); %ciselne vyjadreni kategorie podnetu 0-n
+                rt = nan(size(obj.P.data,1),numel(kat)); %pole kam budu ukladat reakcni casy v sekundach
+
+                for k = kat' %funguje jen pro radky, kat je sloupec
+                    ikat = obj.P.data(:,obj.P.sloupce.kategorie)==k;
+                    rt(1:sum(ikat),k+1) = 24*3600*(obj.P.data(ikat,obj.P.sloupce.ts_odpoved) - obj.P.data(ikat,obj.P.sloupce.ts_podnet));
+                end
+                rt = rt(any(~isnan(rt),2),:); % necha jen radky, kde je nejake ~NaN cislo           
+            else
+                rt = 24*3600*(obj.P.data(:,obj.P.sloupce.ts_odpoved) - obj.P.data(:,obj.P.sloupce.ts_podnet));
             end
-            rt = rt(any(~isnan(rt),2),:); % necha jen radky, kde je nejake ~NaN cislo           
         end
         
         function isi = InterStimulusInterval(obj)
@@ -107,10 +112,14 @@ classdef CPsyData < handle
         function chyby = GetErrorTrials(obj)
             %vrati pole indikujici chybu/vyrazeni pro kazdy trial=radky - podle sloupcu  chyby, chybne bloky a treningovy trial
             %chybny blok ma < 75% uspesnost
-            S = obj.P.sloupce;
-            chyby = zeros(size(obj.P.data,1),3); %tri sloupce - chybne trials a chybne bloky, trening
+            S = obj.P.sloupce;          
+            
+            chyby = zeros(size(obj.P.data,1),4); %ctyri sloupce - chybne trials a chybne bloky, trening, prilis rychle reakcni casy
             chyby(:,1) = obj.P.data(:,S.spravne)==0;
-            [blocks,srate,blocktest]=obj.GetBlocks();
+            rt = obj.ReactionTime(1); %reakcni casy podle Sychropulsu
+            rtPsy = obj.P.data(:,S.rt);
+            chyby(:,4) = rt(:,1) < 0.1 | rtPsy(:,1) < 0.1; %chyba, pokud je reakcni cas prilis kratky (0 v PsychoPy znamena, ze nereagoval, to je taky chyba)
+            [blocks,srate,blocktest]=obj.GetBlocks();           
             for b = 1:size(blocks,1)
                 if srate(b) < 0.75  %chybny blok
                     chyby(blocks(b,1) : blocks(b,2) , 2) = ones( blocks(b,2) - blocks(b,1) +1,1); %vyplnim jednickami
@@ -173,11 +182,12 @@ classdef CPsyData < handle
         end
         function [obj] = PlotITI(obj)
             %graf intervalu mezi obrazky
+            %TODO korelace mezi RT podle Synchropulsu a PsychoPy
             figure('Name','ITI');
             subplot(1,2,1);
             isi = obj.InterStimulusInterval();
             plot(isi,'.');
-            ylim([1 prctile(isi,99)]); %rozsah do 99  percentilu - odstranim odlehle hondoty
+            ylim([1 prctile(isi,99)]); %rozsah do 99  percentilu - odstranim odlehle hodnoty
             title('ITI');
             ylabel('sec');
             
@@ -194,7 +204,15 @@ classdef CPsyData < handle
             title('RT');
             ylabel('sec');
             hold on;
-            plot(obj.P.data(:,obj.P.sloupce.rt),'xm'); %reakcni casy podle PsychoPy - tohle neni serazene podle kategorii je tam 0 pokud zadna reakce
+            rtPsy = obj.P.data(:,obj.P.sloupce.rt);
+            plot(rtPsy,'xm'); %reakcni casy podle PsychoPy - tohle neni serazene podle kategorii je tam 0 pokud zadna reakce
+            
+            %druhy graf - 21.6.2017
+            figure('Name','ITI - Synchropuls vs PsychoPy');
+            rt = obj.ReactionTime(1);
+            plot(rt,rtPsy,'o');
+            xlabel('RT Synchropulse');
+            ylabel('RT PsychoPy');
        
         end
         function [id] = PacientID(obj)

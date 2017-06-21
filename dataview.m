@@ -4,8 +4,9 @@ function [ iSTART,iEND ] = dataview(d,tabs,fs,mults, start,konec,evts, annotatio
 %   delka i start jsou v sekundach
 %   nepovinny channel je cislo kanalu se synchronizaci
 %  (d,tabs,fs,mults,start,konec, evts, annotations,  channel,evts,Events)
-
-if ~exist('channel','var') || isempty(channel) %muzu zadat kanal se synchronizaci - 15.4.2015
+if size(d,2)==1
+    channel = 1; %pokud je d jednorozmerne, neresim cislo kanalu
+elseif ~exist('channel','var') || isempty(channel) %muzu zadat kanal se synchronizaci - 15.4.2015
     channel = size(d,2)-2; %synchronizace byva 2 kanaly pred koncem - pred EKG
 end  
 if ~exist('start','var') || start == 0
@@ -71,7 +72,7 @@ x = start;
             end
         end
     end
-    if exist('Events','var') && isstruct(Events);
+    if exist('Events','var') && isstruct(Events)
         for k = 1:numel(Events.c.timestamps)
             secs = find(tabs >= Events.c.timestamps(k),1) / fs;
             line([secs secs],[-3000 3000],'Color','black');
