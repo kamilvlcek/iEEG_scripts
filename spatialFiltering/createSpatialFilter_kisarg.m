@@ -35,10 +35,11 @@ if strfind(filterSettings.name, 'car')        % ~ common average re-reference (C
     % design filter
     filterMatrix = zeros(N_inputCh);                        % init
     for grp = 1:size(chGroups,2)
-        selCh = setdiff(chGroups{grp}, rejCh);                              % potential bug: if chGroups{grp} == rejCh (lets hope not!)
-        assert(~isempty(selCh));
-        numCh = size(selCh,2);
-        filterMatrix(selCh,selCh) = eye(numCh) - 1/numCh.*ones(numCh);    % set weights for CAR channels
+        selCh = setdiff(chGroups{grp}, rejCh);                              % potential bug: if chGroups{grp} == rejCh (lets hope not!)       
+        if(~isempty(selCh)) %pokud vsecny kanaly za elektrodu vyrazene, muzu pokracovat dalsi elektrodou
+            numCh = size(selCh,2);
+            filterMatrix(selCh,selCh) = eye(numCh) - 1/numCh.*ones(numCh);    % set weights for CAR channels
+        end
     end    
 end
 
