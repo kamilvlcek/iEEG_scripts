@@ -368,30 +368,39 @@ classdef CiEEGData < handle
             %funkce ktera jen vypise kategorie
             obj.PsyData.Categories(1);
         end
-        function Fourier(obj,ch,epochs,freq)
-           % perform FFT and plot
-            if ~exist('epochs','var') || isempty(epochs),  epochs = 1:obj.epochs;        end    
-            if numel(epochs) > 1 %'pwelch' nebo 'fft'
-                method = 'fft';
-            else
-                method = 'pwelch'; %mensi rozliseni frekvenci, na epochovana data uz nema smysl
-            end
-            for ep = 1:numel(epochs) %spocitam to pro kazdou epochu zvlast a pak z toho udelam prumer
-                [f,fft_d_abs] = CStat.Fourier(obj.d(:,ch,ep),obj.fs,method);
-                if ep == 1
-                  frexs = zeros(numel(epochs),length(f));  % epochy x frekvence - pro fft je pocet freq floor(size(obj.d,1)/2+1);, ale pro pwelch nejak jinak
+        function Fourier(obj,channels,freq,epochs,method)
+           % perform FFT and plot, freq should be max and min to plot
+            if ~exist('epochs','var') || isempty(epochs),  epochs = 1:obj.epochs;        end  
+            if ~exist('method','var') 
+                if numel(epochs) > 1 %'pwelch' nebo 'fft'
+                    method = 'fft';
+                else
+                    method = 'pwelch'; %mensi rozliseni frekvenci, na epochovana data uz nema smysl
                 end
-                frexs(ep,:) = f;
-                %frexs(ep,:) = movingmean(frexs(ep,:),1001,2); %nic nepomuze
             end
-            frequencies = mean(frexs,1); %prumery pres epochy - kazdy sloupec zvlast
-            figure('Name','Fourier');          
-            plot(frequencies,fft_d_abs,'.'); %neplotuju prvni frekvenci, cili DC
-%             loglog(frequencies,fft_d_abs,'.'); %log log plot, kde muze byt i prvni frekvence - viz zhang 2015
-%             semilogy(frequencies,fft_d_abs); % log linearni plot - y = log10 
+            figure('Name','Fourier'); 
+            for ch = 1:numel(channels)
+                for ep = 1:numel(epochs) %spocitam to pro kazdou epochu zvlast a pak z toho udelam prumer
+                    [f,fft_d_abs] = CStat.Fourier(obj.d(:,channels(ch),ep),obj.fs,method);
+                    if ep == 1 % u prvni epochy vytvorim pole frekvenci, kdyz uz vim jejich pocet
+                      frexs = zeros(numel(epochs),length(f));  % epochy x frekvence - pro fft je pocet freq floor(size(obj.d,1)/2+1);, ale pro pwelch nejak jinak
+                    end
+                    frexs(ep,:) = f;
+                    %frexs(ep,:) = movingmean(frexs(ep,:),1001,2); %nic nepomuze
+                end
+                frequencies = mean(frexs,1); %prumery pres epochy - kazdy sloupec zvlast                    
+                plot(frequencies,fft_d_abs,'.-'); %neplotuju prvni frekvenci, cili DC
+    %             loglog(frequencies,fft_d_abs,'.'); %log log plot, kde muze byt i prvni frekvence - viz zhang 2015
+    %             semilogy(frequencies,fft_d_abs); % log linearni plot - y = log10 
+                hold all;
+            end
             xlim(freq);
             %set(gca,'xlim',[0 max(frex)*2])
-            title(['Channel ' num2str(ch)]);
+            title(['Power spectral density by ' method ' in channels ' num2str(channels)]);
+            if numel(channels) > 1
+                legendCell = cellstr(num2str(channels','Ch=%-d'));
+                legend(legendCell);
+            end
         end
         function Filter(obj,freq,channels,epoch,vykresli)            
             if ~exist('channels','var') || isempty(channels), channels  = 1:obj.channels;        end 

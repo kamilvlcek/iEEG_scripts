@@ -96,11 +96,12 @@ classdef CStat
             %2. varianta z Matlab Answers https://uk.mathworks.com/matlabcentral/answers/114942-how-to-calculate-and-plot-power-spectral-density-of-a-given-signal
             %ale je to v podstate stejne jako fft
             [pxx,frequencies] = periodogram(dd,[],length(dd),fs);  %tohle je jen abs(fft())^2/n
-            fft_d_abs = pxx; %10*log10(pxx);
+            fft_d_abs = 10*log10(pxx);
             
                 case 'pwelch'
             %3. pouziti pwelch, viz https://stackoverflow.com/questions/27079289/on-the-use-and-understanding-of-pwelch-in-matlab            
-            [pxx, frequencies] = pwelch(dd,[],[],[],fs);
+            M = 8*fs; %round(length(dd)/20); 
+            [pxx, frequencies] = pwelch(dd,M,round(M/2),fs*20,fs); %2.-4. parametr od Radka Bortela 29.06.2017
             fft_d_abs = 10*log10(pxx);
             end
         end
