@@ -79,11 +79,18 @@ if kresli == 1 %defaultni obrazek
     xlabel('sec');
     
     subplot(2,1,2); %druhy obrazek s intervaly mezi pulsy
-    plot(U(:,2)/fs,'.-');
+    plot(U(:,1)/fs,U(:,2)/fs,'.-'); % 4.7.2017 - na ose x jsou vteriny zaznamu
     ylim([-0.1 10]); 
-    xlim([-10 size(U,1)+10]);
+    %xlim([-10 size(U,1)+10]);
     title('intervaly mezi udalostmi v sekundach');
     ylabel('sec');
+    %jeste vypisu do spodniho graf pocty pulsu v blocich
+    blokyzac = [1 ; find(U(:,2)./512>5)]; %zacatky bloku, oddelenych delsi casovou mezerou (5 s)
+    blokydelka = [blokyzac(2:end) ; size(U,1)+1]-blokyzac(1:end); %delka bloku = konce -  zacatky, jeden konec pridavam jako velikost
+    blokyzac(:,2) = U(blokyzac(:,1),1)./fs; %cas zacatku bloku ve vterinach
+    for b = 1:size(blokyzac,1)
+        text(blokyzac(b,2),5,num2str(blokydelka(b)));
+    end
 end;
 
 
