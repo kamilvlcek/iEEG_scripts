@@ -41,20 +41,23 @@ classdef CEpiEvents < handle
              % vraci casy a vahy udalosti v danem casovem intervalu (tabs(:,1) - tabs(:,2)) na danem kanalu
              % tabs muze byt i matice o vice radcich, pak to odpovida vice opocham a udalosti se
              % spojuji pod sebe
+             % ch - cislo kanalu
+             % tabs0 - timestamp prvni udalosti celeho zaznamu
              %time = zeros(size(obj.DE,1)*size(tabs,1),1);
              %weight  = zeros(size(obj.DE,1)*size(tabs,1),1);  
              time = []; %prazdny array, abych neco vratil
              weight = []; 
              if numel(obj.iDEtabs)==0 %pokud zadny index pres tabs neexistuje, vytvorim ho
                  obj.iDEtabs = false([size(obj.d,1) size(tabs,1)]);
-                 for r = 1:size(tabs)
+                 for r = 1:size(tabs) %pres zjistovane epochy
                      %tohle v profileru trvalo hrozne dlouho protoze se to delal pro kazdy kanala a kazdy event (kdy jsou). 
                      %ted se to dela jen pro kazdy event
                      obj.iDEtabs(:,r) = obj.d(:,obj.sloupce.tabs) >= tabs(r,1) & obj.d(:,obj.sloupce.tabs) <= tabs(r,2) & obj.d(:,obj.sloupce.con) == 1;
+                     %logicke 1 pokud je udalost casove v ramci epochy a je 1=obvious
                  end
              end
              for r = 1:size(tabs,1)                 
-                 iDE = obj.iDEtabs(:,r) & obj.d(:,obj.sloupce.chan)==ch; %pouziju index iDEtabs vytvoreny drive
+                 iDE = obj.iDEtabs(:,r) & ismember(obj.d(:,obj.sloupce.chan),ch); %pouziju index iDEtabs vytvoreny drive - %10.7.2017 - muze byt vic kanalu najednou
                  DEx = obj.d(iDE,:); %nevim predem velikost, takze nemuzu pole vytvorit predem
                  if size(DEx,1)>0 
                      if size(tabs,1)>1 %epochovana data

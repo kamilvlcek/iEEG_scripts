@@ -126,6 +126,7 @@ classdef CiEEGData < handle
         function obj = RejectChannels(obj,RjCh)
             %ulozi cisla vyrazenych kanalu - kvuli pocitani bipolarni reference 
             obj.RjCh = RjCh;
+            obj.CH.RejectChannels(RjCh); %ulozim to i do headeru
             disp(['vyrazeno ' num2str(numel(RjCh)) ' kanalu']); 
         end
         
@@ -133,6 +134,28 @@ classdef CiEEGData < handle
             %ulozi cisla vyrazenych epoch - kvuli prevodu mezi touto tridou a CHilbert
             obj.RjEpoch = RjEpoch;
             disp(['vyrazeno ' num2str(numel(RjEpoch)) ' epoch']); 
+        end
+        
+        function obj = RejectEpochsEpi(obj,NEpi)
+            %vyradi epochy podle poctu epileptickych udalosti - pokud >= NEpi
+            %uz vyrazene epochy rucne nemeni - neoznaci jako spravne
+            if obj.epochs > 1
+                vyrazeno=0;
+                for e = 1:obj.epochs
+                    obj.DE.Clear_iDEtabs(); %protoze to pole je zavisle na epochath, musim mazat pokazde
+                    tabs = [ obj.tabs(1,e)' obj.tabs(end,e)' ]; %#ok<PROP> %zacatky a konce zobrazenych epoch
+                    [epitime ~] = obj.DE.GetEvents( tabs,obj.CH.GetChOK(),obj.tabs_orig(1));                 %#ok<PROP>
+                    if numel(epitime) >= NEpi
+                        obj.RjEpoch = unique( [obj.RjEpoch e]); %pridam epochu do seznamu, pokud tam jeste neni
+                        vyrazeno = vyrazeno +1;
+                    end
+                end
+                disp(['vyrazeno ' num2str(vyrazeno) ' epoch s epi udalostmi']);
+            else
+                disp('not epoched data');
+                return;
+            end
+            
         end
         
         function obj = ExtractEpochs(obj, psy,epochtime,baseline)
@@ -160,7 +183,7 @@ classdef CiEEGData < handle
                 izacatek = find(obj.tabs<=ts_events(epoch), 1, 'last' ); %najdu index podnetu/odpovedi podle jeho timestampu
                     %kvuli downsamplovani Hilberta, kdy se mi muze ztratit presny cas zacatku
                     %epochy, beru posledni nizsi tabs nez je cas zacatku epochy
-                [Kstring Knum] = obj.PsyData.Category(epoch);    %jmeno a cislo kategorie
+                [Kstring Knum] = obj.PsyData.Category(epoch);    %#ok<*NCOMMA> %jmeno a cislo kategorie
                 obj.epochData(epoch,:)= {Kstring Knum obj.tabs(izacatek)}; %zacatek podnetu beru z tabs aby sedel na tabs pri downsamplovani
                 for ch = 1:obj.channels %pro vsechny kanaly                    
                     if ibaseline(1)==ibaseline(2)
@@ -225,7 +248,7 @@ classdef CiEEGData < handle
                 for ch = 1:size(filterMatrix,2)
                     oldch = find(filterMatrix(:,ch)==1);
                     fnames = fieldnames(obj.CH.H.channels(oldch)); %jmena poli struktury channels
-                    for f = 1:numel(fnames); %postupne zkopiruju vsechny pole struktury, najednou nevim jak to udelat
+                    for f = 1:numel(fnames) %postupne zkopiruju vsechny pole struktury, najednou nevim jak to udelat
                         fn = fnames{f};
                         H.channels(ch).(fn) = obj.CH.H.channels(oldch).(fn); 
                     end

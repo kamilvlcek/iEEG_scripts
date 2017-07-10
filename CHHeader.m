@@ -7,6 +7,7 @@ classdef CHHeader < handle
         %E; % unikatni jmena elektrod, napr RG, I, GC ...
         chgroups;
         els;
+        RjCh; 
     end
     
     methods (Access = public)
@@ -62,6 +63,15 @@ classdef CHHeader < handle
             end 
             els2plot(els2plot==0)=[];
         end
+        function obj = RejectChannels(obj,RjCh)
+            %ulozi cisla vyrazenych kanalu - kvuli pocitani bipolarni reference 
+            obj.RjCh = RjCh;            
+        end
+        function chs = GetChOK(obj)
+            %vraci cisla kanalu, ktera jsou SEEG a nejsou vyrazena
+            chs = setdiff(obj.H.selCh_H,obj.RjCh);
+        end
+            
         function [ch,name,MNI,brainAtlas] = ChannelNameFind(obj,name)
             % najde kanal podle jmena kontaktu, napr 'R5', name musi byt na zacatku jmena, 
             % ale nemusi byt cele
