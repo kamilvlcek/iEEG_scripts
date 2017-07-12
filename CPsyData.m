@@ -110,15 +110,16 @@ classdef CPsyData < handle
         end
         
         function chyby = GetErrorTrials(obj)
-            %vrati pole indikujici chybu/vyrazeni pro kazdy trial=radky - podle sloupcu  chyby, chybne bloky a treningovy trial
+            %vrati pole indikujici chybu/vyrazeni pro kazdy trial=radky - sloupce: jednotlive chyby, chybne bloky, treningovy trial, prilis kratky reakcni cas
             %chybny blok ma < 75% uspesnost
             S = obj.P.sloupce;          
             
             chyby = zeros(size(obj.P.data,1),4); %ctyri sloupce - chybne trials a chybne bloky, trening, prilis rychle reakcni casy
             chyby(:,1) = obj.P.data(:,S.spravne)==0;
             rt = obj.ReactionTime(1); %reakcni casy podle Sychropulsu
-            rtPsy = obj.P.data(:,S.rt);
-            chyby(:,4) = rt(:,1) < 0.1 | rtPsy(:,1) < 0.1; %chyba, pokud je reakcni cas prilis kratky (0 v PsychoPy znamena, ze nereagoval, to je taky chyba)
+            rtPsy = obj.P.data(:,S.rt); %reakcni cas podle psychopy
+            chyby(:,4) = rt(:,1) < 0.1 | (rtPsy(:,1) < 0.1 & rtPsy(:,1) > 0);  %v PPA clovek nereaguje spravne, takze 0 jako cas odpovedi me nezajima 
+                    %chyba, pokud je reakcni cas prilis kratky (0 v PsychoPy znamena, ze nereagoval, to je taky chyba)
             [blocks,srate,blocktest]=obj.GetBlocks();           
             for b = 1:size(blocks,1)
                 if srate(b) < 0.75  %chybny blok

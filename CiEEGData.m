@@ -214,7 +214,7 @@ classdef CiEEGData < handle
                 iOpak = true(obj.epochs,1);                
             end
             iEpochy = [ ismember(cell2mat(obj.epochData(:,2)),katnum) , obj.GetEpochsExclude() , iOpak]; %seznam epoch v ramci kategorie ve sloupci + epochy, ktere nejsou excludovane
-            d = obj.d(:,:,all(iEpochy,2)); %epochy z kategorie, ktere nejsou excludovane
+            d = obj.d(:,:,all(iEpochy,2)); %epochy z kategorie, ktere nejsou excludovane = maji ve vsech sloupcich 1
             [~,psy_rt,psy_katnum,~] = obj.PsyData.GetResponses();           
             psy_rt = psy_rt(ismember(psy_katnum,katnum),:);
             iEp = iEpochy( iEpochy(:,1)==1,2); %neexcludovane epochy v ramci kategorie
@@ -481,7 +481,7 @@ classdef CiEEGData < handle
             %vykresli graf pro kazdy interval do spolecneho plotu
             %vraci prumery[channels x intervaly x kategorie] a MNI(channels)
             assert(isfield(obj.Wp, 'kats'),'musi byt definovany kategorie podnetu');
-            assert(isfield(obj.Wp, 'WpKatBaseline'),'musi byt spocitana statisika kategorii');
+            assert(isfield(obj.Wp, 'WpKatBaseline'),'musi byt spocitana statistika kategorii');
             if ~exist('channels','var') , channels = 1:obj.channels; end
             kats = obj.Wp.kats; 
             prumery = zeros(numel(channels),size(intervaly,1),1+numel(kats));   % casy x kategorie x channels - celkova data a jednotlive kategorie
@@ -503,7 +503,7 @@ classdef CiEEGData < handle
                     plot(P','.-'); %kreslim tuto kategorii
                     hold all;
                 end
-                P = squeeze(prumery(:,j,1)); %nakonec vykreslim prumer vsech katevorii, aby byl nejvic videt
+                P = squeeze(prumery(:,j,1)); %nakonec vykreslim prumer vsech kategorii, aby byl nejvic videt
                 plot(P','.-');
                 legend('kat1','kat2','kat3','mean','Location','NorthWest');
             end 
@@ -1390,7 +1390,7 @@ classdef CiEEGData < handle
         end
         function [ymin, ymax, obj] =  responseChYLim(obj,kategories)
             %nastavi max a min grafu PlotResponseCh();
-            if isfield(obj.plotRCh,'ylim') && numel(obj.plotRCh.ylim)>=2 %pokud mam drive ulozene ylim
+            if isfield(obj.plotRCh,'ylim') && numel(obj.plotRCh.ylim)>=2 && obj.plotRCh.ylim(1)~=obj.plotRCh.ylim(2) %pokud mam drive ulozene ylim
                     ylim( obj.plotRCh.ylim .*1.1); %udelam rozsah y o 10% vetsi
                     ymax = obj.plotRCh.ylim(2);
                     ymin = obj.plotRCh.ylim(1);
@@ -1405,6 +1405,7 @@ classdef CiEEGData < handle
                     end  
                     ymin = ymin - 0.15*(ymax-ymin); %pridam patnact procent na napisy dole
                     %ylim( [ymin ymax].*1.1); %udelam rozsah y o 10% vetsi
+                    assert(ymin~=ymax,'nemuzu urcit rozsah osy y - prazdna data?');
                     obj.plotRCh.ylim = [ymin ymax];
             end
         end
