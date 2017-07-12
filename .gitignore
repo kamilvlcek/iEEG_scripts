@@ -6,3 +6,4 @@
 *.log
 *.mat
 *.nii
+*.graphml
