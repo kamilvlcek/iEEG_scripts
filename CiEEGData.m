@@ -25,7 +25,8 @@ classdef CiEEGData < handle
         plotRCh = struct; %stavove udaje o grafu PlotResponseCh
         plotEp = struct; %stavove udaje o grafu PlotEpochs
         RjCh; %seznam cisel rejectovanych kanalu
-        RjEpoch; %seznam vyrazenych epoch
+        RjEpoch; %seznam vyrazenych epoch - pouzivam spolecne s RjEpochCh - pro vyrazeni celych epoch
+        RjEpochCh; %seznam vyrazenych epoch x kanal - v kazdem kanalu zvlast
         epochTags; %seznam oznacenych epoch
         epochLast; %nejvyssi navstivena epocha
         filename;
@@ -141,13 +142,22 @@ classdef CiEEGData < handle
             %uz vyrazene epochy rucne nemeni - neoznaci jako spravne
             if obj.epochs > 1
                 vyrazeno=0;
+                if ~exist('NEpi','var')
+                    NEpi = 0;
+                    obj.RjEpochCh = false(obj.channels,obj.epochs);
+                end
                 for e = 1:obj.epochs
-                    obj.DE.Clear_iDEtabs(); %protoze to pole je zavisle na epochath, musim mazat pokazde
+                    obj.DE.Clear_iDEtabs(); %protoze to pole je zavisle na epochach, musim mazat pokazde
                     tabs = [ obj.tabs(1,e)' obj.tabs(end,e)' ]; %#ok<PROP> %zacatky a konce zobrazenych epoch
-                    [epitime ~] = obj.DE.GetEvents( tabs,obj.CH.GetChOK(),obj.tabs_orig(1));                 %#ok<PROP>
-                    if numel(epitime) >= NEpi
-                        obj.RjEpoch = unique( [obj.RjEpoch e]); %pridam epochu do seznamu, pokud tam jeste neni
-                        vyrazeno = vyrazeno +1;
+                    [epitime, ~, chans] = obj.DE.GetEvents( tabs,obj.CH.GetChOK(),obj.tabs_orig(1));                 %#ok<PROP>
+                    if NEpi
+                        if numel(epitime) >= NEpi
+                            obj.RjEpoch = unique( [obj.RjEpoch e]); %pridam epochu do seznamu, pokud tam jeste neni
+                            vyrazeno = vyrazeno +1;
+                        end
+                    elseif numel(epitime) > 0
+                        obj.RjEpochCh(unique(chans),e) = true;
+                        vyrazeno = vyrazeno + 1;
                     end
                 end
                 disp(['vyrazeno ' num2str(vyrazeno) ' epoch s epi udalostmi']);
@@ -283,13 +293,13 @@ classdef CiEEGData < handle
             end
             disp(['reference zmenena: ' obj.reference]); 
         end
-        
+
         function [iEp,epochsEx]=GetEpochsExclude(obj)
             %vraci iEp=index epoch k vyhodnoceni - bez chyb, treningu a rucniho vyrazeni
             %epochsEx=seznam vsech epoch s 1 u tech k vyrazeni
             chyby = obj.PsyData.GetErrorTrials();
             epochsEx = [chyby , zeros(size(chyby,1),1) ]; %pridam dalsi prazdny sloupec
-            epochsEx(obj.RjEpoch,5)=1; %rucne vyrazene epochy podle EEG
+            epochsEx(obj.RjEpoch,5)=1; %rucne vyrazene epochy podle EEG           
             iEp = all(epochsEx==0,2); %index epoch k pouziti
         end
             
@@ -630,7 +640,7 @@ classdef CiEEGData < handle
             end            
             allels = obj.plotES(5); %jestli se maji zobrazovat vsechny kanaly
             
-            if isempty(obj.plotH)
+            if isempty(obj.plotH) || ~ishandle(obj.plotH)
                 obj.plotH = figure('Name','Electrode Plot'); %zatim zadny neni, novy obrazek                 
             else
                 figure(obj.plotH);  %kreslim do existujiciho plotu
@@ -716,7 +726,7 @@ classdef CiEEGData < handle
                 c = 1-c;
                 iel = iel + 1 ;
             end
-            hold off;
+            %hold off;
             set(gca,'ytick',shift(elmaxmax-elmax+1:elmaxmax-elmin+1,1),'yticklabel',elmax:-1:elmin); %znacky a popisky osy y
             grid on;
             
@@ -751,7 +761,7 @@ classdef CiEEGData < handle
                     line([timex timex]-obj.epochtime(1),[shift(1,1)-range  shift(end,1)+range],'Color','m'); %cas 0 - stimulus
                 end
                 titul = ['Epoch ' num2str(s) '/' num2str(obj.epochs)];
-                for sj = s:ss %po vsechny zobrazene epochy
+                for sj = s:ss %pro vsechny zobrazene epochy
                     if find(obj.RjEpoch==sj) 
                         if sj == s, titul = [titul ' - EXCLUDED'];  end %#ok<AGROW>
                         line([obj.epochtime(1) obj.epochtime(2)]+(sj-s)*(obj.epochtime(2)-obj.epochtime(1)),[shift(1,1) shift(end,1)],'Color','r','LineWidth',2);
@@ -759,6 +769,13 @@ classdef CiEEGData < handle
                     if find(obj.epochTags==sj)
                         if sj == s, titul = [titul ' - TAGGED']; end   %#ok<AGROW>
                         line([0 0]+(sj-s)*(obj.epochtime(2)-obj.epochtime(1)),[shift(1,1) shift(end,1)],'Color','g','LineWidth',4);
+                    end
+                    for el = 1:elmax-elmin+1
+                        if obj.RjEpochCh(el+elmin-1, sj) %pokud je u tohoto kanalu epocha vyrazena
+                            yshift = shift(end,1)-shift(el,1);
+                            line([obj.epochtime(1) obj.epochtime(2)]+(sj-s)*(obj.epochtime(2)-obj.epochtime(1)),[yshift yshift], ...
+                                'Color',[255 91 71]./255,'LineWidth',1,'LineStyle','-')
+                        end
                     end
                 end
                 title(titul);   
@@ -772,9 +789,10 @@ classdef CiEEGData < handle
                 hold off;
             end
             
-            for k= 1 : size(els,2) %#ok<PROP> %
-                    uistack(h_els{k}, 'top'); %dam krivky eeg ulne dopredu
-            end
+%             tohle uplne nejvic zdrzuje z cele funkce            
+%             for k= 1 : size(els,2) %#ok<PROP> %
+%                     uistack(h_els{k}, 'top'); %dam krivky eeg ulne dopredu
+%             end
             
         end
         

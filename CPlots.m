@@ -15,11 +15,11 @@ classdef CPlots < handle
             for ch = els
                 if ~ismember(ch,RjCh)
                     if epochs <= 1 %neepochovana data
-                        [epitime weight] = DE.GetEvents( [objtabs(iD(1)) objtabs(iD(2))],ch,tabs_orig(1)); 
+                        [epitime, weight] = DE.GetEvents( [objtabs(iD(1)) objtabs(iD(2))],ch,tabs_orig(1)); 
                     else
                         epochy = sec : min(sec+ceil(time_n/samples)-1 , epochs ); %cisla zobrazenych epoch
                         tabs = [ objtabs(1,epochy)' objtabs(end,epochy)' ]; %zacatky a konce zobrazenych epoch
-                        [epitime weight] = DE.GetEvents( tabs,ch,tabs_orig(1)) ;                            
+                        [epitime, weight] = DE.GetEvents( tabs,ch,tabs_orig(1)) ;                            
                         if numel(epitime) > 0
                             epitime(:,1) = epitime(:,1) + epochtime(1);
                         end

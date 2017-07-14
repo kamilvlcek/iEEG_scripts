@@ -37,7 +37,7 @@ classdef CEpiEvents < handle
              DE = obj.DE;
          end
          
-         function [time,weight]= GetEvents(obj,tabs,ch,tabs0)
+         function [time,weight,chans]= GetEvents(obj,tabs,ch,tabs0)
              % vraci casy a vahy udalosti v danem casovem intervalu (tabs(:,1) - tabs(:,2)) na danem kanalu
              % tabs muze byt i matice o vice radcich, pak to odpovida vice opocham a udalosti se
              % spojuji pod sebe
@@ -47,6 +47,7 @@ classdef CEpiEvents < handle
              %weight  = zeros(size(obj.DE,1)*size(tabs,1),1);  
              time = []; %prazdny array, abych neco vratil
              weight = []; 
+             chans = [];
              if numel(obj.iDEtabs)==0 %pokud zadny index pres tabs neexistuje, vytvorim ho
                  obj.iDEtabs = false([size(obj.d,1) size(tabs,1)]);
                  for r = 1:size(tabs) %pres zjistovane epochy
@@ -69,9 +70,10 @@ classdef CEpiEvents < handle
                      else
                         %u neepochovanych dat chci puvodni cas - sec od zacatky
                         pos =  DEx(:,obj.sloupce.pos); 
-                     end
+                     end                     
                      time = [time ; pos repmat(r,size(pos))]; %#ok<AGROW> %cas udalosti  v sec
                      weight = [weight ; DEx(:,obj.sloupce.weight)]; %#ok<AGROW> %vaha udalosti                     
+                     chans = [chans; DEx(:,obj.sloupce.chan)]; %#ok<AGROW> % cisla kanalu
                  end
              end
          end
