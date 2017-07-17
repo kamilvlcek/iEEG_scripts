@@ -137,30 +137,19 @@ classdef CiEEGData < handle
             disp(['vyrazeno ' num2str(numel(RjEpoch)) ' epoch']); 
         end
         
-        function obj = RejectEpochsEpi(obj,NEpi)
+        function obj = RjEpochsEpi(obj,NEpi,obrazek)
             %vyradi epochy podle poctu epileptickych udalosti - pokud >= NEpi
             %uz vyrazene epochy rucne nemeni - neoznaci jako spravne
             if obj.epochs > 1
-                vyrazeno=0;
-                if ~exist('NEpi','var')
-                    NEpi = 0;
-                    obj.RjEpochCh = false(obj.channels,obj.epochs);
-                end
-                for e = 1:obj.epochs
-                    obj.DE.Clear_iDEtabs(); %protoze to pole je zavisle na epochach, musim mazat pokazde
-                    tabs = [ obj.tabs(1,e)' obj.tabs(end,e)' ]; %#ok<PROP> %zacatky a konce zobrazenych epoch
-                    [epitime, ~, chans] = obj.DE.GetEvents( tabs,obj.CH.GetChOK(),obj.tabs_orig(1));                 %#ok<PROP>
-                    if NEpi
-                        if numel(epitime) >= NEpi
-                            obj.RjEpoch = unique( [obj.RjEpoch e]); %pridam epochu do seznamu, pokud tam jeste neni
-                            vyrazeno = vyrazeno +1;
-                        end
-                    elseif numel(epitime) > 0
-                        obj.RjEpochCh(unique(chans),e) = true;
-                        vyrazeno = vyrazeno + 1;
-                    end
-                end
+                if ~exist('NEpi','var'), NEpi = []; end
+                if ~exist('obrazek','var'), obrazek = 1; end %vykreslim obrazek o poctu vyrazenych epoch v kanalech
+                [RjEpoch,RjEpochCh,vyrazeno] =  obj.DE.RejectEpochsEpi(NEpi,obj.CH,obj.epochs,obj.tabs,obj.tabs_orig);
+                obj.RjEpoch = unique( [obj.RjEpoch RjEpoch]); %pridam k puvodnim epocham
+                obj.RjEpochCh = RjEpochCh; %prepisu puvodni epochy
                 disp(['vyrazeno ' num2str(vyrazeno) ' epoch s epi udalostmi']);
+                if obrazek
+                    obj.PL.EpochsEpi(obj.RjEpochCh,obj.els,obj.CH);
+                end
             else
                 disp('not epoched data');
                 return;
@@ -1057,37 +1046,9 @@ classdef CiEEGData < handle
             %vykresli pocty epileptickych events u jednotlivych kanalu. U epochovanych dat i pocty epoch s epi udalostmi
             %since 27.4.2017
             assert(isobject(obj.CH),'Hammer header not loaded');
-            evts = zeros(numel(obj.CH.H.selCh_H),1); %pocet epievents pro kazdy kanal
-            names = cell(numel(obj.CH.H.selCh_H));  %jmena kanalu
-            epochs = evts; %#ok<PROP>
-            namelast = ''; %tam budu ukladat pismeno jmena elektrody
-            evts_nonseeg = 0; %pocet epi udalost v nonseeg kanalech
-            obj.DE.Clear_iDEtabs();
-            if obj.epochs > 1 %epochovana data
-                tabs = [ obj.tabs(1,:)' obj.tabs(end,:)' ]; %#ok<PROP> %zacatky a konce vsech epoch
-            end 
-            for ch = 1:obj.channels; %obj.CH.H.selCh_H                
-                if obj.epochs==1
-                    [epitime ~] = obj.DE.GetEvents([obj.tabs(1) obj.tabs(end)],ch);
-                else %epochovana data                   
-                    [epitime ~] = obj.DE.GetEvents(tabs,ch,obj.tabs_orig(1)); %#ok<PROP>                     
-                    if numel(epitime) > 0 && ~isempty(find(obj.CH.H.selCh_H==ch, 1))
-                        epochs(ch) = numel( unique(epitime(:,2))); %#ok<PROP>                        
-                    end
-                end
-                if ~isempty(find(obj.CH.H.selCh_H==ch, 1)) %pokud je kanal ve vyjmenovanych SEEG kanalech podle headeru
-                    evts(ch) = size(epitime,1); 
-                    if strcmp(namelast,obj.CH.H.channels(ch).name(1))
-                       names{ch} = obj.CH.H.channels(ch).name(end); %cislo elektrody bez pismene, u druhe elektrody stejneho jmena abych usetril misto
-                    else
-                       names{ch} = obj.CH.H.channels(ch).name(1);
-                       namelast = obj.CH.H.channels(ch).name(1);                     
-                    end
-                else
-                   evts_nonseeg = evts_nonseeg + size(epitime,1);
-                end
-                
-            end
+            assert(isobject(obj.DE),'Epievents not loaded');
+            [evts,names,epochs,evts_nonseeg] = obj.DE.CountEpiEvents(obj.CH,obj.epochs,obj.tabs,obj.tabs_orig); %#ok<PROP>
+                        
             figure('Name','Epievents in individual channels');
             if obj.epochs > 1
                 subplot(2,1,1);                
@@ -1108,7 +1069,7 @@ classdef CiEEGData < handle
                 plot(epochs./obj.epochs,'.-'); %#ok<PROP>
                 set(gca,'xtick',obj.CH.H.selCh_H ,'xticklabel',names); %znacky a popisky osy y
                 for el = 1:numel(obj.els)-1
-                    line([obj.els(el) obj.els(el)]+1,[0 max(evts)],'Color',[0.5 0.5 0.5]);
+                    line([obj.els(el) obj.els(el)]+1,[0 1],'Color',[0.5 0.5 0.5]);
                 end
                 ylim([0 1]);
                 line([1 obj.CH.H.selCh_H(end)],[0.30 0.30],'Color','red');
@@ -1151,6 +1112,7 @@ classdef CiEEGData < handle
             %plotH = obj.plotH;              %#ok<PROP,NASGU> %plotH je blbost ukladat, vytvori se novy, jen to brani vice grafum - 14.6.2016
             RjCh = obj.RjCh;                %#ok<PROP,NASGU>
             RjEpoch = obj.RjEpoch;          %#ok<PROP,NASGU>
+            RjEpochCh = obj.RjEpochCh;      %#ok<PROP,NASGU>
             epochTags = obj.epochTags;      %#ok<PROP,NASGU>
             epochLast = obj.epochLast;      %#ok<PROP,NASGU>
             reference = obj.reference;      %#ok<PROP,NASGU>
@@ -1159,7 +1121,7 @@ classdef CiEEGData < handle
             DE = obj.DE;                    %#ok<PROP,NASGU>
             DatumCas = obj.DatumCas;        %#ok<PROP,NASGU>
             save(filename,'d','tabs','tabs_orig','fs','header','sce','PsyDataP','epochtime','baseline','CH_H','els',...
-                    'plotES','RjCh','RjEpoch','epochTags','epochLast','reference','epochData','Wp','DE','DatumCas','-v7.3');  
+                    'plotES','RjCh','RjEpoch','RjEpochCh','epochTags','epochLast','reference','epochData','Wp','DE','DatumCas','-v7.3');  
             disp(['ulozeno do ' filename]); 
         end
         function obj = Load(obj,filename)
@@ -1168,24 +1130,24 @@ classdef CiEEGData < handle
             vars = whos('-file',filename) ;
             assert(ismember('d', {vars.name}), 'soubor neobsahuje promennou d, nejde o data tridy CHilbert?'); 
             load(filename,'d','tabs','tabs_orig','fs','header','sce','epochtime','els','plotES','RjCh','RjEpoch','epochTags','epochLast','reference');            
-            obj.d = d;                      %#ok<CPROP,PROP>
-            obj.tabs = tabs;                %#ok<CPROP,PROP>
-            obj.tabs_orig = tabs_orig;      %#ok<CPROP,PROP>
-            obj.fs = fs;                    %#ok<CPROP,PROP>           
-            obj.mults = ones(1,size(d,2));       %#ok<CPROP,PROP>
-            obj.header = header;            %#ok<CPROP,PROP>
+            obj.d = d;                      %#ok<CPROPLC,CPROP,PROP> 
+            obj.tabs = tabs;                %#ok<CPROPLC,CPROP,PROP> 
+            obj.tabs_orig = tabs_orig;      %#ok<CPROPLC,CPROP,PROP> 
+            obj.fs = fs;                    %#ok<CPROPLC,CPROP,PROP>          
+            obj.mults = ones(1,size(d,2));  %#ok<CPROPLC,CPROP,PROP> 
+            obj.header = header;            %#ok<CPROPLC,CPROP,PROP> 
             obj.samples = sce(1); obj.channels=sce(2); obj.epochs = sce(3); 
             vars = whos('-file',filename);
             if ismember('PsyDataP', {vars.name})
                 load(filename,'PsyDataP'); obj.PsyData = CPsyData(PsyDataP);%  %vytvorim objekt psydata ze struktury
             else
-                load(filename,'PsyData');  obj.PsyData = PsyData ; %#ok<CPROP,PROP> %  %drive ulozeny objekt, nez jsem zavedl ukladani struct
+                load(filename,'PsyData');  obj.PsyData = PsyData ; %#ok<CPROPLC,CPROP,PROP>  %  %drive ulozeny objekt, nez jsem zavedl ukladani struct
             end
             if obj.epochs > 1
-                if ismember('epochData', {vars.name}), load(filename,'epochData');  obj.epochData = epochData;   end   %#ok<CPROP,PROP> 
-                if ismember('baseline',  {vars.name}), load(filename,'baseline');   obj.baseline = baseline;   end   %#ok<CPROP,PROP>     
+                if ismember('epochData', {vars.name}), load(filename,'epochData');  obj.epochData = epochData;   end  %#ok<CPROPLC,CPROP,PROP> 
+                if ismember('baseline',  {vars.name}), load(filename,'baseline');   obj.baseline = baseline;   end    %#ok<CPROPLC,CPROP,PROP>      
                 load(filename,'epochtime');                
-                obj.epochtime = epochtime;      %#ok<CPROP,PROP>               
+                obj.epochtime = epochtime;      %#ok<CPROPLC,CPROP,PROP>               
             else
                 obj.epochtime = [];
                 obj.baseline = [];
@@ -1196,32 +1158,35 @@ classdef CiEEGData < handle
                 [~, ~, obj.els] = obj.CH.ChannelGroups();  
             else
                 load(filename,'CH');
-                obj.CH = CH; %#ok<CPROP,PROP> %  %drive ulozeny objekt, nez jsem zavedl ukladani struct
+                obj.CH = CH; %#ok<CPROPLC,CPROP,PROP> %  %drive ulozeny objekt, nez jsem zavedl ukladani struct
             end 
             
             if ismember('Wp', {vars.name})
-                load(filename,'Wp');      obj.Wp = Wp; %#ok<CPROP,PROP>
+                load(filename,'Wp');      obj.Wp = Wp; %#ok<CPROPLC,CPROP,PROP>
             else
                 obj.Wp = struct;
             end
             if ismember('DE', {vars.name}) %1.9.2016
-                load(filename,'DE');      obj.DE = DE; %#ok<CPROP,PROP>
+                load(filename,'DE');      obj.DE = DE; %#ok<CPROPLC,CPROP,PROP>
             else
                 obj.Wp = struct;
             end
             if ismember('DatumCas', {vars.name}) %7.4.2017
-                load(filename,'DatumCas');      obj.DatumCas = DatumCas; %#ok<CPROP,PROP>
+                load(filename,'DatumCas');      obj.DatumCas = DatumCas; %#ok<CPROPLC,CPROP,PROP>
             else
                 obj.DatumCas = {};
             end
-            obj.els = els;                  %#ok<CPROP,PROP>
-            obj.plotES = plotES;            %#ok<CPROP,PROP>
-            %obj.plotH = plotH;              %#ok<CPROP,PROP>
-            obj.RjCh = RjCh;                %#ok<CPROP,PROP>     
-            obj.RjEpoch = RjEpoch;          %#ok<CPROP,PROP>
-            if exist('epochTags','var'),  obj.epochTags = epochTags;   else obj.epochTags = []; end         %#ok<CPROP,PROP>     
-            if exist('epochLast','var'),  obj.epochLast = epochLast;   else obj.epochLast = []; end         %#ok<CPROP,PROP>
-            if exist('reference','var'),  obj.reference = reference;   else obj.reference = 'original'; end         %#ok<CPROP,PROP> %14.6.2016
+            if ismember('RjEpochCh', {vars.name}) %17.7.2017
+                load(filename,'RjEpochCh');      obj.RjEpochCh = RjEpochCh; %#ok<CPROPLC,CPROP,PROP>            
+            end
+            obj.els = els;                  %#ok<CPROPLC,CPROP,PROP> 
+            obj.plotES = plotES;            %#ok<CPROPLC,CPROP,PROP> 
+            %obj.plotH = plotH;             %#ok<CPROPLC,CPROP,PROP> 
+            obj.RjCh = RjCh;                %#ok<CPROPLC,CPROP,PROP>     
+            obj.RjEpoch = RjEpoch;          %#ok<CPROPLC,CPROP,PROP> 
+            if exist('epochTags','var'),  obj.epochTags = epochTags;   else obj.epochTags = []; end         %#ok<CPROPLC,CPROP,PROP>     
+            if exist('epochLast','var'),  obj.epochLast = epochLast;   else obj.epochLast = []; end         %#ok<CPROPLC,CPROP,PROP> 
+            if exist('reference','var'),  obj.reference = reference;   else obj.reference = 'original'; end  %#ok<CPROPLC,CPROP,PROP>  %14.6.2016
            
             obj.filename = filename;
             disp(['nacten soubor ' filename]); 

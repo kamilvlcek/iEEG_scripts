@@ -81,6 +81,68 @@ classdef CEpiEvents < handle
              %vymaza index obj.iDEtabs vytvoreny ve funkci GetEvents - pouziva se pri jejichopakovanych volanich 
              obj.iDEtabs = [];
          end
+         function [evts,names,epochs,evts_nonseeg]= CountEpiEvents(obj,CHH,objepochs,objtabs,objtabs_orig)
+            %spocita epilepticke event pro jednotlive kanaly, vcetne poctu epoch
+            evts = zeros(numel(CHH.H.selCh_H),1); %pocet epievents pro kazdy kanal
+            names = cell(numel(CHH.H.selCh_H),1);  %jmena kanalu
+            epochs = evts; 
+            namelast = ''; %tam budu ukladat pismeno jmena elektrody
+            evts_nonseeg = 0; %pocet epi udalost v nonseeg kanalech, napr. trigger
+            obj.Clear_iDEtabs();
+            if objepochs > 1 %epochovana data
+                tabs = [ objtabs(1,:)' objtabs(end,:)' ]; % %zacatky a konce vsech epoch
+            end 
+            for ch = 1:CHH.ChannelsN() %obj.CH.H.selCh_H                
+                if objepochs==1
+                    [epitime, ~] = obj.GetEvents([objtabs(1) objtabs(end)],ch);
+                else %epochovana data                   
+                    [epitime, ~] = obj.GetEvents(tabs,ch,objtabs_orig(1));                                          
+                end
+                if ~isempty(find(CHH.H.selCh_H==ch, 1)) %pokud je kanal ve vyjmenovanych SEEG kanalech podle headeru
+                    evts(ch) = size(epitime,1); 
+                    if numel(epitime) > 0 && objepochs > 1
+                        epochs(ch) = numel( unique(epitime(:,2)));  %v druhem sloupci jsou cisla epoch                       
+                    end
+                    if strcmp(namelast,CHH.H.channels(ch).name(1))
+                       names{ch} = CHH.H.channels(ch).name(end); %cislo elektrody bez pismene, u druhe elektrody stejneho jmena abych usetril misto
+                    else
+                       names{ch} = CHH.H.channels(ch).name(1);
+                       namelast = CHH.H.channels(ch).name(1);                     
+                    end
+                else
+                   evts_nonseeg = evts_nonseeg + size(epitime,1);
+                end
+                
+            end
+         end
+         
+         function [RjEpoch,RjEpochCh,vyrazeno] = RejectEpochsEpi(obj,NEpi,CHH,objepochs,objtabs,objtabs_orig)
+            %vyradi epochy podle poctu epileptickych udalosti - pokud >= NEpi
+            %uz vyrazene epochy rucne nemeni - neoznaci jako spravne
+            assert( objepochs > 1, 'nejsou epochovana data');
+            vyrazeno=0;
+            RjEpoch = [];
+            if isempty(NEpi)
+                NEpi = 0;
+                RjEpochCh = false(CHH.ChannelsN(),objepochs); 
+            end
+            for e = 1:objepochs
+                obj.Clear_iDEtabs(); %protoze to pole je zavisle na epochach, musim mazat pokazde
+                tabs = [ objtabs(1,e)' objtabs(end,e)' ]; % %zacatky a konce zobrazenych epoch
+                [epitime, ~, chans] = obj.GetEvents( tabs,CHH.GetChOK(),objtabs_orig(1));                 
+                if NEpi
+                    if numel(epitime) >= NEpi
+                        RjEpoch = unique( [RjEpoch e]); %pridam epochu do seznamu, pokud tam jeste neni
+                        vyrazeno = vyrazeno +1;
+                    end
+                elseif numel(epitime) > 0
+                    RjEpochCh(unique(chans),e) = true;
+                    vyrazeno = vyrazeno + 1;
+                end
+            end                            
+            
+            
+        end
     end
     
 end

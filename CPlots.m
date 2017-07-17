@@ -31,9 +31,19 @@ classdef CPlots < handle
                     end
                 end
             end             
-            text(timeax(1)+((timeax(end)-timeax(1))/8),timeaxy,['epileptic events: ' num2str(epieventsum) ' (' num2str(min(weights)) '-' num2str(max(weights)) ')']); 
-        
-    end
+            text(timeax(1)+((timeax(end)-timeax(1))/8),timeaxy,['epileptic events: ' num2str(epieventsum) ' (' num2str(min(weights)) '-' num2str(max(weights)) ')']);         
+        end
+        function EpochsEpi(RjEpochCh,objels,CHH)
+            figure('Name','Rejected epochs in individual channels');
+            pocty = sum(RjEpochCh,2)/size(RjEpochCh,2); %pocty epoch v jednotlivych kanalech / celkovym poctem epoch
+            plot(pocty,'.-');
+            for el = 1:numel(objels)-1
+                line([objels(el) objels(el)]+1,[0 1],'Color',[0.5 0.5 0.5]);
+            end
+            line([1 CHH.H.selCh_H(end)],[0.30 0.30],'Color','red');
+            spatne = find(pocty >= 0.30); 
+            disp(['kanaly s pocet vyrazenych epoch >= 0.3:' mat2str(spatne)]);                
+        end
     end
     
 end

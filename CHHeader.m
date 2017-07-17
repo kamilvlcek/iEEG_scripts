@@ -71,7 +71,10 @@ classdef CHHeader < handle
             %vraci cisla kanalu, ktera jsou SEEG a nejsou vyrazena
             chs = setdiff(obj.H.selCh_H,obj.RjCh);
         end
-            
+        function chs = ChannelsN(obj)
+            %vraci celkovy pocet kanalu
+            chs = length(obj.H.channels);
+        end
         function [ch,name,MNI,brainAtlas] = ChannelNameFind(obj,name)
             % najde kanal podle jmena kontaktu, napr 'R5', name musi byt na zacatku jmena, 
             % ale nemusi byt cele
