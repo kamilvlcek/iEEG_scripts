@@ -140,21 +140,17 @@ classdef CiEEGData < handle
         function obj = RjEpochsEpi(obj,NEpi,obrazek)
             %vyradi epochy podle poctu epileptickych udalosti - pokud >= NEpi
             %uz vyrazene epochy rucne nemeni - neoznaci jako spravne
-            if obj.epochs > 1
-                if ~exist('NEpi','var'), NEpi = []; end
-                if ~exist('obrazek','var'), obrazek = 1; end %vykreslim obrazek o poctu vyrazenych epoch v kanalech
-                [RjEpoch,RjEpochCh,vyrazeno] =  obj.DE.RejectEpochsEpi(NEpi,obj.CH,obj.epochs,obj.tabs,obj.tabs_orig);
-                obj.RjEpoch = unique( [obj.RjEpoch RjEpoch]); %pridam k puvodnim epocham
-                obj.RjEpochCh = RjEpochCh; %prepisu puvodni epochy
-                disp(['vyrazeno ' num2str(vyrazeno) ' epoch s epi udalostmi']);
-                if obrazek
-                    obj.PL.EpochsEpi(obj.RjEpochCh,obj.els,obj.CH);
-                end
-            else
-                disp('not epoched data');
-                return;
-            end
-            
+            assert(obj.epochs > 1,'nejsou epochovana data');
+            assert(~isempty(obj.DE),'nejsou zadna epi data');
+            if ~exist('NEpi','var'), NEpi = []; end
+            if ~exist('obrazek','var'), obrazek = 1; end %vykreslim obrazek o poctu vyrazenych epoch v kanalech
+            [RjEpoch,RjEpochCh,vyrazeno] =  obj.DE.RejectEpochsEpi(NEpi,obj.CH,obj.epochs,obj.tabs,obj.tabs_orig); %#ok<PROP> 
+            obj.RjEpoch = unique( [obj.RjEpoch RjEpoch]); %#ok<PROP> %pridam k puvodnim epocham
+            obj.RjEpochCh = RjEpochCh; %#ok<PROP>  %prepisu puvodni epochy
+            disp(['vyrazeno ' num2str(vyrazeno) ' epoch s epi udalostmi']);
+            if obrazek
+                obj.PL.EpochsEpi(obj.RjEpochCh,obj.els,obj.CH);
+            end                        
         end
         
         function obj = ExtractEpochs(obj, psy,epochtime,baseline)
@@ -201,7 +197,7 @@ classdef CiEEGData < handle
             disp(['rozdeleno na ' num2str(obj.epochs) ' epoch']); 
         end
         
-        function [d,psy_rt]= CategoryData(obj, katnum,rt,opak)
+        function [d,psy_rt,RjEpCh]= CategoryData(obj, katnum,rt,opak)
             %vraci eegdata epoch ve kterych podnet byl kategorie/podminky=katnum + reakcni casy 
             %Pokud rt>0, vraci epochy serazene podle reakcniho casu 
             %pokud opak>0, vraci jen jedno opakovani obrazku - hlavne kvuli PPA test 
@@ -214,6 +210,7 @@ classdef CiEEGData < handle
             end
             iEpochy = [ ismember(cell2mat(obj.epochData(:,2)),katnum) , obj.GetEpochsExclude() , iOpak]; %seznam epoch v ramci kategorie ve sloupci + epochy, ktere nejsou excludovane
             d = obj.d(:,:,all(iEpochy,2)); %epochy z kategorie, ktere nejsou excludovane = maji ve vsech sloupcich 1
+            RjEpCh = obj.RjEpochCh(:,all(iEpochy,2)); %epochy k vyrazeni u kazdeho kanalu - jen pro zbyvajici epochy
             [~,psy_rt,~,~] = obj.PsyData.GetResponses();                      
             psy_rt = psy_rt(all(iEpochy,2)); %reakcni casy jen pro vybrane kategorie a opakovani a nevyrazene
             
@@ -325,20 +322,22 @@ classdef CiEEGData < handle
                 %ziskam eeg data od jednotlivych kategorii
                 responsekat = cell(numel(kats),1); %eeg response zvlast pro kazdou kategorii 
                 baselinekat = cell(numel(kats),1); %baseline zvlast pro kazdou kategorii 
+                rjepchkat = cell(numel(kats),1); %epochyxkanaly k vyrazeni u kazde kategori
                 for k = 1:numel(kats) %pro vsechny kategorie/opakovani
                     if exist('KATNUM','var') 
-                        katdata = obj.CategoryData(KATNUM,[],kats{k}); %v kats jsou ted opakovani
+                        [katdata,~,RjEpCh] = obj.CategoryData(KATNUM,[],kats{k}); %v kats jsou ted opakovani
                     else
-                        katdata = obj.CategoryData(kats(k)); %epochy time*channel*epochs jedne kategorie, uz jsou vyrazeny vyrazene epochy
+                        [katdata,~,RjEpCh] = obj.CategoryData(kats(k)); %epochy time*channel*epochs jedne kategorie, uz jsou vyrazeny vyrazene epochy
                     end
                     responsekat{k,1} = katdata( ibaseline(2) - iepochtime(1)+1 :end,:,:); %jen cas po podnetu : cas x channel x epochs; 
                     baselinekat{k,1} = katdata( ibaseline(1) - iepochtime(1)+1 : ibaseline(2) - iepochtime(1),:,:); %jen cas po podnetu : cas x channel x epochs; 
+                    rjepchkat{k,1} = RjEpCh;
                 end
                 %rozdily kategorii vuci sobe
                 WpKat = cell(numel(kats));
                 for k = 1:numel(kats) %budu statisticky porovnavat kazdou kat s kazdou, bez ohledu na poradi
                     for j = k+1:numel(kats)
-                        Wp = CStat.Wilcox2D(responsekat{k}, responsekat{j},1,[],['kat ' num2str(k) ' vs ' num2str(j)]); %#ok<PROP> % -------- WILCOX kazda kat s kazdou 
+                        Wp = CStat.Wilcox2D(responsekat{k}, responsekat{j},1,[],['kat ' num2str(k) ' vs ' num2str(j)],rjepchkat{k},rjepchkat{j}); %#ok<PROP> % -------- WILCOX kazda kat s kazdou 
                         WpKat{k,j} = Wp; %#ok<PROP> %CStat.Klouzaveokno(Wp,itimewindow(1),'max',1); %#ok<PROP>
                     end
                 end

@@ -7,7 +7,7 @@ classdef CStat
     
     methods (Static,Access = public)
         
-        function W = Wilcox2D(A,B,print,fdr,msg)
+        function W = Wilcox2D(A,B,print,fdr,msg,RjEpChA,RjEpChB)
             %srovna dve 3D matice proti sobe, ohledne hodnot v poslednim rozmeru
             %A musi mit oba prvni rozmery > rozmery B, 
             %B muze mit jeden nebo oba prvni rozmer = 1 - pak se porovnava se vsemi hodnotami v A
@@ -16,15 +16,16 @@ classdef CStat
             if ~exist('print','var'), print = 0; end
             if ~exist('fdr','var') || isempty(fdr), fdr = 1; end            
             if ~exist('msg','var'), msg = ''; end
-            
+            if ~exist('RjEpChA','var'), RjEpChA = false(size(A,2),size(A,3)); end
+            if ~exist('RjEpChB','var'), RjEpChB = false(size(B,2),size(B,3)); end
             W = zeros(size(A,1),size(A,2));
            
             if print, fprintf(['Wilcox Test 2D - ' msg ': ']); end
             for j = 1:size(A,1) % napr cas
                 if print && mod(j,50)==0, fprintf('%d ', j); end %tisknu jen cele padesatky
                 for k = 1:size(A,2) %napr kanaly                  
-                   aa = squeeze (A(j,k,:)); 
-                   bb = squeeze (B( min(j,size(B,1)) , min(k,size(B,2)) , :));
+                   aa = squeeze (A(j,k,~RjEpChA(k,:))); %je nevyrazene epochy 
+                   bb = squeeze (B( min(j,size(B,1)) , min(k,size(B,2)) , ~RjEpChB(k,:) )); %jen nevyrazene epochy
                    if numel(aa) >= 2 && numel(bb) >= 2 
                       W(j,k) = ranksum(aa,bb); % Statistics and Machine Learning Toolbox
                    else
