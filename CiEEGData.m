@@ -207,17 +207,15 @@ classdef CiEEGData < handle
             %pokud opak>0, vraci jen jedno opakovani obrazku - hlavne kvuli PPA test 
             assert(obj.epochs > 1,'data not yet epoched'); %vyhodi chybu pokud data nejsou epochovana
             if exist('opak','var') && ~isempty(opak)
-                epochyopak = obj.PsyData.GetOpakovani();
-                iOpak = ismember(epochyopak , opak);
+                epochyopak = obj.PsyData.GetOpakovani(); %cislo opakovani pro kazdou epochu
+                iOpak = ismember(epochyopak , opak); %epochy jen s timto opakovanim
             else
-                iOpak = true(obj.epochs,1);                
+                iOpak = true(obj.epochs,1);  %vsechny epochy              
             end
             iEpochy = [ ismember(cell2mat(obj.epochData(:,2)),katnum) , obj.GetEpochsExclude() , iOpak]; %seznam epoch v ramci kategorie ve sloupci + epochy, ktere nejsou excludovane
             d = obj.d(:,:,all(iEpochy,2)); %epochy z kategorie, ktere nejsou excludovane = maji ve vsech sloupcich 1
-            [~,psy_rt,psy_katnum,~] = obj.PsyData.GetResponses();           
-            psy_rt = psy_rt(ismember(psy_katnum,katnum),:);
-            iEp = iEpochy( iEpochy(:,1)==1,2); %neexcludovane epochy v ramci kategorie
-            psy_rt = psy_rt(iEp); %doufam, ze to jsou stejne pocty
+            [~,psy_rt,~,~] = obj.PsyData.GetResponses();                      
+            psy_rt = psy_rt(all(iEpochy,2)); %reakcni casy jen pro vybrane kategorie a opakovani a nevyrazene
             
             if exist('rt','var') && ~isempty(rt) %chci hodnoty serazene podle reakcniho casu               
                 [psy_rt, isorted] = sort(psy_rt);
@@ -297,38 +295,24 @@ classdef CiEEGData < handle
             %timewindow - pokud dve hodnoty - porovnava prumernou hodnotu mezi nimi - sekundy relativne k podnetu/odpovedi
             % -- pokud jedna hodnota, je to sirka klouzaveho okna - maximalni p z teto delky
             assert(obj.epochs > 1,'only for epoched data');           
-            iepochtime = round(obj.epochtime(1:2).*obj.fs); %v poctu vzorku cas pred a po udalosti, pred je zaporne cislo
-            if ~ismember(obj,'baseline')
+            
+            if  ~isprop(obj,'baseline') || (verLessThan('matlab', '8.3') && ~ismember(obj,'baseline') ) %ruzna funkce pro ruzne verze matlab
                 obj.baseline = [obj.epochtime(1) 0];
-            end
-            ibaseline = round(obj.baseline.*obj.fs); %zaporna cisla pokud pred synchro eventem
-            ibaselineA =  [ibaseline(1) ,    floor((ibaseline(2)-ibaseline(1))/2)+ibaseline(1)]; %prvni pulka baseline - 28.3.2017
-            ibaselineB =  [ibaselineA(2)+1 , ibaseline(2) ]; %druha pulka baseline
-            itimewindow = round(timewindow.*obj.fs); %
+            end            
             iEp = obj.GetEpochsExclude(); %ziska seznam epoch k vyhodnoceni
-            %proc driv?  mean(obj.d( abs(iepochtime(1)-ibaselineA(1))+1 : abs(iepochtime(1)-ibaselineA(2))  - 28.3.2017            
-            baselineA = mean(obj.d( ibaselineA(1)-iepochtime(1)+1 : ibaselineA(2)-iepochtime(1) , : , iEp),1); %#ok<PROP>
-            baselineB = mean(obj.d( ibaselineB(1)-iepochtime(1) : ibaselineB(2)-iepochtime(1) , : , iEp),1); %#ok<PROP>
-                % cas x kanaly x epochy - prumer za cas pred podnetem, pro vsechny kanaly a nevyrazene epochyt
-            if numel(itimewindow) == 2  %chci prumernou hodnotu d od do
-                response = mean(obj.d( (itimewindow(1) : itimewindow(2)) - iepochtime(1) , : , iEp ),1); %prumer v case                
+            EEEGStat = CEEGStat(obj.d,obj.fs);
+            %celkova signifikance vuci baseline - bez ohledu na kategorie
+            [P,ibaseline,iepochtime] = EEEGStat.WilcoxBaseline(obj.epochtime,obj.baseline,timewindow,iEp);           
+        
+            if numel(timewindow) == 1 %chci maximalni hodnotu p z casoveho okna
+                obj.Wp.D2 = P; %pole 2D signifikanci si ulozim kvuli kresleni - cas x channels                
             else
-                response = obj.d(abs(iepochtime(1)-ibaseline(2))+1 : end , : , iEp ); %hodnoty po konci baseline                 
+                obj.Wp.D1 = P; %pole 1D signifikanci - jedna hodnota pro kazdy kanal            
             end
-            WpA = CStat.Wilcox2D(response,baselineA,1,[],'mean vs baseline A'); %#ok<PROP> %1=mene striktni pdep, 2=striktnejsi dep;
-            WpB = CStat.Wilcox2D(response,baselineB,1,[],'mean vs baseline B'); %#ok<PROP> %1=mene striktni pdep, 2=striktnejsi dep;
-            Wp = max(WpA,WpB); %#ok<PROP> %vyssi hodnota z kazde poloviny baseline
-            if numel(itimewindow) == 1 %chci maximalni hodnotu p z casoveho okna
-                Wp = CStat.Klouzaveokno(Wp,itimewindow(1),'max',1); %#ok<PROP>
-                obj.Wp.D2 = Wp; %#ok<PROP> %pole 2D signifikanci si ulozim kvuli kresleni - cas x channels
-                obj.Wp.D2params = timewindow;
-                obj.Wp.D2fdr = 1;
-                obj.Wp.D2iEp = iEp; %index zpracovanych epoch pro zpetnou kontrolu
-            else
-                obj.Wp.D1 = Wp; %#ok<PROP>%pole 1D signifikanci - jedna hodnota pro kazdy kanal
-                obj.Wp.D1params = timewindow;
-                obj.Wp.D1iEp = iEp; %index zpracovanych epoch pro zpetnou kontrolu
-            end
+            obj.Wp.Dparams = timewindow; %hodnoty pro zpetnou kontrolu
+            obj.Wp.Dfdr = 1;
+            obj.Wp.DiEp = iEp; %index zpracovanych epoch 
+            
             if exist('opakovani','var') && ~isempty(opakovani)
                 if iscell(opakovani) 
                     assert(numel(opakovani)<=3,'kategorie opakovani mohou byt maximalne tri');
@@ -341,7 +325,7 @@ classdef CiEEGData < handle
                 %ziskam eeg data od jednotlivych kategorii
                 responsekat = cell(numel(kats),1); %eeg response zvlast pro kazdou kategorii 
                 baselinekat = cell(numel(kats),1); %baseline zvlast pro kazdou kategorii 
-                for k = 1:numel(kats)
+                for k = 1:numel(kats) %pro vsechny kategorie/opakovani
                     if exist('KATNUM','var') 
                         katdata = obj.CategoryData(KATNUM,[],kats{k}); %v kats jsou ted opakovani
                     else
@@ -359,7 +343,7 @@ classdef CiEEGData < handle
                     end
                 end
                 %rozdily kategorii vuci baseline - 28.3.2017
-                WpKatBaseline = cell(numel(kats),1);
+                WpKatBaseline = cell(numel(kats),1); %?? Zahrnout do EEEGStat.WilcoxBaseline ??
                 for k =  1: numel(kats)
                         baselineall = baselinekat{k};
                         baselineA = mean(baselineall(1:floor(size(baselineall,1)/2)      ,:,:));

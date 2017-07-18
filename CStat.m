@@ -26,7 +26,7 @@ classdef CStat
                    aa = squeeze (A(j,k,:)); 
                    bb = squeeze (B( min(j,size(B,1)) , min(k,size(B,2)) , :));
                    if numel(aa) >= 2 && numel(bb) >= 2 
-                      W(j,k) = ranksum(aa,bb);
+                      W(j,k) = ranksum(aa,bb); % Statistics and Machine Learning Toolbox
                    else
                       W(j,k) = 1; %pokud jen jedna hodnota, nelze delat statistika
                    end
