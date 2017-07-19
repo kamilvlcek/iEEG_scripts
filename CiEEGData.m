@@ -131,10 +131,15 @@ classdef CiEEGData < handle
             disp(['vyrazeno ' num2str(numel(RjCh)) ' kanalu']); 
         end
         
-        function obj = RejectEpochs(obj,RjEpoch)
+        function obj = RejectEpochs(obj,RjEpoch,RjEpochCh)
             %ulozi cisla vyrazenych epoch - kvuli prevodu mezi touto tridou a CHilbert
             obj.RjEpoch = RjEpoch;
-            disp(['vyrazeno ' num2str(numel(RjEpoch)) ' epoch']); 
+            disp(['globalne vyrazeno ' num2str(numel(RjEpoch)) ' epoch']); 
+            if exist('RjEpochCh','var')
+                obj.RjEpochCh = RjEpochCh; 
+                disp(['+ vyrazeno ' num2str(sum(max(RjEpochCh,[],1))) ' epoch s epi udalostmi podle jednotlivych kanalu']);
+            end
+            
         end
         
         function obj = RjEpochsEpi(obj,NEpi,obrazek)
@@ -147,12 +152,17 @@ classdef CiEEGData < handle
             [RjEpoch,RjEpochCh,vyrazeno] =  obj.DE.RejectEpochsEpi(NEpi,obj.CH,obj.epochs,obj.tabs,obj.tabs_orig); %#ok<PROP> 
             obj.RjEpoch = unique( [obj.RjEpoch RjEpoch]); %#ok<PROP> %pridam k puvodnim epocham
             obj.RjEpochCh = RjEpochCh; %#ok<PROP>  %prepisu puvodni epochy
-            disp(['vyrazeno ' num2str(vyrazeno) ' epoch s epi udalostmi']);
+            disp(['vyrazeno ' num2str(vyrazeno) ' epoch s epi udalostmi podle jednotlivych kanalu']);
             if obrazek
                 obj.PL.EpochsEpi(obj.RjEpochCh,obj.els,obj.CH);
             end                        
         end
         
+        function [RjEpoch,RjEpochCh]=GetRjEpoch(obj)
+            %jen vraci vyrazene epochy pro jejich ulozeni
+            RjEpoch = obj.RjEpoch;
+            RjEpochCh = obj.RjEpochCh;
+        end
         function obj = ExtractEpochs(obj, psy,epochtime,baseline)
             % psy je struct dat z psychopy, 
             % epochtime je array urcujici delku epochy v sec pred a po podnetu/odpovedi: [pred pod podnet=0/odpoved=1]
@@ -198,9 +208,11 @@ classdef CiEEGData < handle
         end
         
         function [d,psy_rt,RjEpCh]= CategoryData(obj, katnum,rt,opak)
-            %vraci eegdata epoch ve kterych podnet byl kategorie/podminky=katnum + reakcni casy 
+            %vraci eegdata epoch ve kterych podnet byl kategorie/podminky=katnum + reakcni casy - s uz globalne vyrazenymi epochami
             %Pokud rt>0, vraci epochy serazene podle reakcniho casu 
             %pokud opak>0, vraci jen jedno opakovani obrazku - hlavne kvuli PPA test 
+            %vraci i epochy k vyrazeni pro kazdy kanal (uz s globalne vyrazenymi epochami)
+            %  vyradit rovnou je nemuzu, protoze pocet epoch v d pro kazdy kanal musi by stejny
             assert(obj.epochs > 1,'data not yet epoched'); %vyhodi chybu pokud data nejsou epochovana
             if exist('opak','var') && ~isempty(opak)
                 epochyopak = obj.PsyData.GetOpakovani(); %cislo opakovani pro kazdou epochu
@@ -291,15 +303,12 @@ classdef CiEEGData < handle
             %projede vsechny kanaly a hleda signif rozdil proti periode pred podnetem
             %timewindow - pokud dve hodnoty - porovnava prumernou hodnotu mezi nimi - sekundy relativne k podnetu/odpovedi
             % -- pokud jedna hodnota, je to sirka klouzaveho okna - maximalni p z teto delky
-            assert(obj.epochs > 1,'only for epoched data');           
-            
-            if  ~isprop(obj,'baseline') || (verLessThan('matlab', '8.3') && ~ismember(obj,'baseline') ) %ruzna funkce pro ruzne verze matlab
-                obj.baseline = [obj.epochtime(1) 0];
-            end            
+            assert(obj.epochs > 1,'only for epoched data');                       
+                       
             iEp = obj.GetEpochsExclude(); %ziska seznam epoch k vyhodnoceni
             EEEGStat = CEEGStat(obj.d,obj.fs);
             %celkova signifikance vuci baseline - bez ohledu na kategorie
-            [P,ibaseline,iepochtime] = EEEGStat.WilcoxBaseline(obj.epochtime,obj.baseline,timewindow,iEp);           
+            [P,ibaseline,iepochtime] = EEEGStat.WilcoxBaseline(obj.epochtime,obj.baseline,timewindow,iEp,obj.RjEpochCh);           
         
             if numel(timewindow) == 1 %chci maximalni hodnotu p z casoveho okna
                 obj.Wp.D2 = P; %pole 2D signifikanci si ulozim kvuli kresleni - cas x channels                
@@ -347,8 +356,8 @@ classdef CiEEGData < handle
                         baselineall = baselinekat{k};
                         baselineA = mean(baselineall(1:floor(size(baselineall,1)/2)      ,:,:));
                         baselineB = mean(baselineall(  floor(size(baselineall,1)/2)+1:end,:,:));
-                        WpBA = CStat.Wilcox2D(responsekat{k},baselineA,1,[],['kat ' num2str(k) ' vs baseline A']);
-                        WpBB = CStat.Wilcox2D(responsekat{k},baselineB,1,[],['kat ' num2str(k) ' vs baseline B']);
+                        WpBA = CStat.Wilcox2D(responsekat{k},baselineA,1,[],['kat ' num2str(k) ' vs baseline A'],rjepchkat{k},rjepchkat{k});
+                        WpBB = CStat.Wilcox2D(responsekat{k},baselineB,1,[],['kat ' num2str(k) ' vs baseline B'],rjepchkat{k},rjepchkat{k});
                         WpKatBaseline{k,1} = max (WpBA,WpBB);
                 end
                 %ukladam vysledky
@@ -892,14 +901,15 @@ classdef CiEEGData < handle
                 for k= 1 : numel(kategories) %index 1-3
                     if exist('opakovani','var') && ~isempty(opakovani)
                         opaknum = kategories{k}; %v kategories jsou opakovani k vykresleni, a je to cell array
-                        katdata = obj.CategoryData(KATNUM,[],opaknum); %eegdata - epochy pro tato opakovani
+                        [katdata,~,RjEpCh] = obj.CategoryData(KATNUM,[],opaknum); %eegdata - epochy pro tato opakovani
                     else
                         katnum = kategories(k); %cislo kategorie
-                        katdata = obj.CategoryData(katnum); %eegdata - epochy jedne kategorie
+                        [katdata,~,RjEpCh] = obj.CategoryData(katnum); %eegdata - epochy jedne kategorie
                     end    
-                    M = mean(katdata(:,ch,:),3);
-                    E = std(katdata(:,ch,:),[],3)/sqrt(size(katdata,3)); %std err of mean
-                    errorbar(T,M,E,'.','color',colorskat{2,k}); %nejdriv vykreslim errorbars aby byly vzadu[.8 .8 .8]
+                    M = mean(katdata(:,ch,~RjEpCh(ch,:)),3);
+                    E = std(katdata(:,ch,~RjEpCh(ch,:)),[],3)/sqrt(size(katdata,3)); %std err of mean
+                    %errorbar(T,M,E,'.','color',colorskat{2,k}); %nejdriv vykreslim errorbars aby byly vzadu[.8 .8 .8]
+                    plotband(T, M, E, colorskat{2,k});
                     xlim(obj.epochtime(1:2)); 
                     hold on;
                     h_kat(k) = plot(T,M,'LineWidth',katlinewidth,'Color',colorskat{1,k});  %prumerna odpoved,  ulozim si handle na krivku  
