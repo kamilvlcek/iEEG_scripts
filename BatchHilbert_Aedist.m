@@ -20,7 +20,7 @@ frekvence(f).todo = 0;
 frekvence(f).freq = [];
 frekvence(f).freqname = 'ERP'; % slow gamma
 f=2;
-frekvence(f).todo = 1;
+frekvence(f).todo = 0;
 frekvence(f).freq = 50:5:150;
 frekvence(f).freqname = '50-150'; % slow gamma
 f=3;
@@ -44,9 +44,10 @@ frekvence(f).todo = 0;
 frekvence(f).freq = 4:1:8;
 frekvence(f).freqname = '4-8'; % theta
 f=8;
-frekvence(f).todo = 0;
-frekvence(f).freq = 4:2:150;
-frekvence(f).freqname = '4-150'; % all range
+frekvence(f).todo = 1;
+frekvence(f).freq = 2:2:150;
+frekvence(f).freqname = '2-150'; % all range
+frekvence(f).prekryv = 0.5; % 50% prekryv sousednich frekvencnich pasem 
 
 refence = struct;
 r=1;
@@ -143,14 +144,18 @@ for f=1:numel(frekvence)
                         try %i kdy bude nejaka chyba pri vyhodnoceni, chci pokracovat dalsimi soubory
                             if ERP
                                 classname = 'CiEEG';
+                                suffixclass = '.mat';
                             else
                                 classname = 'CHilbert';
+                                suffixclass = '_CHilb.mat';
                             end
                             outfilename = [ basedir pacienti(p).folder '\' subfolder '\' prefix ' ' classname ' ' frekvence(f).freqname ' ' reference(r).name ' ' suffix];
-                            if exist(outfilename,'file')==2 && overwrite == 0                                
-                                disp([ pacienti(p).folder ' NEULOZENO, preskoceno']); 
+                            if exist([outfilename suffixclass],'file')==2 && overwrite == 0                                
+                                disp([ outfilename ' NEULOZENO, preskoceno']); 
                                 fprintf(fileID,[ 'NEULOZENO,preskoceno: ' strrep(outfilename,'\','\\') ' - ' datestr(now) '\n']); 
-                                continue; %dalsi polozka ve for cyklu                         
+                                continue; %dalsi polozka ve for cyklu     
+                            else
+                                disp(['soubor zatim neexistuje - zpracovavam: ' outfilename suffixclass]); 
                             end
                             load([basedir pacienti(p).folder '\' pacienti(p).data]);
                             load([basedir pacienti(p).folder '\' pacienti(p).header]);
@@ -183,8 +188,13 @@ for f=1:numel(frekvence)
                             if numel(reference(r).char)>0 %pokud se ma zmenit reference
                                 E.ChangeReference(reference(r).char);
                             end
-                            if ~ERP 
-                                E.PasmoFrekvence(frekvence(f).freq);
+                            if ~ERP
+                                if isfield(frekvence(f),'prekryv')
+                                    prekryv = frekvence(f).prekryv;
+                                else
+                                    prekryv = 0;  %defaultne je nulovy prekryv pasem                                    
+                                end
+                                E.PasmoFrekvence(frekvence(f).freq,[],prekryv);
                             end
                             disp('extracting epochs ...');
                             E.ExtractEpochs(psychopy,timewindow,baseline);        
@@ -200,7 +210,7 @@ for f=1:numel(frekvence)
                             
                             clear E d tabs fs mults header RjEpoch psychopy H ans; 
                         catch exception 
-                            errorMessage = sprintf('Error in function %s() at line %d.\n\nError Message:\n%s', ...
+                            errorMessage = sprintf('** Error in function %s() at line %d.\nError Message:\n%s', ...
                                 exception.stack(1).name, exception.stack(1).line, exception.message);                            
                             disp(errorMessage);  fprintf(fileID,[errorMessage '\n']);  %zobrazim hlasku, zaloguju, ale snad to bude pokracovat dal                            
                         end    

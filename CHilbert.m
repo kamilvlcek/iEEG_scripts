@@ -32,12 +32,14 @@ classdef CHilbert < CiEEGData
             end
         end
         
-        function obj = PasmoFrekvence(obj,freq,channels)
+        function obj = PasmoFrekvence(obj,freq,channels,prekryv)
             %EEG2HILBERT prevede vsechny kanaly na prumer hilbertovych obalek
             %   podle puvodni funkce EEG2Hilbert
             %   pouziva data d z parentu a take fs
             %   freq    seznam freqvenci pro ktere se ma delat prumer - lo, .., ..., .., hi
-            if ~exist('channels','var'), channels = 1:obj.channels; end
+            if ~exist('channels','var') || isempty(channels), channels = 1:obj.channels; end
+            if ~exist('prekryv','var'), prekryv = 0; end %kolik se maji prekryvat sousedni frekvencni pasma, napriklad 0.5
+            
             obj.HFreq = zeros(ceil(obj.samples/obj.decimatefactor),obj.channels,numel(freq)-1); %inicializace pole   
             tic; %zadnu meric cas
             fprintf('kanal ze %i: ', max(channels) );
@@ -46,8 +48,8 @@ classdef CHilbert < CiEEGData
                            
                 fprintf('%i,',ch);
                 for fno = 1:numel(freq)-1 %seznam frekvenci
-                    loF = freq(fno); 
-                    hiF = freq(fno+1)-0.1;  %napr 50 - 59.9
+                    loF = freq(fno) -prekryv*(freq(fno+1)-freq(fno)); 
+                    hiF = freq(fno+1)-0.1 +prekryv*(freq(fno+1)-freq(fno));  %napr 50 - 59.9
                     hh = obj.hilbertJirka(obj.d(:,ch),loF,hiF,obj.fs); %cista hilbertova obalka, tohle i skript hodne zrychli
                     hh = decimate(hh,obj.decimatefactor); % mensi sampling rate                    
                     obj.HFreq(:,ch,fno) = (hh./mean(hh)); %podil prumeru = prumerna hodnota
