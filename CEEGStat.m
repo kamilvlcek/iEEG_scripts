@@ -1,10 +1,11 @@
 classdef CEEGStat
-    %CEEGSTAT Summary of this class goes here
-    %   Detailed explanation goes here
+    %CEEGSTAT trida na zpracovani EEG dat, oddelene od vlastni tridy CiEEGData
+    %   sem budu postupne prevadet kod z CiEEGData
+    % since 18.7.2017
     
     properties (Access = private)
        d; %matice EEG dat 
-       fs;
+       fs; %vzorkovaci frekvence
     end
     
     methods (Access = public)
@@ -17,6 +18,7 @@ classdef CEEGStat
         
         function [P,ibaseline,iepochtime] = WilcoxBaseline(obj,epochtime,baseline,timewindow,iEp,RjEpCh)
             % spocita signifikance vuci baseline
+            % prevedeno z CiEEGData.ResponseSearch 18.7.2017
             iepochtime = round(epochtime(1:2).*obj.fs); %v poctu vzorku cas pred a po udalosti, pred je zaporne cislo           
             ibaseline = round(baseline.*obj.fs); %zaporna cisla pokud pred synchro eventem
             ibaselineA =  [ibaseline(1) ,    floor((ibaseline(2)-ibaseline(1))/2)+ibaseline(1)]; %prvni pulka baseline - 28.3.2017

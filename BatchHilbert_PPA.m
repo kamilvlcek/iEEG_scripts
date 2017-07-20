@@ -15,7 +15,7 @@ subfolder = 'PPA'; %podadresar, specificky pro test, muze byt prazdne pokud se n
 
 frekvence = struct;
 f=1;
-frekvence(f).todo = 0;
+frekvence(f).todo = 1;
 frekvence(f).freq = [];
 frekvence(f).freqname = 'ERP'; % slow gamma
 f=2;
@@ -43,7 +43,7 @@ frekvence(f).todo = 0;
 frekvence(f).freq = 4:1:8;
 frekvence(f).freqname = '4-8'; % theta
 f=8;
-frekvence(f).todo = 1;
+frekvence(f).todo = 0;
 frekvence(f).freq = 4:2:150;
 frekvence(f).freqname = '4-150'; % all range
 
@@ -61,13 +61,13 @@ reference(r).todo = 0;
 reference(r).name = 'refHead';
 reference(r).char = 'h';
 r=4;
-reference(r).todo = 0;
+reference(r).todo = 1;
 reference(r).name = 'refBipo';
 reference(r).char = 'b';
 
 pacienti = struct;
 p = 1;
-pacienti(p).todo = 0;
+pacienti(p).todo = 1;
 pacienti(p).folder = 'p073 Pech VT6'; %'p073_VT6';
 pacienti(p).data = 'VT6_INV Test Vlcek1_X_ppa.mat';
 pacienti(p).header = 'p73_header_kamil.mat';
@@ -76,7 +76,7 @@ pacienti(p).rjepoch = 'ppa_RjEpoch.mat';
 pacienti(p).rjch = [47 68]; %#ok<NB%#ok<MSNU> RAK>
 
 p = 2;
-pacienti(p).todo = 0;
+pacienti(p).todo = 1;
 pacienti(p).folder = 'p079 Plu VT8'; %'p79_VT8';
 pacienti(p).data = 'VT8_2015-04-09_09-46_001_concat_X_ppa.mat';
 pacienti(p).header = 'P79_header.mat';
@@ -86,7 +86,7 @@ pacienti(p).rjch = [47 64 68]; %#ok<NBR%#ok<MSNU> AK> puvodne 47 64 114
 pacienti(p).frekvence = struct;
 
 p=3;
-pacienti(p).todo = 0;
+pacienti(p).todo = 1;
 pacienti(p).folder = 'p082 Vov VT9'; %'VT09';
 pacienti(p).data = 'VT9_2015-04-21_09-46_001_concat_X_ppa.mat';
 pacienti(p).header = 'P82_header.mat';
@@ -95,7 +95,7 @@ pacienti(p).rjepoch = 'ppa_RjEpoch.mat';
 pacienti(p).rjch = [47 68 126]; %#ok<NB%#ok<MSNU> RAK>
 
 p=4;
-pacienti(p).todo = 0;
+pacienti(p).todo = 1;
 pacienti(p).folder = 'p083 Kol VT10'; %'VT10';
 pacienti(p).data = 'VT10_2015-05-19_10-00_001_X_ppa.mat';
 pacienti(p).header = 'P83_header.mat';
@@ -104,7 +104,7 @@ pacienti(p).rjepoch = 'ppa_RjEpoch-p83.mat';
 pacienti(p).rjch = [47 64]; %  64 ?
 
 p=5;
-pacienti(p).todo = 0;
+pacienti(p).todo = 1;
 pacienti(p).folder = 'p095 Hav VT11'; %'VT11';
 pacienti(p).data = 'VT11_2015-12-15_ppa.mat';
 pacienti(p).header = 'P95_header.mat';
@@ -113,16 +113,16 @@ pacienti(p).rjepoch = 'ppa_RjEpoch-p95.mat';
 pacienti(p).rjch = [47]; %#ok<NBRAK> 64?
 
 p=6;
-pacienti(p).todo = 0;
+pacienti(p).todo = 1;
 pacienti(p).folder = 'p096 Gro VT12'; %'VT12';
 pacienti(p).data = 'VT12_2016-01-26_09-16_001_concat_ppa.mat';
 pacienti(p).header = 'P96_header.mat';
 pacienti(p).psychopy = 'p96_ppa.mat';
-pacienti(p).rjepoch = 'ppa_RjEpoch-p96.mat';
+pacienti(p).rjepoch = 'ppa_RjEpoch-p96.mat';        
 pacienti(p).rjch = [47]; %#ok<NBRAK> 64?
 
 p=7;
-pacienti(p).todo = 0;
+pacienti(p).todo = 1;
 pacienti(p).folder = 'p097 Nov VT13'; %'VT13';
 pacienti(p).data = 'VT13_2016-02-11_09-20_001_concat_ppa.mat';
 pacienti(p).header = 'P97_header.mat';
@@ -131,7 +131,7 @@ pacienti(p).rjepoch = 'ppa_RjEpoch-p97.mat';
 pacienti(p).rjch = [47]; %#ok<NBRAK>
 
 p=8;
-pacienti(p).todo = 0;
+pacienti(p).todo = 1;
 pacienti(p).folder = 'p110 Sou VT14'; %'VT14';
 pacienti(p).data = 'P110_2016-06-08_15-56_001_concat_ppa.mat';
 pacienti(p).header = 'p110_header.mat';
@@ -140,7 +140,7 @@ pacienti(p).rjepoch = 'ppa_RjEpoch.mat';
 pacienti(p).rjch = [47 15]; %#ok<NB%#ok<MSNU> RAK>
 
 p=9;% moc zachvatu?
-pacienti(p).todo = 0;
+pacienti(p).todo = 1;
 pacienti(p).folder = 'p126 Sve VT15'; %'VT15';
 pacienti(p).data = 'VT15_2016-09-06_09-18_001_concat_ppa.mat';
 pacienti(p).header = 'P126_header.mat';
@@ -149,7 +149,7 @@ pacienti(p).rjepoch = ''; %muze byt prazne, pak se nevyrazuji zadne epochy
 pacienti(p).rjch = [47 50]; %#ok<NB%#ok<MSNU> RAK>
 
 p=10;
-pacienti(p).todo = 0;
+pacienti(p).todo = 1;
 pacienti(p).folder = 'p119 Buc VT16'; %'VT16';
 pacienti(p).data = 'VT16_2016-10-10_17-11_001_concat_ppa.mat';
 pacienti(p).header = 'p119_header_kamil.mat';%chybi header Hammer
@@ -202,7 +202,10 @@ pacienti(p).psychopy = 'p138_ppa.mat';
 pacienti(p).rjepoch = 'ppa_RjEpoch.mat';
 pacienti(p).rjch = []; 
 
-[fileID,message] = fopen(['logs\BatchHilbert_PPA_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') '.log'],'wt'); %soubor na logovani prubehu
+logfilename = ['logs\BatchHilbert_PPA_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') '.log'];
+[fileID,message] = fopen(logfilename,'wt'); %soubor na logovani prubehu
+assert(fileID>=0,['nemohu otevrit soubor pro cteni: ' logfilename ]);
+
 %nejdriv overim, jestli existuje vsechno co potrebuju nacist
 chybasoubor = false;
 for p = 1:numel(pacienti)

@@ -71,6 +71,7 @@ classdef CiEEGData < handle
                 obj.epochLast = 1;
                 obj.reference = 'original';
                 obj.DatumCas.Created = datestr(now);
+                obj.RjEpochCh = false(obj.channels,1); %zatim nejsou zadne epochy
                 disp('vytvoren objekt CiEEGData'); 
             end
             disp(['epochs: ' num2str(obj.epochs) ', rejected: ' num2str(numel(obj.RjEpoch)), '; channels: ' num2str(obj.channels) ', rejected: ' num2str(numel(obj.RjCh)) ...
@@ -150,10 +151,16 @@ classdef CiEEGData < handle
             if ~exist('NEpi','var'), NEpi = []; end
             if ~exist('obrazek','var'), obrazek = 1; end %vykreslim obrazek o poctu vyrazenych epoch v kanalech
             [RjEpoch,RjEpochCh,vyrazeno] =  obj.DE.RejectEpochsEpi(NEpi,obj.CH,obj.epochs,obj.tabs,obj.tabs_orig); %#ok<PROP> 
-            obj.RjEpoch = unique( [obj.RjEpoch RjEpoch]); %#ok<PROP> %pridam k puvodnim epocham
-            obj.RjEpochCh = RjEpochCh; %#ok<PROP>  %prepisu puvodni epochy
-            disp(['vyrazeno ' num2str(vyrazeno) ' epoch s epi udalostmi podle jednotlivych kanalu']);
-            if obrazek
+            
+            if isempty(NEpi) %jen pokud jsem RjEpochCh pocital
+                obj.RjEpochCh = RjEpochCh; %#ok<PROP>  %prepisu puvodni epochy
+                disp(['vyrazeno ' num2str(vyrazeno) ' epoch s epi udalostmi podle jednotlivych kanalu']);
+            else
+                obj.RjEpoch = unique( [obj.RjEpoch RjEpoch]); %#ok<PROP> %pridam k puvodnim epocham
+                disp(['vyrazeno ' num2str(vyrazeno) ' epoch s vice epi udalostmi nez ' num2str(NEpi)]);
+            end
+            
+            if obrazek &&  isempty(NEpi)
                 obj.PL.EpochsEpi(obj.RjEpochCh,obj.els,obj.CH);
             end                        
         end
@@ -188,6 +195,7 @@ classdef CiEEGData < handle
                 izacatek = find(obj.tabs<=ts_events(epoch), 1, 'last' ); %najdu index podnetu/odpovedi podle jeho timestampu
                     %kvuli downsamplovani Hilberta, kdy se mi muze ztratit presny cas zacatku
                     %epochy, beru posledni nizsi tabs nez je cas zacatku epochy
+                assert(~isempty(izacatek), ['epocha podle psychopy' num2str(epoch) ' nenalezena v tabs']);
                 [Kstring Knum] = obj.PsyData.Category(epoch);    %#ok<*NCOMMA> %jmeno a cislo kategorie
                 obj.epochData(epoch,:)= {Kstring Knum obj.tabs(izacatek)}; %zacatek podnetu beru z tabs aby sedel na tabs pri downsamplovani
                 for ch = 1:obj.channels %pro vsechny kanaly                    
@@ -204,6 +212,7 @@ classdef CiEEGData < handle
             obj.tabs = tabs; %#ok<PROP>
             [obj.samples,obj.channels, obj.epochs] = obj.DSize();
             obj.DatumCas.Epoched = datestr(now);
+            obj.RjEpochCh = false(obj.channels,obj.epochs); %zatim zadne vyrazene epochy
             disp(['rozdeleno na ' num2str(obj.epochs) ' epoch']); 
         end
         
@@ -308,7 +317,7 @@ classdef CiEEGData < handle
             iEp = obj.GetEpochsExclude(); %ziska seznam epoch k vyhodnoceni
             EEEGStat = CEEGStat(obj.d,obj.fs);
             %celkova signifikance vuci baseline - bez ohledu na kategorie
-            [P,ibaseline,iepochtime] = EEEGStat.WilcoxBaseline(obj.epochtime,obj.baseline,timewindow,iEp,obj.RjEpochCh);           
+            [P,ibaseline,iepochtime] = EEEGStat.WilcoxBaseline(obj.epochtime,[ obj.epochtime(1) 0],timewindow,iEp,obj.RjEpochCh);   %puvodni baseline uz v epose nemam        
         
             if numel(timewindow) == 1 %chci maximalni hodnotu p z casoveho okna
                 obj.Wp.D2 = P; %pole 2D signifikanci si ulozim kvuli kresleni - cas x channels                
@@ -752,7 +761,7 @@ classdef CiEEGData < handle
                         line([0 0]+(sj-s)*(obj.epochtime(2)-obj.epochtime(1)),[shift(1,1) shift(end,1)],'Color','g','LineWidth',4);
                     end
                     for el = 1:elmax-elmin+1
-                        if obj.RjEpochCh(el+elmin-1, sj) %pokud je u tohoto kanalu epocha vyrazena
+                        if ss <= obj.epochs && obj.RjEpochCh(el+elmin-1, sj) %pokud je u tohoto kanalu epocha vyrazena
                             yshift = shift(end,1)-shift(el,1);
                             line([obj.epochtime(1) obj.epochtime(2)]+(sj-s)*(obj.epochtime(2)-obj.epochtime(1)),[yshift yshift], ...
                                 'Color',[255 91 71]./255,'LineWidth',1,'LineStyle','-')

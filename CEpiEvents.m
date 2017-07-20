@@ -125,6 +125,8 @@ classdef CEpiEvents < handle
             if isempty(NEpi)
                 NEpi = 0;
                 RjEpochCh = false(CHH.ChannelsN(),objepochs); 
+            else
+                RjEpochCh = []; %musim neco vratit, i kdyz pouzivam NEpi
             end
             for e = 1:objepochs
                 obj.Clear_iDEtabs(); %protoze to pole je zavisle na epochach, musim mazat pokazde
