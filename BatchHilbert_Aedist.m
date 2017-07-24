@@ -3,7 +3,7 @@
 hybernovat = 1; %jestli chci po konci skriptu pocitac uspat - ma prednost
 vypnout = 0; %jestli chci po konci skriptu pocitac vypnout (a nechci ho hybernovat) 
 pouzetest = 0; %jestli chci jen otestovat pritomnost vsech souboru 
-overwrite = 0; %jestil se maji prepsat puvodni data, nebo ohlasit chyba a pokracovat v dalsim souboru 
+overwrite = 1; %jestil se maji prepsat puvodni data, nebo ohlasit chyba a pokracovat v dalsim souboru 
 
 basedir = 'd:\eeg\motol\pacienti\';
 timewindow =  [-0.2 1.2];  % hranice epochy [-0.3 0.8] PPA, zarovnani podle odpovedi/podnetu [-1 1]; [-0.2 1.2] AEdist
@@ -20,7 +20,7 @@ frekvence(f).todo = 0;
 frekvence(f).freq = [];
 frekvence(f).freqname = 'ERP'; % slow gamma
 f=2;
-frekvence(f).todo = 0;
+frekvence(f).todo = 1;
 frekvence(f).freq = 50:5:150;
 frekvence(f).freqname = '50-150'; % slow gamma
 f=3;
@@ -122,7 +122,8 @@ else
 end
 if (vypnout),    disp('system se po dokonceni vypne'); end 
 if (hybernovat), disp('system se po dokonceni uspi'); end
- 
+clear E d tabs fs mults header RjEpoch psychopy H ans; %vymazu, kdyby tam byl nejaky zbytek z predchozich pacientu
+
 for f=1:numel(frekvence)        
     if frekvence(f).todo
         msg  =[ '*****' frekvence(f).freqname '*****' ]; 
@@ -154,7 +155,7 @@ for f=1:numel(frekvence)
                                 disp([ outfilename ' NEULOZENO, preskoceno']); 
                                 fprintf(fileID,[ 'NEULOZENO,preskoceno: ' strrep(outfilename,'\','\\') ' - ' datestr(now) '\n']); 
                                 continue; %dalsi polozka ve for cyklu     
-                            else
+                            elseif overwrite == 0
                                 disp(['soubor zatim neexistuje - zpracovavam: ' outfilename suffixclass]); 
                             end
                             load([basedir pacienti(p).folder '\' pacienti(p).data]);
@@ -189,7 +190,7 @@ for f=1:numel(frekvence)
                                 E.ChangeReference(reference(r).char);
                             end
                             if ~ERP
-                                if isfield(frekvence(f),'prekryv')
+                                if isfield(frekvence(f),'prekryv') && ~isempty(frekvence(f).prekryv)
                                     prekryv = frekvence(f).prekryv;
                                 else
                                     prekryv = 0;  %defaultne je nulovy prekryv pasem                                    
@@ -198,8 +199,11 @@ for f=1:numel(frekvence)
                             end
                             disp('extracting epochs ...');
                             E.ExtractEpochs(psychopy,timewindow,baseline);        
-                            if ~isempty(pacienti(p).rjepoch) %muze byt prazne, pak se nevyrazuji zadne epochy
-                                E.RejectEpochs(RjEpoch);
+                            if exist('RjEpoch','var') %muze byt prazne, pak se nevyrazuji zadne epochy
+                                E.RejectEpochs(RjEpoch); %globalne vyrazene epochy
+                            end
+                            if exist('RjEpochCh','var')
+                                E.RejectEpochs(0,RjEpochCh); %epochy pro kazdy kanal zvlast
                             end
                             E.ResponseSearch(0.1,stat_kats, stat_opak); %statistika s klouzavym oknem 100ms
                             disp('saving data ...');
@@ -213,6 +217,7 @@ for f=1:numel(frekvence)
                             errorMessage = sprintf('** Error in function %s() at line %d.\nError Message:\n%s', ...
                                 exception.stack(1).name, exception.stack(1).line, exception.message);                            
                             disp(errorMessage);  fprintf(fileID,[errorMessage '\n']);  %zobrazim hlasku, zaloguju, ale snad to bude pokracovat dal                            
+                            clear E d tabs fs mults header RjEpoch psychopy H ans; 
                         end    
                     end
                 end

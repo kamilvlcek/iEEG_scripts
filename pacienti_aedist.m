@@ -85,7 +85,7 @@ pacienti(p).epievents = 'p126_aedist_epievents.mat'; %2017
 pacienti(p).rjch = [47 50]; 
 
 p=8;
-% neni hammer header, ani aedist udelane
+% neni hammer header, ani aedist udelane - nedelali jsme 
 % pacienti(p).todo = 1;
 % pacienti(p).folder = 'p119 Buc VT16';
 % pacienti(p).data = 'VT16_2016-10-10_17-11_001_concat_ppa.mat';
@@ -106,7 +106,7 @@ pacienti(p).epievents = 'p130_aedist_epievents.mat'; %2017
 pacienti(p).rjch = [47]; 
 
 p=9;
-% neni hammer header
+% neni hammer header - ma hipp body
 % pacienti(p).todo = 1;
 % pacienti(p).folder = 'p132 Pol VT18';
 % pacienti(p).data = 'VT18_2016-12-06_10-53_001_aedist.mat';
@@ -134,5 +134,26 @@ pacienti(p).psychopy = 'p136_aedist.mat';
 pacienti(p).rjepoch = 'p136_aedist_RjEpoch.mat';
 pacienti(p).epievents = 'p136_aedist_epievents.mat'; %2017 
 pacienti(p).rjch = [47]; 
+
+% je to grid, nejde tam asi udelat bipolarni reference, 
+% p=11;
+% pacienti(p).todo = 1; 
+% pacienti(p).folder = 'p138 Ven VT21';
+% pacienti(p).data = 'VT21_2017-02-28_09-35_001_500hz_concat_aedist.mat';
+% pacienti(p).header = 'p138_header.mat';
+% pacienti(p).psychopy = 'aedist_p138.mat';
+% pacienti(p).rjepoch = 'p138_aedist_RjEpoch.mat';
+% pacienti(p).epievents = 'p138_aedist_epievents.mat'; %2017 
+% pacienti(p).rjch = []; 
+
+p=11;
+pacienti(p).todo = 1;
+pacienti(p).folder = 'p142 Nam VT22';
+pacienti(p).data = 'VT22_2017-03-31_19-27_002_concat_aedist.mat';
+pacienti(p).header = 'p142_header.mat';
+pacienti(p).psychopy = 'aedist_p142.mat';
+pacienti(p).rjepoch = 'p142_aedist_RjEpoch.mat';
+pacienti(p).epievents = 'p142_aedist_epievents.mat'; %2017 
+pacienti(p).rjch = [2 47 81]; 
 end
 

@@ -134,11 +134,17 @@ classdef CiEEGData < handle
         
         function obj = RejectEpochs(obj,RjEpoch,RjEpochCh)
             %ulozi cisla vyrazenych epoch - kvuli prevodu mezi touto tridou a CHilbert
-            obj.RjEpoch = RjEpoch;
-            disp(['globalne vyrazeno ' num2str(numel(RjEpoch)) ' epoch']); 
-            if exist('RjEpochCh','var')
-                obj.RjEpochCh = RjEpochCh; 
-                disp(['+ vyrazeno ' num2str(sum(max(RjEpochCh,[],1))) ' epoch s epi udalostmi podle jednotlivych kanalu']);
+            if RjEpoch ~= 0  %muzu takhle vynechat vlozeni vyrazenych epoch              
+                obj.RjEpoch = RjEpoch; 
+                disp(['globalne vyrazeno ' num2str(numel(RjEpoch)) ' epoch']); 
+            end
+            if exist('RjEpochCh','var') 
+                if ~isempty(RjEpochCh) 
+                    obj.RjEpochCh = RjEpochCh; 
+                    disp(['+ vyrazeno ' num2str(sum(max(RjEpochCh,[],1))) ' epoch s epi udalostmi podle jednotlivych kanalu']);                
+                else %takhle muzu vyrazene epochy vymazat
+                    obj.RjEpochCh = false(obj.channels,obj.epochs); %zadne vyrazene epochy
+                end
             end
             
         end
@@ -484,7 +490,7 @@ classdef CiEEGData < handle
             assert(isfield(obj.Wp, 'WpKatBaseline'),'musi byt spocitana statistika kategorii');
             if ~exist('channels','var') , channels = 1:obj.channels; end
             kats = obj.Wp.kats; 
-            prumery = zeros(numel(channels),size(intervaly,1),1+numel(kats));   % casy x kategorie x channels - celkova data a jednotlive kategorie
+            prumery = zeros(numel(channels),size(intervaly,1),1+numel(kats));   % channels x intervaly x kategorie - celkova data a jednotlive kategorie
             figure('Name','IntervalyResp');
             for j = 1:size(intervaly,1) 
                 subplot(2,ceil(size(intervaly,1) /2),j); %pro kazdy interval jiny subplot
@@ -492,20 +498,22 @@ classdef CiEEGData < handle
                 % dve cisla v kazdem sloupci - od do ve vterinach   
                 iintervalyData = round((intervaly(j,:)-obj.epochtime(1)).*obj.fs); % pro data kde je na zacatku baseline             
                 iintervalyStat = round(intervaly(j,:).*obj.fs); % pro statistiku, kde na zacatku neni baseline              
-                katdata = obj.CategoryData(kats); 
-                iCh = min(obj.Wp.D2(iintervalyStat(1):iintervalyStat(2),channels),[],1) < 0.05; %kanaly kde je signifikantni rozdil vuci baseline, alesponjednou
-                prumery(iCh,j,1) = mean(mean(katdata(iintervalyData(1):iintervalyData(2),iCh,:),3),1); %prumer za vsechy epochy a cely casovy interval
+                %katdata = obj.CategoryData(kats); 
+                %iCh = min(obj.Wp.D2(iintervalyStat(1):iintervalyStat(2),channels),[],1) < 0.05; %kanaly kde je signifikantni rozdil vuci baseline, alesponjednou
+                %prumery(iCh,j,1) = mean(mean(katdata(iintervalyData(1):iintervalyData(2),iCh,:),3),1); %prumer za vsechy epochy a cely casovy interval
                 for k = 1: numel(kats)
-                    katdata = obj.CategoryData(k); 
+                    katdata = obj.CategoryData(kats(k)); 
                     iCh = min(obj.Wp.WpKatBaseline{k,1}(iintervalyStat(1):iintervalyStat(2),channels),[],1) < 0.05; %kanaly kde je signifikantni rozdil vuci baseline, alespon jednou
-                    prumery(iCh,j,1+k) = mean(mean(katdata(iintervalyData(1):iintervalyData(2),iCh,:),3),1);
+                    prumery(iCh,j,1+k) = mean(mean(katdata(iintervalyData(1):iintervalyData(2),iCh,:),3),1); %prumer pres epochy a pak pres cas
                     P = squeeze(prumery(:,j,1+k));
                     plot(P','.-'); %kreslim tuto kategorii
                     hold all;
                 end
-                P = squeeze(prumery(:,j,1)); %nakonec vykreslim prumer vsech kategorii, aby byl nejvic videt
-                plot(P','.-');
-                legend('kat1','kat2','kat3','mean','Location','NorthWest');
+                %P = squeeze(prumery(:,j,1)); %nakonec vykreslim prumer vsech kategorii, aby byl nejvic videt
+                %plot(P','.-');
+                [~, katstr] = obj.PsyData.Categories();
+                legend(katstr,'Location','NorthWest');
+                title(['interval: ' mat2str(intervaly(j,:))]);
             end 
             MNI = obj.CH.GetMNI(channels);
             assert(numel(MNI)==size(prumery,1),'MNI a prumery maji jiny pocet kanalu');
