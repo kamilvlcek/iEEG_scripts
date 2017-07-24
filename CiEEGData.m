@@ -482,7 +482,7 @@ classdef CiEEGData < handle
             disp(['decimated to ' num2str(obj.fs) ' Hz']);
         end
         
-        function [prumery, MNI] = IntervalyResp(obj, intervaly,channels)
+        function [prumery, MNI,names] = IntervalyResp(obj, intervaly,channels)
             %vypocita hodnoty v jednotlivych intervalech casu pro jednotlive kategorie i pro celkovy prumer       
             %vykresli graf pro kazdy interval do spolecneho plotu
             %vraci prumery[channels x intervaly x kategorie] a MNI(channels)
@@ -490,7 +490,7 @@ classdef CiEEGData < handle
             assert(isfield(obj.Wp, 'WpKatBaseline'),'musi byt spocitana statistika kategorii');
             if ~exist('channels','var') , channels = 1:obj.channels; end
             kats = obj.Wp.kats; 
-            prumery = zeros(numel(channels),size(intervaly,1),1+numel(kats));   % channels x intervaly x kategorie - celkova data a jednotlive kategorie
+            prumery = zeros(numel(channels),size(intervaly,1),numel(kats));   % channels x intervaly x kategorie - celkova data a jednotlive kategorie
             figure('Name','IntervalyResp');
             for j = 1:size(intervaly,1) 
                 subplot(2,ceil(size(intervaly,1) /2),j); %pro kazdy interval jiny subplot
@@ -501,12 +501,13 @@ classdef CiEEGData < handle
                 %katdata = obj.CategoryData(kats); 
                 %iCh = min(obj.Wp.D2(iintervalyStat(1):iintervalyStat(2),channels),[],1) < 0.05; %kanaly kde je signifikantni rozdil vuci baseline, alesponjednou
                 %prumery(iCh,j,1) = mean(mean(katdata(iintervalyData(1):iintervalyData(2),iCh,:),3),1); %prumer za vsechy epochy a cely casovy interval
+                colorskat = {[0 0 0],[0 1 0],[1 0 0]}; %barvy jako v PlotResponseCh
                 for k = 1: numel(kats)
                     katdata = obj.CategoryData(kats(k)); 
                     iCh = min(obj.Wp.WpKatBaseline{k,1}(iintervalyStat(1):iintervalyStat(2),channels),[],1) < 0.05; %kanaly kde je signifikantni rozdil vuci baseline, alespon jednou
-                    prumery(iCh,j,1+k) = mean(mean(katdata(iintervalyData(1):iintervalyData(2),iCh,:),3),1); %prumer pres epochy a pak pres cas
-                    P = squeeze(prumery(:,j,1+k));
-                    plot(P','.-'); %kreslim tuto kategorii
+                    prumery(iCh,j,k) = mean(mean(katdata(iintervalyData(1):iintervalyData(2),iCh,:),3),1); %prumer pres epochy a pak pres cas
+                    P = squeeze(prumery(:,j,k));                    
+                    plot(P','.-','Color',colorskat{k}); %kreslim tuto kategorii
                     hold all;
                 end
                 %P = squeeze(prumery(:,j,1)); %nakonec vykreslim prumer vsech kategorii, aby byl nejvic videt
@@ -516,6 +517,7 @@ classdef CiEEGData < handle
                 title(['interval: ' mat2str(intervaly(j,:))]);
             end 
             MNI = obj.CH.GetMNI(channels);
+            names = obj.CH.GetChNames(channels);
             assert(numel(MNI)==size(prumery,1),'MNI a prumery maji jiny pocet kanalu');
         end
         %% PLOT FUNCTIONS

@@ -153,6 +153,16 @@ classdef CHHeader < handle
                 end
             end
         end
+        function [names]=GetChNames(obj,channels)
+            %vrati jmena vsech kanalu jako cell array
+            if ~exist('channels','var'), channels = 1:size(obj.H.channels,2); end
+            names = cell(numel(channels),1);
+            for ch = 1: numel(channels)
+                if strcmpi(obj.H.channels(ch).signalType,'SEEG')
+                    names{ch}=obj.H.channels(ch).name;
+                end
+            end
+        end
         function tch = GetTriggerCh(obj)
             %ziska cislo trigerovaciho kanalu, pokud existuje
             tch = find(strcmp({obj.H.channels.signalType}, 'triggerCh')==1);         
