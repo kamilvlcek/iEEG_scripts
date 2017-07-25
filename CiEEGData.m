@@ -482,18 +482,20 @@ classdef CiEEGData < handle
             disp(['decimated to ' num2str(obj.fs) ' Hz']);
         end
         
-        function [prumery, MNI,names] = IntervalyResp(obj, intervaly,channels)
+        function [prumery, MNI,names,intervaly,katstr] = IntervalyResp(obj, intervaly,channels,dofig)
             %vypocita hodnoty v jednotlivych intervalech casu pro jednotlive kategorie i pro celkovy prumer       
             %vykresli graf pro kazdy interval do spolecneho plotu
             %vraci prumery[channels x intervaly x kategorie] a MNI(channels)
             assert(isfield(obj.Wp, 'kats'),'musi byt definovany kategorie podnetu');
             assert(isfield(obj.Wp, 'WpKatBaseline'),'musi byt spocitana statistika kategorii');
-            if ~exist('channels','var') , channels = 1:obj.channels; end
+            if ~exist('channels','var') || isempty(channels) , channels = 1:obj.channels; end
+            if ~exist('dofig','var'), dofig = 1; end %defaultne delam obrazek
             kats = obj.Wp.kats; 
-            prumery = zeros(numel(channels),size(intervaly,1),numel(kats));   % channels x intervaly x kategorie - celkova data a jednotlive kategorie
-            figure('Name','IntervalyResp');
+            kombinace = [2 1; 3 1 ; 3 2 ]; %kombinace kategorii
+            prumery = zeros(numel(channels),size(intervaly,1),numel(kats)+length(kombinace));   % channels x intervaly x kategorie - celkova data a jednotlive kategorie            
+            if dofig, figure('Name','IntervalyResp'); end
             for j = 1:size(intervaly,1) 
-                subplot(2,ceil(size(intervaly,1) /2),j); %pro kazdy interval jiny subplot
+                if dofig, subplot(2,ceil(size(intervaly,1) /2),j);  end %pro kazdy interval jiny subplot
                 %spocitam prumery celkove i za kazdou kategorii v kazdem casovem intervalu
                 % dve cisla v kazdem sloupci - od do ve vterinach   
                 iintervalyData = round((intervaly(j,:)-obj.epochtime(1)).*obj.fs); % pro data kde je na zacatku baseline             
@@ -507,14 +509,31 @@ classdef CiEEGData < handle
                     iCh = min(obj.Wp.WpKatBaseline{k,1}(iintervalyStat(1):iintervalyStat(2),channels),[],1) < 0.05; %kanaly kde je signifikantni rozdil vuci baseline, alespon jednou
                     prumery(iCh,j,k) = mean(mean(katdata(iintervalyData(1):iintervalyData(2),iCh,:),3),1); %prumer pres epochy a pak pres cas
                     P = squeeze(prumery(:,j,k));                    
-                    plot(P','.-','Color',colorskat{k}); %kreslim tuto kategorii
-                    hold all;
+                    if dofig
+                        plot(P','.-','Color',colorskat{k}); %kreslim tuto kategorii
+                        hold on;
+                    end
+                end
+                for k = 1:length(kombinace)
+                    katdata1 = obj.CategoryData(kats(kombinace(k,1))); 
+                    katdata2 = obj.CategoryData(kats(kombinace(k,2))); 
+                    prumery1 = mean(mean(katdata1(iintervalyData(1):iintervalyData(2),:,:),3),1); %prumer pres epochy a pak pres cas
+                    prumery2 = mean(mean(katdata2(iintervalyData(1):iintervalyData(2),:,:),3),1); %prumer pres epochy a pak pres cas
+                    iCh = min(obj.Wp.WpKat{kombinace(k,2),kombinace(k,1)}(iintervalyStat(1):iintervalyStat(2),channels),[],1) < 0.05;
+                    iCh2 = prumery1>0 | prumery2>0; %chci jen kladne odpovedi
+                    p = prumery1(:) - prumery2(:);                 
+                    prumery(iCh & iCh2,j,k+numel(kats)) = p(iCh & iCh2);
+                    if dofig
+                        plot(prumery(:,j,k+numel(kats))+1,'.-','Color',colorskat{sum(kombinace(k,:))-2}); %kreslim tuto kombinaci kategorii nahoru
+                    end
                 end
                 %P = squeeze(prumery(:,j,1)); %nakonec vykreslim prumer vsech kategorii, aby byl nejvic videt
                 %plot(P','.-');
                 [~, katstr] = obj.PsyData.Categories();
-                legend(katstr,'Location','NorthWest');
-                title(['interval: ' mat2str(intervaly(j,:))]);
+                if dofig
+                    legend(katstr,'Location','NorthWest');
+                    title(['interval: ' mat2str(intervaly(j,:))]);
+                end
             end 
             MNI = obj.CH.GetMNI(channels);
             names = obj.CH.GetChNames(channels);
