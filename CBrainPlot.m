@@ -27,6 +27,10 @@ classdef CBrainPlot < handle
             for p = 1:numel(pacienti)
                 disp(['***   ' pacienti(p).folder '   ***']);
                 E = pacient_load(pacienti(p).folder,'aedist',filename);
+                if isempty(E)
+                    disp('no data');
+                    continue;
+                end
                 [prumery, MNI,names,~,katstr] = E.IntervalyResp( intervals,[],0); %#ok<PROP>    %no figure       
                 clear E;
                 if p==1
@@ -76,6 +80,8 @@ classdef CBrainPlot < handle
             if ~isempty(obj.brainsurface)
                 brainsurface = obj.brainsurface; %#ok<PROP>
             end
+            hybernovat = 0; %jestli chci po konci skriptu pocitac uspat - ma prednost
+            vypnout = 0; %#ok<NASGU> %jestli chci po konci skriptu pocitac vypnout (a nechci ho hybernovat) 
             kombinace = [2 1; 3 1 ; 3 2 ]; %kombinace kategorii
             figureVisible = 'off';   %nechci zobrazovat obrazek 
             tic; %zadnu meric cas
@@ -112,6 +118,11 @@ classdef CBrainPlot < handle
                 end
             end
             toc; %ukoncim mereni casu a vypisu
+            if hybernovat
+                system('shutdown -h') 
+            elseif vypnout            %#ok<UNRCH>
+                system('shutdown -s') 
+            end
         end
     end
     
