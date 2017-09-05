@@ -663,6 +663,7 @@ classdef CiEEGData < handle
                 obj.plotH = figure('Name','Electrode Plot'); %zatim zadny neni, novy obrazek                 
             else
                 figure(obj.plotH);  %kreslim do existujiciho plotu
+                clf; %smazu graf - jinak mi to ted blbne pri posunu
             end
             
             % -------- nastavim rozsah elektrod k zobrazeni -----------------
@@ -1017,8 +1018,9 @@ classdef CiEEGData < handle
             if ~isempty(h_mean)
                 uistack(h_errbar, 'top');
                 uistack(h_mean, 'top'); %uplne nahoru dam prumer vsech kategorii
-            end            
-            title(['channel ' num2str(ch) ' - ' obj.PsyData.PacientID()]); % v titulu obrazku bude i pacientID napriklad p132-VT18
+            end 
+            
+            title(['channel ' num2str(ch) ' - ' obj.PacientID()]); % v titulu obrazku bude i pacientID napriklad p132-VT18
             text(-0.1,ymax*.95,[ obj.CH.H.channels(1,ch).name ' : ' obj.CH.H.channels(1,ch).neurologyLabel ',' obj.CH.H.channels(1,ch).ass_brainAtlas]);
             if  isfield(obj.CH.H.channels,'MNI_x') %vypisu MNI souradnice
                 text(-0.1,ymax*.90,[ 'MNI:' num2str(obj.CH.H.channels(1,ch).MNI_x) ',' num2str(obj.CH.H.channels(1,ch).MNI_y ) ',' num2str(obj.CH.H.channels(1,ch).MNI_z)]);
@@ -1421,6 +1423,13 @@ classdef CiEEGData < handle
                     %ylim( [ymin ymax].*1.1); %udelam rozsah y o 10% vetsi
                     assert(ymin~=ymax,'nemuzu urcit rozsah osy y - prazdna data?');
                     obj.plotRCh.ylim = [ymin ymax];
+            end
+        end
+        function id = PacientID(obj)
+            %vraci oznaceni pacienta, bud z CPsyData nebo z CHHeader
+            id= obj.PsyData.PacientID();
+            if isempty(id) || numel(id)<=1
+                id = obj.CH.PacientTag();
             end
         end
     end
