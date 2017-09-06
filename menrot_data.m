@@ -1,4 +1,4 @@
-function [aedist] = menrot_data(pacientid,U1,U2,tabs)
+function [menrot] = menrot_data(pacientid,U1,U2,tabs)
 %AEDIST_DATA vytvori a vraci strukturu s udalostmi experimentu AEdist
 % pacientid - id pacienta, napriklad p85, podle pojmenovani vystupni tabulky AEdistData.php.
 % U1 a U2 vystup z udalosti2() - casy synchropulsu k podnedu a odpovedi
@@ -12,7 +12,7 @@ data(:,9) = data(:,7)*2+data(:,8); %kategorie vy/znacka a 2D/3D
 data(:,7:8) = [];
 
 if size(U1,1) ~= size(data,1) || size(U2,1) ~= size(data,1)
-    disp('ruzne delky dat a  udalosti, nelze zpracovat!');
+    disp(['ruzne delky dat (' num2str(size(data,1)) ') a  udalosti (' num2str(size(U1,1)) ',' num2str(size(U2,1)) '), nelze zpracovat!']);
     return;
 end
 data(:,8)=U1(:,2);
@@ -42,11 +42,11 @@ podminka(2,:)={'vy-3D' 1};
 podminka(3,:)={'znacka-2D' 2};
 podminka(4,:)={'znacka-3D' 3};
 
-aedist = struct('data',data,'sloupce',sloupce);
-aedist.strings.klavesa = klavesa;
-aedist.strings.podminka = podminka; %kategorie, aby nazev byl stejny jako u PPA
+menrot = struct('data',data,'sloupce',sloupce);
+menrot.strings.klavesa = klavesa;
+menrot.strings.podminka = podminka; %kategorie, aby nazev byl stejny jako u PPA
 
 %timestampy zacatku a konce dat z testu
-aedist.interval = [tabs(1) tabs(end)];
+menrot.interval = [tabs(1) tabs(end)];
 end
 

@@ -111,7 +111,7 @@ classdef CiEEGData < handle
             %nacte header z promenne H - 25.5.2016
             obj.CH = CHHeader(H);
             [~, ~, obj.els] = obj.CH.ChannelGroups();  
-            assert(max(obj.els)<=size(obj.d,2),'nesouhlasi pocet elektrod - spatny header?');
+            assert(max(obj.els)<=size(obj.d,2),['nesouhlasi pocet elektrod (data:' num2str(size(obj.d,2)) ',header:' num2str(max(obj.els)) ') - spatny header?']);
             disp(['header nacten: ' obj.CH.PacientTag() ', triggerch: ' num2str(obj.CH.GetTriggerCh())]);
         end
          
@@ -167,7 +167,7 @@ classdef CiEEGData < handle
             end
             
             if obrazek &&  isempty(NEpi)
-                obj.PL.EpochsEpi(obj.RjEpochCh,obj.els,obj.CH);
+                obj.PL.EpochsEpi(obj.RjEpochCh,obj.els,obj.CH); %graf Rejected epochs in individual channels
             end                        
         end
         
@@ -935,9 +935,9 @@ classdef CiEEGData < handle
             % POTOM JEDNOTLIVE KATEGORIE
             if exist('kategories','var') || exist('opakovani','var') %kategorie vykresluju jen pokud mam definovane karegorie                   
                 hue = 0.8;
-                colorskat = {[0 0 0],[0 1 0],[1 0 0]; [hue hue hue],[hue 1 hue],[1 hue hue]}; % prvni radka - prumery, druha radka errorbars = svetlejsi
+                colorskat = {[0 0 0],[0 1 0],[1 0 0],[0 0 1]; [hue hue hue],[hue 1 hue],[1 hue hue],[hue hue 1]}; % prvni radka - prumery, druha radka errorbars = svetlejsi
                 h_kat = zeros(numel(kategories),1); 
-                for k= 1 : numel(kategories) %index 1-3
+                for k= 1 : numel(kategories) %index 1-3 (nebo 4)
                     if exist('opakovani','var') && ~isempty(opakovani)
                         opaknum = kategories{k}; %v kategories jsou opakovani k vykresleni, a je to cell array
                         [katdata,~,RjEpCh] = obj.CategoryData(KATNUM,[],opaknum); %eegdata - epochy pro tato opakovani
@@ -1020,7 +1020,7 @@ classdef CiEEGData < handle
                 uistack(h_mean, 'top'); %uplne nahoru dam prumer vsech kategorii
             end 
             
-            title(['channel ' num2str(ch) ' - ' obj.PacientID()]); % v titulu obrazku bude i pacientID napriklad p132-VT18
+            title(['channel ' num2str(ch) ' - ' obj.PacientID()], 'Interpreter', 'none'); % v titulu obrazku bude i pacientID napriklad p132-VT18
             text(-0.1,ymax*.95,[ obj.CH.H.channels(1,ch).name ' : ' obj.CH.H.channels(1,ch).neurologyLabel ',' obj.CH.H.channels(1,ch).ass_brainAtlas]);
             if  isfield(obj.CH.H.channels,'MNI_x') %vypisu MNI souradnice
                 text(-0.1,ymax*.90,[ 'MNI:' num2str(obj.CH.H.channels(1,ch).MNI_x) ',' num2str(obj.CH.H.channels(1,ch).MNI_y ) ',' num2str(obj.CH.H.channels(1,ch).MNI_z)]);
@@ -1172,7 +1172,8 @@ classdef CiEEGData < handle
             obj.samples = sce(1); obj.channels=sce(2); obj.epochs = sce(3); 
             vars = whos('-file',filename);
             if ismember('PsyDataP', {vars.name})
-                load(filename,'PsyDataP'); obj.PsyData = CPsyData(PsyDataP);%  %vytvorim objekt psydata ze struktury
+                load(filename,'PsyDataP'); 
+                if ~isempty(PsyDataP), obj.PsyData = CPsyData(PsyDataP); end%  %vytvorim objekt psydata ze struktury
             else
                 load(filename,'PsyData');  obj.PsyData = PsyData ; %#ok<CPROPLC,CPROP,PROP>  %  %drive ulozeny objekt, nez jsem zavedl ukladani struct
             end

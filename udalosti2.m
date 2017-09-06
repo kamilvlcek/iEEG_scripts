@@ -1,4 +1,4 @@
-function [ UU ] = udalosti2( d, fs, tabs, nahoru, mults,kresli, interval, diffsec,threshold)
+function [ UU ] = udalosti2( d, fs, tabs, nahoru, mults,kresli, interval, diffsec,threshold,exclude)
 %UDALOSTI vrati indexy udalosti v poli d a jejich timestampy
 %pouziva se pro import dat z Motola do EEGlabu
 %udalosti2( d, fs, tabs, nahoru, mults,kresli, interval, diffsec,threshold)
@@ -22,8 +22,11 @@ end
 if ~exist('diffsec','var') || isempty(diffsec)
     diffsec = 0.125; %nejmensi interval mezi nasledujicimi udalostim
 end
-if ~exist('threshold','var') 
+if ~exist('threshold','var')  || isempty(threshold)
     threshold = 2000; %hodnota kterou vsechny udalosti prekracuji
+end
+if ~exist('exclude','var') 
+    exclude = []; %hodnota kterou vsechny udalosti prekracuji
 end
 if size(d,2) > 1    
     LPT = size(d,2)-2; %synchronizace byva 2 kanaly pred koncem - pred EKG
@@ -64,6 +67,9 @@ end
 iU = U(:,7)<interval(1) | U(:,7)>interval(2);
 U(iU,:)=[]; %**********
 
+if ~isempty(exclude)
+    U(exclude,:) = [];
+end
 if kresli == 1 %defaultni obrazek
     figure('Name','Udalosti na synchronizacnim pulsu'); 
     subplot(2,1,1); %prvni obrazek se sychronizacnimi pulsy a pres nej udalostmi

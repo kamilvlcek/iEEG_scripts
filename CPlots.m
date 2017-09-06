@@ -42,7 +42,7 @@ classdef CPlots < handle
             end
             line([1 CHH.H.selCh_H(end)],[0.30 0.30],'Color','red');
             spatne = find(pocty >= 0.30); 
-            disp(['kanaly s pocet vyrazenych epoch >= 0.3:' mat2str(spatne)]);                
+            disp(['kanaly s podilem vyrazenych epoch >= 0.3:' mat2str(spatne)]);                
         end
     end
     
