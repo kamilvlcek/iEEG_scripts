@@ -9,20 +9,20 @@ basedir = 'd:\eeg\motol\pacienti\';
 timewindow =  [-0.2 1.2];  % hranice epochy [-0.3 0.8] PPA, zarovnani podle odpovedi/podnetu [-1 1]; [-0.2 1.2] AEdist
 baseline = [-0.5 -0.2]; %baseline [-1 0.8]; [-0.5 -0.2] Aedist 2017
 suffix = 'Ep2017'; %Ep
-prefix = 'AEdist'; %musi byt bud AlloEgo, PPA, AEdist
-stat_kats = [0 1 2];  % PPA [2 3 1] Face, Object, Scene ; AEdist [0 1 2] Control, Ego, Allo; 
+prefix = 'Menrot'; %musi byt bud AlloEgo, PPA, AEdist
+stat_kats = [0 1 2 3];  % PPA [2 3 1] Face, Object, Scene ; AEdist [0 1 2] Control, Ego, Allo; 
 stat_opak = {}; %{[1 2],[4 5]}; %PPA opakovani 12 vs 45
-subfolder = 'Aedist'; %podadresar, specificky pro test, muze byt prazdne pokud se nepouzivaji podadresare
+subfolder = 'menrot'; %podadresar, specificky pro test, muze byt prazdne pokud se nepouzivaji podadresare
 
 frekvence = struct;
 f=1;
 frekvence(f).todo = 0;
 frekvence(f).freq = [];
-frekvence(f).freqname = 'ERP'; % slow gamma
+frekvence(f).freqname = 'ERP'; % ERP
 f=2;
 frekvence(f).todo = 0;
 frekvence(f).freq = 50:5:150;
-frekvence(f).freqname = '50-150'; % slow gamma
+frekvence(f).freqname = '50-150'; % broad band gamma
 f=3;
 frekvence(f).todo = 0;
 frekvence(f).freq = 7:2:15;
@@ -51,7 +51,7 @@ frekvence(f).prekryv = 0.5; % 50% prekryv sousednich frekvencnich pasem
 
 refence = struct;
 r=1;
-reference(r).todo = 0;
+reference(r).todo = 1;
 reference(r).name = 'refOrig';
 reference(r).char = '';
 r=2;
@@ -67,20 +67,26 @@ reference(r).todo = 1;
 reference(r).name = 'refBipo';
 reference(r).char = 'b';
 
-pacienti = pacienti_aedist(); %nactu celou strukturu pacientu
-logfilename = ['logs\BatchHilbert_AEdist_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') '.log'];
+pacienti = pacienti_menrot(); %nactu celou strukturu pacientu
+logfilename = ['logs\BatchHilbert_Menrot_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') '.log'];
 [fileID,message] = fopen(logfilename,'wt'); %soubor na logovani prubehu
-assert(fileID>=0,['nemohu otevrit soubor pro cteni: ' logfilename ]);
+assert(fileID>=0,['nemohu otevrit soubor pro zapis: ' logfilename ]);
 
 %nejdriv overim, jestli existuje vsechno co potrebuju nacist
 chybasoubor = false;
 for p = 1:numel(pacienti)
     if pacienti(p).todo 
+        
         if(exist([basedir pacienti(p).folder '\' pacienti(p).data],'file')~=2)
-            msg = ['Data neexistuji: ' pacienti(p).folder '\\' pacienti(p).data];
-            disp(msg); fprintf(fileID,[msg '\n']);
-            chybasoubor = true; 
+            if(exist([basedir pacienti(p).folder '\' subfolder '\'  pacienti(p).data],'file')~=2)
+                msg = ['Data neexistuji: ' pacienti(p).folder '\\' pacienti(p).data];
+                disp(msg); fprintf(fileID,[msg '\n']);
+                chybasoubor = true; 
+            else
+                datafolder = ['\' subfolder];
+            end
         else
+            datafolder = '' ;
             fprintf(fileID,[ 'OK: ' pacienti(p).folder '\\' pacienti(p).data  '\n']);
         end;
         if(exist([basedir pacienti(p).folder '\' pacienti(p).header],'file')~=2)
@@ -158,15 +164,17 @@ for f=1:numel(frekvence)
                             elseif overwrite == 0
                                 disp(['soubor zatim neexistuje - zpracovavam: ' outfilename suffixclass]); 
                             end
-                            load([basedir pacienti(p).folder '\' pacienti(p).data]);
+                            load([basedir pacienti(p).folder datafolder '\' pacienti(p).data]);
                             load([basedir pacienti(p).folder '\' pacienti(p).header]);
                             load([basedir pacienti(p).folder '\' subfolder '\' pacienti(p).psychopy]);
                             if strcmp(prefix,'PPA')
                                 psychopy = ppa; clear ppa;
                             elseif strcmp(prefix ,'AEdist')
-                                psychopy = aedist; clear aedistl
+                                psychopy = aedist; clear aedist;
+                            elseif strcmp(prefix ,'Menrot')
+                                psychopy = menrot; clear menrot;
                             else
-                                msg = ['neznamy typ testu ' prefix'];
+                                msg = ['neznamy typ testu ' prefix];
                                 fprintf(fileID,[msg '\n']);
                                 error(msg);
                             end
