@@ -1,6 +1,6 @@
 %15.9.2016 - AlloEgo zarovnani podle odpovedi
 %25.5.2017 - Pridani reference a ERP
-hybernovat = 0; %jestli chci po konci skriptu pocitac uspat - ma prednost
+hybernovat = 1; %jestli chci po konci skriptu pocitac uspat - ma prednost
 vypnout = 0; %jestli chci po konci skriptu pocitac vypnout (a nechci ho hybernovat) 
 pouzetest = 0; %jestli chci jen otestovat pritomnost vsech souboru 
 overwrite = 1; %jestil se maji prepsat puvodni data, nebo ohlasit chyba a pokracovat v dalsim souboru 
