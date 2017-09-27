@@ -7,7 +7,8 @@ classdef CHHeader < handle
         %E; % unikatni jmena elektrod, napr RG, I, GC ...
         chgroups;
         els;
-        RjCh; 
+        RjCh;
+        BrainAtlas_zkratky; %tabulka od Martina Tomaska
     end
     
     methods (Access = public)
@@ -177,6 +178,26 @@ classdef CHHeader < handle
             end
             tch = find(strcmp({obj.H.channels.signalType}, 'triggerCh')==1);
         end
+        function [mozek] = GetBrainNames(obj)
+            % najde popisy mist v mozku podle tabulky od Martina
+            % TODO jeste neumi dve struktury s /
+            % a s otaznikem na konci
+            load('BrainAtlas_zkratky.mat'); %nactu tabulku od Martina Tomaska
+            obj.BrainAtlas_zkratky = BrainAtlas_zkratky; %#ok<CPROP>
+            mozek = cell(numel(obj.H.channels),2);
+            for ch=1:numel(obj.H.channels)
+                label = obj.H.channels(ch).neurologyLabel;   % Martinovo label tohoto kanalu
+                mozek{ch,1} = label;
+                znak = strfind(label,'/');
+                if ~isempty(znak) %pokud se jedna o dva labely oddelene lomitkem
+                    label1= label(1:znak-1);
+                    label2 = label(znak+1:end);
+                    mozek{ch,2} = [obj.brainlabel(label1) '/' obj.brainlabel(label2)];
+                else
+                    mozek{ch,2} = obj.brainlabel(label) ;
+                end                
+            end
+        end
     end
     
     %  --------- privatni metody ----------------------
@@ -195,7 +216,25 @@ classdef CHHeader < handle
             end
             
             obj.H.selCh_H = selCh_H;
-        end
+          end  
+          function [bl] = brainlabel(obj,label)
+            %vrati jmeno struktury podle tabulky, pripadne doplni otaznik na konec             
+            znak = strfind(label,'?');
+            if ~isempty(znak)
+                label = label(1:znak-1); % label bez otazniku
+            end
+            iL = find(strcmp(obj.BrainAtlas_zkratky,label));   
+            if isempty(iL) %zadne label nenalezeno
+                bl = '';
+            elseif(numel(iL)>1) % vic nez jedno label nalezeno
+                bl = [num2str(numel(iL)) ' labels'];
+            else
+                bl = obj.BrainAtlas_zkratky{iL,2};            
+                if ~isempty(znak)
+                    bl = [bl '?'];
+                end
+            end
+          end
     end
     
 end
