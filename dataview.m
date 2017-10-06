@@ -32,8 +32,9 @@ end
 
 pauzyvdatech = kontrolacasu(tabs(iStart:iKonec),fs);
 if numel(pauzyvdatech) > 0
-    disp('chyby datech mezi zacatkem a koncem, koncim');
-    return;
+    disp('chyby datech mezi zacatkem a koncem');
+    m=input('Do you want to continue, Y/N [N]:','s');
+    if m~='y',  return; end    
 end
 
 figure('Name','Synchronizace');

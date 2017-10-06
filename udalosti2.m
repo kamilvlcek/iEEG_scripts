@@ -96,6 +96,7 @@ if kresli == 1 %defaultni obrazek
     blokyzac(:,2) = U(blokyzac(:,1),1)./fs; %cas zacatku bloku ve vterinach
     for b = 1:size(blokyzac,1)
         text(blokyzac(b,2),5,num2str(blokydelka(b)));
+        text(blokyzac(b,2),6,num2str(blokyzac(b,1)));
     end
 end;
 
