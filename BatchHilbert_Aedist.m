@@ -70,17 +70,22 @@ reference(r).char = 'b';
 pacienti = pacienti_aedist(); %nactu celou strukturu pacientu
 logfilename = ['logs\BatchHilbert_AEdist_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') '.log'];
 [fileID,message] = fopen(logfilename,'wt'); %soubor na logovani prubehu
-assert(fileID>=0,['nemohu otevrit soubor pro cteni: ' logfilename ]);
+assert(fileID>=0,['nemohu otevrit soubor pro zapis: ' logfilename ]);
 
 %nejdriv overim, jestli existuje vsechno co potrebuju nacist
 chybasoubor = false;
 for p = 1:numel(pacienti)
     if pacienti(p).todo 
         if(exist([basedir pacienti(p).folder '\' pacienti(p).data],'file')~=2)
-            msg = ['Data neexistuji: ' pacienti(p).folder '\\' pacienti(p).data];
-            disp(msg); fprintf(fileID,[msg '\n']);
-            chybasoubor = true; 
+            if(exist([basedir pacienti(p).folder '\' subfolder '\'  pacienti(p).data],'file')~=2)
+               msg = ['Data neexistuji: ' pacienti(p).folder '\\' pacienti(p).data];
+               disp(msg); fprintf(fileID,[msg '\n']);
+               chybasoubor = true; 
+            else
+               datafolder = ['\' subfolder];
+            end
         else
+            datafolder = '' ;
             fprintf(fileID,[ 'OK: ' pacienti(p).folder '\\' pacienti(p).data  '\n']);
         end;
         if(exist([basedir pacienti(p).folder '\' pacienti(p).header],'file')~=2)
@@ -158,13 +163,15 @@ for f=1:numel(frekvence)
                             elseif overwrite == 0
                                 disp(['soubor zatim neexistuje - zpracovavam: ' outfilename suffixclass]); 
                             end
-                            load([basedir pacienti(p).folder '\' pacienti(p).data]);
+                            load([basedir pacienti(p).folder datafolder '\' pacienti(p).data]);
                             load([basedir pacienti(p).folder '\' pacienti(p).header]);
                             load([basedir pacienti(p).folder '\' subfolder '\' pacienti(p).psychopy]);
                             if strcmp(prefix,'PPA')
                                 psychopy = ppa; clear ppa;
                             elseif strcmp(prefix ,'AEdist')
                                 psychopy = aedist; clear aedistl
+                            elseif strcmp(prefix ,'Menrot')
+                                psychopy = menrot; clear menrot;
                             else
                                 msg = ['neznamy typ testu ' prefix'];
                                 fprintf(fileID,[msg '\n']);

@@ -45,7 +45,7 @@ pacienti = struct;
 % pacienti(p).rjch = [47]; %#ok<NBRAK>
 % 
 p=5;
-pacienti(p).todo = 1;
+pacienti(p).todo = 0;
 pacienti(p).folder = 'p096 Gro VT12';
 pacienti(p).data = 'VT12_2016-01-26_10-16_002_menrot.mat';
 pacienti(p).header = 'P96_header.mat';
@@ -67,7 +67,7 @@ pacienti(p).rjch = [47]; %#ok<NBRAK>
 % 
 
 p=7;
-pacienti(p).todo = 1;
+pacienti(p).todo = 0;
 pacienti(p).folder = 'p110 Sou VT14';
 pacienti(p).data = 'P110_2016-06-08_15-56_001_concat_menrot.mat';
 pacienti(p).header = 'p110_header.mat';
@@ -77,7 +77,7 @@ pacienti(p).epievents = 'p110_menrot_epievents.mat'; %2017
 pacienti(p).rjch = [47]; %#ok<NBRAK>
 
 p=8;
-pacienti(p).todo = 1;
+pacienti(p).todo = 0;
 pacienti(p).folder = 'p126 Sve VT15';
 pacienti(p).data = 'VT15_2016-09-06_09-18_001_concat_menrot.mat';
 pacienti(p).header = 'P126_header.mat';
@@ -98,7 +98,7 @@ pacienti(p).rjch = [47 50];
 % pacienti(p).rjch = [47 50]; 
 
 p=10;
-pacienti(p).todo = 1;
+pacienti(p).todo = 0;
 pacienti(p).folder = 'p130 Koc VT17';
 pacienti(p).data = 'VT17_2016-10-24_15-41_001_concat_menrot.mat';
 pacienti(p).header = 'p130_header.mat';
@@ -154,7 +154,7 @@ p=15; %kamil 6.9.2017
 pacienti(p).todo = 1; 
 pacienti(p).folder = 'p142 Nam VT22';
 pacienti(p).data = 'VT22_2017-04-5_10-31_002_concat_500Hz_menrot.mat';
-pacienti(p).header = 'p142_header.mat';
+pacienti(p).header = 'p142_64ch_header.mat';
 pacienti(p).psychopy = 'p142_menrot.mat';
 pacienti(p).rjepoch = 'menrot_RjEpoch.mat';
 pacienti(p).epievents = 'p142_menrot_epievents.mat'; %2017 
