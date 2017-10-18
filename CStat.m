@@ -80,7 +80,8 @@ classdef CStat
             %[frequencies,fft_d_abs]=Fourier(dd,fs) 
             % spocita Fourierovu fransformaci dat z jednoho kanalu 
             %predpoklada data s casem v prvnim rozmeru, ostatni rozmery nejsou nebo 1
-            % 4.5.2017 kopie z CiEEGdata.Fourier           
+            % 4.5.2017 kopie z CiEEGdata.Fourier
+            if ~exist('method','var'), method = 'pwelch'; end 
             switch method   
                 
                 case 'fft'

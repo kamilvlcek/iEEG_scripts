@@ -426,6 +426,7 @@ classdef CiEEGData < handle
             xlim(freq);
             %set(gca,'xlim',[0 max(frex)*2])
             title(['Power spectral density by ' method ' in channels ' num2str(channels)]);
+            ylabel('PSD [ 10*log10(uV ^{2} / Hz) ]');
             if numel(channels) > 1
                 legendCell = cellstr(num2str(channels','Ch=%-d'));
                 legend(legendCell);
