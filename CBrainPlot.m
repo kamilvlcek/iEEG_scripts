@@ -129,7 +129,10 @@ classdef CBrainPlot < handle
         function PAC = StructFind(struktura,label,testname)
             %najde pacienty, jejich headery obsahuji mozkovou strukturu
             %struktura je nazev struktury podle atlas napriklad hippo, label je kratky nazev podle martina, napriklad hi
+            if ~exist('label','var'),    label = struktura; end %defaultni test
             if ~exist('testname','var'), testname = 'aedist'; end %defaultni test
+            if ischar(struktura), struktura = {struktura}; end %prevedu na cell array
+            if ischar(label), label = {label}; end %prevedu na cell array
             if strcmp(testname,'aedist')
                 pacienti = pacienti_aedist(); %nactu celou strukturu pacientu    
             end
@@ -144,20 +147,25 @@ classdef CBrainPlot < handle
                     disp(['header ' hfilename ' neexistuje']);
                 end
                 ii = ~cellfun(@isempty,{H.channels.neurologyLabel}); %neprazdne cells
-                indexNL = find(~cellfun('isempty',strfind(lower({H.channels(ii).neurologyLabel}),lower(label)))); 
-                ii = ~cellfun(@isempty,{H.channels.ass_brainAtlas}); %neprazdne cells
-                indexBA = find(~cellfun('isempty',strfind(lower({H.channels(ii).ass_brainAtlas}),lower(struktura))));
-                ii = ~cellfun(@isempty,{H.channels.ass_cytoarchMap}); %neprazdne cells
-                indexCM = find(~cellfun('isempty',strfind(lower({H.channels(ii).ass_cytoarchMap}),lower(struktura))));
-                index = union(union(indexNL,indexBA),indexCM); %vsechny tri dohromady
+                index = [];
+                for jj = 1:size(label,2)
+                    index = [index find(~cellfun('isempty',strfind(lower({H.channels(ii).neurologyLabel}),lower(label{jj}))))];  %#ok<AGROW>
+                end
+                iiBA = ~cellfun(@isempty,{H.channels.ass_brainAtlas}); %neprazdne cells
+                iiCM = ~cellfun(@isempty,{H.channels.ass_cytoarchMap}); %neprazdne cells
+                for jj = 1:size(struktura,2)
+                    index = [ index find(~cellfun('isempty',strfind(lower({H.channels(iiCM).ass_cytoarchMap}),lower(struktura{jj}))))]; %#ok<AGROW>
+                    index = [ index find(~cellfun('isempty',strfind(lower({H.channels(iiBA).ass_brainAtlas}),lower(struktura{jj}))))]; %#ok<AGROW>
+                end
+                index = union(index,[]); %vsechny tri dohromady
                 %vrati indexy radku ze struct array, ktere obsahuji v sloupci neurologyLabel substring struktura
                 for ii = 1:numel(index)                
-                    PAC(iPAC).pacient = pacienti(p).folder;
-                    PAC(iPAC).ch = index(ii);
-                    PAC(iPAC).name = H.channels(index(ii)).name;
-                    PAC(iPAC).neurologyLabel = H.channels(index(ii)).neurologyLabel;
-                    PAC(iPAC).ass_brainAtlas = H.channels(index(ii)).ass_brainAtlas;
-                    PAC(iPAC).ass_cytoarchMap = H.channels(index(ii)).ass_cytoarchMap;
+                    PAC(iPAC).pacient = pacienti(p).folder; %#ok<AGROW>
+                    PAC(iPAC).ch = index(ii); %#ok<AGROW>
+                    PAC(iPAC).name = H.channels(index(ii)).name; %#ok<AGROW>
+                    PAC(iPAC).neurologyLabel = H.channels(index(ii)).neurologyLabel; %#ok<AGROW>
+                    PAC(iPAC).ass_brainAtlas = H.channels(index(ii)).ass_brainAtlas;%#ok<AGROW>
+                    PAC(iPAC).ass_cytoarchMap = H.channels(index(ii)).ass_cytoarchMap; %#ok<AGROW>
                     iPAC = iPAC + 1;
                 end
             end
