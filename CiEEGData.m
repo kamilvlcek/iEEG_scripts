@@ -1081,18 +1081,21 @@ classdef CiEEGData < handle
             %since 27.4.2017
             assert(isobject(obj.CH),'Hammer header not loaded');
             assert(isobject(obj.DE),'Epievents not loaded');
-            [evts,names,epochs,evts_nonseeg] = obj.DE.CountEpiEvents(obj.CH,obj.epochs,obj.tabs,obj.tabs_orig); %#ok<PROP>
-                        
+            [evts,names,epochs,evts_nonseeg] = obj.DE.CountEpiEvents(obj.CH,obj.epochs,obj.tabs,obj.tabs_orig); %#ok<PROP>            
+            [seizureOnset,interIctal]=obj.CH.GetSeizures(); %indexy interictalOften a seizureOnset kanalu 
             figure('Name','Epievents in individual channels');
             if obj.epochs > 1
                 subplot(2,1,1);                
             end
             
             plot(evts,'.-');
+            hold on;
+            plot(seizureOnset,repmat(40,1,numel(seizureOnset)),'o','Color','red','MarkerFaceColor', 'red'); %cervene o jsou seizure onset
+            plot(interIctal,repmat(40,1,numel(interIctal)),'o','Color','magenta','MarkerSize', 10);
             set(gca,'xtick',obj.CH.H.selCh_H ,'xticklabel',names); %znacky a popisky osy y
             for el = 1:numel(obj.els)-1
                 line([obj.els(el) obj.els(el)]+1,[0 max(evts)],'Color',[0.5 0.5 0.5]);
-            end
+            end            
             xlabel('channels');
             title('pocet epi eventu celkove');
             disp(['celkem vykresleno epieventu: ' num2str(sum(evts)) ', + nevykresleno ' num2str(evts_nonseeg) ' v non eeg kanalech']);

@@ -198,6 +198,16 @@ classdef CHHeader < handle
                 end                
             end
         end
+        function [seizureOnset,interIctal]=GetSeizures(obj)
+            %vrati indexy kanalu, ktere maji seizureOnset=1 nebo interictalOften=1
+            if isfield(obj.H.channels,'seizureOnset')
+               seizureOnset = find(cellfun(@any,{obj.H.channels.seizureOnset}));
+               interIctal = find(cellfun(@any,{obj.H.channels.interictalOften}));
+            else
+               seizureOnset = [];
+               interIctal = [];
+            end    
+        end
     end
     
     %  --------- privatni metody ----------------------
