@@ -8,6 +8,7 @@ classdef CStat
     methods (Static,Access = public)
         
         function W = Wilcox2D(A,B,print,fdr,msg,RjEpChA,RjEpChB)
+            %Wilcox2D(A,B,print,fdr,msg,RjEpChA,RjEpChB)
             %srovna dve 3D matice proti sobe, ohledne hodnot v poslednim rozmeru
             %A musi mit oba prvni rozmery > rozmery B, 
             %B muze mit jeden nebo oba prvni rozmer = 1 - pak se porovnava se vsemi hodnotami v A

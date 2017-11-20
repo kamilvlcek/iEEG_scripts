@@ -23,7 +23,7 @@ classdef CHilbert < CiEEGData
             obj@CiEEGData(d,tabs,fs,mults,header); %volani konstruktoru nemuze byt v if bloku 
             try                
                 if ~isempty(obj.Hf)
-                    disp(['Frequency bands: ' num2str(numel(obj.Hf)) ': ' num2str(obj.Hf(1)) ' - ' num2str(obj.Hf(end)) ' Hz' ]);
+                    disp(['Frequency bands: ' num2str(numel(obj.Hf)) ': ' num2str(obj.Hf(1)) ':' num2str(obj.Hf(2)-obj.Hf(1)) ':' num2str(obj.Hf(end)) ' Hz' ]);
                 else
                     disp('no Frequency bands');
                 end

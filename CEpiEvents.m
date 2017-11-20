@@ -133,11 +133,11 @@ classdef CEpiEvents < handle
                 tabs = [ objtabs(1,e)' objtabs(end,e)' ]; % %zacatky a konce zobrazenych epoch
                 [epitime, ~, chans] = obj.GetEvents( tabs,CHH.GetChOK(),objtabs_orig(1));                 
                 if NEpi
-                    if numel(epitime) >= NEpi
+                    if numel(unique(chans)) >= NEpi %pokud je kanalu s epi eventama vice nez NEpi
                         RjEpoch = unique( [RjEpoch e]); %pridam epochu do seznamu, pokud tam jeste neni
                         vyrazeno = vyrazeno +1;
                     end
-                elseif numel(epitime) > 0
+                elseif size(epitime,1) > 0
                     RjEpochCh(unique(chans),e) = true;
                     vyrazeno = vyrazeno + 1;
                 end

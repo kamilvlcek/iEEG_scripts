@@ -172,9 +172,11 @@ classdef CHHeader < handle
             %nastavi, ze kanal je trigger
             if ~exist('trigger','var'), trigger = 1; end 
             if trigger == 1  %defaultne nastavi, ze kanal je trigger
-                obj.H.channels(tch).signalType = 'triggerCh'; 
+                obj.H.channels(tch).signalType = 'triggerCh';
+                obj.H.triggerCH = tch;
             else
                 obj.H.channels(tch).signalType = 'SEEG'; %nebo nastavi ze to naopak neni trigger
+                obj.H.triggerCH = [];
             end
             tch = find(strcmp({obj.H.channels.signalType}, 'triggerCh')==1);
         end

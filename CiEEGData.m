@@ -74,8 +74,12 @@ classdef CiEEGData < handle
                 obj.RjEpochCh = false(obj.channels,1); %zatim nejsou zadne epochy
                 disp('vytvoren objekt CiEEGData'); 
             end
-            disp(['epochs: ' num2str(obj.epochs) ', rejected: ' num2str(numel(obj.RjEpoch)), '; channels: ' num2str(obj.channels) ', rejected: ' num2str(numel(obj.RjCh)) ...
-                ', fs: ' num2str(obj.fs)]); 
+            fprintf('epochs: %i, rejected %i (RjEpochCh %i), epochtime: [',obj.epochs,numel(obj.RjEpoch),sum(max(obj.RjEpochCh,[],1)));
+            fprintf('%.1f ',obj.epochtime); 
+            fprintf('], baseline: [');
+            fprintf('%.1f ',obj.baseline);
+            fprintf('] \n');
+            fprintf('channels: %i, rejected: %i, fs: %i \n',obj.channels, numel(obj.RjCh),obj.fs);                        
             disp(['reference: ' obj.reference]);            
             if ~isempty(obj.DE) 
                     disp(['epievents: ' num2str(size(obj.DE.d,1))]);
@@ -338,7 +342,8 @@ classdef CiEEGData < handle
                 if iscell(opakovani) 
                     assert(numel(opakovani)<=3,'kategorie opakovani mohou byt maximalne tri');
                     KATNUM = kats;
-                    kats = opakovani;   %POZOR kats se meni na opakovani, abych mohl pouzit kod dole             
+                    kats = opakovani;   %POZOR kats se meni na opakovani, abych mohl pouzit kod dole   
+                    disp('hodnotim opakovani');
                 end
             end
             
@@ -887,8 +892,8 @@ classdef CiEEGData < handle
                 kategories = opakovani; %POZOR - misto kategorii jsou nyni opakovane - cell array
             end 
             T = linspace(obj.epochtime(1),obj.epochtime(2),size(obj.d,1)); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
-            if isfield(obj.plotRCh,'fh')
-                figure(obj.plotRCh.fh); %pouziju uz vytvoreny graf - tohle nefunguje v matlab 2016b
+            if isfield(obj.plotRCh,'fh') && (verLessThan('matlab','9.0') || isvalid(obj.plotRCh.fh)) %isvalid je od verze 2016
+                figure(obj.plotRCh.fh); %pouziju uz vytvoreny graf
                 clf(obj.plotRCh.fh); %graf vycistim
             else
                 obj.plotRCh.fh = figure('Name','W plot channel');
@@ -1173,7 +1178,7 @@ classdef CiEEGData < handle
             obj.fs = fs;                    %#ok<CPROPLC,CPROP,PROP>          
             obj.mults = ones(1,size(d,2));  %#ok<CPROPLC,CPROP,PROP> 
             obj.header = header;            %#ok<CPROPLC,CPROP,PROP> 
-            obj.samples = sce(1); obj.channels=sce(2); obj.epochs = sce(3); 
+            obj.samples = sce(1); obj.channels=sce(2); obj.epochs = sce(3); %sumarni promenna sce
             vars = whos('-file',filename);
             if ismember('PsyDataP', {vars.name})
                 load(filename,'PsyDataP'); 
@@ -1215,7 +1220,9 @@ classdef CiEEGData < handle
                 obj.DatumCas = {};
             end
             if ismember('RjEpochCh', {vars.name}) %17.7.2017
-                load(filename,'RjEpochCh');      obj.RjEpochCh = RjEpochCh; %#ok<CPROPLC,CPROP,PROP>            
+                load(filename,'RjEpochCh');      obj.RjEpochCh = RjEpochCh; %#ok<CPROPLC,CPROP,PROP> 
+            else
+                obj.RjEpochCh = false(obj.channels,obj.epochs); %zatim zadne vyrazene epochy
             end
             obj.els = els;                  %#ok<CPROPLC,CPROP,PROP> 
             obj.plotES = plotES;            %#ok<CPROPLC,CPROP,PROP> 
