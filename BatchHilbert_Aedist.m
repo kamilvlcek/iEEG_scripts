@@ -1,14 +1,14 @@
 %15.9.2016 - AlloEgo zarovnani podle odpovedi
 %25.5.2017 - Pridani reference a ERP
-hybernovat = 0; %jestli chci po konci skriptu pocitac uspat - ma prednost
+hybernovat = 1; %jestli chci po konci skriptu pocitac uspat - ma prednost
 vypnout = 0; %jestli chci po konci skriptu pocitac vypnout (a nechci ho hybernovat) 
 pouzetest = 0; %jestli chci jen otestovat pritomnost vsech souboru 
 overwrite = 1; %jestil se maji prepsat puvodni data, nebo ohlasit chyba a pokracovat v dalsim souboru 
 
 basedir = 'd:\eeg\motol\pacienti\';
 timewindow =  [-0.2 1.2];  % hranice epochy [-0.3 0.8] PPA, zarovnani podle odpovedi/podnetu [-1 1]; [-0.2 1.2] AEdist
-baseline = [-0.5 -0.2]; %baseline [-1 0.8]; [-0.5 -0.2] Aedist 2017
-suffix = 'Ep2017'; %Ep
+baseline = [-0.2 0]; %baseline [-1 0.8]; [-0.5 -0.2] Aedist 2017. 2017/11 - zase [-.2 0]
+suffix = 'Ep2017-11'; %Ep
 prefix = 'AEdist'; %musi byt bud AlloEgo, PPA, AEdist
 stat_kats = [0 1 2];  % PPA [2 3 1] Face, Object, Scene ; AEdist [0 1 2] Control, Ego, Allo; 
 stat_opak = {}; %{[1 2],[4 5]}; %PPA opakovani 12 vs 45

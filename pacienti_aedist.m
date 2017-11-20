@@ -8,7 +8,7 @@ p = 1;
 pacienti(p).todo = 1;
 pacienti(p).folder = 'p073 Pech VT6';
 pacienti(p).data = 'VT6_INV Test Vlcek1_X_aedist.mat'; %'VT6_INV Test Vlcek1_X_aedist.mat';
-pacienti(p).header = 'p73_header.mat'; % p73_header.mat je ten nejnovejsi od Jirky - 26.5.2017 'p73_header_kamil.mat';
+pacienti(p).header = 'p73_headerX.mat'; % p73_header.mat je ten nejnovejsi od Jirky - 26.5.2017 'p73_header_kamil.mat';
 pacienti(p).psychopy = 'p73_aedist.mat';
 pacienti(p).rjepoch = 'p073_aedist_RjEpoch.mat'; %2017 
 pacienti(p).epievents = 'p73_aedist_epievents.mat'; %2017 
@@ -61,19 +61,22 @@ pacienti(p).folder = 'p096 Gro VT12';
 pacienti(p).data = 'VT12_2016-01-26_09-16_001_aedist.mat';
 pacienti(p).header = 'P96_headerX.mat';
 pacienti(p).psychopy = 'p096_aedist.mat';
-pacienti(p).rjepoch = ''; %zatim neexistuje
+pacienti(p).rjepoch = 'p096_aedist_rjepoch.mat'; %zatim neexistuje
 pacienti(p).epievents = 'p096_aedist_epievents.mat'; %2017 
 pacienti(p).rjch = [47]; %#ok<NBRAK>
 
+% p=p+1;
 % ve vsech udalostech jsou epi eventy - neda se vubec pouzit
+% 2017 - ve vetsine kanalu je vic nez 30% epoch s epi eventy - nepouzivat
 % pacienti(p).todo = 0;
 % pacienti(p).folder = 'p097 Nov VT13';
 % pacienti(p).data = 'VT13_2016-02-11_09-20_001 aedist.mat';
 % pacienti(p).header = 'P97_header.mat';
 % pacienti(p).psychopy = 'p97_aedist.mat';
-% pacienti(p).rjepoch = '';
+% pacienti(p).rjepoch = ''; %zatim neexistuje
 % pacienti(p).epievents = 'p097_aedist_epievents.mat'; %2017
 % pacienti(p).rjch = [47]; %#ok<NBRAK>
+
 p=p+1;
 pacienti(p).todo = 1;
 pacienti(p).folder = 'p110 Sou VT14';
@@ -117,15 +120,16 @@ pacienti(p).rjch = [47];
 
 p=p+1;
 % neni hammer header - ma hipp body
-% pacienti(p).todo = 1;
-% pacienti(p).folder = 'p132 Pol VT18';
-% pacienti(p).data = 'VT18_2016-12-06_10-53_001_aedist.mat';
-% pacienti(p).header = 'p130_header.mat';
-% pacienti(p).psychopy = 'p130_aedist.mat';
-% pacienti(p).rjepoch = 'p130_aedist_RjEpoch.mat';
-% pacienti(p).epievents = 'p130_aedist_epievents.mat'; %2017 
-% pacienti(p).rjch = [47]; 
+pacienti(p).todo = 1;
+pacienti(p).folder = 'p132 Pol VT18';
+pacienti(p).data = 'VT18_2016-12-06_10-53_001_aedist.mat';
+pacienti(p).header = 'p132_header.mat';
+pacienti(p).psychopy = 'p132_aedist.mat';
+pacienti(p).rjepoch = 'p132_aedist_rjepochs.mat';
+pacienti(p).epievents = 'p132_aedist_epievents.mat'; %2017 
+pacienti(p).rjch = [47]; 
 
+p=p+1;
 pacienti(p).todo = 1;
 pacienti(p).folder = 'p129 Kuch VT19';
 pacienti(p).data = 'VT19_2017-01-16_09-38_001_concat_aedist.mat';
@@ -164,6 +168,30 @@ pacienti(p).header = 'p142_header.mat';
 pacienti(p).psychopy = 'aedist_p142.mat';
 pacienti(p).rjepoch = 'p142_aedist_RjEpoch.mat';
 pacienti(p).epievents = 'p142_aedist_epievents.mat'; %2017 
-pacienti(p).rjch = [2 47 81]; 
+pacienti(p).rjch = [2 47 81];
+
+
+p=p+1;
+pacienti(p).todo = 1;
+pacienti(p).folder = 'p144 Nav VT23';
+pacienti(p).data = 'VT23_2017-05-09_17-12_001_aedist.mat';
+pacienti(p).header = 'p144_header.mat';
+pacienti(p).psychopy = 'p144_aedist.mat';
+pacienti(p).rjepoch = 'p144_aedist_RjEpoch.mat'; 
+pacienti(p).epievents = 'p144_aedist_epievents.mat'; %2017 
+pacienti(p).rjch = [ 47]; 
+
+p=p+1;
+pacienti(p).todo = 1;
+pacienti(p).folder = 'p147 Fli VT24';
+pacienti(p).data = 'VT24_2017-06-19_15-28_001_aedist.mat';
+pacienti(p).header = 'p147_header.mat';
+pacienti(p).psychopy = 'p147_aedist.mat';
+pacienti(p).rjepoch = 'p147_aedist_RjEpoch.mat';
+pacienti(p).epievents = 'p147_aedist_epievents.mat'; %2017 
+pacienti(p).rjch = [47]; 
+
+ 
+
 end
 
