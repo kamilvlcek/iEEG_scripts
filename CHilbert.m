@@ -230,6 +230,9 @@ classdef CHilbert < CiEEGData
             H = rmfield(H,'selCh_H');
             H = rmfield(H,'triggerCH');
             H.channels = H.channels(chns); %vyfiltruju kanaly
+            for ch = 1:numel(H.channels)
+                H.channels(ch).name = [H.subjName ' ' H.channels(ch).name]; %pridam ke jmenu kanalu jmeno subjektu
+            end
             Hf = obj.Hf; %#ok<PROPLC> 
             Hfmean = obj.Hfmean;  %#ok<PROPLC> 
             if isempty(Hfmean), Hfmean = (Hf(1:end-1) + Hf(2:end)) ./ 2; end %#ok<PROPLC,NASGU>             

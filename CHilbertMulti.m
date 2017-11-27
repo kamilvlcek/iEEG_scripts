@@ -20,7 +20,7 @@ classdef CHilbertMulti < CHilbert
                     %d hlavni data
                     if ~isempty(obj.d)
                         assert(size(obj.d,1)==size(d,1),['pocet vzorku musi byt stejny: d:' num2str(size(d,1)) ' x predchozi:' num2str(size(obj.d,1))]);
-                        assert(size(obj.d,3)==size(d,3),['pocet epoch musi byt stejny: d:' num2str(size(d,1)) ' x predchozi:' num2str(size(obj.d,1))]);
+                        assert(size(obj.d,3)==size(d,3),['pocet epoch musi byt stejny: d:' num2str(size(d,3)) ' x predchozi:' num2str(size(obj.d,3))]);
                     end
                     obj.d = cat(2,obj.d,d); %spojim pres channels
                     [obj.samples,obj.channels, obj.epochs] = obj.DSize();
@@ -53,7 +53,7 @@ classdef CHilbertMulti < CHilbert
                     
                     %jen kopie - zatim nezpracovavam                                                           
                     obj.orig(f).DatumCas = DatumCas;
-                    
+                    obj.orig(f).filename = filename;
                     %budu mit spoustu chybejicich promennych
                     %nejake funkce mi urcite nebudou fungovat 
                     %budu doplnovat podle prvniho souboru v poradi?                    
@@ -64,13 +64,17 @@ classdef CHilbertMulti < CHilbert
         end
         function GetHfreq(obj,Hf,Hfmean,HFreq)
             if isempty(obj.Hf)
-                obj.Hf = Hf;
+                obj.Hf = Hf; %jen prvni soubor
+            else
+                assert(isequal(obj.Hf,Hf),'frekvencni pasma musi byt stejna');
             end
             if isempty(obj.Hfmean)
-                obj.Hfmean = Hfmean;
+                obj.Hfmean = Hfmean; %jen prvni soubor
             end
             if isempty(obj.HFreq)
-                obj.HFreq = HFreq;
+                obj.HFreq = HFreq;%time x channel x freq (x kategorie)
+            else
+                obj.HFreq = cat(2,obj.HFreq,HFreq);
             end
         end
         function obj = GetTabs(obj,tabs,tabs_orig,f)
@@ -89,7 +93,11 @@ classdef CHilbertMulti < CHilbert
         end
         function obj = GetPsyData(obj,P,f)
             obj.orig(f).P = P; %psychopy data  
-            obj.PsyData = CPsyData(P); %vytvorim objekt CPsyData - z prvniho souboru
+            if isempty(obj.PsyData)
+                obj.PsyData = CPsyData(P); %vytvorim objekt CPsyData - z prvniho souboru
+            else
+                obj.PsyData.P.pacientid = [ obj.PsyData.P.pacientid ',' P.pacientid]; %spojim pacient ID od vice pacientu
+            end
         end
         function obj = GetEpochData(obj,epochData,f)
             if isempty(obj.epochData)
@@ -112,8 +120,10 @@ classdef CHilbertMulti < CHilbert
                 obj.CH.els = numel(H.channels);
                 obj.els = obj.CH.els;
             else
-                obj.H.subjName = [obj.H.subjName ',' H.subjName]; %spojim jmena subjektu
-                obj.H.channels = cat(1,obj.H.channels,H.channels); %spojim udaje o kanalech
+                obj.CH.H.subjName = [obj.CH.H.subjName ',' H.subjName]; %spojim jmena subjektu
+                obj.CH.H.channels = cat(2,obj.CH.H.channels,H.channels); %spojim udaje o kanalech
+                obj.CH.chgroups{f} = (1:numel(H.channels)) + obj.CH.els(f-1);
+                obj.CH.els(f) = numel(H.channels)+obj.CH.els(f-1);
                 obj.orig(f).H = H; %orignalni header ulozim
             end
         end
