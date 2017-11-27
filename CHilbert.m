@@ -65,7 +65,7 @@ classdef CHilbert < CiEEGData
             obj.tabs = downsample(obj.tabs,obj.decimatefactor);
             obj.tabs_orig = downsample(obj.tabs_orig,obj.decimatefactor); %potrebuju zdecimovat i druhy tabs. Orig znamena jen ze nepodleha epochovani
             obj.Hf = freq;
-            obj.Hfmean = (freq(1:end-1) + freq(2:end)) ./ 2;
+            obj.Hfmean = (freq(1:end-1) + freq(2:end)) ./ 2;            
             obj.mults = ones(1,size(obj.d,2)); %nove pole uz je double defaultove jednicky pro kazdy kanal
             obj.yrange = [1 1 5 5]; %zmenim rozliseni osy y v grafu
             [obj.samples,obj.channels, obj.epochs] = obj.DSize();
@@ -215,25 +215,30 @@ classdef CHilbert < CiEEGData
             %jen epochovana data, bipolarni reference
             assert(obj.epochs > 1,'nejsou epochovana data');
             assert(strcmp(obj.reference,'Bipolar'),'neni bipolarni reference');
-            d = obj.d(:,chns,:); %vsechny casy a epochy, vyber kanalu
-            tabs = obj.tabs; %to je spolecne pro vsechny kanaly; time x epochs
-            tabs_orig = obj.tabs_orig;
-            fs = obj.fs;
-            P = obj.PsyData.P; %psychopy data
-            epochtime = obj.epochtime; %abych vedel kde je podnet
-            RjEpochCh = obj.RjEpochCh(chns,:); %kanaly vs epochy
-            epochData = obj.epochData; %identita jednotlivych epoch. Musi byt stejna pres pacienty
+            d = obj.d(:,chns,:); %#ok<NASGU> %vsechny casy a epochy, vyber kanalu
+            tabs = obj.tabs; %#ok<NASGU> %to je spolecne pro vsechny kanaly; time x epochs
+            tabs_orig = obj.tabs_orig; %#ok<NASGU> 
+            fs = obj.fs; %#ok<NASGU> 
+            P = obj.PsyData.P; %#ok<NASGU> %psychopy data
+            epochtime = obj.epochtime; %#ok<NASGU> %abych vedel kde je podnet
+            RjEpochCh = obj.RjEpochCh(chns,:); %#ok<NASGU> %kanaly vs epochy
+            epochData = obj.epochData; %#ok<NASGU> %identita jednotlivych epoch. Musi byt stejna pres pacienty
             DatumCas = obj.DatumCas;
-            DatumCas.Extracted = datestr(now);
+            DatumCas.Extracted = datestr(now);          
             H = obj.CH.H;
             H = rmfield(H,'electrodes'); %smazu nepotrebna pole
             H = rmfield(H,'selCh_H');
             H = rmfield(H,'triggerCH');
             H.channels = H.channels(chns); %vyfiltruju kanaly
+            Hf = obj.Hf; %#ok<PROPLC> 
+            Hfmean = obj.Hfmean;  %#ok<PROPLC> 
+            if isempty(Hfmean), Hfmean = (Hf(1:end-1) + Hf(2:end)) ./ 2; end %#ok<PROPLC,NASGU>             
+            HFreq = obj.HFreq(:,chns,:,:); %#ok<PROPLC,NASGU>  %time x channel x freq (x kategorie)
+            
             [filepath,fname,~] = fileparts(obj.filename);
             podtrzitko = strfind(fname,'_'); %chci zrusit cast za poslednim podtrzitkem
             filename =[filepath filesep fname(1:podtrzitko(end)-1) ' ' label '_Extract']; 
-            save(filename,'d','tabs','tabs_orig','fs','P','epochtime','RjEpochCh','epochData','DatumCas','H','-v7.3'); 
+            save(filename,'d','tabs','tabs_orig','fs','P','epochtime','RjEpochCh','epochData','DatumCas','H','Hf','Hfmean','HFreq','-v7.3'); 
         end
         
     end 

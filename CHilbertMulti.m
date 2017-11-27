@@ -16,7 +16,7 @@ classdef CHilbertMulti < CHilbert
                 filename = filenames{f}; %cell array, zatim to musi byt plna cesta                
                 if exist(filename,'file')  
                     obj.filenames{f} = filename;
-                    load(filename);
+                    load(filename); %nacte vsechny promenne
                     %d hlavni data
                     if ~isempty(obj.d)
                         assert(size(obj.d,1)==size(d,1),['pocet vzorku musi byt stejny: d:' num2str(size(d,1)) ' x predchozi:' num2str(size(obj.d,1))]);
@@ -25,19 +25,9 @@ classdef CHilbertMulti < CHilbert
                     obj.d = cat(2,obj.d,d); %spojim pres channels
                     [obj.samples,obj.channels, obj.epochs] = obj.DSize();
                     %tabs a tabs_orig
-                    if isempty(obj.tabs) %budu pouzivat tabs z prvniho souboru
-                        for ep = 1 : size(tabs,2) %pres vsechny epochy
-                            if ep==1
-                                tabs(:,1) = tabs(:,1) - tabs(1,1); %aby to zacinalo od 0
-                            else
-                                tabs(:,ep) = (tabs(:,ep) - tabs(1,ep)) + tabs(end,ep-1) + (tabs(end,ep-1)-tabs(end-1,ep-1));  %odectu prvni a pak prictu posledni z predchozi epochy a rozdil oproti predposlenimu
-                            end
-                        end
-                        obj.tabs = tabs;                        
-                    end
-                    obj.orig(f).tabs = tabs;   %ale pro kazdy soubor ulozim originalni tabs a tabs_orig                     
-                    obj.orig(f).tabs_orig = tabs_orig;                        
-                   %fs - vzorkovaci prekvence - musi byt pro vsechny soubory stejna
+                    obj.GetTabs(tabs,tabs_orig,f);   
+                    
+                    %fs - vzorkovaci prekvence - musi byt pro vsechny soubory stejna
                     if ~isempty(obj.fs), assert(obj.fs == fs,'fs musi byt stejne');  else, obj.fs = fs; end
                     
                     %epochtime - cas epochy, napriklad -0.2 - 1.2, taky musi byt pro vsechny soubory stejne
@@ -58,6 +48,9 @@ classdef CHilbertMulti < CHilbert
                     %Hammer header
                     obj.GetHHeader(H,f);
                     
+                    %frekvencni data
+                    obj.GetHfreq(Hf,Hfmean,HFreq);
+                    
                     %jen kopie - zatim nezpracovavam                                                           
                     obj.orig(f).DatumCas = DatumCas;
                     
@@ -68,6 +61,31 @@ classdef CHilbertMulti < CHilbert
                 end
                 
             end
+        end
+        function GetHfreq(obj,Hf,Hfmean,HFreq)
+            if isempty(obj.Hf)
+                obj.Hf = Hf;
+            end
+            if isempty(obj.Hfmean)
+                obj.Hfmean = Hfmean;
+            end
+            if isempty(obj.HFreq)
+                obj.HFreq = HFreq;
+            end
+        end
+        function obj = GetTabs(obj,tabs,tabs_orig,f)
+            if isempty(obj.tabs) %budu pouzivat tabs z prvniho souboru
+                for ep = 1 : size(tabs,2) %pres vsechny epochy
+                    if ep==1
+                        tabs(:,1) = tabs(:,1) - tabs(1,1); %aby to zacinalo od 0
+                    else
+                        tabs(:,ep) = (tabs(:,ep) - tabs(1,ep)) + tabs(end,ep-1) + (tabs(end,ep-1)-tabs(end-1,ep-1));  %odectu prvni a pak prictu posledni z predchozi epochy a rozdil oproti predposlenimu
+                    end
+                end
+                obj.tabs = tabs;                        
+            end
+            obj.orig(f).tabs = tabs;   %ale pro kazdy soubor ulozim originalni tabs a tabs_orig                     
+            obj.orig(f).tabs_orig = tabs_orig; 
         end
         function obj = GetPsyData(obj,P,f)
             obj.orig(f).P = P; %psychopy data  
