@@ -13,13 +13,15 @@ classdef CHilbert < CiEEGData
     end
     methods (Access = public)
         %% ELEMENTAL FUNCTIONS 
-        function obj = CHilbert(d,tabs,fs,mults,header)
+        function obj = CHilbert(d,tabs,fs,mults,header)            
             if ~exist('header','var'), header = []; end %nejakou hodnotu dat musim
             if ~exist('mults','var'),  mults = []; end %nejakou hodnotu dat musim
-            if ischar(d) && ~exist('tabs','var') %pokud je prvni parametr retezec, tak ho beru jako nazev souboru, ktery nactu
+            if ~exist('d','var') %konstruktor uplne bez parametru - kvuli CHilbertMulti
+                d = []; tabs = []; fs = [];
+            elseif ischar(d) && ~exist('tabs','var') %pokud je prvni parametr retezec, tak ho beru jako nazev souboru, ktery nactu
                 tabs=[]; fs = [];
                 % volani Load z CiEEGData mi zavola Load z CHilbert, takze d=filename predelavat nemusim
-            end
+            end            
             obj@CiEEGData(d,tabs,fs,mults,header); %volani konstruktoru nemuze byt v if bloku 
             try                
                 if ~isempty(obj.Hf)
@@ -30,6 +32,7 @@ classdef CHilbert < CiEEGData
             catch exception %#ok<NASGU>
                 disp('no Frequency bands');
             end
+            
         end
         
         function obj = PasmoFrekvence(obj,freq,channels,prekryv)
@@ -128,6 +131,7 @@ classdef CHilbert < CiEEGData
                 %clf(obj.plotF.fh); %graf vycistim
             else
                 obj.plotF.fh = figure('Name','ResponseFreq','Position', [20, 500, 1200, 300]);
+                colormap jet; %aby to bylo jasne u vsech verzi matlabu - i 2016
             end   
             
             maxy = 0;

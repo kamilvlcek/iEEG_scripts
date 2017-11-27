@@ -42,6 +42,7 @@ classdef CiEEGData < handle
         %% ELEMENTAL FUNCTIONS 
         function obj = CiEEGData(d,tabs,fs,mults,header)
             %konstruktor, parametry d,tabs,fs[,mults,header]
+            if (nargin ~= 0 && ~isempty(d))  %konstruktor uplne bez parametru - kvuli CHilbertMulti                
             if ischar(d) && (~exist('tabs','var') || isempty(tabs)) %pokud je prvni parametr retezec, tak ho beru jako nazev souboru, ktery nactu                
                 obj.Load(d);
             else
@@ -102,6 +103,7 @@ classdef CiEEGData < handle
                 disp('no Wilcox stats');
             end
             obj.PL = CPlots();
+            end %(nargin ~= 0) 
         end
         
         function [samples, channels, epochs] = DSize(obj)
@@ -591,6 +593,7 @@ classdef CiEEGData < handle
                 %clf(obj.plotEp.fh); %graf vycistim
             else
                 obj.plotEp.fh = figure('Name','All Epochs','Position', [20, 100, 1200, 300]);
+                colormap jet; %aby to bylo jasne u vsech verzi matlabu - i 2016
             end
             T = linspace(obj.epochtime(1),obj.epochtime(2),size(obj.d,1)); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
             
