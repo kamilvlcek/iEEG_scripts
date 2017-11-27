@@ -3,7 +3,7 @@
 hybernovat = 1; %jestli chci po konci skriptu pocitac uspat - ma prednost
 vypnout = 0; %jestli chci po konci skriptu pocitac vypnout (a nechci ho hybernovat) 
 pouzetest = 0; %jestli chci jen otestovat pritomnost vsech souboru 
-overwrite = 1; %jestil se maji prepsat puvodni data, nebo ohlasit chyba a pokracovat v dalsim souboru 
+overwrite = 0; %jestil se maji prepsat puvodni data, nebo ohlasit chyba a pokracovat v dalsim souboru 
 
 basedir = 'd:\eeg\motol\pacienti\';
 timewindow =  [-0.2 1.2];  % hranice epochy [-0.3 0.8] PPA, zarovnani podle odpovedi/podnetu [-1 1]; [-0.2 1.2] AEdist
@@ -44,7 +44,7 @@ frekvence(f).todo = 0;
 frekvence(f).freq = 4:1:8;
 frekvence(f).freqname = '4-8'; % theta
 f=8;
-frekvence(f).todo = 0;
+frekvence(f).todo = 1;
 frekvence(f).freq = 2:2:150;
 frekvence(f).freqname = '2-150'; % all range
 frekvence(f).prekryv = 0.5; % 50% prekryv sousednich frekvencnich pasem 

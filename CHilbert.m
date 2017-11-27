@@ -160,6 +160,7 @@ classdef CHilbert < CiEEGData
             set(obj.plotF.fh,'KeyPressFcn',methodhandle);             
         end 
         
+        
         %% SAVE AND LOAD FILE
         %dve funkce na ulozeni a nacteni vypocitane Hilbertovy obalky, protoze to trva hrozne dlouho
         %uklada se vcetne dat parenta CiEEGData
@@ -202,7 +203,34 @@ classdef CHilbert < CiEEGData
                 warning(['soubor s frekvencnimi pasmy neexistuje ' CHilbert.filenameH(filename)]);
             end
             obj.hfilename = filename; 
-        end                      
+        end 
+        function obj = ExtractData(obj,chns,label)
+            %ExtractData(obj,chns,filename)
+            %vytvori data z vyberu elektrod, pro sdruzeni elektrod pres vsechny pacienty. 
+            %pole d, tabs, RjEpochCh a header H
+            %jen epochovana data, bipolarni reference
+            assert(obj.epochs > 1,'nejsou epochovana data');
+            assert(strcmp(obj.reference,'Bipolar'),'neni bipolarni reference');
+            d = obj.d(:,chns,:); %vsechny casy a epochy, vyber kanalu
+            tabs = obj.tabs; %to je spolecne pro vsechny kanaly; time x epochs
+            tabs_orig = obj.tabs_orig;
+            fs = obj.fs;
+            P = obj.PsyData.P; %psychopy data
+            epochtime = obj.epochtime; %abych vedel kde je podnet
+            RjEpochCh = obj.RjEpochCh(chns,:); %kanaly vs epochy
+            epochData = obj.epochData; %identita jednotlivych epoch. Musi byt stejna pres pacienty
+            DatumCas = obj.DatumCas;
+            DatumCas.Extracted = datestr(now);
+            H = obj.CH.H;
+            H = rmfield(H,'electrodes'); %smazu nepotrebna pole
+            H = rmfield(H,'selCh_H');
+            H = rmfield(H,'triggerCH');
+            H.channels = H.channels(chns); %vyfiltruju kanaly
+            [filepath,fname,~] = fileparts(obj.filename);
+            podtrzitko = strfind(fname,'_'); %chci zrusit cast za poslednim podtrzitkem
+            filename =[filepath filesep fname(1:podtrzitko(end)-1) ' ' label '_Extract']; 
+            save(filename,'d','tabs','tabs_orig','fs','P','epochtime','RjEpochCh','epochData','DatumCas','H','-v7.3'); 
+        end
         
     end 
         

@@ -5,7 +5,7 @@ classdef CiEEGData < handle
     properties (Access = public)
         d; %double matrix: time x channel, muze byt i time x channel x epoch
         tabs; 
-        tabs_orig; %originalni tabs, ktere se zachovaji po epochaci. Downsamplovani se u nich dela
+        tabs_orig; %originalni tabs, ktere se zachovaji po epochaci. Downsamplovani se u nich dela; pouzivaji se jen pri hledani EpiEvents
         fs; %vzorkovaci frekvence
         mults; %nepovinne
         header; %nepovinne
