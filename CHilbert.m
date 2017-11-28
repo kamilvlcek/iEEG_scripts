@@ -2,7 +2,7 @@ classdef CHilbert < CiEEGData
     %HILBERT.CLASS sbirka funkci na analyzu pomoci hilbert trasform
     %   Kamil Vlcek, FGU AVCR, since 2016 04
     properties (Constant = true)
-        decimatefactor = 8; %o kolik decimuju hiblertovu obalku oproti puvodi sampling rate; 2 je dostatecne konzervativni, 8 hodne setri pamet
+        decimatefactor = 1; %o kolik decimuju hiblertovu obalku oproti puvodi sampling rate; 2 je dostatecne konzervativni, 8 hodne setri pamet
     end
     properties (Access = public)
         HFreq; %hilberova obalka pro kazde frekvenci pasmo - time x channel x freq (x kategorie)
@@ -35,15 +35,16 @@ classdef CHilbert < CiEEGData
             
         end
         
-        function obj = PasmoFrekvence(obj,freq,channels,prekryv)
+        function obj = PasmoFrekvence(obj,freq,channels,prekryv,decimatefactor)
             %EEG2HILBERT prevede vsechny kanaly na prumer hilbertovych obalek
             %   podle puvodni funkce EEG2Hilbert
             %   pouziva data d z parentu a take fs
             %   freq    seznam freqvenci pro ktere se ma delat prumer - lo, .., ..., .., hi
             if ~exist('channels','var') || isempty(channels), channels = 1:obj.channels; end
             if ~exist('prekryv','var'), prekryv = 0; end %kolik se maji prekryvat sousedni frekvencni pasma, napriklad 0.5
+            if ~exist('decimatefactor','var'), decimatefactor = obj.decimatefactor; end; %volitelny parametr decimatefactor 
             
-            obj.HFreq = zeros(ceil(obj.samples/obj.decimatefactor),obj.channels,numel(freq)-1); %inicializace pole   
+            obj.HFreq = zeros(ceil(obj.samples/decimatefactor),obj.channels,numel(freq)-1); %inicializace pole   
             tic; %zadnu meric cas
             fprintf('kanal ze %i: ', max(channels) );
             for ch = channels %jednotlive elektrody
@@ -54,16 +55,16 @@ classdef CHilbert < CiEEGData
                     loF = freq(fno) -prekryv*(freq(fno+1)-freq(fno)); 
                     hiF = freq(fno+1)-0.1 +prekryv*(freq(fno+1)-freq(fno));  %napr 50 - 59.9
                     hh = obj.hilbertJirka(obj.d(:,ch),loF,hiF,obj.fs); %cista hilbertova obalka, tohle i skript hodne zrychli
-                    hh = decimate(hh,obj.decimatefactor); % mensi sampling rate                    
+                    hh = decimate(hh,decimatefactor); % mensi sampling rate                    
                     obj.HFreq(:,ch,fno) = (hh./mean(hh)); %podil prumeru = prumerna hodnota
                     %fprintf('%i Hz, ',loF);
                 end
                 %fprintf('\n'); %tisk znova na stejnou radku
             end
             obj.d = squeeze(mean(obj.HFreq,3)); %11.5.2016 - prepisu puvodni data prumerem
-            obj.fs = obj.fs/obj.decimatefactor;
-            obj.tabs = downsample(obj.tabs,obj.decimatefactor);
-            obj.tabs_orig = downsample(obj.tabs_orig,obj.decimatefactor); %potrebuju zdecimovat i druhy tabs. Orig znamena jen ze nepodleha epochovani
+            obj.fs = obj.fs/decimatefactor;
+            obj.tabs = downsample(obj.tabs,decimatefactor);
+            obj.tabs_orig = downsample(obj.tabs_orig,decimatefactor); %potrebuju zdecimovat i druhy tabs. Orig znamena jen ze nepodleha epochovani
             obj.Hf = freq;
             obj.Hfmean = (freq(1:end-1) + freq(2:end)) ./ 2;            
             obj.mults = ones(1,size(obj.d,2)); %nove pole uz je double defaultove jednicky pro kazdy kanal

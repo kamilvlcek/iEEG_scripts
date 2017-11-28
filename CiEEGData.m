@@ -227,7 +227,50 @@ classdef CiEEGData < handle
             obj.RjEpochCh = false(obj.channels,obj.epochs); %zatim zadne vyrazene epochy
             disp(['rozdeleno na ' num2str(obj.epochs) ' epoch']); 
         end
-        
+        function obj = ResampleEpochs(obj)
+            %resampluje epochy na -0.1 1, pricemz 0-1 je cas odpovedi
+            %epochy s delsim casem odpovedi nez je puvodni delka epochy vyradi
+            rt = obj.PsyData.ReactionTime(1);
+            newepochtime = [-0.093 1];
+            newepochlength = newepochtime(2)-newepochtime(1);
+            d2 = zeros(round(obj.fs*newepochlength),size(obj.d,2), size(obj.d,3));
+            tabs2 = zeros(round(obj.fs*newepochlength),size(obj.d,3));
+            for ep = 1:obj.epochs
+                dd = obj.d(:,:,ep); %jedna epocha, pres vsechny kanaly
+                dd = resample(dd,obj.fs*newepochtime(2),floor(obj.fs*rt(ep))); %resampluju celou epochu, takze rt bude 1s;
+                sample0 = round(obj.fs*(-obj.epochtime(1))/rt(ep)); %cislo vzorku kde je cas 0
+                sample01 = round(sample0 - obj.fs*(-newepochtime(1)));
+                if sample01<1
+                    new01 = max(-sample01,1); 
+                    sample01 = 1;
+                    obj.RjEpoch = unique( [obj.RjEpoch ep]);
+                else
+                    new01 = 1; 
+                end                
+                sample1 = round(sample0 + obj.fs);
+                if sample1>size(dd,1)                    
+                    sample1 = size(dd,1);
+                    %new1 = new01+size(dd,1)-1;
+                    new1 = sample1-sample01+new01;
+                    obj.RjEpoch = unique( [obj.RjEpoch ep]);
+                else
+                    new1 = size(d2,1);
+                end
+                if sample1-sample01 > new1-new01
+                    sample1 = sample1-( (sample1-sample01)-(new1-new01));
+                end
+                d2(new01:new1,:,ep) = dd(sample01:sample1,:);
+                tabs2(:,ep) = obj.tabs( round((-newepochtime(1))*obj.fs) : round((newepochlength-newepochtime(1))*obj.fs));
+                %close all;
+                %figure,plot(dd);
+                %figure,plot(d2(:,:,ep))
+            end
+            obj.d = d2;
+            obj.tabs = tabs2;
+            [obj.samples,obj.channels, obj.epochs] = obj.DSize();
+            obj.epochtime = [-0.1 1];
+            obj.baseline = [-0.1 0]; 
+        end
         function [d,psy_rt,RjEpCh]= CategoryData(obj, katnum,rt,opak)
             %vraci eegdata epoch ve kterych podnet byl kategorie/podminky=katnum + reakcni casy - s uz globalne vyrazenymi epochami
             %Pokud rt>0, vraci epochy serazene podle reakcniho casu 
@@ -470,6 +513,7 @@ classdef CiEEGData < handle
         function [obj]= Decimate(obj,podil)
             %zmensi data na nizsi vzorkovaci frekvenci podle urceneho podilu, naprilkad 4x 512-128Hz, pokud podil=4
             dd = zeros(ceil(size(obj.d,1)/podil) , size(obj.d,2), size(obj.d,3)); % d uz obsahuje jen svoji prvni pulku a delka je delitelna podilem
+            tabs =  zeros(ceil(size(obj.d,1)/podil) , size(obj.d,3));
             fprintf('channels to decimate (z %i):',numel(obj.channels));
             for ch = 1:obj.channels %musim decimovat kazdou elektrodu zvlast
                 fprintf('%i, ',ch);
@@ -479,13 +523,14 @@ classdef CiEEGData < handle
                 else
                     for ep = 1:obj.epochs
                         dd(:,ch,ep) = decimate(obj.d(:,ch,ep),podil); %na 500 Hz z 8000 Hz
-                        if ch==1, obj.tabs(:,ep) = downsample(obj.tabs(:,ep),podil); end 
+                        if ch==1, tabs(:,ep) = downsample(obj.tabs(:,ep),podil); end 
                     end
                 end                
             end
             obj.tabs_orig = downsample(obj.tabs_orig,podil); % 
             obj.fs = obj.fs/podil;
             obj.d = dd;
+            obj.tabs = tabs;
             fprintf('... done\n');
             disp(['decimated to ' num2str(obj.fs) ' Hz']);
         end

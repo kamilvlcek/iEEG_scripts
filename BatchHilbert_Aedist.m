@@ -6,9 +6,9 @@ pouzetest = 0; %jestli chci jen otestovat pritomnost vsech souboru
 overwrite = 0; %jestil se maji prepsat puvodni data, nebo ohlasit chyba a pokracovat v dalsim souboru 
 
 basedir = 'd:\eeg\motol\pacienti\';
-timewindow =  [-0.2 1.2];  % hranice epochy [-0.3 0.8] PPA, zarovnani podle odpovedi/podnetu [-1 1]; [-0.2 1.2] AEdist
+timewindow =  [-0.2 2.0];  % hranice epochy [-0.3 0.8] PPA, zarovnani podle odpovedi/podnetu [-1 1]; [-0.2 1.2] AEdist
 baseline = [-0.2 0]; %baseline [-1 0.8]; [-0.5 -0.2] Aedist 2017. 2017/11 - zase [-.2 0]
-suffix = 'Ep2017-11'; %Ep
+suffix = 'Ep2017-11R'; %Ep
 prefix = 'AEdist'; %musi byt bud AlloEgo, PPA, AEdist
 stat_kats = [0 1 2];  % PPA [2 3 1] Face, Object, Scene ; AEdist [0 1 2] Control, Ego, Allo; 
 stat_opak = {}; %{[1 2],[4 5]}; %PPA opakovani 12 vs 45
@@ -44,7 +44,7 @@ frekvence(f).todo = 0;
 frekvence(f).freq = 4:1:8;
 frekvence(f).freqname = '4-8'; % theta
 f=8;
-frekvence(f).todo = 1;
+frekvence(f).todo = 0;
 frekvence(f).freq = 2:2:150;
 frekvence(f).freqname = '2-150'; % all range
 frekvence(f).prekryv = 0.5; % 50% prekryv sousednich frekvencnich pasem 
@@ -202,7 +202,7 @@ for f=1:numel(frekvence)
                                 else
                                     prekryv = 0;  %defaultne je nulovy prekryv pasem                                    
                                 end
-                                E.PasmoFrekvence(frekvence(f).freq,[],prekryv);
+                                E.PasmoFrekvence(frekvence(f).freq,[],prekryv,1);
                             end
                             disp('extracting epochs ...');
                             E.ExtractEpochs(psychopy,timewindow,baseline);        
@@ -212,6 +212,8 @@ for f=1:numel(frekvence)
                             if exist('RjEpochCh','var')
                                 E.RejectEpochs(0,RjEpochCh); %epochy pro kazdy kanal zvlast
                             end
+                            E.ResampleEpochs(); % 27.11.2017 %resampluju na -1 1s podle casu odpovedi
+                            E.Decimate(8); %ze 512 na 64hz, protoze jsem predtim v PasmoFrekvence nedecimoval
                             E.ResponseSearch(0.1,stat_kats, stat_opak); %statistika s klouzavym oknem 100ms
                             disp('saving data ...');
                                                         
