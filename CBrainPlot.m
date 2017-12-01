@@ -18,13 +18,14 @@ classdef CBrainPlot < handle
             %vyradi vsechny kontakty bez odpovedi nebo se zapornou odpovedi
             %spoji vsechno dohromady
             %vrati vysledky ve formatu pro SEEE-vizualization
+            %napr CB.IntervalyResp('aedist',[0.2 0.8],'AEdist CHilbert 50-120 refBipo Ep2017-11_CHilb.mat');
             if strcmp(testname,'aedist')
                 pacienti = pacienti_aedist(); %nactu celou strukturu pacientu    
             end
             obj.intervals = intervals;            
             elcount = []; %jen inicializace            
             P = {}; M = {}; N = {}; %jen inicializace
-            for p = 1:numel(pacienti)
+            for p = 1:numel(pacienti) % cyklus pacienti
                 disp(['***   ' pacienti(p).folder '   ***']);
                 E = pacient_load(pacienti(p).folder,'aedist',filename);
                 if isempty(E)
@@ -40,8 +41,8 @@ classdef CBrainPlot < handle
                     M = cell([numel(pacienti),size(prumery,2),size(prumery,3)]); % souhrnne MNI koordinaty pro vsechny pacienty
                     N = cell([numel(pacienti),size(prumery,2),size(prumery,3)]); % souhrnne names pro vsechny pacienty
                 end
-                for interval = 1:size(prumery,2)
-                    for kat = 1:size(prumery,3)
+                for interval = 1:size(prumery,2) % cyklus intervaly
+                    for kat = 1:size(prumery,3) % cyklus kategorie podnetu
                         if kat <= numel(obj.katstr)
                             ip = prumery(:,interval, kat) > 0; % index pro prumery, MNI i names, chci jen kladne odpovedi
                         else
@@ -54,6 +55,7 @@ classdef CBrainPlot < handle
                     end                       
                 end                
             end
+            %ted z P M a N rozdelenych po pacientech udelam souhrnna data
             obj.VALS = cell(size(elcount)); %souhrnne prumery 
             obj.MNI = cell(size(elcount)); 
             obj.NAMES = cell(size(elcount));       
@@ -71,9 +73,9 @@ classdef CBrainPlot < handle
                           iVALS = iVALS + n;
                       end
                 end
-            end
-            
+            end            
         end
+        
         function PlotBrain3D(obj,kategorie)
             assert(~isempty(obj.VALS),'zadna data z IntervalyResp');
             if ~exist('kategorie','var'), kategorie = 1:size(obj.VALS,2); end %muzu chtit jen nektere kategorie

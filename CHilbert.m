@@ -99,7 +99,7 @@ classdef CHilbert < CiEEGData
                             %tady se mi to mozna odecetlo blbe? KOntrola
                          end
                      end
-                     Hfreq2(:,:,:,katnum+1) = Hfreq2(:,:,:,katnum+1)./numel(Epochy);
+                     Hfreq2(:,:,:,katnum+1) = Hfreq2(:,:,:,katnum+1)./numel(Epochy); %prumer pred epochy - soucet podelim prumerem
                  end             
                  obj.HFreq = Hfreq2;
             end

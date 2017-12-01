@@ -268,8 +268,9 @@ classdef CiEEGData < handle
             obj.d = d2;
             obj.tabs = tabs2;
             [obj.samples,obj.channels, obj.epochs] = obj.DSize();
-            obj.epochtime = [-0.1 1];
-            obj.baseline = [-0.1 0]; 
+            obj.epochtime = newepochtime;
+            obj.baseline = [newepochtime(1) 0]; 
+            disp(['resampled ' num2str(obj.epochs) ' epochs to ' num2str(newepochtime)]);
         end
         function [d,psy_rt,RjEpCh]= CategoryData(obj, katnum,rt,opak)
             %vraci eegdata epoch ve kterych podnet byl kategorie/podminky=katnum + reakcni casy - s uz globalne vyrazenymi epochami
@@ -870,13 +871,14 @@ classdef CiEEGData < handle
             
         end
         
-        function obj = PlotResponses(obj)
+        function [responses] = PlotResponses(obj)
             %vykresli uspesnost odpovedi spolu s chybami a vyrazenymi epochami
             obj.PsyData.PlotResponses();
             figure(obj.PsyData.fhR); %kreslim dal do stejneho obrazku
-            [~,rt,kategorie] = obj.PsyData.GetResponses();            
+            [resp,rt,kategorie,test] = obj.PsyData.GetResponses();            
             plot(obj.RjEpoch,rt(obj.RjEpoch),'*','MarkerSize',10,'MarkerEdgeColor',[0.7 0.7 0.7],'MarkerFaceColor',[0.7 0.7 0.7]); %vykreslim vyrazene epochy
             plot(obj.RjEpoch,kategorie(obj.RjEpoch),'*r','MarkerSize',5); %vykreslim vyrazene epochy
+            responses = [resp rt kategorie test];
         end
         
         function obj = PlotResponseCh(obj,ch,kategories,pvalue,opakovani)
