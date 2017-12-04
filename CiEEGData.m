@@ -316,14 +316,24 @@ classdef CiEEGData < handle
             % apply spatial filter
             if ref=='b' %u bipolarni reference se mi meni pocet kanalu
                 H.channels = struct;
-                for ch = 1:size(filterMatrix,2)
-                    oldch = find(filterMatrix(:,ch)==1);
+                for ch = 1:size(filterMatrix,2) % v tehle matrix jsou radky stare kanaly a sloupce nove kanaly - takze cyklus pres nove kanaly
+                    oldch = find(filterMatrix(:,ch)==1); %cislo stareho kanalu ve sloupci s novym kanalem ch
                     fnames = fieldnames(obj.CH.H.channels(oldch)); %jmena poli struktury channels
                     for f = 1:numel(fnames) %postupne zkopiruju vsechny pole struktury, najednou nevim jak to udelat
                         fn = fnames{f};
                         H.channels(ch).(fn) = obj.CH.H.channels(oldch).(fn); 
                     end
-                    H.channels(ch).name = [H.channels(ch).name '-' obj.CH.H.channels(filterMatrix(:,ch)==-1).name]; %pojmenuju kanal jako rozdil
+                    H.channels(ch).name = ['(' H.channels(ch).name '-' obj.CH.H.channels(filterMatrix(:,ch)==-1).name ')']; %pojmenuju kanal jako rozdil
+                    H.channels(ch).neurologyLabel = ['(' H.channels(ch).neurologyLabel '-' obj.CH.H.channels(filterMatrix(:,ch)==-1).neurologyLabel ')']; %oznacen od Martina Tomaska
+                    H.channels(ch).ass_brainAtlas = ['(' H.channels(ch).ass_brainAtlas '-' obj.CH.H.channels(filterMatrix(:,ch)==-1).ass_brainAtlas ')'];
+                    MNI = [ H.channels(ch).MNI_x H.channels(ch).MNI_y H.channels(ch).MNI_z; ...
+                           obj.CH.H.channels(filterMatrix(:,ch)==-1).MNI_x obj.CH.H.channels(filterMatrix(:,ch)==-1).MNI_y obj.CH.H.channels(filterMatrix(:,ch)==-1).MNI_z ...
+                           ]; %matice MNI souradnic jednoho a druheho kanalu
+                    MNI2=(MNI(1,:) + MNI(2,:))/2; % prumer MNI souradnic - nova souradnice bipolarniho kanalu
+                    H.channels(ch).MNI_x =  MNI2(1); 
+                    H.channels(ch).MNI_y =  MNI2(2); 
+                    H.channels(ch).MNI_z =  MNI2(3); 
+                    H.channels(ch).MNI_dist = sqrt( sum((MNI(1,:) - MNI(2,:)).^2)); %vzdalenost mezi puvodnimi MNI body
                 end                
             end
             
