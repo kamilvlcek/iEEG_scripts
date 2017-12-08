@@ -9,6 +9,7 @@ classdef CHHeader < handle
         els;
         RjCh;
         BrainAtlas_zkratky; %tabulka od Martina Tomaska
+        filterMatrix; %kopie filterMatrix, vytvari se pri zmene reference
     end
     
     methods (Access = public)
@@ -179,6 +180,10 @@ classdef CHHeader < handle
                 obj.H.triggerCH = [];
             end
             tch = find(strcmp({obj.H.channels.signalType}, 'triggerCh')==1);
+        end
+        function [obj]= SetFilterMatrix(obj,filterMatrix)
+            %ulozi filterMatrix pri zmene reference pro pozdejsi pouziti pri RjEpochCh
+            obj.filterMatrix = filterMatrix;
         end
         function [mozek] = GetBrainNames(obj)
             % najde popisy mist v mozku podle tabulky od Martina

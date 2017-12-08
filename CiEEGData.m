@@ -146,8 +146,11 @@ classdef CiEEGData < handle
             end
             if exist('RjEpochCh','var') 
                 if ~isempty(RjEpochCh) 
-                    obj.RjEpochCh = RjEpochCh; 
-                    disp(['+ vyrazeno ' num2str(sum(max(RjEpochCh,[],1))) ' epoch s epi udalostmi podle jednotlivych kanalu']);                
+                    obj.RjEpochCh = RjEpochCh;                                                                         
+                    if strcmp(obj.reference,'Bipolar') && ~isempty(obj.CH.filterMatrix)                        
+                        obj.ChangeReferenceRjEpochCh(obj.CH.filterMatrix); %prepocitam na bipolarni referenci i RjEpochCh
+                    end
+                    disp(['+ vyrazeno ' num2str(sum(max(RjEpochCh,[],1))) ' epoch s epi udalostmi podle jednotlivych kanalu']);   
                 else %takhle muzu vyrazene epochy vymazat
                     obj.RjEpochCh = false(obj.channels,obj.epochs); %zadne vyrazene epochy
                 end
@@ -174,13 +177,14 @@ classdef CiEEGData < handle
             
             if obrazek &&  isempty(NEpi)
                 obj.PL.EpochsEpi(obj.RjEpochCh,obj.els,obj.CH); %graf Rejected epochs in individual channels
-            end                        
+            end            
+            
         end
         
         function [RjEpoch,RjEpochCh]=GetRjEpoch(obj)
             %jen vraci vyrazene epochy pro jejich ulozeni
             RjEpoch = obj.RjEpoch;
-            RjEpochCh = obj.RjEpochCh;
+            RjEpochCh = obj.RjEpochCh;                      
         end
         function obj = ExtractEpochs(obj, psy,epochtime,baseline)
             % psy je struct dat z psychopy, 
@@ -311,7 +315,7 @@ classdef CiEEGData < handle
                 case 'b'  %bipolarni
                     filterSettings.name = 'bip'; % options: 'car','bip','nan'           
             end
-            filterMatrix = createSpatialFilter_kisarg(H, numel(H.selCh_H), filterSettings,obj.RjCh); %ve filterMatrix uz nejsou rejectovane kanaly
+            filterMatrix = createSpatialFilter_kisarg(H, numel(H.selCh_H), filterSettings,obj.RjCh); %ve filterMatrix uz nejsou rejectovane kanaly                        
                 %assert(size(rawData,2) == size(filterMatrix,1));
             % apply spatial filter
             if ref=='b' %u bipolarni reference se mi meni pocet kanalu
@@ -333,8 +337,9 @@ classdef CiEEGData < handle
                     H.channels(ch).MNI_x =  MNI2(1); 
                     H.channels(ch).MNI_y =  MNI2(2); 
                     H.channels(ch).MNI_z =  MNI2(3); 
-                    H.channels(ch).MNI_dist = sqrt( sum((MNI(1,:) - MNI(2,:)).^2)); %vzdalenost mezi puvodnimi MNI body
-                end                
+                    H.channels(ch).MNI_dist = sqrt( sum((MNI(1,:) - MNI(2,:)).^2)); %vzdalenost mezi puvodnimi MNI body                                                           
+                end 
+                obj.ChangeReferenceRjEpochCh(filterMatrix); %prepocitam na bipolarni referenci i RjEpochCh 
             end
             
             if obj.epochs <= 1 %ne epochovana data
@@ -350,18 +355,20 @@ classdef CiEEGData < handle
                 assert(size(filtData,1) == size(dd,1),'zmenila se delka zaznamu'); %musi zustat stejna delka zaznamu  
                 obj.d = zeros(obj.samples,size(filtData,2),obj.epochs); %nove pole dat s re-referencovanymi daty
                 for ch=1:size(filtData,2) %vratim puvodni 3D tvar matice
-                    obj.d(:,ch,:) = reshape(filtData(:,ch),obj.samples,obj.epochs);
+                    obj.d(:,ch,:) = reshape(filtData(:,ch),obj.samples,obj.epochs); % !! tohle strasne dlouho trva - ZRYCHLIT
                 end
             end
             [obj.samples,obj.channels, obj.epochs] = obj.DSize();
             obj.RjCh = []; %rejectovane kanaly uz byly vyrazeny, ted nejsou zadne
             obj.GetHHeader(H); %novy header s vyrazenymi kanaly
+            obj.CH.SetFilterMatrix(filterMatrix); %uchovam si filterMatrix na pozdeji, kvuli prepoctu RjEpochCh
             obj.filename = []; %nechci si omylem prepsat puvodni data 
             switch ref
                 case 'h', obj.reference = 'perHeadbox';
                 case 'e', obj.reference = 'perElectrode'; 
                 case 'b', obj.reference = 'Bipolar';                    
             end
+           
             disp(['reference zmenena: ' obj.reference]); 
         end
 
@@ -1182,10 +1189,8 @@ classdef CiEEGData < handle
                 title('podil epoch s epi eventy');
             end
             
-        end
-             
-        
-        
+        end            
+                
         %% SAVE AND LOAD FILE
         function obj = Save(obj,filename)   
             %ulozi veskere promenne tridy do souboru
@@ -1209,6 +1214,7 @@ classdef CiEEGData < handle
             epochtime = obj.epochtime;      %#ok<PROP,NASGU>
             baseline = obj.baseline;        %#ok<PROP,NASGU>
             CH_H=obj.CH.H;                  %#ok<NASGU>            
+            CH_filterMatrix = obj.CH.filterMatrix; %#ok<NASGU>  
             els = obj.els;                  %#ok<PROP,NASGU>
             plotES = obj.plotES;            %#ok<PROP,NASGU>
             %plotH = obj.plotH;              %#ok<PROP,NASGU> %plotH je blbost ukladat, vytvori se novy, jen to brani vice grafum - 14.6.2016
@@ -1223,7 +1229,8 @@ classdef CiEEGData < handle
             DE = obj.DE;                    %#ok<PROP,NASGU>
             DatumCas = obj.DatumCas;        %#ok<PROP,NASGU>
             save(filename,'d','tabs','tabs_orig','fs','header','sce','PsyDataP','epochtime','baseline','CH_H','els',...
-                    'plotES','RjCh','RjEpoch','RjEpochCh','epochTags','epochLast','reference','epochData','Wp','DE','DatumCas','-v7.3');  
+                    'plotES','RjCh','RjEpoch','RjEpochCh','epochTags','epochLast','reference','epochData','Wp','DE','DatumCas', ...
+                    'CH_filterMatrix','-v7.3');  
             disp(['ulozeno do ' filename]); 
         end
         function obj = Load(obj,filename)
@@ -1262,6 +1269,9 @@ classdef CiEEGData < handle
             else
                 load(filename,'CH');
                 obj.CH = CH; %#ok<CPROPLC,CPROP,PROP> %  %drive ulozeny objekt, nez jsem zavedl ukladani struct
+            end 
+            if ismember('CH_filterMatrix', {vars.name})
+                load(filename,'CH_filterMatrix');      obj.CH.filterMatrix = CHHeader(CH_filterMatrix);                              
             end 
             
             if ismember('Wp', {vars.name})
@@ -1503,6 +1513,14 @@ classdef CiEEGData < handle
             if isempty(id) || numel(id)<=1
                 id = obj.CH.PacientTag();
             end
+        end
+        function [obj] = ChangeReferenceRjEpochCh(obj,filterMatrix)
+            %kod Nada 2017-12-07 - prepocitani RjEpochCh na bipolarni referenci            
+            RjEpochCh = obj.RjEpochCh(1:size(filterMatrix,1),:)';  %u zadneho z pacientu jsem nenasel trigger channel uprostred kanalu, vzdy je na konci. To by jinak byl problem            
+            filterMatrix(filterMatrix==-1) = 1;
+            RjEpochCh = RjEpochCh * filterMatrix; 
+            RjEpochCh(RjEpochCh == 2) = 1;
+            obj.RjEpochCh = RjEpochCh'; %vyrazeni kazdeho kanalu puvodni reference znamena vyrazeni dvou kanalu bipolarni reference 
         end
     end
     
