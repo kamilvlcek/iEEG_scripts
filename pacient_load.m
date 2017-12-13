@@ -3,7 +3,9 @@ function [ E ] = pacient_load( nick,test,filename )
 %   zdrojova data rovnou zpracuje, rozepochuje atd 
 if strcmp(test,'aedist')
     pacienti = pacienti_aedist(); %nactu celou strukturu pacientu
-    subfolder = 'Aedist';
+    setup = setup_aedist(1); %nactu nastaven aedist    
+else
+    error('zatim pracuji jen s aedist');
 end
 nalezen = false;
 for p = 1:numel(pacienti)
@@ -16,10 +18,9 @@ if ~nalezen
     error(['pacient nenalezen: ' nick]);    
 end
 disp(['loading pacient ' pacienti(p).folder ]);
-basedir = 'D:\eeg\motol\pacienti\';
 
 if exist('filename','var')
-    fullfilename = [basedir pacienti(p).folder '\' subfolder '\' filename];
+    fullfilename = [setup.basedir pacienti(p).folder '\' setup.subfolder '\' filename];
     if exist(fullfilename,'file')==2
         if strfind(filename,'CHilbert') 
             E = CHilbert(fullfilename);
@@ -32,16 +33,16 @@ if exist('filename','var')
     end
 else
     %EEG data
-    load([ basedir pacienti(p).folder '\' pacienti(p).data]);
+    load([ setup.basedir pacienti(p).folder '\' pacienti(p).data]);
     if ~exist('mults','var'), mults = [];  end
     E = CiEEGData(d,tabs,fs,mults);
 
     %header
-    load([ basedir pacienti(p).folder '\' pacienti(p).header]);
+    load([ setup.basedir pacienti(p).folder '\' pacienti(p).header]);
     E.GetHHeader(H);
 
     %epievents
-    filename = [ basedir pacienti(p).folder '\' subfolder '\' pacienti(p).epievents];
+    filename = [ setup.basedir pacienti(p).folder '\' setup.subfolder '\' pacienti(p).epievents];
     if exist(filename,'file')~=2
         disp(['no epievents:' pacienti(p).epievents]);
         return; 
@@ -54,13 +55,13 @@ else
     E.RejectChannels(pacienti(p).rjch);
 
     %vytvorim epochy
-    filename = [ basedir pacienti(p).folder '\' subfolder '\' pacienti(p).psychopy];
+    filename = [ setup.basedir pacienti(p).folder '\' setup.subfolder '\' pacienti(p).psychopy];
     if exist(filename,'file')~=2
         disp(['no psychopy data:' pacienti(p).psychopy]);
         return; 
     end
     load(filename);
-    E.ExtractEpochs(aedist,[-0.2 1.2],[-0.5 -0.2]);
+    E.ExtractEpochs(aedist,setup.epochtime,setup.baseline);
 
     %vyradim epochy
     E.RjEpochsEpi([],0);
