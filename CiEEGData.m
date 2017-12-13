@@ -389,9 +389,12 @@ classdef CiEEGData < handle
                        
             iEp = obj.GetEpochsExclude(); %ziska seznam epoch k vyhodnoceni
             EEEGStat = CEEGStat(obj.d,obj.fs);
+            
             %celkova signifikance vuci baseline - bez ohledu na kategorie
-            [P,ibaseline,iepochtime] = EEEGStat.WilcoxBaseline(obj.epochtime,[ obj.epochtime(1) 0],timewindow,iEp,obj.RjEpochCh);   %puvodni baseline uz v epose nemam        
-        
+            baseline = [obj.epochtime(1) iff(obj.baseline(2)>obj.epochtime(1),obj.baseline(2),0)]; %zalezi jestli se baselina a epochtime prekryvaj
+            [P,ibaseline,iepochtime] = EEEGStat.WilcoxBaseline(obj.epochtime,baseline,timewindow,iEp,obj.RjEpochCh);   %puvodni baseline uz v epose nemam        
+                %11.12.2017 - pocitam signifikanci hned po konci baseline
+                %ibaseline je cast iepochtime pred koncem baseline nebo pred casem 0
             if numel(timewindow) == 1 %chci maximalni hodnotu p z casoveho okna
                 obj.Wp.D2 = P; %pole 2D signifikanci si ulozim kvuli kresleni - cas x channels                
             else
@@ -400,6 +403,8 @@ classdef CiEEGData < handle
             obj.Wp.Dparams = timewindow; %hodnoty pro zpetnou kontrolu
             obj.Wp.Dfdr = 1;
             obj.Wp.DiEp = iEp; %index zpracovanych epoch 
+            obj.Wp.epochtime = obj.epochtime;
+            obj.Wp.baseline = obj.baseline; %pro zpetnou kontrolu, zaloha parametru
             
             if exist('opakovani','var') && ~isempty(opakovani)
                 if iscell(opakovani) 
@@ -1026,7 +1031,7 @@ classdef CiEEGData < handle
                     hold on;
                     h_kat(k) = plot(T,M,'LineWidth',katlinewidth,'Color',colorskat{1,k});  %prumerna odpoved,  ulozim si handle na krivku  
                     obj.plotRCh.range = [ min(obj.plotRCh.range(1),min(M)-max(E)) max(obj.plotRCh.range(2),max(M)+max(E))]; %pouziju to pak pri stlaceni / z obrazku
-                    Tr = linspace(0,obj.epochtime(2),size(obj.Wp.D2,1)); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
+                    Tr = linspace(obj.Wp.baseline(2),obj.Wp.epochtime(2),size(obj.Wp.D2,1)); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
                     if isfield(obj.Wp,'WpKat') 
                         for l = k+1:numel(kategories) %katnum jde od nuly
                             y = ymin + (ymax-ymin)*(0.3 - (k+l)*0.05)  ; %pozice na ose y
@@ -1039,8 +1044,8 @@ classdef CiEEGData < handle
                             plot(Tr(iWp),ones(1,sum(iWp))*y, '.','Color',color); %                        
                             iWpfirst = find(iWp,1,'first');                        
                             if(numel(iWpfirst)>0)                                
-                                text(-0.01,y,[ num2str(round(Tr(iWpfirst)*1000)) 'ms']);  %cas zacatku signifikance 
-                                text(-0.18,y,[ 'p=' num2str(CStat.round(min(obj.Wp.WpKat{k,l}(:,ch)),3))]);  %cas zacatku signifikance 
+                                text(-0.01+Tr(1),y,[ num2str(round(Tr(iWpfirst)*1000)) 'ms']);  %cas zacatku signifikance 
+                                text(-0.18+Tr(1),y,[ 'p=' num2str(CStat.round(min(obj.Wp.WpKat{k,l}(:,ch)),3))]);  %cas zacatku signifikance 
                                 line([Tr(iWpfirst) Tr(iWpfirst)],obj.plotRCh.ylim,'Color',color); %modra svisla cara u zacatku signifikance                                
                             end                            
                             %potom jeste p < 0.01
@@ -1056,7 +1061,7 @@ classdef CiEEGData < handle
                                 kat2name =  obj.PsyData.CategoryName(kategories(k));
                                 kat3name = '';
                             end
-                            text(0.05,y, ['\color[rgb]{' num2str(colorskat{1,l}) '}' kat1name ...
+                            text(0.05+Tr(1),y, ['\color[rgb]{' num2str(colorskat{1,l}) '}' kat1name ...
                                     '\color[rgb]{' num2str(color) '} *X* '  ...
                                     '\color[rgb]{' num2str(colorskat{1,k}) '}' kat2name kat3name]);                            
                         end                      
@@ -1074,8 +1079,8 @@ classdef CiEEGData < handle
                             else
                                 kat2name =  obj.PsyData.CategoryName(kategories(k));
                             end
-                            text(0.05, y, ['\color[rgb]{' num2str(colorskat{1,k}) '}' kat2name ' vs.baseline'] );
-                            line([0 1],[y y]+(ymax-ymin)*0.03 ,'Color',[0.5 0.5 0.5]);
+                            text(0.05+Tr(1), y, ['\color[rgb]{' num2str(colorskat{1,k}) '}' kat2name ' vs.baseline'] );
+                            line([Tr(1) Tr(end)],[y y]+(ymax-ymin)*0.03 ,'Color',[0.5 0.5 0.5]);
                                 %kazde jmeno kategorie jinou barvou
                             if pvalue %pokud chci zobrazovat hodnotu p value jako krivku
                                plot(Tr,obj.Wp.WpKatBaseline{k,1}(:,ch), '.','Color',colorskat{1,k}); %tesckovana cara oznacuje signifikanci kategorie vuci baseline
