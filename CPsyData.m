@@ -224,6 +224,12 @@ classdef CPsyData < handle
                 id = [id '-' obj.P.eegfile(1 : podtrzitko-1)]; %pritam jeste zacatke jmena eeg souboru, naprilad VT18
              end
         end
+        function [obj]= RemoveTraining(obj)
+            %odstrani treningove trialy - ty kde byla zpetna vazba
+            %since 15.12.2017
+            test = obj.P.data(:,obj.P.sloupce.zpetnavazba)==0;
+            obj.P.data = obj.P.data(test,:);
+        end
     end
     methods  (Access = private)
         function [obj] = DoplnZpetnavazba(obj)
