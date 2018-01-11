@@ -4,7 +4,7 @@ function [ pacienti ] = pacienti_menrot()
 
 
 pacienti = struct;
-% p = 1;
+p = 1;
 % pacienti(p).todo = 0;
 % pacienti(p).folder = 'p073 Pech VT6';
 % pacienti(p).data = 'VT6_INV Test Vlcek1_X_menrot.mat'; %'VT6_INV Test Vlcek1_X_menrot.mat';
@@ -44,7 +44,8 @@ pacienti = struct;
 % pacienti(p).epievents = 'p083_menrot_epievents.mat'; %2017 
 % pacienti(p).rjch = [47]; %#ok<NBRAK>
 % 
-p=5;
+
+p=p+1;
 pacienti(p).todo = 0;
 pacienti(p).folder = 'p096 Gro VT12';
 pacienti(p).data = 'VT12_2016-01-26_10-16_002_menrot.mat';
@@ -54,7 +55,7 @@ pacienti(p).rjepoch = 'menrot_RjEpoch.mat';
 pacienti(p).epievents = 'p096_menrot_epievents.mat'; %2017 
 pacienti(p).rjch = [47]; %#ok<NBRAK>
 
-% p=6;
+% p=p+1;
 % % ve vsech udalostech jsou epi eventy - neda se vubec pouzit
 % % pacienti(p).todo = 0;
 % % pacienti(p).folder = 'p097 Nov VT13';
@@ -66,7 +67,7 @@ pacienti(p).rjch = [47]; %#ok<NBRAK>
 % % pacienti(p).rjch = [47]; %#ok<NBRAK>
 % 
 
-p=7;
+p=p+1;
 pacienti(p).todo = 0;
 pacienti(p).folder = 'p110 Sou VT14';
 pacienti(p).data = 'P110_2016-06-08_15-56_001_concat_menrot.mat';
@@ -76,7 +77,7 @@ pacienti(p).rjepoch = 'menrot_RjEpoch.mat';
 pacienti(p).epievents = 'p110_menrot_epievents.mat'; %2017 
 pacienti(p).rjch = [47]; %#ok<NBRAK>
 
-p=8;
+p=p+1;
 pacienti(p).todo = 0;
 pacienti(p).folder = 'p126 Sve VT15';
 pacienti(p).data = 'VT15_2016-09-06_09-18_001_concat_menrot.mat';
@@ -86,7 +87,7 @@ pacienti(p).rjepoch = 'menrot_RjEpoch.mat';
 pacienti(p).epievents = 'p126_menrot_epievents.mat'; %2017 
 pacienti(p).rjch = [47 50]; 
 
-% p=9;
+% p=p+1;
 % neni hammer header, ani menrot udelane - nedelali jsme 
 % pacienti(p).todo = 1;
 % pacienti(p).folder = 'p119 Buc VT16';
@@ -97,7 +98,7 @@ pacienti(p).rjch = [47 50];
 % pacienti(p).epievents = ''; %2017 
 % pacienti(p).rjch = [47 50]; 
 
-p=10;
+p=p+1;
 pacienti(p).todo = 0;
 pacienti(p).folder = 'p130 Koc VT17';
 pacienti(p).data = 'VT17_2016-10-24_15-41_001_concat_menrot.mat';
@@ -108,7 +109,7 @@ pacienti(p).epievents = 'p130_menrot_epievents.mat'; %2017
 pacienti(p).rjch = [47,49]; %49 = vice nez 50 procent vyrazenych epoch
 
 % 
-% p=11;
+% p=p+1;
 % neni hammer header - ma hipp body
 % pacienti(p).todo = 1;
 % pacienti(p).folder = 'p132 Pol VT18';
@@ -119,7 +120,7 @@ pacienti(p).rjch = [47,49]; %49 = vice nez 50 procent vyrazenych epoch
 % pacienti(p).epievents = 'p130_menrot_epievents.mat'; %2017 
 % pacienti(p).rjch = [47]; 
 
-p=12;
+p=p+1;
 pacienti(p).todo = 0;
 pacienti(p).folder = 'p129 Kuch VT19';
 pacienti(p).data = 'VT19_2017-01-16_09-38_001_concat_menrot.mat';
@@ -129,7 +130,7 @@ pacienti(p).rjepoch = 'menrot_RjEpoch.mat';
 pacienti(p).epievents = 'p129_menrot_epievents.mat'; %2017 
 pacienti(p).rjch = [47]; 
 
-p=13; %kamil 6.9.2017
+p=p+1;; %kamil 6.9.2017
 pacienti(p).todo = 0;
 pacienti(p).folder = 'p136 Men VT20';
 pacienti(p).data = 'VT20_2017-01-31_09-12_001_menrot.mat';
@@ -140,7 +141,7 @@ pacienti(p).epievents = 'p136_menrot_epievents.mat'; %2017
 pacienti(p).rjch = [47,74]; %74 (50 procent vyrazanych epoch)
 
 % % je to grid, nejde tam asi udelat bipolarni reference, 
-% % p=14;
+% % p=p+1;
 % % pacienti(p).todo = 1; 
 % % pacienti(p).folder = 'p138 Ven VT21';
 % % pacienti(p).data = 'VT21_2017-02-28_09-35_001_500hz_concat_menrot.mat';
@@ -150,7 +151,7 @@ pacienti(p).rjch = [47,74]; %74 (50 procent vyrazanych epoch)
 % % pacienti(p).epievents = 'p138_menrot_epievents.mat'; %2017 
 % % pacienti(p).rjch = []; 
 % 
-p=15; %kamil 6.9.2017
+p=p+1; %kamil 6.9.2017
 pacienti(p).todo = 1; 
 pacienti(p).folder = 'p142 Nam VT22';
 pacienti(p).data = 'VT22_2017-04-5_10-31_002_concat_500Hz_menrot.mat';
@@ -158,6 +159,37 @@ pacienti(p).header = 'p142_64ch_header.mat';
 pacienti(p).psychopy = 'p142_menrot.mat';
 pacienti(p).rjepoch = 'menrot_RjEpoch.mat';
 pacienti(p).epievents = 'p142_menrot_epievents.mat'; %2017 
-pacienti(p).rjch = [2]; 
+pacienti(p).rjch = [2];
+
+p=p+1; %kamil 11.1.2018
+pacienti(p).todo = 1; 
+pacienti(p).folder = 'p153 Ven VT26';
+pacienti(p).data = 'VT26_2017-11-08_09-17_001_concat_menrot.mat';
+pacienti(p).header = 'p153_header.mat';
+pacienti(p).psychopy = 'p153_menrot.mat';
+pacienti(p).rjepoch = '';
+pacienti(p).epievents = 'p153_menrot_epievents.mat'; %2018 
+pacienti(p).rjch = [47];
+
+p=p+1; %kamil 11.1.2018
+pacienti(p).todo = 1; 
+pacienti(p).folder = 'p155 Svi VT27';
+pacienti(p).data = 'VT27_2017-11-22_08-36_001_concat_menrot.mat';
+pacienti(p).header = 'p155_header.mat';
+pacienti(p).psychopy = 'p155_menrot.mat';
+pacienti(p).rjepoch = '';
+pacienti(p).epievents = 'p155_menrot_epievents.mat'; %2018 
+pacienti(p).rjch = [47];
+
+p=p+1; %kamil 11.1.2018
+pacienti(p).todo = 1; 
+pacienti(p).folder = 'p160 Kor VT28';
+pacienti(p).data = 'VT28_2017-12-11_09-39_001_menrot.mat';
+pacienti(p).header = 'p160_header.mat';
+pacienti(p).psychopy = 'p160_menrot.mat';
+pacienti(p).rjepoch = '';
+pacienti(p).epievents = 'p160_menrot_epievents.mat'; %2018 
+pacienti(p).rjch = [47];
+
 end
 

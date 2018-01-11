@@ -5,14 +5,15 @@ vypnout = 0; %jestli chci po konci skriptu pocitac vypnout (a nechci ho hybernov
 pouzetest = 0; %jestli chci jen otestovat pritomnost vsech souboru 
 overwrite = 1; %jestil se maji prepsat puvodni data, nebo ohlasit chyba a pokracovat v dalsim souboru 
 
-basedir = 'd:\eeg\motol\pacienti\';
-timewindow =  [-0.2 1.2];  % hranice epochy [-0.3 0.8] PPA, zarovnani podle odpovedi/podnetu [-1 1]; [-0.2 1.2] AEdist
-baseline = [-0.5 -0.2]; %baseline [-1 0.8]; [-0.5 -0.2] Aedist 2017
-suffix = 'Ep2017'; %Ep
-prefix = 'Menrot'; %musi byt bud AlloEgo, PPA, AEdist
-stat_kats = [0 1 2 3];  % PPA [2 3 1] Face, Object, Scene ; AEdist [0 1 2] Control, Ego, Allo; 
-stat_opak = {}; %{[1 2],[4 5]}; %PPA opakovani 12 vs 45
-subfolder = 'menrot'; %podadresar, specificky pro test, muze byt prazdne pokud se nepouzivaji podadresare
+setup = setup_menrot( 0 ); %nacte nastaveni testu Menrot- 11.1.2018 - 0 = zarovnani podle podnetu, 1=zarovnani podle odpovedi
+basedir = setup.basedir;
+epochtime = setup.epochtime;
+baseline = setup.baseline;
+suffix = setup.suffix;
+prefix = setup.prefix;
+stat_kats = setup.stat_kats;
+stat_opak = setup.stat_opak;
+subfolder = setup.subfolder;
 
 frekvence = struct;
 f=1;
@@ -206,13 +207,15 @@ for f=1:numel(frekvence)
                                 E.PasmoFrekvence(frekvence(f).freq,[],prekryv);
                             end
                             disp('extracting epochs ...');
-                            E.ExtractEpochs(psychopy,timewindow,baseline);        
+                            E.ExtractEpochs(psychopy,epochtime,baseline);        
                             if exist('RjEpoch','var') %muze byt prazne, pak se nevyrazuji zadne epochy
                                 E.RejectEpochs(RjEpoch); %globalne vyrazene epochy
                             end
                             if exist('RjEpochCh','var')
                                 E.RejectEpochs(0,RjEpochCh); %epochy pro kazdy kanal zvlast
                             end
+                            %E.ResampleEpochs(); % 27.11.2017 %resampluju na -1 1s podle casu odpovedi
+                            %E.Decimate(8); %ze 512 na 64hz, protoze jsem predtim v PasmoFrekvence nedecimoval
                             E.ResponseSearch(0.1,stat_kats, stat_opak); %statistika s klouzavym oknem 100ms
                             disp('saving data ...');
                                                         

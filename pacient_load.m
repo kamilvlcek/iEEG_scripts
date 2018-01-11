@@ -3,9 +3,12 @@ function [ E ] = pacient_load( nick,test,filename )
 %   zdrojova data rovnou zpracuje, rozepochuje atd 
 if strcmp(test,'aedist')
     pacienti = pacienti_aedist(); %nactu celou strukturu pacientu
-    setup = setup_aedist(1); %nactu nastaven aedist    
+    setup = setup_aedist(0); %nactu nastaveni aedist  
+elseif strcmp(test,'menrot')
+    pacienti = pacienti_menrot(); %nactu celou strukturu pacientu
+    setup = setup_menrot(0); %nactu nastaveni aedist  
 else
-    error('zatim pracuji jen s aedist');
+    error('zatim pracuji jen s aedist a menrot');
 end
 nalezen = false;
 for p = 1:numel(pacienti)
@@ -61,7 +64,12 @@ else
         return; 
     end
     load(filename);
-    E.ExtractEpochs(aedist,setup.epochtime,setup.baseline);
+    if strcmp(test,'aedist')
+        psychopy = aedist; %matrix s psychopy daty
+    else
+        psychopy = menrot;
+    end
+    E.ExtractEpochs(psychopy,setup.epochtime,setup.baseline);
 
     %vyradim epochy
     E.RjEpochsEpi([],0);
