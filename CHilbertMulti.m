@@ -12,10 +12,10 @@ classdef CHilbertMulti < CHilbert
             obj.ImportExtract(filenames);
         end
         function obj = ImportExtract(obj,filenames)
-            for f = 1:numel(filenames)
-                filename = filenames{f}; %cell array, zatim to musi byt plna cesta                
+            for fileno = 1:numel(filenames)
+                filename = filenames{fileno}; %cell array, zatim to musi byt plna cesta                
                 if exist(filename,'file')  
-                    obj.filenames{f} = filename;
+                    obj.filenames{fileno} = filename;
                     load(filename); %nacte vsechny promenne
                     test = ~P.data(:,P.sloupce.zpetnavazba); %index testovych epoch
                     d = d(:,:,test);
@@ -27,7 +27,7 @@ classdef CHilbertMulti < CHilbert
                     obj.d = cat(2,obj.d,d); %spojim pres channels - jen data z testovych epoch
                     [obj.samples,obj.channels, obj.epochs] = obj.DSize();
                     %tabs a tabs_orig
-                    obj.GetTabs(tabs(:,test),tabs_orig,f);    %#ok<NODEF>
+                    obj.GetTabs(tabs(:,test),tabs_orig,fileno);    %#ok<NODEF>
                     
                     %fs - vzorkovaci prekvence - musi byt pro vsechny soubory stejna
                     if ~isempty(obj.fs), assert(obj.fs == fs,'fs musi byt stejne');  else, obj.fs = fs; end
@@ -43,19 +43,19 @@ classdef CHilbertMulti < CHilbert
                     obj.RjEpochCh = cat(1,obj.RjEpochCh,RjEpochCh(:,test)); %#ok<NODEF> %spojim pres kanaly, pocet epoch musi by stejny
                     
                     %PsychoPy data
-                    obj.GetPsyData(P,f);
+                    obj.GetPsyData(P,fileno);
                     
                     %identita jednotlivych epoch - epochData 
-                    obj.GetEpochData(epochData,f,test);
+                    obj.GetEpochData(epochData,fileno,test);
                     %Hammer header
-                    obj.GetHHeader(H,f);
+                    obj.GetHHeader(H,fileno);
                     
                     %frekvencni data
                     obj.GetHfreq(Hf,Hfmean,HFreq);
                     
                     %jen kopie - zatim nezpracovavam                                                           
-                    obj.orig(f).DatumCas = DatumCas;
-                    obj.orig(f).filename = filename;
+                    obj.orig(fileno).DatumCas = DatumCas;
+                    obj.orig(fileno).filename = filename;
                     %budu mit spoustu chybejicich promennych
                     %nejake funkce mi urcite nebudou fungovat 
                     %budu doplnovat podle prvniho souboru v poradi?                    
@@ -102,7 +102,7 @@ classdef CHilbertMulti < CHilbert
                 obj.PsyData.P.pacientid = [ obj.PsyData.P.pacientid ',' P.pacientid]; %spojim pacient ID od vice pacientu
             end
         end
-        function obj = GetEpochData(obj,epochData,f,test)
+        function obj = GetEpochData(obj,epochData,fileno,test)
             epochData =  epochData(test,:); %vyradim trening;
             if isempty(obj.epochData)                
                 assert(size(epochData,1)==size(obj.d,3), 'pocet podminek v epochData a epoch musi byt stejny');                
@@ -120,8 +120,11 @@ classdef CHilbertMulti < CHilbert
                    end
                    if bloky0(b,1) ~= bloky1(b,1), prehazet = [prehazet b]; end %#ok<AGROW> %budu muset poradi bloku prehazet, podminky v jinem poradi 
                 end
+                if numel(prehazet) > 0
+                    blokyprehazet = obj.ShuffleBlocks(bloky0, bloky1);
+                end
             end
-            obj.orig(f).epochData = epochData; % ulozim original taky                        
+            obj.orig(fileno).epochData = epochData; % ulozim original taky                        
         end
         function obj = GetHHeader(obj,H,f)
             if isempty(obj.CH)
@@ -146,6 +149,20 @@ classdef CHilbertMulti < CHilbert
             b1 = [find(typ(2:end) ~= typ(1:end-1)); size(typ,1)]; %konce bloku
             b0 = [ 1; (b1(1:end-1)+1)]; %zacatky bloku
             bloky = [typ(b0),b1-b0+1,b0,b1];
+        end
+        function blokyprehazej = ShuffleBlocks(bloky0, bloky1)
+            %zjisti indexy k prehazeni bloku, v bloky1=Cil podle bloky0=Zdroj
+            blokyprehazej = [bloky0(:,1) zeros(size(bloky0,1),1)]; %vzorove poradi bloku , k tomu budu pridavat cisla 
+            lastkat = [unique(bloky1(:,1)) zeros(numel(unique(bloky1(:,1))),1)]; %tam si budu ukladat podledni nalezena cisla bloku
+            for b = 1:size(blokyprehazej,1)
+                
+                blok = blokyprehazej(b,1); %cislo podminky z bloku 1 v Zdroj
+                ilastkat = find(lastkat(:,1)==blok,1); %index podminky v kastkat
+                temp = find(bloky1(lastkat(ilastkat,2)+1:end,1)==blok,1); %najde dalsi blok s touto podminkou v Cil
+                lastkat(ilastkat,2) = temp;
+                %TODO nejak mi to nefunguje, temp je obcas spatne
+                blokyprehazej(b,2)=temp;
+            end
         end
     end
 
