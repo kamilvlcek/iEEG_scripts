@@ -25,9 +25,12 @@ classdef CHilbertMulti < CHilbert
                         assert(size(obj.d,3)==size(d,3),['pocet epoch musi byt stejny: d:' num2str(size(d,3)) ' x predchozi:' num2str(size(obj.d,3))]);
                     end
                     obj.d = cat(2,obj.d,d); %spojim pres channels - jen data z testovych epoch
+                    %TODO prehazet epochy d
+                    
                     [obj.samples,obj.channels, obj.epochs] = obj.DSize();
                     %tabs a tabs_orig
                     obj.GetTabs(tabs(:,test),tabs_orig,fileno);    %#ok<NODEF>
+                    %TODO prehazet epochy tabs
                     
                     %fs - vzorkovaci prekvence - musi byt pro vsechny soubory stejna
                     if ~isempty(obj.fs), assert(obj.fs == fs,'fs musi byt stejne');  else, obj.fs = fs; end
@@ -41,9 +44,11 @@ classdef CHilbertMulti < CHilbert
                     
                     %vyrazene epochy x kanaly
                     obj.RjEpochCh = cat(1,obj.RjEpochCh,RjEpochCh(:,test)); %#ok<NODEF> %spojim pres kanaly, pocet epoch musi by stejny
+                    %TODO prehazet epochy RjEpochCh
                     
                     %PsychoPy data
                     obj.GetPsyData(P,fileno);
+                    %TODO prehazet epochy PsyData
                     
                     %identita jednotlivych epoch - epochData 
                     obj.GetEpochData(epochData,fileno,test);
@@ -121,7 +126,7 @@ classdef CHilbertMulti < CHilbert
                    if bloky0(b,1) ~= bloky1(b,1), prehazet = [prehazet b]; end %#ok<AGROW> %budu muset poradi bloku prehazet, podminky v jinem poradi 
                 end
                 if numel(prehazet) > 0
-                    blokyprehazet = obj.ShuffleBlocks(bloky0, bloky1);
+                    blokyprehazej = obj.ShuffleBlocks(bloky0, bloky1);
                 end
             end
             obj.orig(fileno).epochData = epochData; % ulozim original taky                        
@@ -158,9 +163,9 @@ classdef CHilbertMulti < CHilbert
                 
                 blok = blokyprehazej(b,1); %cislo podminky z bloku 1 v Zdroj
                 ilastkat = find(lastkat(:,1)==blok,1); %index podminky v kastkat
-                temp = find(bloky1(lastkat(ilastkat,2)+1:end,1)==blok,1); %najde dalsi blok s touto podminkou v Cil
-                lastkat(ilastkat,2) = temp;
-                %TODO nejak mi to nefunguje, temp je obcas spatne
+                temp = find(bloky1(lastkat(ilastkat,2)+1:end,1)==blok,1)+lastkat(ilastkat,2); %najde dalsi blok s touto podminkou v Cil
+                %find hleda jen v te casti bloky1, takze musim pricist index, odkud jsem hledal
+                lastkat(ilastkat,2) = temp;               
                 blokyprehazej(b,2)=temp;
             end
         end
