@@ -20,6 +20,7 @@ classdef CHilbertMulti < CHilbert
                     disp(obj.basename(filename)); %zobrazim jmeno souboru s pouze koncem 
                     obj.filenames{fileno} = filename;
                     load(filename); %nacte vsechny promenne
+                    if ~exist('baseline','var'), baseline = [epochtime(1) 0]; end %fake baseline, pokud nebyla ulozena
                     test = ~P.data(:,P.sloupce.zpetnavazba); %index testovych epoch
                     
                     %identita jednotlivych epoch - epochData 
@@ -35,13 +36,8 @@ classdef CHilbertMulti < CHilbert
                     
                     %fs - vzorkovaci prekvence - musi byt pro vsechny soubory stejna
                     if ~isempty(obj.fs), assert(obj.fs == fs,'fs musi byt stejne');  else, obj.fs = fs; end
-                    
-                    %epochtime - cas epochy, napriklad -0.2 - 1.2, taky musi byt pro vsechny soubory stejne
-                    if ~isempty(obj.epochtime)
-                        assert(isequal(obj.epochtime,epochtime(1:2)),'epochtime musi byt stejne');
-                    else
-                        obj.epochtime = epochtime(1:2);
-                    end
+                                        
+                    obj.GetEpochTime(epochtime,baseline);
                     
                     %vyrazene epochy x kanaly
                     obj.RjEpochCh = cat(1,obj.RjEpochCh,RjEpochCh); %spojim pres kanaly, pocet epoch musi by stejny                    
@@ -50,14 +46,15 @@ classdef CHilbertMulti < CHilbert
                     obj.GetPsyData(P,fileno);                    
                     
                     %Hammer header
-                    obj.GetHHeader(H,fileno);
+                    obj.GetHeader(H,fileno);
                     
                     %frekvencni data
                     obj.GetHfreq(Hf,Hfmean,HFreq);
                     
                     %jen kopie - zatim nezpracovavam                                                           
                     obj.orig(fileno).DatumCas = DatumCas;
-                    obj.orig(fileno).filename = filename;                                   
+                    obj.orig(fileno).filename = filename;     
+                    obj.orig(fileno).blokyprehazej = obj.blokyprehazej; %zaloha kvuli zpetne referenci
                 end
                 
             end
@@ -181,10 +178,11 @@ classdef CHilbertMulti < CHilbert
             end           
             obj.orig(fileno).epochData = epochData; % ulozim original taky                        
         end
-        function obj = GetHHeader(obj,H,f)
+        function obj = GetHeader(obj,H,f)
             %spoji header (kanaly) v puvodnich souborech a tom novem
             if isempty(obj.CH)
-                GetHHeader@CHilbert(obj,H);  
+                %GetHHeader@CHilbert(obj,H);  
+                obj.GetHHeader(H);
                 obj.CH.chgroups = {1:numel(H.channels)};
                 obj.CH.els = numel(H.channels);
                 obj.els = obj.CH.els;
@@ -192,9 +190,23 @@ classdef CHilbertMulti < CHilbert
                 obj.CH.H.subjName = [obj.CH.H.subjName ',' H.subjName]; %spojim jmena subjektu
                 obj.CH.H.channels = cat(2,obj.CH.H.channels,H.channels); %spojim udaje o kanalech
                 obj.CH.chgroups{f} = (1:numel(H.channels)) + obj.CH.els(f-1);
-                obj.CH.els(f) = numel(H.channels)+obj.CH.els(f-1);
-                obj.orig(f).H = H; %orignalni header ulozim
+                obj.CH.els(f) = numel(H.channels)+obj.CH.els(f-1);                
             end
+            obj.orig(f).H = H; %orignalni header ulozim, v kazdem pripade
+        end
+        function obj = GetEpochTime(obj,epochtime,baseline)
+            %epochtime - cas epochy, napriklad -0.2 - 1.2, taky musi byt pro vsechny soubory stejne
+            if ~isempty(obj.epochtime)
+                assert(isequal(obj.epochtime,epochtime(1:2)),'epochtime musi byt stejne');
+            else
+                obj.epochtime = epochtime(1:2);
+            end  
+            %baseline - cas 
+            if ~isempty(obj.baseline)
+                assert(isequal(obj.baseline,baseline),'baseline musi byt stejne');
+            else
+                obj.baseline = baseline;
+            end              
         end
         
     end

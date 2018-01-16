@@ -1276,7 +1276,7 @@ classdef CiEEGData < handle
                 obj.CH = CH; %#ok<CPROPLC,CPROP,PROP> %  %drive ulozeny objekt, nez jsem zavedl ukladani struct
             end 
             if ismember('CH_filterMatrix', {vars.name})
-                load(filename,'CH_filterMatrix');      obj.CH.filterMatrix = CHHeader(CH_filterMatrix);                              
+                load(filename,'CH_filterMatrix');      obj.CH.filterMatrix = CH_filterMatrix;                              
             end 
             
             if ismember('Wp', {vars.name})

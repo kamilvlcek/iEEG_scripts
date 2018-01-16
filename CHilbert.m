@@ -222,6 +222,7 @@ classdef CHilbert < CiEEGData
             fs = obj.fs; %#ok<NASGU> 
             P = obj.PsyData.P; %#ok<NASGU> %psychopy data
             epochtime = obj.epochtime; %#ok<NASGU> %abych vedel kde je podnet
+            baseline = obj.baseline; %#ok<NASGU> 
             RjEpochCh = obj.RjEpochCh(chns,:); %#ok<NASGU> %kanaly vs epochy
             epochData = obj.epochData; %#ok<NASGU> %identita jednotlivych epoch. Musi byt stejna pres pacienty
             DatumCas = obj.DatumCas;
@@ -242,7 +243,7 @@ classdef CHilbert < CiEEGData
             [filepath,fname,~] = fileparts(obj.filename);
             podtrzitko = strfind(fname,'_'); %chci zrusit cast za poslednim podtrzitkem
             filename =[filepath filesep fname(1:podtrzitko(end)-1) ' ' label '_Extract']; 
-            save(filename,'d','tabs','tabs_orig','fs','P','epochtime','RjEpochCh','epochData','DatumCas','H','Hf','Hfmean','HFreq','-v7.3'); 
+            save(filename,'d','tabs','tabs_orig','fs','P','epochtime','baseline','RjEpochCh','epochData','DatumCas','H','Hf','Hfmean','HFreq','-v7.3'); 
         end
         
     end 
