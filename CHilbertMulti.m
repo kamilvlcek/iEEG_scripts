@@ -127,6 +127,7 @@ classdef CHilbertMulti < CHilbert
                 end
                 if numel(prehazet) > 0
                     blokyprehazej = obj.ShuffleBlocks(bloky0, bloky1);
+                    obj.PrehazejEpochy(blokyprehazej,epochData);
                 end
             end
             obj.orig(fileno).epochData = epochData; % ulozim original taky                        
@@ -145,6 +146,7 @@ classdef CHilbertMulti < CHilbert
                 obj.orig(f).H = H; %orignalni header ulozim
             end
         end
+        
     end
     methods (Static,Access = private)
         function bloky = GetBlocks(epochData)
@@ -157,7 +159,7 @@ classdef CHilbertMulti < CHilbert
         end
         function blokyprehazej = ShuffleBlocks(bloky0, bloky1)
             %zjisti indexy k prehazeni bloku, v bloky1=Cil podle bloky0=Zdroj
-            blokyprehazej = [bloky0(:,1) zeros(size(bloky0,1),1)]; %vzorove poradi bloku , k tomu budu pridavat cisla 
+            blokyprehazej = [bloky0(:,1) zeros(size(bloky0,1),1) bloky0(:,3:4)]; %vzorove poradi bloku , k tomu budu pridavat cisla 
             lastkat = [unique(bloky1(:,1)) zeros(numel(unique(bloky1(:,1))),1)]; %tam si budu ukladat podledni nalezena cisla bloku
             for b = 1:size(blokyprehazej,1)
                 
@@ -167,6 +169,21 @@ classdef CHilbertMulti < CHilbert
                 %find hleda jen v te casti bloky1, takze musim pricist index, odkud jsem hledal
                 lastkat(ilastkat,2) = temp;               
                 blokyprehazej(b,2)=temp;
+            end
+            
+        end
+        function PrehazejEpochy(blokyprehazej,epochData)
+            %prehazi spatne serazena epochData podle blokyprehazej 
+            %funguje, ale tohle vlastne nepotrebuju. 
+            % TOD Potrebuju prehazet d, tabs, aj
+            epochData2 = cell(size(epochData));
+            epocha2 = 1; %nove cislo epochy 1-n
+            for blok2 = 1:size(blokyprehazej,1) %blok 16ti epoch (u AEdist) - nova cisla bloku 1-n
+                blok1 = blokyprehazej(blok2,2); %puvodni cislo bloku, ktere chci zmenit na nove                
+                for epocha1 = blokyprehazej(blok1,3) :  blokyprehazej(blok1,4) %jednotlive epochy - puvodni cisla epoch                 
+                    epochData2(epocha2,:) = epochData(epocha1,:);
+                    epocha2 = epocha2 + 1;
+                end
             end
         end
     end
