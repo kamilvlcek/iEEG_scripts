@@ -72,6 +72,8 @@ pacienti = pacienti_menrot(); %nactu celou strukturu pacientu
 logfilename = ['logs\BatchHilbert_Menrot_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') '.log'];
 [fileID,message] = fopen(logfilename,'wt'); %soubor na logovani prubehu
 assert(fileID>=0,['nemohu otevrit soubor pro zapis: ' logfilename ]);
+setuptext = setup2text(setup);
+fprintf(fileID,setuptext); %ulozi setup do log souboru
 
 %nejdriv overim, jestli existuje vsechno co potrebuju nacist
 chybasoubor = false;

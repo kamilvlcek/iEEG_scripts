@@ -3,7 +3,7 @@
 hybernovat = 1; %jestli chci po konci skriptu pocitac uspat - ma prednost
 vypnout = 0; %jestli chci po konci skriptu pocitac vypnout (a nechci ho hybernovat) 
 pouzetest = 0; %jestli chci jen otestovat pritomnost vsech souboru 
-overwrite = 0; %jestil se maji prepsat puvodni data, nebo ohlasit chyba a pokracovat v dalsim souboru 
+overwrite = 1; %jestil se maji prepsat puvodni data, nebo ohlasit chyba a pokracovat v dalsim souboru 
 
 setup = setup_aedist( 0 ); %nacte nastaveni testu - 11.12.2017
 basedir = setup.basedir;
@@ -72,6 +72,8 @@ pacienti = pacienti_aedist(); %nactu celou strukturu pacientu
 logfilename = ['logs\BatchHilbert_AEdist_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') '.log'];
 [fileID,message] = fopen(logfilename,'wt'); %soubor na logovani prubehu
 assert(fileID>=0,['nemohu otevrit soubor pro zapis: ' logfilename ]);
+setuptext = setup2text(setup);
+fprintf(fileID,setuptext); %ulozi setup do log souboru
 
 %nejdriv overim, jestli existuje vsechno co potrebuju nacist
 chybasoubor = false;
@@ -241,3 +243,6 @@ if hybernovat
 elseif vypnout            %#ok<UNRCH>
     system('shutdown -s') %#ok<UNRCH>
 end
+
+
+

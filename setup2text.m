@@ -1,0 +1,9 @@
+function txt = setup2text(setup)
+basedir = strrep(setup.basedir,'\','/');
+
+txt = [ 'Setupinfo:\n' 'basedir ' basedir '\n' 'epochtime ' num2str(setup.epochtime) '\n' 'baseline ' num2str(setup.baseline) '\n' ...
+       'suffix ' setup.suffix '\n' 'prefix ' setup.prefix '\n' 'stat_kats ' num2str(setup.stat_kats) '\n' ...
+       'stat_opak ' num2str(cell2mat(setup.stat_opak)) '\n' 'subfolder ' setup.subfolder '\n' 'alignresponse ' num2str(setup.alignresponse) '\n\n' ...
+];
+
+end
