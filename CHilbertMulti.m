@@ -210,17 +210,18 @@ classdef CHilbertMulti < CHilbert
             else
                 obj.CH.H.subjName = [obj.CH.H.subjName ',' H.subjName]; %spojim jmena subjektu
                 CHfields = fieldnames(obj.CH.H.channels);
-                Hfields = fieldnames(H.channels);
+                Hfields = fieldnames(H.channels); %nove pridavany header
                 if numel(CHfields) == numel(Hfields)
                     obj.CH.H.channels = cat(2,obj.CH.H.channels,H.channels); %spojim udaje o kanalech
-                elseif numel(CHfields) > numel(Hfields)
-                    error(['predchozi soubor mel vice poli v H.channels:' num2str(numel(CHfields))]);
-%                     for ch = 1:size(H.channels,1)
-%                     for f = 1:numel(CHfields)
-%                         obj.CH.H.channels
-%                     end
-%                     end
-                      %TODO  
+                elseif numel(CHfields) > numel(Hfields) %predchozi soubor mel vice poli v H.channels
+                    rozdil = setdiff(CHfields,Hfields); %jaka pole chybi v Hfields
+                    prazdnepole = cell(numel(H.channels),1); %cell array o tolika polich, ktere ma nove pridavany header
+                    for r = 1:numel(rozdil)                       
+                        [H.channels(:).(rozdil{r})] = prazdnepole{:}; %pridam kazde chybejici pole
+                        %tomuhle kodu moc nerozumim, ale nasel jsem ho na webu
+                        %(rozdil{r}) je dynamic field
+                    end
+                    obj.CH.H.channels = cat(2,obj.CH.H.channels,H.channels); %spojim udaje o kanalech
                 else
                     error(['predchozi soubor mel mene poli v H.channels:' num2str(numel(CHfields))]);
                 end
