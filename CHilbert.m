@@ -44,7 +44,7 @@ classdef CHilbert < CiEEGData
             if ~exist('decimatefactor','var'), decimatefactor = obj.decimatefactor; end; %volitelny parametr decimatefactor 
             samples = ceil(obj.samples/decimatefactor); 
             disp(['vytvarim pole ' num2str(samples) 'x' num2str(obj.channels) 'x' num2str(numel(freq)-1) ... 
-                '=' num2str(samples*obj.channels*(numel(freq)-1)*8/1024) 'kBytes']); %zpravu abych vedel, v jakych velikostech se pohybuju
+                '=' num2str(samples*obj.channels*(numel(freq)-1)*8/1024/1024) ' MBytes']); %zpravu abych vedel, v jakych velikostech se pohybuju
             obj.HFreq = zeros(samples,obj.channels,numel(freq)-1); %inicializace pole   
             tic; %zadnu meric cas
             fprintf('kanal ze %i: ', max(channels) );
@@ -264,6 +264,9 @@ classdef CHilbert < CiEEGData
             CB.LABELS = cell(1,2); %sem budu ukladata neurologyLabel od Martina Tomaska
             CB.LABELS{1}= cell(numel(chns),1);
             CB.LABELS{2}= cell(obj.channels,1);
+            CB.EPI = cell(1,2); %pridam jeste udaje o epilepticke aktivite, ktera pak muzu pouzit v zobrazeni mozku
+            CB.EPI{1} = struct('seizureOnset',{},'interictalOften',{},'rejected',{});
+            CB.EPI{2} = struct('seizureOnset',{},'interictalOften',{},'rejected',{});
             for ch = 1:numel(chns)
                 CB.VALS{2}(chns(ch)) = 1;
                 CB.NAMES{1}{ch} = obj.CH.H.channels(chns(ch)).name;     
@@ -271,6 +274,11 @@ classdef CHilbert < CiEEGData
                 CB.MNI{1}(ch).MNI_x = obj.CH.H.channels(chns(ch)).MNI_x;
                 CB.MNI{1}(ch).MNI_y = obj.CH.H.channels(chns(ch)).MNI_y;
                 CB.MNI{1}(ch).MNI_z = obj.CH.H.channels(chns(ch)).MNI_z;
+                if isfield(obj.CH.H.channels,'seizureOnset')
+                    CB.EPI{1}(ch).seizureOnset = obj.CH.H.channels(chns(ch)).seizureOnset;
+                    CB.EPI{1}(ch).interictalOften = obj.CH.H.channels(chns(ch)).interictalOften;
+                    CB.EPI{1}(ch).rejected = obj.CH.H.channels(chns(ch)).rejected;
+                end
             end
             for ch = 1:obj.channels
                 CB.NAMES{2}{ch} = obj.CH.H.channels(ch).name;
@@ -278,6 +286,11 @@ classdef CHilbert < CiEEGData
                 CB.MNI{2}(ch).MNI_x = obj.CH.H.channels(ch).MNI_x;
                 CB.MNI{2}(ch).MNI_y = obj.CH.H.channels(ch).MNI_y;
                 CB.MNI{2}(ch).MNI_z = obj.CH.H.channels(ch).MNI_z;
+                if isfield(obj.CH.H.channels,'seizureOnset')
+                    CB.EPI{2}(ch).seizureOnset = obj.CH.H.channels(ch).seizureOnset;
+                    CB.EPI{2}(ch).interictalOften = obj.CH.H.channels(ch).interictalOften;
+                    CB.EPI{2}(ch).rejected = obj.CH.H.channels(ch).rejected;
+                end
             end            
         end
     end 

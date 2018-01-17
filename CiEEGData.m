@@ -1105,6 +1105,14 @@ classdef CiEEGData < handle
             else
                 text(-0.1,ymax*.90,'no MNI');
             end
+            if isfield(obj.CH.H.channels,'seizureOnset') %vypisu epilepticke info
+                seizureOnset    = iff(obj.CH.H.channels(1,ch).seizureOnset==1,'seizureOnset','-');
+                interictalOften = iff(obj.CH.H.channels(1,ch).interictalOften==1,'interictalOften','-');
+                rejected = iff( ~isempty(obj.CH.H.channels(1,ch).rejected==1),'rejected','-');
+                text(-0.1,ymax*.85,['epiinfo: ' seizureOnset ',' interictalOften ',' rejected ]);
+            else
+                text(-0.1,ymax*.85,['no epiinfo']);
+            end
             methodhandle = @obj.hybejPlotCh;
             set(obj.plotRCh.fh,'KeyPressFcn',methodhandle);          
         end        
