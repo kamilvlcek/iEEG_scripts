@@ -42,8 +42,10 @@ classdef CHilbert < CiEEGData
             if ~exist('channels','var') || isempty(channels), channels = 1:obj.channels; end
             if ~exist('prekryv','var'), prekryv = 0; end %kolik se maji prekryvat sousedni frekvencni pasma, napriklad 0.5
             if ~exist('decimatefactor','var'), decimatefactor = obj.decimatefactor; end; %volitelny parametr decimatefactor 
-            
-            obj.HFreq = zeros(ceil(obj.samples/decimatefactor),obj.channels,numel(freq)-1); %inicializace pole   
+            samples = ceil(obj.samples/decimatefactor); 
+            disp(['vytvarim pole ' num2str(samples) 'x' num2str(obj.channels) 'x' num2str(numel(freq)-1) ... 
+                '=' num2str(samples*obj.channels*(numel(freq)-1)*8/1024) 'kBytes']); %zpravu abych vedel, v jakych velikostech se pohybuju
+            obj.HFreq = zeros(samples,obj.channels,numel(freq)-1); %inicializace pole   
             tic; %zadnu meric cas
             fprintf('kanal ze %i: ', max(channels) );
             for ch = channels %jednotlive elektrody

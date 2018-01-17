@@ -7,12 +7,32 @@ classdef CHilbertMulti < CHilbert
         filenames; %cell array se jmeny souboru
         blokyprehazej; %matrix s originalnimi cisly bloku a cisly bloku k prehazeni z noveho souboru. Meni se pro kazdy pridany soubor
            %plni se v GetEpochData
+        filesimported = 0;
     end
     
     methods
-        function obj = CHilbertMulti(filenames)  
-            obj.ImportExtract(filenames);
+        function obj = CHilbertMulti()              
         end
+        function TestExtract(obj,filenames)
+             for fileno = 1:numel(filenames)
+                filename = filenames{fileno}; %cell array, zatim to musi byt plna cesta                
+                if exist(filename,'file') 
+                    disp(obj.basename(filename)); %zobrazim jmeno souboru s pouze koncem 
+                    obj.filenames{fileno} = filename;
+                    clear d;
+                    load(filename,'d','P'); %nacte vsechny promenne
+                    test = ~P.data(:,P.sloupce.zpetnavazba); %index testovych epoch
+                    d = d(:,:,test);
+                    disp(['  velikost d:' num2str(size(d))]);                    
+                end
+             end
+        end
+%         function Clear()
+%             obj.d = [];
+%             obj.Hf = [];
+%             obj.Hfmean  =[];
+%             obj.HFreq = [];
+%         end
         function obj = ImportExtract(obj,filenames)
             for fileno = 1:numel(filenames)
                 filename = filenames{fileno}; %cell array, zatim to musi byt plna cesta                
@@ -55,6 +75,7 @@ classdef CHilbertMulti < CHilbert
                     obj.orig(fileno).DatumCas = DatumCas;
                     obj.orig(fileno).filename = filename;     
                     obj.orig(fileno).blokyprehazej = obj.blokyprehazej; %zaloha kvuli zpetne referenci
+                    obj.filesimported = obj.filesimported +1;
                 end
                 
             end
@@ -188,7 +209,22 @@ classdef CHilbertMulti < CHilbert
                 obj.els = obj.CH.els;
             else
                 obj.CH.H.subjName = [obj.CH.H.subjName ',' H.subjName]; %spojim jmena subjektu
-                obj.CH.H.channels = cat(2,obj.CH.H.channels,H.channels); %spojim udaje o kanalech
+                CHfields = fieldnames(obj.CH.H.channels);
+                Hfields = fieldnames(H.channels);
+                if numel(CHfields) == numel(Hfields)
+                    obj.CH.H.channels = cat(2,obj.CH.H.channels,H.channels); %spojim udaje o kanalech
+                elseif numel(CHfields) > numel(Hfields)
+                    error(['predchozi soubor mel vice poli v H.channels:' num2str(numel(CHfields))]);
+%                     for ch = 1:size(H.channels,1)
+%                     for f = 1:numel(CHfields)
+%                         obj.CH.H.channels
+%                     end
+%                     end
+                      %TODO  
+                else
+                    error(['predchozi soubor mel mene poli v H.channels:' num2str(numel(CHfields))]);
+                end
+                
                 obj.CH.chgroups{f} = (1:numel(H.channels)) + obj.CH.els(f-1);
                 obj.CH.els(f) = numel(H.channels)+obj.CH.els(f-1);                
             end
