@@ -11,8 +11,7 @@ classdef CBrainPlot < handle
         brainsurface; %ulozeny isosurface z main_brainPlot
     end
     
-    methods (Access = public)
-        
+    methods (Access = public)        
         function [obj] = IntervalyResp(obj,testname,intervals,filename)
             %vola postupne pro vsechny pacienty E.IntervalyResp a uklada vysledky
             %vyradi vsechny kontakty bez odpovedi nebo se zapornou odpovedi
@@ -75,9 +74,16 @@ classdef CBrainPlot < handle
                 end
             end            
         end
-        
+        function obj = ImportData(obj,CB)
+            %vlozi data, ktera jsem vytvoril pomoci CHilbert.ExtractBrainPlotData
+            obj.VALS = CB.VALS;
+            obj.MNI = CB.MNI;
+            obj.NAMES = CB.NAMES;
+            obj.katstr = CB.katstr;
+            obj.intervals = CB.intervals;       
+        end
         function PlotBrain3D(obj,kategorie)
-            assert(~isempty(obj.VALS),'zadna data z IntervalyResp');
+            assert(~isempty(obj.VALS),'zadna data VALS');
             if ~exist('kategorie','var'), kategorie = 1:size(obj.VALS,2); end %muzu chtit jen nektere kategorie
             if ~isempty(obj.brainsurface)
                 brainsurface = obj.brainsurface; %#ok<PROP>

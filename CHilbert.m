@@ -33,8 +33,7 @@ classdef CHilbert < CiEEGData
                 disp('no Frequency bands');
             end
             
-        end
-        
+        end        
         function obj = PasmoFrekvence(obj,freq,channels,prekryv,decimatefactor)
             %EEG2HILBERT prevede vsechny kanaly na prumer hilbertovych obalek
             %   podle puvodni funkce EEG2Hilbert
@@ -246,6 +245,39 @@ classdef CHilbert < CiEEGData
             save(filename,'d','tabs','tabs_orig','fs','P','epochtime','baseline','RjEpochCh','epochData','DatumCas','H','Hf','Hfmean','HFreq','-v7.3'); 
         end
         
+        function CB = ExtractBrainPlotData(obj,chns)
+            %vytvori data, pro CBrainPlot.PlotBrain3D
+            CB = struct;
+            CB.intervals = [0 1]; %budu mit dve pole hodnoty, vybrane kanaly a vsechny kanaly s vybranymi vyznacenyma
+            CB.katstr = {'selected','all'};
+            CB.VALS = cell(1,2);
+            CB.NAMES = cell(1,2);
+            CB.NAMES{1}= cell(numel(chns),1);
+            CB.NAMES{2}= cell(obj.channels,1);
+            CB.MNI = cell(1,2);
+            CB.MNI{1} = struct('MNI_x',{},'MNI_y',{},'MNI_z',{});
+            CB.MNI{2} = struct('MNI_x',{},'MNI_y',{},'MNI_z',{});
+            CB.VALS{1} = ones(numel(chns),1);
+            CB.VALS{2} = zeros(obj.channels,1); %tam pak doplnim 1 na mista vybranych kanalu
+            CB.LABELS = cell(1,2); %sem budu ukladata neurologyLabel od Martina Tomaska
+            CB.LABELS{1}= cell(numel(chns),1);
+            CB.LABELS{2}= cell(obj.channels,1);
+            for ch = 1:numel(chns)
+                CB.VALS{2}(chns(ch)) = 1;
+                CB.NAMES{1}{ch} = obj.CH.H.channels(chns(ch)).name;     
+                CB.LABELS{1}{ch} = obj.CH.H.channels(chns(ch)).neurologyLabel; 
+                CB.MNI{1}(ch).MNI_x = obj.CH.H.channels(chns(ch)).MNI_x;
+                CB.MNI{1}(ch).MNI_y = obj.CH.H.channels(chns(ch)).MNI_y;
+                CB.MNI{1}(ch).MNI_z = obj.CH.H.channels(chns(ch)).MNI_z;
+            end
+            for ch = 1:obj.channels
+                CB.NAMES{2}{ch} = obj.CH.H.channels(ch).name;
+                CB.LABELS{2}{ch} = obj.CH.H.channels(ch).neurologyLabel;
+                CB.MNI{2}(ch).MNI_x = obj.CH.H.channels(ch).MNI_x;
+                CB.MNI{2}(ch).MNI_y = obj.CH.H.channels(ch).MNI_y;
+                CB.MNI{2}(ch).MNI_z = obj.CH.H.channels(ch).MNI_z;
+            end            
+        end
     end 
         
     %  --------- privatni metody ----------------------
