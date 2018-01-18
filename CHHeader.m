@@ -215,6 +215,47 @@ classdef CHHeader < handle
                interIctal = [];
             end    
         end
+        function obj = ChangeReference(obj,ref)
+            assert(any(ref=='heb'),'neznama reference, mozne hodnoty: h e b');
+            H = obj.H;  %#ok<PROPLC> %kopie headeru
+            switch ref %jaky typ reference chci
+                case 'h'  %headbox          
+                    filterSettings.name = 'car'; % options: 'car','bip','nan'
+                    filterSettings.chGroups = 'perHeadbox';        % options: 'perHeadbox' (=global CAR), OR 'perElectrode' (=local CAR per el. shank)
+                case 'e'  %elektroda
+                    filterSettings.name = 'car'; % options: 'car','bip','nan'
+                    filterSettings.chGroups = 'perElectrode';        % options: 'perHeadbox' (=global CAR), OR 'perElectrode' (=local CAR per el. shank)
+                case 'b'  %bipolarni
+                    filterSettings.name = 'bip'; % options: 'car','bip','nan'           
+            end
+            filterMatrix = createSpatialFilter_kisarg(H, numel(H.selCh_H), filterSettings,obj.RjCh); %#ok<PROPLC> %ve filterMatrix uz nejsou rejectovane kanaly                        
+                %assert(size(rawData,2) == size(filterMatrix,1));            
+            if ref=='b' %u bipolarni reference se mi meni pocet kanalu
+                H.channels = struct; %#ok<PROPLC> 
+                for ch = 1:size(filterMatrix,2) %#ok<PROPLC> % v tehle matrix jsou radky stare kanaly a sloupce nove kanaly - takze cyklus pres nove kanaly
+                    oldch = find(filterMatrix(:,ch)==1); %#ok<PROPLC> %cislo stareho kanalu ve sloupci s novym kanalem ch
+                    fnames = fieldnames(obj.H.channels(oldch)); %jmena poli struktury channels
+                    for f = 1:numel(fnames) %postupne zkopiruju vsechny pole struktury, najednou nevim jak to udelat
+                        fn = fnames{f};
+                        H.channels(ch).(fn) = obj.H.channels(oldch).(fn); %#ok<PROPLC> 
+                    end
+                    H.channels(ch).name = ['(' H.channels(ch).name '-' obj.H.channels(filterMatrix(:,ch)==-1).name ')']; %#ok<PROPLC> %pojmenuju kanal jako rozdil
+                    H.channels(ch).neurologyLabel = ['(' H.channels(ch).neurologyLabel '-' obj.H.channels(filterMatrix(:,ch)==-1).neurologyLabel ')']; %#ok<PROPLC>  %oznaceni od Martina Tomaska
+                    H.channels(ch).ass_brainAtlas = ['(' H.channels(ch).ass_brainAtlas '-' obj.H.channels(filterMatrix(:,ch)==-1).ass_brainAtlas ')']; %#ok<PROPLC> 
+                    MNI = [ H.channels(ch).MNI_x H.channels(ch).MNI_y H.channels(ch).MNI_z; ... 
+                           obj.H.channels(filterMatrix(:,ch)==-1).MNI_x obj.H.channels(filterMatrix(:,ch)==-1).MNI_y obj.H.channels(filterMatrix(:,ch)==-1).MNI_z ...
+                           ]; %#ok<PROPLC> %matice MNI souradnic jednoho a druheho kanalu
+                    MNI2=(MNI(1,:) + MNI(2,:))/2; % prumer MNI souradnic - nova souradnice bipolarniho kanalu
+                    H.channels(ch).MNI_x =  MNI2(1); %#ok<PROPLC> 
+                    H.channels(ch).MNI_y =  MNI2(2); %#ok<PROPLC> 
+                    H.channels(ch).MNI_z =  MNI2(3); %#ok<PROPLC> 
+                    H.channels(ch).MNI_dist = sqrt( sum((MNI(1,:) - MNI(2,:)).^2)); %#ok<PROPLC>  %vzdalenost mezi puvodnimi MNI body                                                           
+                end 
+%                 obj.ChangeReferenceRjEpochCh(filterMatrix); %prepocitam na bipolarni referenci i RjEpochCh 
+            end
+            obj.H = H; %#ok<PROPLC> %prepisu puvodni ulozeny header
+            obj.SetFilterMatrix(filterMatrix); %#ok<PROPLC> %uchovam si filterMatrix na pozdeji, kvuli prepoctu RjEpochCh
+        end
     end
     
     %  --------- privatni metody ----------------------

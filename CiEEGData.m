@@ -115,7 +115,7 @@ classdef CiEEGData < handle
               
         function obj = GetHHeader(obj,H)
             %nacte header z promenne H - 25.5.2016
-            obj.CH = CHHeader(H);
+            obj.CH = CHHeader(H); %vypocita i selCh_H
             [~, ~, obj.els] = obj.CH.ChannelGroups();  
             assert(max(obj.els)<=size(obj.d,2),['nesouhlasi pocet elektrod (data:' num2str(size(obj.d,2)) ',header:' num2str(max(obj.els)) ') - spatny header?']);
             disp(['header nacten: ' obj.CH.PacientTag() ', triggerch: ' num2str(obj.CH.GetTriggerCh())]);
@@ -304,46 +304,15 @@ classdef CiEEGData < handle
         function obj = ChangeReference(obj,ref)            
             assert(any(ref=='heb'),'neznama reference, mozne hodnoty: h e b');
             assert(isobject(obj.CH),'Hammer header not loaded');
-            H = obj.CH.H; %kopie headeru
-            switch ref %jaky typ reference chci
-                case 'h'  %headbox          
-                    filterSettings.name = 'car'; % options: 'car','bip','nan'
-                    filterSettings.chGroups = 'perHeadbox';        % options: 'perHeadbox' (=global CAR), OR 'perElectrode' (=local CAR per el. shank)
-                case 'e'  %elektroda
-                    filterSettings.name = 'car'; % options: 'car','bip','nan'
-                    filterSettings.chGroups = 'perElectrode';        % options: 'perHeadbox' (=global CAR), OR 'perElectrode' (=local CAR per el. shank)
-                case 'b'  %bipolarni
-                    filterSettings.name = 'bip'; % options: 'car','bip','nan'           
-            end
-            filterMatrix = createSpatialFilter_kisarg(H, numel(H.selCh_H), filterSettings,obj.RjCh); %ve filterMatrix uz nejsou rejectovane kanaly                        
-                %assert(size(rawData,2) == size(filterMatrix,1));
-            % apply spatial filter
-            if ref=='b' %u bipolarni reference se mi meni pocet kanalu
-                H.channels = struct;
-                for ch = 1:size(filterMatrix,2) % v tehle matrix jsou radky stare kanaly a sloupce nove kanaly - takze cyklus pres nove kanaly
-                    oldch = find(filterMatrix(:,ch)==1); %cislo stareho kanalu ve sloupci s novym kanalem ch
-                    fnames = fieldnames(obj.CH.H.channels(oldch)); %jmena poli struktury channels
-                    for f = 1:numel(fnames) %postupne zkopiruju vsechny pole struktury, najednou nevim jak to udelat
-                        fn = fnames{f};
-                        H.channels(ch).(fn) = obj.CH.H.channels(oldch).(fn); 
-                    end
-                    H.channels(ch).name = ['(' H.channels(ch).name '-' obj.CH.H.channels(filterMatrix(:,ch)==-1).name ')']; %pojmenuju kanal jako rozdil
-                    H.channels(ch).neurologyLabel = ['(' H.channels(ch).neurologyLabel '-' obj.CH.H.channels(filterMatrix(:,ch)==-1).neurologyLabel ')']; %oznacen od Martina Tomaska
-                    H.channels(ch).ass_brainAtlas = ['(' H.channels(ch).ass_brainAtlas '-' obj.CH.H.channels(filterMatrix(:,ch)==-1).ass_brainAtlas ')'];
-                    MNI = [ H.channels(ch).MNI_x H.channels(ch).MNI_y H.channels(ch).MNI_z; ...
-                           obj.CH.H.channels(filterMatrix(:,ch)==-1).MNI_x obj.CH.H.channels(filterMatrix(:,ch)==-1).MNI_y obj.CH.H.channels(filterMatrix(:,ch)==-1).MNI_z ...
-                           ]; %matice MNI souradnic jednoho a druheho kanalu
-                    MNI2=(MNI(1,:) + MNI(2,:))/2; % prumer MNI souradnic - nova souradnice bipolarniho kanalu
-                    H.channels(ch).MNI_x =  MNI2(1); 
-                    H.channels(ch).MNI_y =  MNI2(2); 
-                    H.channels(ch).MNI_z =  MNI2(3); 
-                    H.channels(ch).MNI_dist = sqrt( sum((MNI(1,:) - MNI(2,:)).^2)); %vzdalenost mezi puvodnimi MNI body                                                           
-                end 
-                obj.ChangeReferenceRjEpochCh(filterMatrix); %prepocitam na bipolarni referenci i RjEpochCh 
-            end
             
+            H = obj.CH.H; %kopie headeru            
+            obj.CH.ChangeReference(ref); %zmeni referenci u headeru - 18.1.2018            
+            if ref=='b' %u bipolarni reference se mi meni pocet kanalu                
+                obj.ChangeReferenceRjEpochCh(obj.CH.filterMatrix); %prepocitam na bipolarni referenci i RjEpochCh 
+            end
+            % zmena EEG dat v poli d
             if obj.epochs <= 1 %ne epochovana data
-                filtData = obj.d(:,H.selCh_H) * filterMatrix;
+                filtData = obj.d(:,H.selCh_H) * obj.CH.filterMatrix;
                 assert(size(filtData,1) == size(obj.d,1),'zmenila se delka zaznamu'); %musi zustat stejna delka zaznamu  
                 obj.d=filtData;                
             else %epochovana data
@@ -351,7 +320,7 @@ classdef CiEEGData < handle
                 for ch = 1:numel(H.selCh_H) %predelam matici 3D na 2D
                     dd(:,ch) = reshape(obj.d(:,ch,:),obj.samples*obj.epochs,1);
                 end                
-                filtData = dd(:,H.selCh_H) * filterMatrix;
+                filtData = dd(:,H.selCh_H) * obj.CH.filterMatrix;
                 assert(size(filtData,1) == size(dd,1),'zmenila se delka zaznamu'); %musi zustat stejna delka zaznamu  
                 obj.d = zeros(obj.samples,size(filtData,2),obj.epochs); %nove pole dat s re-referencovanymi daty
                 for ch=1:size(filtData,2) %vratim puvodni 3D tvar matice
@@ -360,8 +329,8 @@ classdef CiEEGData < handle
             end
             [obj.samples,obj.channels, obj.epochs] = obj.DSize();
             obj.RjCh = []; %rejectovane kanaly uz byly vyrazeny, ted nejsou zadne
-            obj.GetHHeader(H); %novy header s vyrazenymi kanaly
-            obj.CH.SetFilterMatrix(filterMatrix); %uchovam si filterMatrix na pozdeji, kvuli prepoctu RjEpochCh
+            obj.GetHHeader(obj.CH.H); %novy header s vyrazenymi kanaly - prepisu puvodni header
+           
             obj.filename = []; %nechci si omylem prepsat puvodni data 
             switch ref
                 case 'h', obj.reference = 'perHeadbox';

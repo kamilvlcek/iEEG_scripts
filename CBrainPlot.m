@@ -86,10 +86,10 @@ classdef CBrainPlot < handle
             assert(~isempty(obj.VALS),'zadna data VALS');
             if ~exist('kategorie','var'), kategorie = 1:size(obj.VALS,2); end %muzu chtit jen nektere kategorie
             if ~isempty(obj.brainsurface)
-                brainsurface = obj.brainsurface; %#ok<PROP>
+                brainsurface = obj.brainsurface;  %#ok<PROPLC>
             end
             hybernovat = 0; %jestli chci po konci skriptu pocitac uspat - ma prednost
-            vypnout = 0; %#ok<NASGU> %jestli chci po konci skriptu pocitac vypnout (a nechci ho hybernovat) 
+            vypnout = 0;  %jestli chci po konci skriptu pocitac vypnout (a nechci ho hybernovat) 
             kombinace = [2 1; 3 1 ; 3 2 ]; %kombinace kategorii
             figureVisible = 'off';   %nechci zobrazovat obrazek 
             tic; %zadnu meric cas
@@ -113,7 +113,7 @@ classdef CBrainPlot < handle
                         %nejdriv vykreslim bez popisku elektrod
                         main_brainPlot; %volam Jirkuv skript, vsechny ty promenne predtim jsou do nej
                         if isempty(obj.brainsurface)
-                            obj.brainsurface = brainsurface; %#ok<PROP> %ulozim si ho pro dalsi volani
+                            obj.brainsurface = brainsurface; %#ok<PROPLC> %ulozim si ho pro dalsi volani
                         end
                         
                         %a pak jeste s popisy elektrod
@@ -127,18 +127,19 @@ classdef CBrainPlot < handle
             end
             toc; %ukoncim mereni casu a vypisu
             if hybernovat
-                system('shutdown -h') 
-            elseif vypnout            %#ok<UNRCH>
-                system('shutdown -s') 
+                system('shutdown -h')  %#ok<UNRCH>
+            elseif vypnout            
+                system('shutdown -s') %#ok<UNRCH>
             end
         end
     end
     methods (Static,Access = public)
-        function PAC = StructFind(struktura,label,testname)
+        function PAC = StructFind(struktura,label,testname,reference)
             %najde pacienty, jejich headery obsahuji mozkovou strukturu
             %struktura je nazev struktury podle atlas napriklad hippo, label je kratky nazev podle martina, napriklad hi
             if ~exist('label','var'),    label = struktura; end %defaultni test
-            if ~exist('testname','var'), testname = 'aedist'; end %defaultni test
+            if ~exist('testname','var') || isempty(testname), testname = 'aedist'; end %defaultni test
+            if ~exist('reference','var'), reference = []; end %defaultni test
             if ischar(struktura), struktura = {struktura}; end %prevedu na cell array
             if ischar(label), label = {label}; end %prevedu na cell array
             if strcmp(testname,'aedist')
@@ -153,6 +154,12 @@ classdef CBrainPlot < handle
                     load(hfilename);
                 else
                     disp(['header ' hfilename ' neexistuje']);
+                end               
+                if ~isempty(reference)
+                    CH = CHHeader(H);
+                    CH.RejectChannels( pacienti(p).rjch); %musim vyradit vyrazene kanaly, protoze ty se vyrazuji v bipolarni referenci
+                    CH.ChangeReference(reference); %nove od 18.1.2018
+                    H = CH.H;
                 end
                 ii = ~cellfun(@isempty,{H.channels.neurologyLabel}); %neprazdne cells
                 index = [];
