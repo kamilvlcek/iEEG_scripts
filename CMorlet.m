@@ -15,13 +15,15 @@ classdef  CMorlet < CHilbert
             disp('vytvoren objekt CMorlet');             
         end
         
-        function obj = PasmoFrekvence(obj,freq,channels)
+        function obj = PasmoFrekvence(obj,freq,channels,prekryv,decimatefactor)
             %   podle figure 1311 z knihy Mike X Cohen 
             %   pouziva data d z parentu a take fs
             %   freq    seznam freqvenci pro ktere se ma delat prumer - lo, .., ..., .., hi
             if ~exist('channels','var'), channels = 1:obj.channels; end
-            obj.HFreq = zeros(ceil(obj.samples/obj.decimatefactor),obj.channels,numel(freq)); %inicializace pole - power
-            obj.fphase = zeros(ceil(obj.samples/obj.decimatefactor),obj.channels,numel(freq)); % inicializace pole - faze
+            if ~exist('prekryv','var'), prekryv = 0; end %kolik se maji prekryvat sousedni frekvencni pasma, napriklad 0.5
+            if ~exist('decimatefactor','var'), decimatefactor = obj.decimatefactor; end; %volitelny parametr decimatefactor 
+            obj.HFreq = zeros(ceil(obj.samples/decimatefactor),obj.channels,numel(freq)); %inicializace pole - power
+            obj.fphase = zeros(ceil(obj.samples/decimatefactor),obj.channels,numel(freq)); % inicializace pole - faze
             tic; %zacnu merit cas
             fprintf('kanal ze %i: ', numel(channels) );
             
@@ -48,22 +50,22 @@ classdef  CMorlet < CHilbert
                     eegconv = eegconv(1:n_convolution);
                     eegconv = eegconv(half_of_wavelet_size+1:end-half_of_wavelet_size);    
                     fpower = eegconv .* conj(eegconv); % nasobeni conj je pry 2x rychlejsi  - abs(eegconv).^2; %z komplexniho cisla vypocitam power
-                    if obj.decimatefactor > 1
-                        fpower = decimate(fpower,obj.decimatefactor); % mensi sampling rate (moving average vubec nepomohl)
+                    if decimatefactor > 1
+                        fpower = decimate(fpower,decimatefactor); % mensi sampling rate (moving average vubec nepomohl)
                     end
                     obj.HFreq(:,ch,fno) = (fpower./mean(fpower)); %podil prumeru = prumerna hodnota                   
                     %fprintf('%i Hz, ',loF);
                     fphase = imag(eegconv); %#ok<PROP> %faze frekvence 
-                    if obj.decimatefactor > 1
-                        obj.fphase(:,ch,fno) = decimate(fphase,obj.decimatefactor);    %#ok<PROP>                         
+                    if decimatefactor > 1
+                        obj.fphase(:,ch,fno) = decimate(fphase,decimatefactor);    %#ok<PROP>                         
                     end
                 end
                 %fprintf('\n'); %tisk znova na stejnou radku
             end
             obj.d = squeeze(mean(obj.HFreq,3)); %11.5.2016 - prepisu puvodni data prumerem pres frekvence
-            obj.fs = obj.fs/obj.decimatefactor;
-            obj.tabs = downsample(obj.tabs,obj.decimatefactor);
-            obj.tabs_orig = downsample(obj.tabs_orig,obj.decimatefactor); %potrebuju zdecimovat i druhy tabs. Orig znamena jen ze nepodleha epochovani
+            obj.fs = obj.fs/decimatefactor;
+            obj.tabs = downsample(obj.tabs,decimatefactor);
+            obj.tabs_orig = downsample(obj.tabs_orig,decimatefactor); %potrebuju zdecimovat i druhy tabs. Orig znamena jen ze nepodleha epochovani
             obj.Hf = freq;
             obj.Hfmean = freq; %wavelety nepocitaji silu rozmezi frekvenci,ale primo zadanych frekvenci
             obj.mults = ones(1,size(obj.d,2)); %nove pole uz je double - defaultove jednicky pro kazdy kanal
