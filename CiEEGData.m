@@ -295,7 +295,7 @@ classdef CiEEGData < handle
             [~,psy_rt,~,~] = obj.PsyData.GetResponses();                      
             psy_rt = psy_rt(all(iEpochy,2)); %reakcni casy jen pro vybrane kategorie a opakovani a nevyrazene
             
-            if exist('rt','var') && ~isempty(rt) %chci hodnoty serazene podle reakcniho casu               
+            if exist('rt','var') && rt>0 %chci hodnoty serazene podle reakcniho casu               
                 [psy_rt, isorted] = sort(psy_rt);
                 d = d(:,:,isorted); 
             end   
@@ -614,12 +614,12 @@ classdef CiEEGData < handle
             colorbar;
         end
         
-        function obj = PlotEpochs(obj,ch,kategories)
+        function obj = PlotEpochs(obj,ch,kategories,sortrt)
             %uchovani stavu grafu, abych ho mohl obnovit a ne kreslit novy
             assert(obj.epochs > 1,'only for epoched data');
             if ~exist('ch','var')
                 if isfield(obj.plotEp,'ch'), ch = obj.plotEp.ch;
-                else ch = 1; obj.plotEp.ch = ch; end
+                else, ch = 1; obj.plotEp.ch = ch; end
             else
                 obj.plotEp.ch = ch;
             end
@@ -628,6 +628,12 @@ classdef CiEEGData < handle
                 else kategories = obj.PsyData.Categories(); obj.plotEp.kategories = kategories; end
             else
                 obj.plotEp.kategories = kategories;
+            end
+            if ~exist('sortrt','var')
+                if isfield(obj.plotEp,'sortrt'), sortrt = obj.plotEp.sortrt;
+                else, sortrt = 1; obj.plotEp.sortrt = sortrt; end %defaultne radim podle reakcniho casu
+            else
+                obj.plotEp.sortrt = sortrt;
             end
             if isfield(obj.plotEp,'fh') && ishandle(obj.plotEp.fh)
                 figure(obj.plotEp.fh); %pouziju uz vytvoreny graf
@@ -643,7 +649,7 @@ classdef CiEEGData < handle
             for k=1:numel(kategories)
                 katnum = kategories(k);
                 subplot(1,numel(kategories),k);
-                [dkat,rt] = obj.CategoryData(katnum,1);
+                [dkat,rt] = obj.CategoryData(katnum,sortrt);
                 E = 1:size(dkat,3); %cisla epoch - kazdou kategorii muze byt jine                
                 D = squeeze(dkat(:,ch,:));
                 imagesc(T,E,D');
@@ -1459,6 +1465,9 @@ classdef CiEEGData < handle
                case 'delete' %Del na numericke klavesnici
                    obj.plotEp.ylim = [];
                    obj.PlotEpochs( obj.plotEp.ch); %prekreslim grafy
+               case {'subtract' , 'hyphen'} %signal minus - razeni epoch podle rt on/off   %u terezy na notebooku  
+                   obj.plotEp.sortrt = 1 - obj.plotEp.sortrt;  %zmenim sortrt
+                   obj.PlotEpochs( obj.plotEp.ch); %prekreslim grafy                    
             end
                    
         end
