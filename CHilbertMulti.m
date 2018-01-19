@@ -24,6 +24,8 @@ classdef CHilbertMulti < CHilbert
                     test = ~P.data(:,P.sloupce.zpetnavazba); %index testovych epoch
                     d = d(:,:,test);
                     disp(['  velikost d:' num2str(size(d))]);                    
+                else
+                    disp(['soubor neexistuje ' filename]);  
                 end
              end
         end

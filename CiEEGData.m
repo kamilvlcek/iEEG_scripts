@@ -502,7 +502,7 @@ classdef CiEEGData < handle
             fprintf('... done\n');
         end
           
-        function [obj]= Decimate(obj,podil)
+        function [obj]= Decimate(obj,podil,rtrim)
             %zmensi data na nizsi vzorkovaci frekvenci podle urceneho podilu, naprilkad 4x 512-128Hz, pokud podil=4
             dd = zeros(ceil(size(obj.d,1)/podil) , size(obj.d,2), size(obj.d,3)); % d uz obsahuje jen svoji prvni pulku a delka je delitelna podilem
             tabs =  zeros(ceil(size(obj.d,1)/podil) , size(obj.d,3));
@@ -525,6 +525,10 @@ classdef CiEEGData < handle
             obj.tabs = tabs;
             fprintf('... done\n');
             disp(['decimated to ' num2str(obj.fs) ' Hz']);
+            if exist('rtrim','var') && ~isempty(rtrim)
+                obj.d = obj.d(1:rtrim,:,:);
+                obj.tabs = obj.tabs(1:rtrim,:);
+            end
         end
         
         function [prumery, MNI,names,intervaly,katstr] = IntervalyResp(obj, intervaly,channels,dofig)
@@ -1077,7 +1081,11 @@ classdef CiEEGData < handle
             if isfield(obj.CH.H.channels,'seizureOnset') %vypisu epilepticke info
                 seizureOnset    = iff(obj.CH.H.channels(1,ch).seizureOnset==1,'seizureOnset','-');
                 interictalOften = iff(obj.CH.H.channels(1,ch).interictalOften==1,'interictalOften','-');
-                rejected = iff( ~isempty(obj.CH.H.channels(1,ch).rejected==1),'rejected','-');
+                if isfield(obj.CH.H.channels,'rejected')
+                    rejected = iff( ~isempty(obj.CH.H.channels(1,ch).rejected==1),'rejected','-');
+                else
+                    rejected = '';
+                end
                 text(-0.1,ymax*.85,['epiinfo: ' seizureOnset ',' interictalOften ',' rejected ]);
             else
                 text(-0.1,ymax*.85,['no epiinfo']);
