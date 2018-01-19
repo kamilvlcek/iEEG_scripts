@@ -97,24 +97,33 @@ classdef CHHeader < handle
             end
             ch = 0;
         end
-        function obj = ChannelPlot(obj,pohled)
+        function [XYZ,obj] = ChannelPlot(obj,pohled,XYZ2)
             %zobrazi 3D obrazek elektrod v MNI prostoru. Obrazek ma rozmery podle rozmeru mozku
             %pohled muze urcti smer pohledu s-sagital,c-coronal,h-horizontal
             if isfield(obj.H.channels,'MNI_x')
                 figure('Name','ChannelPlot in MNI');                
-                [obj,chgroups] = obj.ChannelGroups(); %#ok<PROP>
-                for chg = 1:size(chgroups,2) %#ok<PROP>
-                    group = chgroups{chg}; %#ok<PROP>
+                [obj,chgroups] = obj.ChannelGroups(); %#ok<PROPLC>          
+                
+                %objekt se dobre uklada i pri poradi return values XYZ,obj
+                XYZ = struct('X',0,'Y',0,'Z',0);
+                for chg = 1:size(chgroups,2) %#ok<PROPLC>
+                    group = chgroups{chg}; %#ok<PROPLC>
                     X = zeros(1,numel(group)); Y = X; Z = X;
                     for ich = 1:numel(group)                        
                         X(ich) = obj.H.channels(group(ich)).MNI_x;
                         Y(ich) = obj.H.channels(group(ich)).MNI_y;
                         Z(ich) = obj.H.channels(group(ich)).MNI_z;                        
                     end
+                    XYZ(chg) = struct('X',X,'Y',Y,'Z',Z);
                     plot3(X,Y,Z,'o-','MarkerSize',5,'MarkerEdgeColor','b','MarkerFaceColor','b','LineWidth',2);
                     if chg==1, hold on; end                    
                     for ich = 1:numel(group) 
                         text(X(ich),Y(ich),Z(ich)+3,obj.H.channels(group(ich)).name);
+                    end
+                end
+                if exist('XYZ2','var')
+                    for chg = 1:numel(XYZ2)
+                        plot3(XYZ2(chg).X,XYZ2(chg).Y,XYZ2(chg).Z,'o-','MarkerSize',5,'MarkerEdgeColor','r','MarkerFaceColor','r','LineWidth',2);    
                     end
                 end
                 xlabel('MNI X'); %levoprava souradnice
