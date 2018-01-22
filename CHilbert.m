@@ -6,6 +6,7 @@ classdef CHilbert < CiEEGData
     end
     properties (Access = public)
         HFreq; %hilberova obalka pro kazde frekvenci pasmo - time x channel x freq (x kategorie)
+        HFreqEpochs; %Hf bez priemerovania cez epochy - time x channel x frequency x epoch
         Hf; %frekvencni pasma pro ktere jsou pocitany obalky - okraje pasem, pocet je tedy vetsi o 1 nez pocet spocitanych pasem
         Hfmean; %stredni hodnoty pasem  - pocet = pocet spocitanych pasem
         hfilename; %jmeno souboru CHilbert  
@@ -34,6 +35,7 @@ classdef CHilbert < CiEEGData
             end
             
         end        
+        
         function obj = PasmoFrekvence(obj,freq,channels,prekryv,decimatefactor)
             %EEG2HILBERT prevede vsechny kanaly na prumer hilbertovych obalek
             %   podle puvodni funkce EEG2Hilbert
@@ -89,6 +91,7 @@ classdef CHilbert < CiEEGData
                  ibaseline =  round(baseline.*obj.fs); %v poctu vzorku cas pred a po udalosti
                  kategorie = cell2mat(obj.PsyData.P.strings.podminka(:,2)); %cisla karegorii ve sloupcich
                  Hfreq2 = zeros(iepochtime(2)-iepochtime(1), size(obj.d,2), numel(obj.Hfmean),size(kategorie,1)); %nova epochovana data time x channel x freq x kategorie=podminka
+                 obj.HFreqEpochs = zeros(iepochtime(2)-iepochtime(1),size(obj.HFreq,2),size(obj.HFreq,3),obj.epochs); % time x channel x frequency x epoch
                  %cyklus po kategoriich ne po epochach
                  for katnum = kategorie' %potrebuji to v radcich
                      Epochy = find(cell2mat(obj.epochData(:,2))==katnum); %seznam epoch v ramci kategorie ve sloupci 
@@ -96,7 +99,9 @@ classdef CHilbert < CiEEGData
                          izacatek = find(obj.tabs_orig==obj.epochData{epoch,3}); %najdu index podnetu, podle jeho timestampu. v tretim sloupci epochData jsou timestampy
                          for ch=1:obj.channels
                             baseline_mean = mean(obj.HFreq(izacatek + ibaseline(1) : izacatek+ibaseline(2)-1,ch,:),1); %baseline pro vsechny frekvencni pasma dohromady
-                            Hfreq2(:,ch,:,katnum+1) = Hfreq2(:,ch,:,katnum+1) +  bsxfun(@minus,obj.HFreq(izacatek + iepochtime(1) : izacatek+iepochtime(2)-1,ch,:) , baseline_mean); 
+                            epoch_data = bsxfun(@minus,obj.HFreq(izacatek + iepochtime(1) : izacatek+iepochtime(2)-1,ch,:) , baseline_mean);
+                            obj.HFreqEpochs(:,ch,:,epoch) = epoch_data;
+                            Hfreq2(:,ch,:,katnum+1) = Hfreq2(:,ch,:,katnum+1) +  epoch_data; 
                             %tady se mi to mozna odecetlo blbe? KOntrola
                          end
                      end
@@ -189,6 +194,59 @@ classdef CHilbert < CiEEGData
             set(obj.plotF.fh,'KeyPressFcn',methodhandle);             
         end 
         
+        %% PLOT FUNCTIONS
+        function PlotAllEpochs(obj, cond, channel)
+            % plots all available time x frequency epoch maps for given channel and condition (1 = ego, 2 = allo, 0 = red)
+            condition = '';
+            switch cond
+                case 0
+                    condition = 'cervena'
+                case 1
+                    condition = 'vy'
+                case 2
+                    condition = 'znacka' 
+            end
+            
+            figure('Name',[condition, ' - channel ', num2str(channel)],'NumberTitle','off')
+            time = linspace(obj.epochtime(1), obj.epochtime(2), size(obj.d,1));
+            
+            epochs = find(obj.PsyData.P.data(:, 7) == cond);
+            chyby = obj.PsyData.GetErrorTrials();
+            correct = 0;
+            correct_epochs = zeros(90,90);
+            for i = 1:length(epochs)
+               subplot(9,15,i)
+               imagesc(squeeze(obj.HFreqEpochs(:,channel,:,epochs(i)))', 'XData', time, 'YData', obj.Hf);
+               set(gca,'YDir','normal')
+               title([num2str(obj.PsyData.P.data(epochs(i),5)), '-Epoch (', num2str(epochs(i)), ')'],'FontSize',8)
+               % mark test answers with red
+               if obj.PsyData.P.data(epochs(i), 6)
+                   hold on; plot([time(1) time(end)], [obj.Hf(end) obj.Hf(1)],'red','LineWidth',6)
+               % mark wrong answers with black
+               elseif ~obj.PsyData.P.data(epochs(i), 3) || sum(chyby(epochs(i),:)) > 0
+                   hold on; plot([time(1) time(end)], [obj.Hf(end) obj.Hf(1)],'black','LineWidth',6)
+               % mark rejected epochs with green
+               elseif ismember(epochs(i), obj.RjEpoch)
+                   hold on; plot([time(1) time(end)], [obj.Hf(end) obj.Hf(1)],'green','LineWidth',6)
+               % mark rejected channel's epochs with blue
+               elseif obj.RjEpochCh(channel, epochs(i))
+                   hold on; plot([time(1) time(end)], [obj.Hf(end) obj.Hf(1)],'blue','LineWidth',6)
+               else
+                  correct = correct +1; 
+                  correct_epochs(correct,:) = mean(squeeze(obj.HFreqEpochs(:,channel,:,epochs(i)))',1);
+                  title([num2str(obj.PsyData.P.data(epochs(i),5)), '-Epoch ', num2str(correct), ' (', num2str(epochs(i)), ')'],'FontSize',8)
+               end
+               response_time = obj.PsyData.P.data(epochs(i), 4);
+               hold on; plot([response_time response_time], [obj.Hf(1)-1 obj.Hf(end)+1],'black','LineWidth',2)
+               hold on;
+           end
+            
+           hold off;
+           mtit([condition, ' - channel ', num2str(channel)],'fontsize',20,'color','black');
+           figure
+           imagesc(correct_epochs)
+           caxis([-1 1])
+        end
         
         %% SAVE AND LOAD FILE
         %dve funkce na ulozeni a nacteni vypocitane Hilbertovy obalky, protoze to trva hrozne dlouho
