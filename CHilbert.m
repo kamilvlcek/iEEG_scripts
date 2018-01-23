@@ -2,7 +2,7 @@ classdef CHilbert < CiEEGData
     %HILBERT.CLASS sbirka funkci na analyzu pomoci hilbert trasform
     %   Kamil Vlcek, FGU AVCR, since 2016 04
     properties (Constant = true)
-        decimatefactor = 1; %o kolik decimuju hiblertovu obalku oproti puvodi sampling rate; 2 je dostatecne konzervativni, 8 hodne setri pamet
+        decimatefactor = 8; %o kolik decimuju hiblertovu obalku oproti puvodi sampling rate; 2 je dostatecne konzervativni, 8 hodne setri pamet
     end
     properties (Access = public)
         HFreq; %hilberova obalka pro kazde frekvenci pasmo - time x channel x freq (x kategorie)
@@ -196,18 +196,11 @@ classdef CHilbert < CiEEGData
         end 
         
         %% PLOT FUNCTIONS
-        function PlotAllEpochs(obj, cond, channel)
+        function PlotAllEpochs(obj, cond, channel,ylimits)
+            % PlotAllEpochs(obj, condition, channel)
             % plots all available time x frequency epoch maps for given channel and condition (1 = ego, 2 = allo, 0 = red)
-            condition = '';
-            switch cond
-                case 0
-                    condition = 'cervena';
-                case 1
-                    condition = 'vy';
-                case 2
-                    condition = 'znacka';
-            end
             
+            condition = obj.PsyData.CategoryName(cond);  %zjisti jmeno kategorie z jejiho cisla
             figure('Name',[condition, ' - channel ', num2str(channel)], 'NumberTitle', 'off')
             time = linspace(obj.epochtime(1), obj.epochtime(2), size(obj.HFreqEpochs,1));
             
@@ -219,6 +212,8 @@ classdef CHilbert < CiEEGData
                 
                subplot(9,15,i)
                imagesc(squeeze(obj.HFreqEpochs(:,channel,:,epochs(i)))', 'XData', time, 'YData', obj.Hf);
+               colormap parula; %aby to bylo jasne u vsech verzi matlabu - i 2016
+               caxis(ylimits)
                set(gca,'YDir','normal')
                title([num2str(obj.PsyData.P.data(epochs(i),5)), '-Epoch (', num2str(epochs(i)), ')'],'FontSize',8)
                
@@ -241,7 +236,9 @@ classdef CHilbert < CiEEGData
            % plot mean frequencies of all epochs
            figure
            imagesc(correct_epochs)
-           caxis([-1 1])
+           colormap parula; %aby to bylo jasne u vsech verzi matlabu - i 2016
+           colorbar;
+           caxis(ylimits)
         end
         
         function correct = PlotRejected(obj, channel, time, epoch, sum_chyby)
@@ -263,8 +260,9 @@ classdef CHilbert < CiEEGData
            end
         end
         
-        function PlotMovingEpochs(obj)
+        function PlotMovingEpochs(obj,channels)
             obj.plotEpochs.f = figure('Name','All Epochs','Position', [20, 100, 1000, 600]);
+            obj.plotEpochs.channels = channels;
             set(obj.plotEpochs.f, 'KeyPressFcn', @obj.MovePlotEpochs);
             % initiate plot indexes
             obj.plotEpochs.iChannel = 1;
@@ -275,7 +273,7 @@ classdef CHilbert < CiEEGData
         end
         
          function obj = MovePlotEpochs(obj,~,eventDat)
-            display(['key pressed: ' eventDat.Key])
+           
             switch eventDat.Key
                 case 'rightarrow' % +1 epoch
                     obj.plotEpochs.iEpoch = min([obj.plotEpochs.iEpoch + 1, size(obj.HFreqEpochs,4)]);
@@ -286,18 +284,22 @@ classdef CHilbert < CiEEGData
                 case 'downarrow'  % +1 channel
                     obj.plotEpochs.iChannel = min([obj.plotEpochs.iChannel + 1, length(obj.plotEpochs.channels)]);
                 otherwise  
+                    display(['key pressed: ' eventDat.Key]);
             end
-            obj.plotEpochData()
+            obj.plotEpochData();
          end
          
-         function plotEpochData(obj)
-             title(sprintf('%s - channel %d epoch %d', obj.epochData{obj.plotEpochs.iEpoch,1}, obj.plotEpochs.channels(obj.plotEpochs.iChannel), obj.plotEpochs.iEpoch), 'Fontsize', 12)
+         function plotEpochData(obj)             
              imagesc(squeeze(obj.HFreqEpochs(:,obj.plotEpochs.channels(obj.plotEpochs.iChannel),:,obj.plotEpochs.iEpoch))', 'XData', obj.plotEpochs.T, 'YData', obj.Hf);
-             set(gca,'YDir','normal')
-             
+             title(sprintf('%s - channel %d epoch %d', obj.epochData{obj.plotEpochs.iEpoch,1}, obj.plotEpochs.channels(obj.plotEpochs.iChannel), obj.plotEpochs.iEpoch), 'Fontsize', 12);
+             caxis([-0.5 1]);
+             colormap parula; %aby to bylo jasne u vsech verzi matlabu - i 2016
+             set(gca,'YDir','normal');
+             colorbar;
+                          
              % plot rejected line
              hold on; 
-             obj.PlotRejected(obj.plotEpochs.channels(obj.plotEpochs.iChannel), obj.plotEpochs.T, obj.plotEpochs.iEpoch, sum(obj.plotEpochs.rejectedEpochs(obj.plotEpochs.iEpoch,:)))
+             obj.PlotRejected(obj.plotEpochs.channels(obj.plotEpochs.iChannel), obj.plotEpochs.T, obj.plotEpochs.iEpoch, sum(obj.plotEpochs.rejectedEpochs(obj.plotEpochs.iEpoch,:)));
              
              % plot response time 
              response_time = obj.PsyData.P.data(obj.plotEpochs.iEpoch, 4);
