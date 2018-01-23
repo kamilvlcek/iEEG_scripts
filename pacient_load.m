@@ -1,10 +1,10 @@
-function [ E ] = pacient_load( nick,test,filename )
+function [ E ] = pacient_load( nick,testname,filename ,frequencies,classname,channels)
 %PACIENT_LOAD nacte soubor pacienta, bud ze zdrojvych data (pokud neni udano filename) nebo uz ulozeny soubor
 %   zdrojova data rovnou zpracuje, rozepochuje atd 
-if strcmp(test,'aedist')
+if strcmp(testname,'aedist')
     pacienti = pacienti_aedist(); %nactu celou strukturu pacientu
     setup = setup_aedist(0); %nactu nastaveni aedist  
-elseif strcmp(test,'menrot')
+elseif strcmp(testname,'menrot')
     pacienti = pacienti_menrot(); %nactu celou strukturu pacientu
     setup = setup_menrot(0); %nactu nastaveni aedist  
 else
@@ -22,7 +22,8 @@ if ~nalezen
 end
 disp(['loading pacient ' pacienti(p).folder ]);
 
-if exist('filename','var')
+if exist('filename','var') && ~isempty(filename) %pokud filename ~= []
+    %nactu si existujici CHilbert nebo CiEEGdata
     fullfilename = [setup.basedir pacienti(p).folder '\' setup.subfolder '\' filename];
     if exist(fullfilename,'file')==2
         if strfind(filename,'CHilbert') 
@@ -34,48 +35,70 @@ if exist('filename','var')
         E = [];
         disp(['soubor neexistuje: ' fullfilename]);
     end
-else
-    %EEG data
+else    
+    %vytvorim novy objekt CiEEGData z existujicich EEG dat
     load([ setup.basedir pacienti(p).folder '\' pacienti(p).data]);
     if ~exist('mults','var'), mults = [];  end
-    E = CiEEGData(d,tabs,fs,mults);
+    if exist('frequencies','var') 
+        if exist('classname','var') && strcmp(classname,'cmorlet')
+            E = CMorlet(d,tabs,fs,mults);
+        else
+            E = CHilbert(d,tabs,fs,mults);
+        end
+    else
+        E = CiEEGData(d,tabs,fs,mults);
+    end
 
     %header
     load([ setup.basedir pacienti(p).folder '\' pacienti(p).header]);
     E.GetHHeader(H);
 
     %epievents
-    filename = [ setup.basedir pacienti(p).folder '\' setup.subfolder '\' pacienti(p).epievents];
-    if exist(filename,'file')~=2
-        disp(['no epievents:' pacienti(p).epievents]);
-        return; 
-    end
-    load(filename);
-    E.GetEpiEvents(DE);
+    filename = [ setup.basedir pacienti(p).folder '\' setup.subfolder '\' pacienti(p).epievents];   
+    E.GetEpiEvents(getepievents(filename));       
 
     %vyradim kanaly
     if ~isfield(pacienti(p),'rjch'), return; end
     E.RejectChannels(pacienti(p).rjch);
-
+    
+    %frekvencni analyza
+    if exist('frequencies','var')
+        if ~exist('channels','var'), channels = 1:E.channels; end
+        E.ChangeReference('b');
+        E.PasmoFrekvence(frequencies,channels);
+    end
     %vytvorim epochy
-    filename = [ setup.basedir pacienti(p).folder '\' setup.subfolder '\' pacienti(p).psychopy];
-    if exist(filename,'file')~=2
-        disp(['no psychopy data:' pacienti(p).psychopy]);
-        return; 
-    end
-    load(filename);
-    if strcmp(test,'aedist')
-        psychopy = aedist; %matrix s psychopy daty
-    else
-        psychopy = menrot;
-    end
-    E.ExtractEpochs(psychopy,setup.epochtime,setup.baseline);
+    filename = [ setup.basedir pacienti(p).folder '\' setup.subfolder '\' pacienti(p).psychopy];    
+    E.ExtractEpochs(getpsychopydata(filename,testname),setup.epochtime,setup.baseline);
 
     %vyradim epochy
-    E.RjEpochsEpi([],0);
-    E.RjEpochsEpi(30);
+    load([setup.basedir pacienti(p).folder '\' setup.subfolder '\' pacienti(p).rjepoch]);
+    E.RejectEpochs(RjEpoch, RjEpochCh); %uz drive ulozene vyrazene epochy
+    %E.RjEpochsEpi([],0);
+    %E.RjEpochsEpi(30);
+    E.ResponseSearch(0.1,setup.stat_kats); %vypocitam statistiku
+end
+end
+function DE = getepievents(filename)
+    if exist(filename,'file')~=2
+            disp(['no epievents:' pacienti(p).epievents]);    
+            DE = [];
+    else
+            load(filename);        
+    end
+end
+function psychopy = getpsychopydata(filename,testname)
+    if exist(filename,'file')~=2
+        disp(['no psychopy data:' pacienti(p).psychopy]);
+        psychopy = []; 
+    else
+        load(filename);
+        if strcmp(testname,'aedist')
+            psychopy = aedist; %matrix s psychopy daty
+        else
+            psychopy = menrot;
+        end
+    end
+end
 
-    E.PlotElectrode();
-end
-end
 
