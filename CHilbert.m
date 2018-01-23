@@ -11,6 +11,7 @@ classdef CHilbert < CiEEGData
         Hfmean; %stredni hodnoty pasem  - pocet = pocet spocitanych pasem
         hfilename; %jmeno souboru CHilbert  
         plotF = struct; %udaje o stavu plotu PlotResponseFreq
+        plotEpochs = struct; %plot epochs
     end
     methods (Access = public)
         %% ELEMENTAL FUNCTIONS 
@@ -200,53 +201,111 @@ classdef CHilbert < CiEEGData
             condition = '';
             switch cond
                 case 0
-                    condition = 'cervena'
+                    condition = 'cervena';
                 case 1
-                    condition = 'vy'
+                    condition = 'vy';
                 case 2
-                    condition = 'znacka' 
+                    condition = 'znacka';
             end
             
-            figure('Name',[condition, ' - channel ', num2str(channel)],'NumberTitle','off')
-            time = linspace(obj.epochtime(1), obj.epochtime(2), size(obj.d,1));
+            figure('Name',[condition, ' - channel ', num2str(channel)], 'NumberTitle', 'off')
+            time = linspace(obj.epochtime(1), obj.epochtime(2), size(obj.HFreqEpochs,1));
             
             epochs = find(obj.PsyData.P.data(:, 7) == cond);
             chyby = obj.PsyData.GetErrorTrials();
             correct = 0;
             correct_epochs = zeros(90,90);
             for i = 1:length(epochs)
+                
                subplot(9,15,i)
                imagesc(squeeze(obj.HFreqEpochs(:,channel,:,epochs(i)))', 'XData', time, 'YData', obj.Hf);
                set(gca,'YDir','normal')
                title([num2str(obj.PsyData.P.data(epochs(i),5)), '-Epoch (', num2str(epochs(i)), ')'],'FontSize',8)
-               % mark test answers with red
-               if obj.PsyData.P.data(epochs(i), 6)
-                   hold on; plot([time(1) time(end)], [obj.Hf(end) obj.Hf(1)],'red','LineWidth',6)
-               % mark wrong answers with black
-               elseif ~obj.PsyData.P.data(epochs(i), 3) || sum(chyby(epochs(i),:)) > 0
-                   hold on; plot([time(1) time(end)], [obj.Hf(end) obj.Hf(1)],'black','LineWidth',6)
-               % mark rejected epochs with green
-               elseif ismember(epochs(i), obj.RjEpoch)
-                   hold on; plot([time(1) time(end)], [obj.Hf(end) obj.Hf(1)],'green','LineWidth',6)
-               % mark rejected channel's epochs with blue
-               elseif obj.RjEpochCh(channel, epochs(i))
-                   hold on; plot([time(1) time(end)], [obj.Hf(end) obj.Hf(1)],'blue','LineWidth',6)
-               else
+               
+               % plot rejected line
+               if obj.PlotRejected(channel, time, epochs(i), sum(chyby(epochs(i),:)))
                   correct = correct +1; 
                   correct_epochs(correct,:) = mean(squeeze(obj.HFreqEpochs(:,channel,:,epochs(i)))',1);
-                  title([num2str(obj.PsyData.P.data(epochs(i),5)), '-Epoch ', num2str(correct), ' (', num2str(epochs(i)), ')'],'FontSize',8)
+                  title(sprintf('%d - epoch %d (%d) ', obj.PsyData.P.data(epochs(i),5), correct, epochs(i)),'FontSize',8) 
                end
+               
+               % plot response time 
                response_time = obj.PsyData.P.data(epochs(i), 4);
-               hold on; plot([response_time response_time], [obj.Hf(1)-1 obj.Hf(end)+1],'black','LineWidth',2)
+               hold on; plot([response_time response_time], [obj.Hf(1)-10 obj.Hf(end)+10],'black','LineWidth',2)
+               
                hold on;
            end
             
            hold off;
            mtit([condition, ' - channel ', num2str(channel)],'fontsize',20,'color','black');
+           % plot mean frequencies of all epochs
            figure
            imagesc(correct_epochs)
            caxis([-1 1])
         end
+        
+        function correct = PlotRejected(obj, channel, time, epoch, sum_chyby)
+            correct = false;
+           % mark test answers with red
+           if obj.PsyData.P.data(epoch, 6)
+               hold on; plot([time(1) time(end)], [obj.Hf(end) obj.Hf(1)],'red','LineWidth',6)
+           % mark wrong answers with black
+           elseif ~obj.PsyData.P.data(epoch, 3) || sum_chyby > 0
+               hold on; plot([time(1) time(end)], [obj.Hf(end) obj.Hf(1)],'black','LineWidth',6)
+           % mark rejected epochs with green
+           elseif ismember(epoch, obj.RjEpoch)
+               hold on; plot([time(1) time(end)], [obj.Hf(end) obj.Hf(1)],'green','LineWidth',6)
+           % mark rejected channel's epochs with blue
+           elseif obj.RjEpochCh(channel, epoch)
+               hold on; plot([time(1) time(end)], [obj.Hf(end) obj.Hf(1)],'blue','LineWidth',6)
+           else
+              correct = true;
+           end
+        end
+        
+        function PlotMovingEpochs(obj)
+            obj.plotEpochs.f = figure('Name','All Epochs','Position', [20, 100, 1000, 600]);
+            set(obj.plotEpochs.f, 'KeyPressFcn', @obj.MovePlotEpochs);
+            % initiate plot indexes
+            obj.plotEpochs.iChannel = 1;
+            obj.plotEpochs.iEpoch = 1;
+            obj.plotEpochs.T = linspace(obj.epochtime(1), obj.epochtime(2), size(obj.HFreqEpochs,1));
+            obj.plotEpochs.rejectedEpochs = obj.PsyData.GetErrorTrials();
+            obj.plotEpochData();
+        end
+        
+         function obj = MovePlotEpochs(obj,~,eventDat)
+            display(['key pressed: ' eventDat.Key])
+            switch eventDat.Key
+                case 'rightarrow' % +1 epoch
+                    obj.plotEpochs.iEpoch = min([obj.plotEpochs.iEpoch + 1, size(obj.HFreqEpochs,4)]);
+                case 'leftarrow'  % -1 epoch
+                    obj.plotEpochs.iEpoch = max([obj.plotEpochs.iEpoch - 1, 1]);
+                case 'uparrow'    % -1 channel
+                    obj.plotEpochs.iChannel = max([obj.plotEpochs.iChannel - 1, 1]);
+                case 'downarrow'  % +1 channel
+                    obj.plotEpochs.iChannel = min([obj.plotEpochs.iChannel + 1, length(obj.plotEpochs.channels)]);
+                otherwise  
+            end
+            obj.plotEpochData()
+         end
+         
+         function plotEpochData(obj)
+             title(sprintf('%s - channel %d epoch %d', obj.epochData{obj.plotEpochs.iEpoch,1}, obj.plotEpochs.channels(obj.plotEpochs.iChannel), obj.plotEpochs.iEpoch), 'Fontsize', 12)
+             imagesc(squeeze(obj.HFreqEpochs(:,obj.plotEpochs.channels(obj.plotEpochs.iChannel),:,obj.plotEpochs.iEpoch))', 'XData', obj.plotEpochs.T, 'YData', obj.Hf);
+             set(gca,'YDir','normal')
+             
+             % plot rejected line
+             hold on; 
+             obj.PlotRejected(obj.plotEpochs.channels(obj.plotEpochs.iChannel), obj.plotEpochs.T, obj.plotEpochs.iEpoch, sum(obj.plotEpochs.rejectedEpochs(obj.plotEpochs.iEpoch,:)))
+             
+             % plot response time 
+             response_time = obj.PsyData.P.data(obj.plotEpochs.iEpoch, 4);
+             hold on; 
+             plot([response_time response_time], [obj.Hf(1)-10 obj.Hf(end)+10],'black','LineWidth',4)
+             hold off;
+             
+         end
         
         %% SAVE AND LOAD FILE
         %dve funkce na ulozeni a nacteni vypocitane Hilbertovy obalky, protoze to trva hrozne dlouho

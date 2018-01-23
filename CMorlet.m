@@ -55,7 +55,7 @@ classdef  CMorlet < CHilbert
                     end
                     obj.HFreq(:,ch,fno) = (fpower./mean(fpower)); %podil prumeru = prumerna hodnota                   
                     %fprintf('%i Hz, ',loF);
-                    fphase = imag(eegconv); %#ok<PROP> %faze frekvence 
+                    fphase = angle(eegconv); %#ok<PROP> %faze frekvence 
                     if decimatefactor > 1
                         obj.fphase(:,ch,fno) = decimate(fphase,decimatefactor);    %#ok<PROP>                         
                     end
