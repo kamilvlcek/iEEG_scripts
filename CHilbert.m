@@ -11,7 +11,7 @@ classdef CHilbert < CiEEGData
         Hfmean; %stredni hodnoty pasem  - pocet = pocet spocitanych pasem
         hfilename; %jmeno souboru CHilbert  
         plotF = struct; %udaje o stavu plotu PlotResponseFreq
-        plotEpochs = struct; %plot epochs
+        plotEpochs = struct; %udaje o stavu plotu PlotMovingEpochs - Nada
     end
     methods (Access = public)
         %% ELEMENTAL FUNCTIONS 
@@ -100,9 +100,9 @@ classdef CHilbert < CiEEGData
                          izacatek = find(obj.tabs_orig==obj.epochData{epoch,3}); %najdu index podnetu, podle jeho timestampu. v tretim sloupci epochData jsou timestampy
                          for ch=1:obj.channels
                             baseline_mean = mean(obj.HFreq(izacatek + ibaseline(1) : izacatek+ibaseline(2)-1,ch,:),1); %baseline pro vsechny frekvencni pasma dohromady
-                            epoch_data = bsxfun(@minus,obj.HFreq(izacatek + iepochtime(1) : izacatek+iepochtime(2)-1,ch,:) , baseline_mean);
+                            epoch_data = bsxfun(@minus,obj.HFreq(izacatek + iepochtime(1) : izacatek+iepochtime(2)-1,ch,:) , baseline_mean); %odecteni baseline pro aktualni epochu a kanal
                             obj.HFreqEpochs(:,ch,:,epoch) = epoch_data;
-                            Hfreq2(:,ch,:,katnum+1) = Hfreq2(:,ch,:,katnum+1) +  epoch_data; 
+                            Hfreq2(:,ch,:,katnum+1) = Hfreq2(:,ch,:,katnum+1) +  epoch_data; %soucet power pro kategorii, pres prislusne epochy
                             %tady se mi to mozna odecetlo blbe? KOntrola
                          end
                      end
@@ -196,64 +196,67 @@ classdef CHilbert < CiEEGData
         end 
         
         %% PLOT FUNCTIONS
-        function PlotAllEpochs(obj, cond, channel,ylimits)
-            % PlotAllEpochs(obj, condition, channel)
-            % plots all available time x frequency epoch maps for given channel and condition (1 = ego, 2 = allo, 0 = red)
-            
-            condition = obj.PsyData.CategoryName(cond);  %zjisti jmeno kategorie z jejiho cisla
-            figure('Name',[condition, ' - channel ', num2str(channel)], 'NumberTitle', 'off')
+        function PlotAllEpochs(obj, icondition, channel,zlimits)
+            % PlotAllEpochs(obj, icondition, channel,ylimits) - cislo podminky, kanal, rozsah z osy
+            % plots all available time x frequency epoch maps for given channel and condition (aedist: 1 = ego, 2 = allo, 0 = red)
+            % Nada since 2018/01
+            assert(~isempty(obj.HFreqEpochs),'soubor s frekvencnimi daty pro epochy neexistuje');
+            if(~exist('zlimits','var')), zlimits =[-1 1]; end
+            condition = obj.PsyData.CategoryName(icondition);  %zjisti jmeno kategorie z jejiho cisla
+            figure('Name',[condition, ' - channel ', num2str(channel)], 'NumberTitle', 'off');
             time = linspace(obj.epochtime(1), obj.epochtime(2), size(obj.HFreqEpochs,1));
             
-            epochs = find(obj.PsyData.P.data(:, 7) == cond);
+            epochs = find(obj.PsyData.P.data(:, 7) == icondition);
             chyby = obj.PsyData.GetErrorTrials();
             correct = 0;
             correct_epochs = zeros(90,90);
             for i = 1:length(epochs)
                 
-               subplot(9,15,i)
+               subplot(9,15,i); %TODO udelat dynamicky pro ruzny pocet epoch
                imagesc(squeeze(obj.HFreqEpochs(:,channel,:,epochs(i)))', 'XData', time, 'YData', obj.Hf);
-               colormap parula; %aby to bylo jasne u vsech verzi matlabu - i 2016
-               caxis(ylimits)
-               set(gca,'YDir','normal')
-               title([num2str(obj.PsyData.P.data(epochs(i),5)), '-Epoch (', num2str(epochs(i)), ')'],'FontSize',8)
+               colormap parula; %aby to bylo jasne u vsech verzi matlabu - i 2010 - vypada v takovem mnozstvi lip nez jet
+               caxis(zlimits);
+               set(gca,'YDir','normal');
+               title([num2str(obj.PsyData.P.data(epochs(i),5)), '-Epoch (', num2str(epochs(i)), ')'],'FontSize',8);
                
                % plot rejected line
-               if obj.PlotRejected(channel, time, epochs(i), sum(chyby(epochs(i),:)))
+               if obj.PlotRejected(channel, time, epochs(i), sum(chyby(epochs(i),:))) %jestli jde o vyrazenou epochu
                   correct = correct +1; 
                   correct_epochs(correct,:) = mean(squeeze(obj.HFreqEpochs(:,channel,:,epochs(i)))',1);
-                  title(sprintf('%d - epoch %d (%d) ', obj.PsyData.P.data(epochs(i),5), correct, epochs(i)),'FontSize',8) 
+                  title(sprintf('%d - epoch %d (%d) ', obj.PsyData.P.data(epochs(i),5), correct, epochs(i)),'FontSize',8) ;
                end
                
                % plot response time 
                response_time = obj.PsyData.P.data(epochs(i), 4);
-               hold on; plot([response_time response_time], [obj.Hf(1)-10 obj.Hf(end)+10],'black','LineWidth',2)
-               
+               hold on; 
+               plot([response_time response_time], [obj.Hf(1)-10 obj.Hf(end)+10],'black','LineWidth',2);               
                hold on;
            end
             
            hold off;
            mtit([condition, ' - channel ', num2str(channel)],'fontsize',20,'color','black');
            % plot mean frequencies of all epochs
-           figure
-           imagesc(correct_epochs)
+           figure('Name','Mean frequencies for all epochs');
+           imagesc(correct_epochs); %kreslime jen nevyrazene epochy
            colormap parula; %aby to bylo jasne u vsech verzi matlabu - i 2016
            colorbar;
-           caxis(ylimits)
+           caxis(zlimits);
         end
         
         function correct = PlotRejected(obj, channel, time, epoch, sum_chyby)
-            correct = false;
-           % mark test answers with red
-           if obj.PsyData.P.data(epoch, 6)
+           %vraci true, pokud je epocha oznacena jako vyrazena
+           %pouziva se v PlotAllEpochs
+           correct = false;           
+           if obj.PsyData.P.data(epoch, 6) % mark trening answers with red
                hold on; plot([time(1) time(end)], [obj.Hf(end) obj.Hf(1)],'red','LineWidth',6)
-           % mark wrong answers with black
-           elseif ~obj.PsyData.P.data(epoch, 3) || sum_chyby > 0
+           
+           elseif ~obj.PsyData.P.data(epoch, 3) || sum_chyby > 0 % mark wrong answers with black
                hold on; plot([time(1) time(end)], [obj.Hf(end) obj.Hf(1)],'black','LineWidth',6)
-           % mark rejected epochs with green
-           elseif ismember(epoch, obj.RjEpoch)
+           
+           elseif ismember(epoch, obj.RjEpoch) % mark rejected epochs with green
                hold on; plot([time(1) time(end)], [obj.Hf(end) obj.Hf(1)],'green','LineWidth',6)
-           % mark rejected channel's epochs with blue
-           elseif obj.RjEpochCh(channel, epoch)
+           
+           elseif obj.RjEpochCh(channel, epoch) % mark rejected channel's epochs with blue
                hold on; plot([time(1) time(end)], [obj.Hf(end) obj.Hf(1)],'blue','LineWidth',6)
            else
               correct = true;
@@ -261,6 +264,10 @@ classdef CHilbert < CiEEGData
         end
         
         function PlotMovingEpochs(obj,channels)
+            %kresli graf cas x frekvence pro kazdou epochu zvlast
+            %sipkami se da prochazet pres epochy a kanaly - private function MovePlotEpochs
+            %Nada since 2018/01
+            assert(~isempty(obj.HFreqEpochs),'soubor s frekvencnimi daty pro epochy neexistuje');
             obj.plotEpochs.f = figure('Name','All Epochs','Position', [20, 100, 1000, 600]);
             obj.plotEpochs.channels = channels;
             set(obj.plotEpochs.f, 'KeyPressFcn', @obj.MovePlotEpochs);
@@ -270,26 +277,9 @@ classdef CHilbert < CiEEGData
             obj.plotEpochs.T = linspace(obj.epochtime(1), obj.epochtime(2), size(obj.HFreqEpochs,1));
             obj.plotEpochs.rejectedEpochs = obj.PsyData.GetErrorTrials();
             obj.plotEpochData();
-        end
-        
-         function obj = MovePlotEpochs(obj,~,eventDat)
-           
-            switch eventDat.Key
-                case 'rightarrow' % +1 epoch
-                    obj.plotEpochs.iEpoch = min([obj.plotEpochs.iEpoch + 1, size(obj.HFreqEpochs,4)]);
-                case 'leftarrow'  % -1 epoch
-                    obj.plotEpochs.iEpoch = max([obj.plotEpochs.iEpoch - 1, 1]);
-                case 'uparrow'    % -1 channel
-                    obj.plotEpochs.iChannel = max([obj.plotEpochs.iChannel - 1, 1]);
-                case 'downarrow'  % +1 channel
-                    obj.plotEpochs.iChannel = min([obj.plotEpochs.iChannel + 1, length(obj.plotEpochs.channels)]);
-                otherwise  
-                    display(['key pressed: ' eventDat.Key]);
-            end
-            obj.plotEpochData();
-         end
+        end       
          
-         function plotEpochData(obj)             
+        function plotEpochData(obj)             
              imagesc(squeeze(obj.HFreqEpochs(:,obj.plotEpochs.channels(obj.plotEpochs.iChannel),:,obj.plotEpochs.iEpoch))', 'XData', obj.plotEpochs.T, 'YData', obj.Hf);
              title(sprintf('%s - channel %d epoch %d', obj.epochData{obj.plotEpochs.iEpoch,1}, obj.plotEpochs.channels(obj.plotEpochs.iChannel), obj.plotEpochs.iEpoch), 'Fontsize', 12);
              caxis([-0.5 1]);
@@ -307,7 +297,7 @@ classdef CHilbert < CiEEGData
              plot([response_time response_time], [obj.Hf(1)-10 obj.Hf(end)+10],'black','LineWidth',4)
              hold off;
              
-         end
+        end
         
         %% SAVE AND LOAD FILE
         %dve funkce na ulozeni a nacteni vypocitane Hilbertovy obalky, protoze to trva hrozne dlouho
@@ -322,11 +312,12 @@ classdef CHilbert < CiEEGData
             end            
             Save@CiEEGData(obj,CHilbert.filenameE(filename));  %ulozim do prvniho souboru data z nadrazene tridy          
             if ~isempty(obj.HFreq)                
-                HFreq = obj.HFreq;  %#ok<PROP,NASGU>
-                Hf = obj.Hf;         %#ok<PROP,NASGU>  
-                Hfmean = obj.Hfmean; %#ok<PROP,NASGU>  
-                yrange = obj.yrange; %#ok<NASGU> 
-                save(CHilbert.filenameH(filename),'HFreq','Hf','Hfmean','yrange','-v7.3'); %do druheho souboru data z teto tridy
+                HFreq = obj.HFreq;   %#ok<PROPLC,NASGU>
+                Hf = obj.Hf;         %#ok<PROPLC,NASGU> 
+                Hfmean = obj.Hfmean; %#ok<PROPLC,NASGU> 
+                HFreqEpochs = obj.HFreqEpochs; %#ok<PROPLC,NASGU> %time x channel x frequency x epoch
+                yrange = obj.yrange; %#ok<NASGU>
+                save(CHilbert.filenameH(filename),'HFreq','Hf','Hfmean','HFreqEpochs','yrange','-v7.3'); %do druheho souboru data z teto tridy
             end
         end
         
@@ -338,14 +329,19 @@ classdef CHilbert < CiEEGData
             end
             if exist(CHilbert.filenameH(filename),'file')                
                 load(CHilbert.filenameH(filename),'HFreq','Hf','yrange');
-                obj.HFreq = HFreq;  %#ok<CPROP,PROP>            
-                obj.Hf = Hf;                %#ok<CPROP,PROP>
+                obj.HFreq = HFreq;        %#ok<CPROPLC>
+                obj.Hf = Hf;               %#ok<CPROPLC>                 
                 obj.yrange = yrange;
                 vars = whos('-file',filename);
                 if ismember('Hfmean', {vars.name}) %7.4.2017
-                    load(filename,'Hfmean');      obj.Hfmean = Hfmean; %#ok<CPROP,PROP>
+                    load(filename,'Hfmean');      obj.Hfmean = Hfmean; %#ok<CPROPLC>
                 else
                     obj.Hfmean = (obj.Hf(1:end-1) + obj.Hf(2:end)) ./ 2;
+                end
+                if ismember('HFreqEpochs', {vars.name}) %7.4.2017
+                    load(filename,'HFreqEpochs');      obj.HFreqEpochs = HFreqEpochs; %#ok<CPROPLC>
+                else
+                    obj.HFreqEpochs = [];
                 end
             else
                 warning(['soubor s frekvencnimi pasmy neexistuje ' CHilbert.filenameH(filename)]);
@@ -521,6 +517,23 @@ classdef CHilbert < CiEEGData
                    obj.plotF.ylim = [];
                    obj.PlotResponseFreq( obj.plotEp.ch); %prekreslim grafy
            end
+        end
+        function obj = MovePlotEpochs(obj,~,eventDat)
+            %zpracovava stlaceni klavesy pro graf PlotMovingEpochs
+            %TODO - pridat klavesy pgup a pgdown pro nasledujici/preschozi condition?
+            switch eventDat.Key
+                case 'rightarrow' % +1 epoch
+                    obj.plotEpochs.iEpoch = min([obj.plotEpochs.iEpoch + 1, size(obj.HFreqEpochs,4)]);
+                case 'leftarrow'  % -1 epoch
+                    obj.plotEpochs.iEpoch = max([obj.plotEpochs.iEpoch - 1, 1]);
+                case 'uparrow'    % -1 channel
+                    obj.plotEpochs.iChannel = max([obj.plotEpochs.iChannel - 1, 1]);
+                case 'downarrow'  % +1 channel
+                    obj.plotEpochs.iChannel = min([obj.plotEpochs.iChannel + 1, length(obj.plotEpochs.channels)]);
+                otherwise  
+                    display(['key pressed: ' eventDat.Key]); %vypise stlacenou klavesu
+            end
+            obj.plotEpochData();
         end
     end
 end
