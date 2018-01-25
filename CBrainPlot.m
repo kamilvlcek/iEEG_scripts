@@ -26,12 +26,12 @@ classdef CBrainPlot < handle
             P = {}; M = {}; N = {}; %jen inicializace
             for p = 1:numel(pacienti) % cyklus pacienti
                 disp(['***   ' pacienti(p).folder '   ***']);
-                E = pacient_load(pacienti(p).folder,'aedist',filename);
+                E = pacient_load(pacienti(p).folder,'aedist',filename); %nejspis objekt CHilbert, pripadne i jiny
                 if isempty(E)
                     disp('no data');
                     continue;
                 end
-                [prumery, MNI,names,~,katstr] = E.IntervalyResp( intervals,[],0); %#ok<PROP>    %no figure       
+                [prumery, MNI,names,~,katstr] = E.IntervalyResp( intervals,[],0); %#ok<PROP>    %no figure, funkce z CiEEGData       
                 clear E;
                 if p==1
                     obj.katstr = katstr; %#ok<PROP>
