@@ -102,7 +102,7 @@ classdef CHilbert < CiEEGData
                             baseline_mean = mean(obj.HFreq(izacatek + ibaseline(1) : izacatek+ibaseline(2)-1,ch,:),1); %baseline pro vsechny frekvencni pasma dohromady
                             epoch_data = bsxfun(@minus,obj.HFreq(izacatek + iepochtime(1) : izacatek+iepochtime(2)-1,ch,:) , baseline_mean); %odecteni baseline pro aktualni epochu a kanal
                             obj.HFreqEpochs(:,ch,:,epoch) = epoch_data;
-                            Hfreq2(:,ch,:,katnum+1) = Hfreq2(:,ch,:,katnum+1) +  epoch_data; %soucet power pro kategorii, pres prislusne epochy
+                            Hfreq2(:,ch,:,katnum+1) = Hfreq2(:,ch,:,katnum+1) + epoch_data; %soucet power pro kategorii, pres prislusne epochy
                             %tady se mi to mozna odecetlo blbe? KOntrola
                          end
                      end
@@ -210,9 +210,11 @@ classdef CHilbert < CiEEGData
             chyby = obj.PsyData.GetErrorTrials();
             correct = 0;
             correct_epochs = zeros(90,90);
+            subplot_x = ceil(sqrt(length(epochs)/15)*3); % dynamicke rozmery subplotu pre rozny pocet epoch (pre screen cca 3:5)
+            subplot_y = ceil(sqrt(length(epochs)/15)*5); % vychadzam z 3x * 5x = pocet_epoch
             for i = 1:length(epochs)
                 
-               subplot(9,15,i); %TODO udelat dynamicky pro ruzny pocet epoch
+               subplot(subplot_x, subplot_y, i);
                imagesc(squeeze(obj.HFreqEpochs(:,channel,:,epochs(i)))', 'XData', time, 'YData', obj.Hf);
                colormap parula; %aby to bylo jasne u vsech verzi matlabu - i 2010 - vypada v takovem mnozstvi lip nez jet
                caxis(zlimits);
@@ -221,7 +223,7 @@ classdef CHilbert < CiEEGData
                
                % plot rejected line
                if obj.PlotRejected(channel, time, epochs(i), sum(chyby(epochs(i),:))) %jestli jde o vyrazenou epochu
-                  correct = correct +1; 
+                  correct = correct +1; % ukladam spravne epochy pre vykreslenie mapy mean frequency powers pre vsetky epochy 
                   correct_epochs(correct,:) = mean(squeeze(obj.HFreqEpochs(:,channel,:,epochs(i)))',1);
                   title(sprintf('%d - epoch %d (%d) ', obj.PsyData.P.data(epochs(i),5), correct, epochs(i)),'FontSize',8) ;
                end
@@ -238,65 +240,65 @@ classdef CHilbert < CiEEGData
            % plot mean frequencies of all epochs
            figure('Name','Mean frequencies for all epochs');
            imagesc(correct_epochs); %kreslime jen nevyrazene epochy
+           title([condition, ' - channel ', num2str(channel)],'fontsize',20,'color','black');
            colormap parula; %aby to bylo jasne u vsech verzi matlabu - i 2016
            colorbar;
            caxis(zlimits);
         end
         
-        function correct = PlotRejected(obj, channel, time, epoch, sum_chyby)
-           %vraci true, pokud je epocha oznacena jako vyrazena
-           %pouziva se v PlotAllEpochs
-           correct = false;           
-           if obj.PsyData.P.data(epoch, 6) % mark trening answers with red
-               hold on; plot([time(1) time(end)], [obj.Hf(end) obj.Hf(1)],'red','LineWidth',6)
-           
-           elseif ~obj.PsyData.P.data(epoch, 3) || sum_chyby > 0 % mark wrong answers with black
-               hold on; plot([time(1) time(end)], [obj.Hf(end) obj.Hf(1)],'black','LineWidth',6)
-           
-           elseif ismember(epoch, obj.RjEpoch) % mark rejected epochs with green
-               hold on; plot([time(1) time(end)], [obj.Hf(end) obj.Hf(1)],'green','LineWidth',6)
-           
-           elseif obj.RjEpochCh(channel, epoch) % mark rejected channel's epochs with blue
-               hold on; plot([time(1) time(end)], [obj.Hf(end) obj.Hf(1)],'blue','LineWidth',6)
-           else
-              correct = true;
-           end
-        end
-        
-        function PlotMovingEpochs(obj,channels)
-            %kresli graf cas x frekvence pro kazdou epochu zvlast
+        function PlotMovingEpochs(obj, channels)
+            %pro zadane channels kresli graf cas x frekvence pro kazdou epochu zvlast
             %sipkami se da prochazet pres epochy a kanaly - private function MovePlotEpochs
             %Nada since 2018/01
             assert(~isempty(obj.HFreqEpochs),'soubor s frekvencnimi daty pro epochy neexistuje');
             obj.plotEpochs.f = figure('Name','All Epochs','Position', [20, 100, 1000, 600]);
             obj.plotEpochs.channels = channels;
             set(obj.plotEpochs.f, 'KeyPressFcn', @obj.MovePlotEpochs);
-            % initiate plot indexes
-            obj.plotEpochs.iChannel = 1;
-            obj.plotEpochs.iEpoch = 1;
-            obj.plotEpochs.T = linspace(obj.epochtime(1), obj.epochtime(2), size(obj.HFreqEpochs,1));
-            obj.plotEpochs.rejectedEpochs = obj.PsyData.GetErrorTrials();
+            
+            obj.plotEpochs.iChannel = 1; % initiate channel index
+            obj.plotEpochs.iEpoch = 1; % initiate epoch index
+            obj.plotEpochs.T = linspace(obj.epochtime(1), obj.epochtime(2), size(obj.HFreqEpochs,1)); % time
+            obj.plotEpochs.rejectedEpochs = obj.PsyData.GetErrorTrials(); % get rejected epoch trials
+            
+            % calculate zlimits for all channels
+            obj.plotEpochs.zlimits = zeros(channels,2);
+            for ch = 1:size(channels)
+                obj.plotEpochs.zlimits(ch, :) = obj.getZlimits(obj.plotEpochs.channels(ch));
+            end
+            
             obj.plotEpochData();
-        end       
+        end    
          
-        function plotEpochData(obj)             
-             imagesc(squeeze(obj.HFreqEpochs(:,obj.plotEpochs.channels(obj.plotEpochs.iChannel),:,obj.plotEpochs.iEpoch))', 'XData', obj.plotEpochs.T, 'YData', obj.Hf);
-             title(sprintf('%s - channel %d epoch %d', obj.epochData{obj.plotEpochs.iEpoch,1}, obj.plotEpochs.channels(obj.plotEpochs.iChannel), obj.plotEpochs.iEpoch), 'Fontsize', 12);
-             caxis([-0.5 1]);
-             colormap parula; %aby to bylo jasne u vsech verzi matlabu - i 2016
-             set(gca,'YDir','normal');
-             colorbar;
-                          
-             % plot rejected line
-             hold on; 
-             obj.PlotRejected(obj.plotEpochs.channels(obj.plotEpochs.iChannel), obj.plotEpochs.T, obj.plotEpochs.iEpoch, sum(obj.plotEpochs.rejectedEpochs(obj.plotEpochs.iEpoch,:)));
-             
-             % plot response time 
-             response_time = obj.PsyData.P.data(obj.plotEpochs.iEpoch, 4);
-             hold on; 
-             plot([response_time response_time], [obj.Hf(1)-10 obj.Hf(end)+10],'black','LineWidth',4)
-             hold off;
-             
+        function plotEpochData(obj)     
+            %vykresli vlavo time x frequency graf pre danu epochu 
+            %vpravo average power cez vsetky frekvencie danej epochy 
+            %pouziva sa v PlotMovingEpochs
+            
+            subplot(1,2,1) % subplot time x frequency power for given epoch
+            imagesc(squeeze(obj.HFreqEpochs(:,obj.plotEpochs.channels(obj.plotEpochs.iChannel),:,obj.plotEpochs.iEpoch))', 'XData', obj.plotEpochs.T, 'YData', obj.Hf);
+            caxis(obj.plotEpochs.zlimits(obj.plotEpochs.iChannel,:));
+            colormap parula; %aby to bylo jasne u vsech verzi matlabu - i 2016
+            set(gca,'YDir','normal');
+            colorbar;
+            
+            hold on; % plot rejected line 
+            obj.PlotRejected(obj.plotEpochs.channels(obj.plotEpochs.iChannel), obj.plotEpochs.T, obj.plotEpochs.iEpoch, sum(obj.plotEpochs.rejectedEpochs(obj.plotEpochs.iEpoch,:)));
+            response_time = obj.PsyData.P.data(obj.plotEpochs.iEpoch, 4);
+            
+            hold on; % plot response time 
+            plot([response_time response_time], [obj.Hf(1)-10 obj.Hf(end)+10],'black','LineWidth',4);
+            hold on;
+            
+            subplot(1,2,2) % subplot mean power across all frequencies
+            plot(obj.plotEpochs.T, obj.d(:,obj.plotEpochs.channels(obj.plotEpochs.iChannel), obj.plotEpochs.iEpoch)');
+            
+            hold on; % plot response time 
+            plot([response_time response_time], obj.plotEpochs.zlimits(obj.plotEpochs.iChannel,:), 'black', 'LineWidth', 4);
+            ylim(obj.plotEpochs.zlimits(obj.plotEpochs.iChannel,:)); % y axis = zlimits (default/specified by user)
+            xlim([obj.plotEpochs.T(1) obj.plotEpochs.T(end)]); % x axis = time
+            
+            title(sprintf('%s - channel %d epoch %d', obj.epochData{obj.plotEpochs.iEpoch,1}, obj.plotEpochs.channels(obj.plotEpochs.iChannel), obj.plotEpochs.iEpoch), 'FontSize', 12);
+            hold off;
         end
         
         %% SAVE AND LOAD FILE
@@ -518,9 +520,9 @@ classdef CHilbert < CiEEGData
                    obj.PlotResponseFreq( obj.plotEp.ch); %prekreslim grafy
            end
         end
+        
         function obj = MovePlotEpochs(obj,~,eventDat)
             %zpracovava stlaceni klavesy pro graf PlotMovingEpochs
-            %TODO - pridat klavesy pgup a pgdown pro nasledujici/preschozi condition?
             switch eventDat.Key
                 case 'rightarrow' % +1 epoch
                     obj.plotEpochs.iEpoch = min([obj.plotEpochs.iEpoch + 1, size(obj.HFreqEpochs,4)]);
@@ -530,11 +532,91 @@ classdef CHilbert < CiEEGData
                     obj.plotEpochs.iChannel = max([obj.plotEpochs.iChannel - 1, 1]);
                 case 'downarrow'  % +1 channel
                     obj.plotEpochs.iChannel = min([obj.plotEpochs.iChannel + 1, length(obj.plotEpochs.channels)]);
+                case 'numpad6' % nasledujuca s rovnakou condition
+                    obj.plotEpochs.iEpoch = min([obj.getNextCondition(1), size(obj.HFreqEpochs,4)]);
+                case 'numpad4' % predchadzajuca s rovnakou condition
+                    obj.plotEpochs.iEpoch = max([obj.getLastCondition(1), 1]);
+                case 'pageup' % nasledujuca condition
+                    obj.plotEpochs.iEpoch = min([obj.getNextCondition(0), size(obj.HFreqEpochs,4)]);
+                case 'pagedown' % predchadzajuca condition
+                    obj.plotEpochs.iEpoch = max([obj.getLastCondition(0), 1]);
+                case {'multiply','8'} %hvezdicka na numericke klavesnici
+                   %dialog na vlozeni minima a maxima osy y
+                   answ = inputdlg('Enter ymax and min:','Yaxis limits', [1 50], {num2str(obj.plotEpochs.zlimits(obj.plotEpochs.iChannel,:))});
+                   if numel(answ)>0  %odpoved je vzdy cell 1x1 - pri cancel je to cell 0x0
+                       if isempty(answ{1}) || any(answ{1}=='*') %pokud vlozim hvezdicku nebo nic, chci znovy spocitat max a min
+                           obj.plotEpochs.zlimits(obj.plotEpochs.iChannel,:) = obj.getZlimits(obj.plotEpochs.channels(obj.plotEpochs.iChannel));
+                       else %jinak predpokladam dve hodnoty
+                           data = str2num(answ{:});  %#ok<ST2NM>
+                           if numel(data)>= 2 %pokud nejsou dve hodnoty, nedelam nic
+                             obj.plotEpochs.zlimits(obj.plotEpochs.iChannel,:) = [data(1) data(2)];
+                           end
+                       end
+                   end
+                   obj.plotEpochData(); %prekreslim grafy
                 otherwise  
-                    display(['key pressed: ' eventDat.Key]); %vypise stlacenou klavesu
+                   display(['key pressed: ' eventDat.Key]); %vypise stlacenou klavesu
             end
             obj.plotEpochData();
         end
+        
+        function correct = PlotRejected(obj, channel, time, epoch, sum_chyby)
+           %vraci true, pokud epocha neni oznacena jako vyrazena
+           %pouziva se v PlotAllEpochs
+           correct = false;           
+           if obj.PsyData.P.data(epoch, 6) % mark trening answers with red
+               hold on; plot([time(1) time(end)], [obj.Hf(end) obj.Hf(1)],'red','LineWidth',6)
+           
+           elseif ~obj.PsyData.P.data(epoch, 3) || sum_chyby > 0 % mark wrong answers with black
+               hold on; plot([time(1) time(end)], [obj.Hf(end) obj.Hf(1)],'black','LineWidth',6)
+           
+           elseif ismember(epoch, obj.RjEpoch) % mark rejected epochs with green
+               hold on; plot([time(1) time(end)], [obj.Hf(end) obj.Hf(1)],'green','LineWidth',6)
+           
+           elseif obj.RjEpochCh(channel, epoch) % mark rejected channel's epochs with blue
+               hold on; plot([time(1) time(end)], [obj.Hf(end) obj.Hf(1)],'blue','LineWidth',6)
+           else
+              correct = true;
+           end
+        end
+        
+        function zlimits = getZlimits(obj, ch)
+            %vypocita minimalnu a maximalnu power pre dany channel cez
+            %vsetky epochy a frekvencie
+            %pouziva sa v PlotMovingEpochs
+            ymin = min(min(obj.d(:, ch, :)));
+            ymax = max(max(obj.d(:, ch, :)));
+            zlimits = [ymin ymax];
+        end
+        
+        function last = getLastCondition(obj, same)
+            %najde index poslednej najblizsej epochy 
+            %rovnakej(same=1)/rozdielnej(same=0) kategorie
+            %pouziva sa v PlotMovingEpochs pri numpad4/pagedown
+            if same
+                last = find(obj.PsyData.P.data(1:(obj.plotEpochs.iEpoch-1),7) == obj.epochData{obj.plotEpochs.iEpoch,2}, 1, 'last');
+            else 
+                last = find(obj.PsyData.P.data(1:(obj.plotEpochs.iEpoch-1),7) ~= obj.epochData{obj.plotEpochs.iEpoch,2}, 1, 'last');
+            end  
+            if isempty(last)
+                last = obj.plotEpochs.iEpoch;
+            end
+        end
+        
+        function next = getNextCondition(obj, same)
+            %najde index najblizsej epochy 
+            %rovnakej(same=1)/rozdielnej(same=0) kategorie
+            %pouziva sa v PlotMovingEpochs pri numpad6/pageup
+            if same
+                next = obj.plotEpochs.iEpoch + find(obj.PsyData.P.data((obj.plotEpochs.iEpoch+1):end,7) == obj.epochData{obj.plotEpochs.iEpoch,2}, 1);
+            else 
+                next = obj.plotEpochs.iEpoch + find(obj.PsyData.P.data((obj.plotEpochs.iEpoch+1):end,7) ~= obj.epochData{obj.plotEpochs.iEpoch,2}, 1);
+            end
+            if isempty(next)
+                next = obj.plotEpochs.iEpoch;
+            end
+        end
+       
     end
 end
 
