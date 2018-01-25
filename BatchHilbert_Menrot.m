@@ -1,15 +1,15 @@
 %15.9.2016 - AlloEgo zarovnani podle odpovedi
 %25.5.2017 - Pridani reference a ERP
-hybernovat = 1; %jestli chci po konci skriptu pocitac uspat - ma prednost
+hybernovat = 0; %jestli chci po konci skriptu pocitac uspat - ma prednost
 vypnout = 0; %jestli chci po konci skriptu pocitac vypnout (a nechci ho hybernovat) 
 pouzetest = 0; %jestli chci jen otestovat pritomnost vsech souboru 
-overwrite = 1; %jestil se maji prepsat puvodni data, nebo ohlasit chyba a pokracovat v dalsim souboru 
+overwrite = 0; %jestil se maji prepsat puvodni data, nebo ohlasit chyba a pokracovat v dalsim souboru 
 
 setup = setup_menrot( 0 ); %nacte nastaveni testu Menrot- 11.1.2018 - 0 = zarovnani podle podnetu, 1=zarovnani podle odpovedi
 basedir = setup.basedir;
 epochtime = setup.epochtime;
 baseline = setup.baseline;
-suffix = setup.suffix;
+suffix = setup.suffix;  % napriklad 'Ep2018-01' + Resp pokud serazeno podle odpovedi
 prefix = setup.prefix;
 stat_kats = setup.stat_kats;
 stat_opak = setup.stat_opak;
@@ -21,7 +21,7 @@ frekvence(f).todo = 0;
 frekvence(f).freq = [];
 frekvence(f).freqname = 'ERP'; % ERP
 f=2;
-frekvence(f).todo = 0;
+frekvence(f).todo = 1;
 frekvence(f).freq = 50:5:150;
 frekvence(f).freqname = '50-150'; % broad band gamma
 f=3;
@@ -29,7 +29,7 @@ frekvence(f).todo = 0;
 frekvence(f).freq = 7:2:15;
 frekvence(f).freqname = '7-15'; % alpha
 f=4;
-frekvence(f).todo = 1;
+frekvence(f).todo = 0;
 frekvence(f).freq = 50:5:120;
 frekvence(f).freqname = '50-120'; %gamma 2
 f=5;
@@ -159,7 +159,7 @@ for f=1:numel(frekvence)
                                 classname = 'CHilbert';
                                 suffixclass = '_CHilb.mat';
                             end
-                            outfilename = [ basedir pacienti(p).folder '\' subfolder '\' prefix ' ' classname ' ' frekvence(f).freqname ' ' reference(r).name ' ' suffix];
+                            outfilename = [ basedir pacienti(p).folder '\' subfolder '\' prefix ' ' classname ' ' frekvence(f).freqname ' ' sprintf('%.1f-%.1f',epochtime(1:2)) ' ' reference(r).name ' ' suffix];
                             if exist([outfilename suffixclass],'file')==2 && overwrite == 0                                
                                 disp([ outfilename ' NEULOZENO, preskoceno']); 
                                 fprintf(fileID,[ 'NEULOZENO,preskoceno: ' strrep(outfilename,'\','\\') ' - ' datestr(now) '\n']); 
