@@ -4,12 +4,14 @@ hybernovat = 0; %jestli chci po konci skriptu pocitac uspat - ma prednost
 vypnout = 0; %jestli chci po konci skriptu pocitac vypnout (a nechci ho hybernovat) 
 pouzetest = 0; %jestli chci jen otestovat pritomnost vsech souboru 
 overwrite = 0; %jestil se maji prepsat puvodni data, nebo ohlasit chyba a pokracovat v dalsim souboru 
+podilcasuodpovedi = 1; %jestli se maji epochy resamplovat na podil casu mezi podnetem a odpovedi
 
 setup = setup_menrot( 0 ); %nacte nastaveni testu Menrot- 11.1.2018 - 0 = zarovnani podle podnetu, 1=zarovnani podle odpovedi
 basedir = setup.basedir;
 epochtime = setup.epochtime;
 baseline = setup.baseline;
 suffix = setup.suffix;  % napriklad 'Ep2018-01' + Resp pokud serazeno podle odpovedi
+if podilcasuodpovedi == 1, suffix = [suffix 'PCO']; end %pokud, pridam neste na konec priponu
 prefix = setup.prefix;
 stat_kats = setup.stat_kats;
 stat_opak = setup.stat_opak;
@@ -22,7 +24,7 @@ frekvence(f).freq = [];
 frekvence(f).freqname = 'ERP'; % ERP
 f=2;
 frekvence(f).todo = 1;
-frekvence(f).freq = 50:5:150;
+frekvence(f).freq = 50:10:150;
 frekvence(f).freqname = '50-150'; % broad band gamma
 f=3;
 frekvence(f).todo = 0;
@@ -205,8 +207,9 @@ for f=1:numel(frekvence)
                                     prekryv = frekvence(f).prekryv;
                                 else
                                     prekryv = 0;  %defaultne je nulovy prekryv pasem                                    
-                                end
-                                E.PasmoFrekvence(frekvence(f).freq,[],prekryv);
+                                end                                
+                                E.PasmoFrekvence(frekvence(f).freq,[],prekryv,iff(podilcasuodpovedi,2,[])); 
+                                    %pokud podilcasu, zdecimuju zatim jen malo, cele se mi ale nevejde do pameti
                             end
                             disp('extracting epochs ...');
                             E.ExtractEpochs(psychopy,epochtime,baseline);        
@@ -216,11 +219,13 @@ for f=1:numel(frekvence)
                             if exist('RjEpochCh','var')
                                 E.RejectEpochs(0,RjEpochCh); %epochy pro kazdy kanal zvlast
                             end
-                            %E.ResampleEpochs(); % 27.11.2017 %resampluju na -1 1s podle casu odpovedi
-                            %E.Decimate(8); %ze 512 na 64hz, protoze jsem predtim v PasmoFrekvence nedecimoval
+                            if podilcasuodpovedi == 1                            
+                                E.ResampleEpochs(); % 27.11.2017 %resampluju na -1 1s podle casu odpovedi
+                                E.Decimate(4); %ze 256 na 64hz, protoze jsem predtim v PasmoFrekvence decimoval jen 2x
+                            end
                             E.ResponseSearch(0.1,stat_kats, stat_opak); %statistika s klouzavym oknem 100ms
                             disp('saving data ...');
-                                                        
+                            
                             E.Save(outfilename);                            
                             disp([ pacienti(p).folder ' OK']); 
                             fprintf(fileID,[ 'OK: ' strrep(outfilename,'\','\\') ' - ' datestr(now) '\n']);

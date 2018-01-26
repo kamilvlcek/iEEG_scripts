@@ -44,7 +44,7 @@ classdef CHilbert < CiEEGData
             %   freq    seznam freqvenci pro ktere se ma delat prumer - lo, .., ..., .., hi
             if ~exist('channels','var') || isempty(channels), channels = 1:obj.channels; end
             if ~exist('prekryv','var'), prekryv = 0; end %kolik se maji prekryvat sousedni frekvencni pasma, napriklad 0.5
-            if ~exist('decimatefactor','var'), decimatefactor = obj.decimatefactor; end; %volitelny parametr decimatefactor 
+            if ~exist('decimatefactor','var') || isempty(decimatefactor), decimatefactor = obj.decimatefactor; end; %volitelny parametr decimatefactor 
             samples = ceil(obj.samples/decimatefactor); 
             disp(['vytvarim pole ' num2str(samples) 'x' num2str(obj.channels) 'x' num2str(numel(freq)-1) ... 
                 '=' num2str(samples*obj.channels*(numel(freq)-1)*8/1024/1024) ' MBytes']); %zpravu abych vedel, v jakych velikostech se pohybuju
@@ -119,15 +119,20 @@ classdef CHilbert < CiEEGData
             if obj.decimatefactor == 1 %zatim pouzivam pouze, pokud nejsou data uz decimovana vuci CiEEGdata
                 fprintf('channels to decimate HFreq (z %i):',numel(obj.channels));
                 HFreq = zeros(ceil(size(obj.HFreq,1)/podil) , size(obj.HFreq,2), size(obj.HFreq,3),size(obj.HFreq,4));  %#ok<PROPLC>
+                HFreqEpochs = zeros(ceil(size(obj.HFreq,1)/podil) , size(obj.HFreq,2), size(obj.HFreq,3),obj.epochs); %#ok<PROPLC>
                 for ch = 1:obj.channels                    
                     fprintf('%i, ',ch);
                     for f = 1:size(obj.HFreq,3) %pocet frekvencnich pasem
                        for kat = 1:size(obj.HFreq,4) %pocet kategorii podnetu     
-                            HFreq(:,ch,f,kat) = decimate(obj.HFreq(:,ch,f,kat),podil); %#ok<PROPLC>
+                            HFreq(:,ch,f,kat) = decimate(obj.HFreq(:,ch,f,kat),podil); %#ok<PROPLC>                            
+                       end
+                       for ep = 1:obj.epochs %frekvencni data se vsemi epochami
+                            HFreqEpochs(:,ch,f,ep) = decimate(obj.HFreqEpochs(:,ch,f,ep),podil); %#ok<PROPLC>    
                        end
                     end                    
                 end
                 obj.HFreq = HFreq; %#ok<PROPLC>
+                obj.HFreqEpochs = HFreqEpochs; %#ok<PROPLC>
                 fprintf('... done\n');
                 if exist('rtrim','var') && ~isempty(rtrim)
                     obj.HFreq = obj.HFreq(1:rtrim,:,:,:);                    
@@ -472,7 +477,7 @@ classdef CHilbert < CiEEGData
            filename=strrep(filename,'_CHilb',''); %odstranim pripony vytvorene pri save
            filename=strrep(filename,'_CiEEG','');
            [pathstr,fname,ext] = fileparts(filename);  
-           if numel(ext)<1, ext = '.mat'; end
+           if numel(ext)<1 || strcmp(ext,'.mat')==false , ext = [ ext '.mat']; end %pokud pripona neni mat, pridam ji na konec
            filename2 = fullfile(pathstr,[fname '_CiEEG' ext]);
         end
         function filename2 = filenameH(filename)
@@ -480,7 +485,7 @@ classdef CHilbert < CiEEGData
            filename=strrep(filename,'_CHilb',''); %odstranim pripony vytvorene pri save
            filename=strrep(filename,'_CiEEG','');
            [pathstr,fname,ext] = fileparts(filename); 
-           if numel(ext)<1, ext = '.mat'; end
+           if numel(ext)<1 || strcmp(ext,'.mat')==false , ext = [ ext '.mat']; end %pokud pripona neni mat, pridam ji na konec
            filename2 = fullfile(pathstr,[fname '_CHilb' ext]);
         end
     end

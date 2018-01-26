@@ -235,7 +235,7 @@ classdef CiEEGData < handle
             %resampluje epochy na -0.1 1, pricemz 0-1 je cas odpovedi
             %epochy s delsim casem odpovedi nez je puvodni delka epochy vyradi
             rt = obj.PsyData.ReactionTime(1);
-            newepochtime = [-0.093 1];
+            newepochtime = [-0.093 1]; %TODO aby epocha mohla konci po odpovedi, napriklad [-0.1 1.1]
             newepochlength = newepochtime(2)-newepochtime(1);
             d2 = zeros(round(obj.fs*newepochlength),size(obj.d,2), size(obj.d,3));
             tabs2 = zeros(round(obj.fs*newepochlength),size(obj.d,3));
@@ -264,7 +264,9 @@ classdef CiEEGData < handle
                     sample1 = sample1-( (sample1-sample01)-(new1-new01));
                 end
                 d2(new01:new1,:,ep) = dd(sample01:sample1,:);
-                tabs2(:,ep) = obj.tabs( round((-newepochtime(1))*obj.fs) : round((newepochlength-newepochtime(1))*obj.fs));
+                tablimits = [round((-newepochtime(1))*obj.fs) , round((-newepochtime(1))*obj.fs)+size(tabs2,1)-1  ]; %round((newepochlength-newepochtime(1))*obj.fs)                
+                    %ten konec mi obcas nevychazel na velikost tabs2, tak to udelam takhle - 26.1.2018
+                tabs2(:,ep) = obj.tabs(tablimits(1) : tablimits(2) );
                 %close all;
                 %figure,plot(dd);
                 %figure,plot(d2(:,:,ep))
