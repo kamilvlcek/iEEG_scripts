@@ -477,15 +477,21 @@ classdef CHilbert < CiEEGData
            filename=strrep(filename,'_CHilb',''); %odstranim pripony vytvorene pri save
            filename=strrep(filename,'_CiEEG','');
            [pathstr,fname,ext] = fileparts(filename);  
-           if numel(ext)<1 || strcmp(ext,'.mat')==false , ext = [ ext '.mat']; end %pokud pripona neni mat, pridam ji na konec
+           if strcmp(ext,'.mat')==false || numel(ext)<1
+               fname = [fname ext]; %pokud pripona neni mat, pridam ji na konec jmena a vytvorim priponu mat
+               ext = '.mat';
+           end           
            filename2 = fullfile(pathstr,[fname '_CiEEG' ext]);
         end
         function filename2 = filenameH(filename)
              %vraci jmeno souboru s daty teto tridy
            filename=strrep(filename,'_CHilb',''); %odstranim pripony vytvorene pri save
            filename=strrep(filename,'_CiEEG','');
-           [pathstr,fname,ext] = fileparts(filename); 
-           if numel(ext)<1 || strcmp(ext,'.mat')==false , ext = [ ext '.mat']; end %pokud pripona neni mat, pridam ji na konec
+           [pathstr,fname,ext] = fileparts(filename);
+           if strcmp(ext,'.mat')==false || numel(ext)<1
+               fname = [fname ext]; %pokud pripona neni mat, pridam ji na konec jmena a vytvorim priponu mat
+               ext = '.mat';
+           end            
            filename2 = fullfile(pathstr,[fname '_CHilb' ext]);
         end
     end
