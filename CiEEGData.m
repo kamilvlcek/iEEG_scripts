@@ -542,7 +542,9 @@ classdef CiEEGData < handle
             if ~exist('channels','var') || isempty(channels) , channels = 1:obj.channels; end
             if ~exist('dofig','var'), dofig = 1; end %defaultne delam obrazek
             kats = obj.Wp.kats; 
-            kombinace = [2 1; 3 1 ; 3 2 ]; %kombinace kategorii
+            %spocitam dynamicky permutace vsech kategorii, pro ktere mam spocitanou statistiku           
+            kombinace = combinator(length(kats),2,'p'); %permutace bez opakovani z poctu kategorii
+            kombinace = kombinace(kombinace(:,1)>kombinace(:,2),:); %vyberu jen perumtace, kde prvni cislo je vetsi nez druhe            
             prumery = zeros(numel(channels),size(intervaly,1),numel(kats)+length(kombinace));   % channels x intervaly x kategorie - celkova data a jednotlive kategorie            
             if dofig, figure('Name','IntervalyResp'); end
             for j = 1:size(intervaly,1) 
@@ -565,12 +567,12 @@ classdef CiEEGData < handle
                         hold on;
                     end
                 end
-                for k = 1:length(kombinace)
+                for k = 1:length(kombinace) %cyklusy pres vsechny kombinace kategorii
                     katdata1 = obj.CategoryData(kats(kombinace(k,1))); 
                     katdata2 = obj.CategoryData(kats(kombinace(k,2))); 
-                    prumery1 = mean(mean(katdata1(iintervalyData(1):iintervalyData(2),:,:),3),1); %prumer pres epochy a pak pres cas
-                    prumery2 = mean(mean(katdata2(iintervalyData(1):iintervalyData(2),:,:),3),1); %prumer pres epochy a pak pres cas
-                    iCh = min(obj.Wp.WpKat{kombinace(k,2),kombinace(k,1)}(iintervalyStat(1):iintervalyStat(2),channels),[],1) < 0.05;
+                    prumery1 = mean(mean(katdata1(iintervalyData(1):iintervalyData(2),:,:),3),1); %prumer pres epochy a pak pres cas - kategorie 1
+                    prumery2 = mean(mean(katdata2(iintervalyData(1):iintervalyData(2),:,:),3),1); %prumer pres epochy a pak pres cas - kategorie 2
+                    iCh = min(obj.Wp.WpKat{kombinace(k,2),kombinace(k,1)}(iintervalyStat(1):iintervalyStat(2),channels),[],1) < 0.05; %kanaly, kde je signifikantni rozdil mezi kategoriemi, alespon jednou
                     iCh2 = prumery1>0 | prumery2>0; %chci jen kladne odpovedi
                     p = prumery1(:) - prumery2(:);                 
                     prumery(iCh & iCh2,j,k+numel(kats)) = p(iCh & iCh2);
