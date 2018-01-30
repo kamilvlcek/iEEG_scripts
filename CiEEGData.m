@@ -356,6 +356,7 @@ classdef CiEEGData < handle
             %projede vsechny kanaly a hleda signif rozdil proti periode pred podnetem
             %timewindow - pokud dve hodnoty - porovnava prumernou hodnotu mezi nimi - sekundy relativne k podnetu/odpovedi
             % -- pokud jedna hodnota, je to sirka klouzaveho okna - maximalni p z teto delky
+            %TODO - moznost spojit kategorie 
             assert(obj.epochs > 1,'only for epoched data');                       
                        
             iEp = obj.GetEpochsExclude(); %ziska seznam epoch k vyhodnoceni
@@ -537,6 +538,7 @@ classdef CiEEGData < handle
             %vypocita hodnoty v jednotlivych intervalech casu pro jednotlive kategorie i pro celkovy prumer       
             %vykresli graf pro kazdy interval do spolecneho plotu
             %vraci prumery[channels x intervaly x kategorie] a MNI(channels)
+            %TODO vypisovat jmena kanalu na vysku - nebo jen u tech signifikantnich
             assert(isfield(obj.Wp, 'kats'),'musi byt definovany kategorie podnetu');
             assert(isfield(obj.Wp, 'WpKatBaseline'),'musi byt spocitana statistika kategorii');
             if ~exist('channels','var') || isempty(channels) , channels = 1:obj.channels; end
@@ -567,6 +569,7 @@ classdef CiEEGData < handle
                         hold on;
                     end
                 end
+                %TODO chyba pro Menrot, chybi barva
                 for k = 1:length(kombinace) %cyklusy pres vsechny kombinace kategorii
                     katdata1 = obj.CategoryData(kats(kombinace(k,1))); 
                     katdata2 = obj.CategoryData(kats(kombinace(k,2))); 
@@ -955,6 +958,11 @@ classdef CiEEGData < handle
             end
             [ymin ymax] = obj.responseChYLim(iff(~isempty(opakovani),KATNUM,kategories));
             
+            %TODO - popisky vic vlevo u zarovnani podle odpovedi
+            %TODO vypsat i '( - )' jako neurology label
+            %TODO trosku vetsi fonty - i co naseho corelu se bude hodit
+            %TODO - vodorovne cary odpovidajici odpovedim z psychopy
+            
             %ZACINAM VYKRESLOVAT - NEJDRIV MEAN VSECH KATEGORII
             if ~exist('kategories','var') && ~exist('opakovani','var') %26.5.2017 - jen kdyz neexistuji kategorie
                 katdata =  obj.CategoryData(KATNUM);
@@ -1151,6 +1159,7 @@ classdef CiEEGData < handle
         function PlotEpiEvents(obj)
             %vykresli pocty epileptickych events u jednotlivych kanalu. U epochovanych dat i pocty epoch s epi udalostmi
             %since 27.4.2017
+            %TODO husteji popisovat elektrody - u tech co nad 10% vypisovat cislo a jmeno u vrcholu
             assert(isobject(obj.CH),'Hammer header not loaded');
             assert(isobject(obj.DE),'Epievents not loaded');
             [evts,names,epochs,evts_nonseeg] = obj.DE.CountEpiEvents(obj.CH,obj.epochs,obj.tabs,obj.tabs_orig); %#ok<PROP>            

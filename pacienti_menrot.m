@@ -109,7 +109,7 @@ pacienti(p).epievents = 'p130_menrot_epievents.mat'; %2017
 pacienti(p).rjch = [47,49]; %49 = vice nez 50 procent vyrazenych epoch
 
  
-p=p+1;
+% p=p+1;
 % neni hammer header - ma hipp body
 % pacienti(p).todo = 1;
 % pacienti(p).folder = 'p132 Pol VT18';

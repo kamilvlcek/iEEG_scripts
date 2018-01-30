@@ -385,7 +385,7 @@ classdef CHilbert < CiEEGData
             Hfmean = obj.Hfmean;  %#ok<PROPLC> 
             if isempty(Hfmean), Hfmean = (Hf(1:end-1) + Hf(2:end)) ./ 2; end %#ok<PROPLC,NASGU>             
             HFreq = obj.HFreq(:,chns,:,:); %#ok<PROPLC,NASGU>  %time x channel x freq (x kategorie)
-            
+            %TODO osetrit priponu mat
             [filepath,fname,~] = fileparts(obj.filename);
             podtrzitko = strfind(fname,'_'); %chci zrusit cast za poslednim podtrzitkem
             filename =[filepath filesep fname(1:podtrzitko(end)-1) ' ' label '_Extract']; 

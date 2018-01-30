@@ -144,6 +144,10 @@ classdef CBrainPlot < handle
             if ischar(label), label = {label}; end %prevedu na cell array
             if strcmp(testname,'aedist')
                 pacienti = pacienti_aedist(); %nactu celou strukturu pacientu    
+            elseif strcmp(testname,'menrot')
+                pacienti = pacienti_menrot(); %nactu celou strukturu pacientu    
+            else
+                error('nezname jmeno testu');
             end
             PAC = {};
             iPAC = 1;
