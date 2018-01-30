@@ -80,10 +80,12 @@ classdef CHilbert < CiEEGData
             disp(['vytvoreno ' num2str(numel(obj.Hfmean)) ' frekvencnich pasem']); 
         end
         
-        function obj = ExtractEpochs(obj, PsyData,epochtime,baseline)
+        function obj = ExtractEpochs(obj, PsyData,epochtime,baseline,freqepochs)
             % rozdeli hilbertovu obalku podle epoch
             % i u ni odecte baseline pred podnetem
+            % freqepochs - urcuje jestli ukladat freq pasma pro vsechny epochy do pole obj.HFreqEpochs
             if ~exist('baseline','var') || isempty(baseline), baseline = [epochtime(1) 0]; end %defaultni baseline je do 0 sec
+            if ~exist('freqepochs','var') || isempty(freqepochs), freqepochs = 0; end %defaultne se neukladaji frekvencni pasma pro vsechny epochy
             ExtractEpochs@CiEEGData(obj,PsyData, epochtime,baseline); %to mi zepochuje prumernou obalku za frekvencni pasma v poli d
             if(numel(obj.HFreq)>0)
                 %ted epochace vsech frekvencnich pasem zvlast, hlavne kvuli obrazkum
@@ -92,7 +94,11 @@ classdef CHilbert < CiEEGData
                  ibaseline =  round(baseline.*obj.fs); %v poctu vzorku cas pred a po udalosti
                  kategorie = cell2mat(obj.PsyData.P.strings.podminka(:,2)); %cisla karegorii ve sloupcich
                  Hfreq2 = zeros(iepochtime(2)-iepochtime(1), size(obj.d,2), numel(obj.Hfmean),size(kategorie,1)); %nova epochovana data time x channel x freq x kategorie=podminka
-                 obj.HFreqEpochs = zeros(iepochtime(2)-iepochtime(1),size(obj.HFreq,2),size(obj.HFreq,3),obj.epochs); % time x channel x frequency x epoch
+                 if freqepochs
+                     obj.HFreqEpochs = zeros(iepochtime(2)-iepochtime(1),size(obj.HFreq,2),size(obj.HFreq,3),obj.epochs); % time x channel x frequency x epoch
+                 else
+                     obj.HFreqEpochs = [];
+                 end
                  %cyklus po kategoriich ne po epochach
                  for katnum = kategorie' %potrebuji to v radcich
                      Epochy = find(cell2mat(obj.epochData(:,2))==katnum); %seznam epoch v ramci kategorie ve sloupci 
@@ -101,7 +107,9 @@ classdef CHilbert < CiEEGData
                          for ch=1:obj.channels
                             baseline_mean = mean(obj.HFreq(izacatek + ibaseline(1) : izacatek+ibaseline(2)-1,ch,:),1); %baseline pro vsechny frekvencni pasma dohromady
                             epoch_data = bsxfun(@minus,obj.HFreq(izacatek + iepochtime(1) : izacatek+iepochtime(2)-1,ch,:) , baseline_mean); %odecteni baseline pro aktualni epochu a kanal
-                            obj.HFreqEpochs(:,ch,:,epoch) = epoch_data;
+                            if freqepochs
+                                obj.HFreqEpochs(:,ch,:,epoch) = epoch_data; 
+                            end
                             Hfreq2(:,ch,:,katnum+1) = Hfreq2(:,ch,:,katnum+1) + epoch_data; %soucet power pro kategorii, pres prislusne epochy
                             %tady se mi to mozna odecetlo blbe? KOntrola
                          end
@@ -119,15 +127,21 @@ classdef CHilbert < CiEEGData
             if obj.decimatefactor == 1 %zatim pouzivam pouze, pokud nejsou data uz decimovana vuci CiEEGdata
                 fprintf('channels to decimate HFreq (z %i):',numel(obj.channels));
                 HFreq = zeros(ceil(size(obj.HFreq,1)/podil) , size(obj.HFreq,2), size(obj.HFreq,3),size(obj.HFreq,4));  %#ok<PROPLC>
-                HFreqEpochs = zeros(ceil(size(obj.HFreq,1)/podil) , size(obj.HFreq,2), size(obj.HFreq,3),obj.epochs); %#ok<PROPLC>
+                if ~isempty(obj.HFreqEpochs)
+                    HFreqEpochs = zeros(ceil(size(obj.HFreq,1)/podil) , size(obj.HFreq,2), size(obj.HFreq,3),obj.epochs); %#ok<PROPLC>
+                else
+                    HFreqEpochs = []; %#ok<PROPLC>
+                end
                 for ch = 1:obj.channels                    
                     fprintf('%i, ',ch);
                     for f = 1:size(obj.HFreq,3) %pocet frekvencnich pasem
                        for kat = 1:size(obj.HFreq,4) %pocet kategorii podnetu     
                             HFreq(:,ch,f,kat) = decimate(obj.HFreq(:,ch,f,kat),podil); %#ok<PROPLC>                            
                        end
+                       if ~isempty(obj.HFreqEpochs)
                        for ep = 1:obj.epochs %frekvencni data se vsemi epochami
                             HFreqEpochs(:,ch,f,ep) = decimate(obj.HFreqEpochs(:,ch,f,ep),podil); %#ok<PROPLC>    
+                       end
                        end
                     end                    
                 end
@@ -278,7 +292,7 @@ classdef CHilbert < CiEEGData
             %vykresli vlavo time x frequency graf pre danu epochu 
             %vpravo average power cez vsetky frekvencie danej epochy 
             %pouziva sa v PlotMovingEpochs
-            
+            assert(~isempty(obj.HFreqEpochs),'soubor s frekvencnimi daty pro epochy neexistuje');
             subplot(1,2,1) % subplot time x frequency power for given epoch
             imagesc(squeeze(obj.HFreqEpochs(:,obj.plotEpochs.channels(obj.plotEpochs.iChannel),:,obj.plotEpochs.iEpoch))', 'XData', obj.plotEpochs.T, 'YData', obj.Hf);
             caxis(obj.plotEpochs.zlimits(obj.plotEpochs.iChannel,:));

@@ -1,20 +1,20 @@
 %15.9.2016 - AlloEgo zarovnani podle odpovedi
 %25.5.2017 - Pridani reference a ERP
 
-%TODO moznost nepocitat HFreqEpochs
-%TODO chyba - Epievents not loaded - u asi vsech pocitanych souboru
 hybernovat = 0; %jestli chci po konci skriptu pocitac uspat - ma prednost
 vypnout = 0; %jestli chci po konci skriptu pocitac vypnout (a nechci ho hybernovat) 
 pouzetest = 0; %jestli chci jen otestovat pritomnost vsech souboru 
 overwrite = 0; %jestil se maji prepsat puvodni data, nebo ohlasit chyba a pokracovat v dalsim souboru 
-podilcasuodpovedi = 1; %jestli se maji epochy resamplovat na podil casu mezi podnetem a odpovedi
+podilcasuodpovedi = 0; %jestli se maji epochy resamplovat na podil casu mezi podnetem a odpovedi
+freqepochs = 0; %jestli se maji uklada frekvencni data od vsech epoch - velka data!
 
 setup = setup_menrot( 0 ); %nacte nastaveni testu Menrot- 11.1.2018 - 0 = zarovnani podle podnetu, 1=zarovnani podle odpovedi
 basedir = setup.basedir;
 epochtime = setup.epochtime;
 baseline = setup.baseline;
 suffix = setup.suffix;  % napriklad 'Ep2018-01' + Resp pokud serazeno podle odpovedi
-if podilcasuodpovedi == 1, suffix = [suffix 'PCO']; end %pokud, pridam neste na konec priponu
+if podilcasuodpovedi == 1, suffix = [suffix 'PCO']; end %pokud, pridam jeste na konec priponu
+if freqepochs == 1, suffix = [suffix '_FE']; end %pokud, pridam jeste na konec priponu
 prefix = setup.prefix;
 stat_kats = setup.stat_kats;
 stat_opak = setup.stat_opak;
@@ -202,6 +202,9 @@ for f=1:numel(frekvence)
                             end
                             clear d;                        
                             E.RejectChannels(pacienti(p).rjch);
+                            if exist(pacienti(p).epievents,'file')~=2 %pokud existuji, nactu epieventy
+                                 E.GetEpiEvents(pacienti(p).epievents); 
+                            end
                             if numel(reference(r).char)>0 %pokud se ma zmenit reference
                                 E.ChangeReference(reference(r).char);
                             end
@@ -215,7 +218,7 @@ for f=1:numel(frekvence)
                                     %pokud podilcasu, zdecimuju zatim jen malo, cele se mi ale nevejde do pameti
                             end
                             disp('extracting epochs ...');
-                            E.ExtractEpochs(psychopy,epochtime,baseline);        
+                            E.ExtractEpochs(psychopy,epochtime,baseline,freqepochs);        
                             if exist('RjEpoch','var') %muze byt prazne, pak se nevyrazuji zadne epochy
                                 E.RejectEpochs(RjEpoch); %globalne vyrazene epochy
                             end
