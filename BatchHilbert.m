@@ -1,20 +1,33 @@
+function BatchHilbert(testname,cfg)
+%BATCHHILBERT prevedeno do funkce pro opakovane volani ve skriptu - 30.1.2018
+% cfg je konfigurace 
 %15.9.2016 - AlloEgo zarovnani podle odpovedi
 %25.5.2017 - Pridani reference a ERP
 
-hybernovat = 0; %jestli chci po konci skriptu pocitac uspat - ma prednost
-vypnout = 0; %jestli chci po konci skriptu pocitac vypnout (a nechci ho hybernovat) 
-pouzetest = 0; %jestli chci jen otestovat pritomnost vsech souboru 
-overwrite = 0; %jestil se maji prepsat puvodni data, nebo ohlasit chyba a pokracovat v dalsim souboru 
-podilcasuodpovedi = 0; %jestli se maji epochy resamplovat na podil casu mezi podnetem a odpovedi
-freqepochs = 0; %jestli se maji uklada frekvencni data od vsech epoch - velka data!
+if ~exist('cfg','var'), cfg = struct; end; %pokud zadnou strukturu neuvedu, pouzivaji se defaultni nastaveni
+if ~isfield(cfg.hybernovat), cfg.hybernovat = 0; end %jestli chci po konci skriptu pocitac uspat - ma prednost
+if ~isfield(cfg.vypnout), cfg.vypnout = 0; end %jestli chci po konci skriptu pocitac vypnout (a nechci ho hybernovat) 
+if ~isfield(cfg.pouzetest), cfg.pouzetest = 0; end %jestli chci jen otestovat pritomnost vsech souboru 
+if ~isfield(cfg.overwrite), cfg.overwrite = 0;  end %jestil se maji prepsat puvodni data, nebo ohlasit chyba a pokracovat v dalsim souboru 
+if ~isfield(cfg.podilcasuodpovedi), cfg.podilcasuodpovedi = 0; end  %jestli se maji epochy resamplovat na podil casu mezi podnetem a odpovedi
+if ~isfield(cfg.freqepochs), cfg.freqepochs = 0; end %jestli se maji uklada frekvencni data od vsech epoch - velka data!
+if ~isfield(cfg.srovnejresp), cfg.srovnejresp = 0; end %jestli se maji epochy zarovnava podle odpovedi
 
-setup = setup_menrot( 0 ); %nacte nastaveni testu Menrot- 11.1.2018 - 0 = zarovnani podle podnetu, 1=zarovnani podle odpovedi
+if strcmp(testname,'menrot')
+    setup = setup_menrot( cfg.srovnejresp ); %nacte nastaveni testu Menrot- 11.1.2018 - 0 = zarovnani podle podnetu, 1=zarovnani podle odpovedi
+    pacienti = pacienti_menrot(); %nactu celou strukturu pacientu
+elseif strcmp(testname,'aedist')
+    setup = setup_aedist( cfg.srovnejresp ); %nacte nastaveni testu Aedist - 11.1.2018 - 0 = zarovnani podle podnetu, 1=zarovnani podle odpovedi
+    pacienti = pacienti_aedist(); %nactu celou strukturu pacientu
+else
+    error('nezname jmeno testu');
+end
 basedir = setup.basedir;
 epochtime = setup.epochtime;
 baseline = setup.baseline;
 suffix = setup.suffix;  % napriklad 'Ep2018-01' + Resp pokud serazeno podle odpovedi
-if podilcasuodpovedi == 1, suffix = [suffix 'PCO']; end %pokud, pridam jeste na konec priponu
-if freqepochs == 1, suffix = [suffix '_FE']; end %pokud, pridam jeste na konec priponu
+if cfg.podilcasuodpovedi == 1, suffix = [suffix 'PCO']; end %pokud, pridam jeste na konec priponu
+if cfg.freqepochs == 1, suffix = [suffix '_FE']; end %pokud, pridam jeste na konec priponu
 prefix = setup.prefix;
 stat_kats = setup.stat_kats;
 stat_opak = setup.stat_opak;
@@ -55,7 +68,7 @@ frekvence(f).freq = 2:2:150;
 frekvence(f).freqname = '2-150'; % all range
 frekvence(f).prekryv = 0.5; % 50% prekryv sousednich frekvencnich pasem 
 
-refence = struct;
+reference = struct;
 r=1;
 reference(r).todo = 1;
 reference(r).name = 'refOrig';
@@ -73,9 +86,8 @@ reference(r).todo = 1;
 reference(r).name = 'refBipo';
 reference(r).char = 'b';
 
-pacienti = pacienti_menrot(); %nactu celou strukturu pacientu
-logfilename = ['logs\BatchHilbert_Menrot_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') '.log'];
-[fileID,message] = fopen(logfilename,'wt'); %soubor na logovani prubehu
+logfilename = ['logs\BatchHilbert_' setup.prefix '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') '.log'];
+[fileID,~] = fopen(logfilename,'wt'); %soubor na logovani prubehu
 assert(fileID>=0,['nemohu otevrit soubor pro zapis: ' logfilename ]);
 setuptext = setup2text(setup);
 fprintf(fileID,setuptext); %ulozi setup do log souboru
@@ -128,14 +140,14 @@ if chybasoubor
 else
     msg  = 'vsechny soubory ok';
     disp(msg);  fprintf(fileID,[msg '\n']); 
-    if pouzetest
+    if cfg.pouzetest
         disp('pouze test existence souboru');
         fclose(fileID);
         return; 
     end; 
 end
-if (vypnout),    disp('system se po dokonceni vypne'); end 
-if (hybernovat), disp('system se po dokonceni uspi'); end
+if (cfg.vypnout),    disp('system se po dokonceni vypne'); end 
+if (cfg.hybernovat), disp('system se po dokonceni uspi'); end
 clear E d tabs fs mults header RjEpoch psychopy H ans; %vymazu, kdyby tam byl nejaky zbytek z predchozich pacientu
 
 for f=1:numel(frekvence)        
@@ -165,11 +177,11 @@ for f=1:numel(frekvence)
                                 suffixclass = '_CHilb.mat';
                             end
                             outfilename = [ basedir pacienti(p).folder '\' subfolder '\' prefix ' ' classname ' ' frekvence(f).freqname ' ' sprintf('%.1f-%.1f',epochtime(1:2)) ' ' reference(r).name ' ' suffix];
-                            if exist([outfilename suffixclass],'file')==2 && overwrite == 0                                
+                            if exist([outfilename suffixclass],'file')==2 && cfg.overwrite == 0                                
                                 disp([ outfilename ' NEULOZENO, preskoceno']); 
                                 fprintf(fileID,[ 'NEULOZENO,preskoceno: ' strrep(outfilename,'\','\\') ' - ' datestr(now) '\n']); 
                                 continue; %dalsi polozka ve for cyklu     
-                            elseif overwrite == 0
+                            elseif cfg.overwrite == 0
                                 disp(['soubor zatim neexistuje - zpracovavam: ' outfilename suffixclass]); 
                             end
                             load([basedir pacienti(p).folder datafolder '\' pacienti(p).data]);
@@ -214,18 +226,18 @@ for f=1:numel(frekvence)
                                 else
                                     prekryv = 0;  %defaultne je nulovy prekryv pasem                                    
                                 end                                
-                                E.PasmoFrekvence(frekvence(f).freq,[],prekryv,iff(podilcasuodpovedi,2,[])); 
+                                E.PasmoFrekvence(frekvence(f).freq,[],prekryv,iff(cfg.podilcasuodpovedi,2,[])); 
                                     %pokud podilcasu, zdecimuju zatim jen malo, cele se mi ale nevejde do pameti
                             end
                             disp('extracting epochs ...');
-                            E.ExtractEpochs(psychopy,epochtime,baseline,freqepochs);        
+                            E.ExtractEpochs(psychopy,epochtime,baseline,cfg.freqepochs);        
                             if exist('RjEpoch','var') %muze byt prazne, pak se nevyrazuji zadne epochy
                                 E.RejectEpochs(RjEpoch); %globalne vyrazene epochy
                             end
                             if exist('RjEpochCh','var')
                                 E.RejectEpochs(0,RjEpochCh); %epochy pro kazdy kanal zvlast
                             end
-                            if podilcasuodpovedi == 1                            
+                            if cfg.podilcasuodpovedi == 1                            
                                 E.ResampleEpochs(); % 27.11.2017 %resampluju na -1 1s podle casu odpovedi
                                 E.Decimate(4); %ze 256 na 64hz, protoze jsem predtim v PasmoFrekvence decimoval jen 2x
                             end
@@ -240,7 +252,7 @@ for f=1:numel(frekvence)
                         catch exception 
                             errorMessage = sprintf('** Error in function %s() at line %d.\nError Message:\n%s', ...
                                 exception.stack(1).name, exception.stack(1).line, exception.message);                            
-                            disp(errorMessage);  fprintf(fileID,[errorMessage '\n']);  %zobrazim hlasku, zaloguju, ale snad to bude pokracovat dal                            
+                            disp(errorMessage);  fprintf(fileID,[errorMessage '\n']);  %#ok<DSPS> %zobrazim hlasku, zaloguju, ale snad to bude pokracovat dal                            
                             clear E d tabs fs mults header RjEpoch psychopy H ans; 
                         end    
                     end
@@ -250,8 +262,8 @@ for f=1:numel(frekvence)
     end
 end
 fclose(fileID);
-if hybernovat
-    system('shutdown -h') %#ok<UNRCH>
-elseif vypnout            %#ok<UNRCH>
-    system('shutdown -s') %#ok<UNRCH>
+if cfg.hybernovat
+    system('shutdown -h') 
+elseif cfg.vypnout            
+    system('shutdown -s')
 end
