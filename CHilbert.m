@@ -81,24 +81,25 @@ classdef CHilbert < CiEEGData
         end
         
          function obj = Normalize(obj, type)
-            
+         %function for different normalization methods
+         %to be used after PasmoFrekvence
             switch type
-                 case 'orig'
+                 case 'orig' %(fpower./mean(fpower)) - povodna normalizacia
                     for ch = 1:obj.channels
                         for f = 1:size(obj.HFreq,3)
-                            obj.HFreq(:,ch,f) = obj.HFreq(:,ch,f)/mean(obj.HFreq(:,ch,f)); %(fpower./mean(fpower)) - povodna normalizacia
+                            obj.HFreq(:,ch,f) = obj.HFreq(:,ch,f)/mean(obj.HFreq(:,ch,f)); 
                         end
                     end
-                case 'mean'
+                case 'mean' %(fpower./mean(fpower))*100 ~ Bastin 2012   
                     for ch = 1:obj.channels
                         for f = 1:size(obj.HFreq,3)
-                            obj.HFreq(:,ch,f) = (obj.HFreq(:,ch,f)/mean(obj.HFreq(:,ch,f)))*100; %(fpower./mean(fpower))*100 ~ Bastin 2012   
+                            obj.HFreq(:,ch,f) = (obj.HFreq(:,ch,f)/mean(obj.HFreq(:,ch,f)))*100;
                         end
                     end
-                case 'z'
+                case 'z' %z-transform (fpower-mean(fwpower))/std(fpower)
                     for ch = 1:obj.channels
                         for f = 1:size(obj.HFreq,3)
-                            obj.HFreq(:,ch,f) = (obj.HFreq(:,ch,f)-mean(obj.HFreq(:,ch,f)))./std(obj.HFreq(:,ch,f));  %z-transform (fpower-mean(fwpower))/std(fpower)
+                            obj.HFreq(:,ch,f) = (obj.HFreq(:,ch,f)-mean(obj.HFreq(:,ch,f)))./std(obj.HFreq(:,ch,f)); 
                         end
                     end
                 otherwise
@@ -239,6 +240,68 @@ classdef CHilbert < CiEEGData
             methodhandle = @obj.hybejPlotF;
             set(obj.plotF.fh,'KeyPressFcn',methodhandle);             
         end 
+        
+        function fig = PlotFrequencyPower(obj, channel)
+            %function for time x frequency and frequency x power plot pre dany channel
+            %z-transformed power means for each frequency over the whole period
+            %and separately for before/after trigger periods
+            %designed specifically to investigate the power of theta
+            % TODO - doplnit response time?
+            time = linspace(obj.epochtime(1), obj.epochtime(2), size(obj.HFreqEpochs,1));
+            time_before = time(time<=0); %pred podnetom
+            
+            names = {obj.CH.H.channels.ass_brainAtlas}; %cast mozgu
+            electrodes = {obj.CH.H.channels.name}; %nazov elektrody
+            mean_fs = mean(squeeze(mean(obj.HFreqEpochs(1:end,channel,:,:),4)),1); %priemerna power pre kazdu frekvenciu cez celu periodu
+            mean_before = mean(squeeze(mean(obj.HFreqEpochs(1:length(time_before),channel,:,:),4)),1); %priemerna power pre kazdu frekvenciu pred podnetom
+            mean_after = mean(squeeze(mean(obj.HFreqEpochs((length(time_before)+1):end,channel,:,:),4)),1); %priemerna power pre kazdu frekvenciu po podnete
+            mean_min = min([min(mean_fs) min(mean_before) min(mean_after)]); %min a max means pre zjednotenie ylimits grafov
+            mean_max = max([max(mean_fs) max(mean_before) max(mean_after)]);
+            
+            fig = figure;
+            
+            subplot(2,2,1);
+            %vykresli time x frequency x z-scored power pre dany channel
+            colormap parula; 
+            imagesc(squeeze(mean(obj.HFreqEpochs(:,channel,:,:),4))', 'XData', time, 'YData', obj.Hf); 
+            set(gca,'YDir','normal');
+            xlabel('Time (s)');
+            ylabel('Frequency (Hz)');
+            h = colorbar;
+            ylabel(h, 'z-scored power'); 
+            title(names{channel})
+            
+            subplot(2,2,2);
+            %vykresli priemernu z-scored power pre kazdu frekvenciu napriec
+            %celym casom
+            plot(mean_fs);
+            ylim([mean_min mean_max]);
+            xlabel('Frequency (Hz)');
+            ylabel('z-scored power');
+            title('-1:1s');
+            
+            subplot(2,2,3);
+            %vykresli priemernu z-scored power pre kazdu frekvenciu
+            %pred podnetom
+            plot(mean_before);
+            ylim([mean_min mean_max]);
+            xlabel('Frequency (Hz)');
+            ylabel('z-scored power');
+            title('-1:0s PRED PODNETOM');
+            
+            subplot(2,2,4);
+            %vykresli priemernu z-scored power pre kazdu frekvenciu
+            %po podnete
+            plot(mean_after);
+            ylim([mean_min mean_max]);
+            xlabel('Frequency (Hz)');
+            ylabel('z-scored power');
+            title('0:1s PO PODNETE');
+            
+            mtit(sprintf('%s PACIENT %s - CHANNEL %d, ALL CONDITIONS \n  ', electrodes{channel}, obj.CH.H.subjName, channel));
+            set(gcf, 'PaperUnits', 'centimeters');
+            set(gcf, 'PaperPosition', [0 0 30 20]);
+        end
         
         %% PLOT FUNCTIONS
         function PlotAllEpochs(obj, icondition, channel,zlimits)
