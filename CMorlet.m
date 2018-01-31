@@ -53,7 +53,7 @@ classdef  CMorlet < CHilbert
                     if decimatefactor > 1
                         fpower = decimate(fpower,decimatefactor); % mensi sampling rate (moving average vubec nepomohl)
                     end
-                    obj.HFreq(:,ch,fno) = (fpower./mean(fpower)); %podil prumeru = prumerna hodnota                   
+                    obj.HFreq(:,ch,fno) = fpower; % povodna normalizacia (fpower./mean(fpower)) premiestnena do funkcie CHilbert.Normalize                   
                     %fprintf('%i Hz, ',loF);
                     fphase = angle(eegconv); %#ok<PROP> %faze frekvence 
                     if decimatefactor > 1

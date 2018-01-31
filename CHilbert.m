@@ -60,7 +60,7 @@ classdef CHilbert < CiEEGData
                     hiF = freq(fno+1)-0.1 +prekryv*(freq(fno+1)-freq(fno));  %napr 50 - 59.9
                     hh = obj.hilbertJirka(obj.d(:,ch),loF,hiF,obj.fs); %cista hilbertova obalka, tohle i skript hodne zrychli
                     hh = decimate(hh,decimatefactor); % mensi sampling rate                    
-                    obj.HFreq(:,ch,fno) = (hh./mean(hh)); %podil prumeru = prumerna hodnota
+                    obj.HFreq(:,ch,fno) = hh; % povodna normalizacia (hh./mean(hh)) premiestnena do funkcie Normalize
                     %fprintf('%i Hz, ',loF);
                 end
                 %fprintf('\n'); %tisk znova na stejnou radku
@@ -78,6 +78,32 @@ classdef CHilbert < CiEEGData
             toc(timer); %ukoncim mereni casu a vypisu
             obj.DatumCas.HilbertComputed = datestr(now);
             disp(['vytvoreno ' num2str(numel(obj.Hfmean)) ' frekvencnich pasem']); 
+        end
+        
+         function obj = Normalize(obj, type)
+            
+            switch type
+                 case 'orig'
+                    for ch = 1:obj.channels
+                        for f = 1:size(obj.HFreq,3)
+                            obj.HFreq(:,ch,f) = obj.HFreq(:,ch,f)/mean(obj.HFreq(:,ch,f)); %(fpower./mean(fpower)) - povodna normalizacia
+                        end
+                    end
+                case 'mean'
+                    for ch = 1:obj.channels
+                        for f = 1:size(obj.HFreq,3)
+                            obj.HFreq(:,ch,f) = (obj.HFreq(:,ch,f)/mean(obj.HFreq(:,ch,f)))*100; %(fpower./mean(fpower))*100 ~ Bastin 2012   
+                        end
+                    end
+                case 'z'
+                    for ch = 1:obj.channels
+                        for f = 1:size(obj.HFreq,3)
+                            obj.HFreq(:,ch,f) = (obj.HFreq(:,ch,f)-mean(obj.HFreq(:,ch,f)))./std(obj.HFreq(:,ch,f));  %z-transform (fpower-mean(fwpower))/std(fpower)
+                        end
+                    end
+                otherwise
+            end 
+        
         end
         
         function obj = ExtractEpochs(obj, PsyData,epochtime,baseline,freqepochs)
