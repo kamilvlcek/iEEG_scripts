@@ -398,11 +398,11 @@ classdef CHilbert < CiEEGData
             Hf = obj.Hf; %#ok<PROPLC> 
             Hfmean = obj.Hfmean;  %#ok<PROPLC> 
             if isempty(Hfmean), Hfmean = (Hf(1:end-1) + Hf(2:end)) ./ 2; end %#ok<PROPLC,NASGU>             
-            HFreq = obj.HFreq(:,chns,:,:); %#ok<PROPLC,NASGU>  %time x channel x freq (x kategorie)
-            %TODO osetrit priponu mat
-            [filepath,fname,~] = fileparts(obj.filename);
+            HFreq = obj.HFreq(:,chns,:,:); %#ok<PROPLC,NASGU>  %time x channel x freq (x kategorie)            
+            
+            [filepath,fname,ext] = CHilbert.matextension(obj.filename);
             podtrzitko = strfind(fname,'_'); %chci zrusit cast za poslednim podtrzitkem
-            filename =[filepath filesep fname(1:podtrzitko(end)-1) ' ' label '_Extract']; 
+            filename =[filepath filesep fname(1:podtrzitko(end)-1) ' ' label '_Extract' ext]; 
             save(filename,'d','tabs','tabs_orig','fs','P','epochtime','baseline','RjEpochCh','epochData','DatumCas','H','Hf','Hfmean','HFreq','-v7.3'); 
         end
         
@@ -459,7 +459,31 @@ classdef CHilbert < CiEEGData
                 end
             end
         end
+        
     end 
+    methods (Static,Access = public)
+        function filename2 = filenameE(filename)
+            %vraci jmeno souboru s daty tridy CiEEGData
+           filename=strrep(filename,'_CHilb',''); %odstranim pripony vytvorene pri save
+           filename=strrep(filename,'_CiEEG','');
+           [pathstr,fname,ext] = CHilbert.matextension(filename);         
+           filename2 = fullfile(pathstr,[fname '_CiEEG' ext]);
+        end
+        function filename2 = filenameH(filename)
+             %vraci jmeno souboru s daty teto tridy
+           filename=strrep(filename,'_CHilb',''); %odstranim pripony vytvorene pri save
+           filename=strrep(filename,'_CiEEG','');
+           [pathstr,fname,ext] = CHilbert.matextension(filename);            
+           filename2 = fullfile(pathstr,[fname '_CHilb' ext]);
+        end
+        function [pathstr,fname,ext] = matextension(filename)
+            [pathstr,fname,ext] = fileparts(filename);
+            if strcmp(ext,'.mat')==false || numel(ext)<1
+               fname = [fname ext]; %pokud pripona neni mat, pridam ji na konec jmena a vytvorim priponu mat
+               ext = '.mat';
+            end 
+        end
+    end
         
     %  --------- privatni metody ----------------------
     methods (Static,Access = private)
@@ -487,30 +511,7 @@ classdef CHilbert < CiEEGData
             %-  "power" is simply reckoned in terms of the square of the signal,
         end
     end
-    methods (Static,Access = public)
-        function filename2 = filenameE(filename)
-            %vraci jmeno souboru s daty tridy CiEEGData
-           filename=strrep(filename,'_CHilb',''); %odstranim pripony vytvorene pri save
-           filename=strrep(filename,'_CiEEG','');
-           [pathstr,fname,ext] = fileparts(filename);  
-           if strcmp(ext,'.mat')==false || numel(ext)<1
-               fname = [fname ext]; %pokud pripona neni mat, pridam ji na konec jmena a vytvorim priponu mat
-               ext = '.mat';
-           end           
-           filename2 = fullfile(pathstr,[fname '_CiEEG' ext]);
-        end
-        function filename2 = filenameH(filename)
-             %vraci jmeno souboru s daty teto tridy
-           filename=strrep(filename,'_CHilb',''); %odstranim pripony vytvorene pri save
-           filename=strrep(filename,'_CiEEG','');
-           [pathstr,fname,ext] = fileparts(filename);
-           if strcmp(ext,'.mat')==false || numel(ext)<1
-               fname = [fname ext]; %pokud pripona neni mat, pridam ji na konec jmena a vytvorim priponu mat
-               ext = '.mat';
-           end            
-           filename2 = fullfile(pathstr,[fname '_CHilb' ext]);
-        end
-    end
+
     methods  (Access = private)
         function obj = hybejPlotF(obj,~,eventDat)  
            %reaguje na udalosti v grafu PlotResponseCh
@@ -641,6 +642,7 @@ classdef CHilbert < CiEEGData
                 next = obj.plotEpochs.iEpoch;
             end
         end
+        
        
     end
 end
