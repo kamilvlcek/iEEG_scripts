@@ -49,7 +49,7 @@ classdef CHilbert < CiEEGData
             disp(['vytvarim pole ' num2str(samples) 'x' num2str(obj.channels) 'x' num2str(numel(freq)-1) ... 
                 '=' num2str(samples*obj.channels*(numel(freq)-1)*8/1024/1024) ' MBytes']); %zpravu abych vedel, v jakych velikostech se pohybuju
             obj.HFreq = zeros(samples,obj.channels,numel(freq)-1); %inicializace pole   
-            tic; %zadnu meric cas
+            timer = tic; %zadnu merit cas
             fprintf('kanal ze %i: ', max(channels) );
             for ch = channels %jednotlive elektrody
                 %fprintf('channel %i: Hz ',ch);
@@ -75,7 +75,7 @@ classdef CHilbert < CiEEGData
             obj.yrange = [1 1 5 5]; %zmenim rozliseni osy y v grafu
             [obj.samples,obj.channels, obj.epochs] = obj.DSize();
             fprintf('\n'); %ukoncim radku
-            toc; %ukoncim mereni casu a vypisu
+            toc(timer); %ukoncim mereni casu a vypisu
             obj.DatumCas.HilbertComputed = datestr(now);
             disp(['vytvoreno ' num2str(numel(obj.Hfmean)) ' frekvencnich pasem']); 
         end

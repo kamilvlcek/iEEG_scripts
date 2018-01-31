@@ -5,13 +5,14 @@ function BatchHilbert(testname,cfg)
 %25.5.2017 - Pridani reference a ERP
 
 if ~exist('cfg','var'), cfg = struct; end; %pokud zadnou strukturu neuvedu, pouzivaji se defaultni nastaveni
-if ~isfield(cfg.hybernovat), cfg.hybernovat = 0; end %jestli chci po konci skriptu pocitac uspat - ma prednost
-if ~isfield(cfg.vypnout), cfg.vypnout = 0; end %jestli chci po konci skriptu pocitac vypnout (a nechci ho hybernovat) 
-if ~isfield(cfg.pouzetest), cfg.pouzetest = 0; end %jestli chci jen otestovat pritomnost vsech souboru 
-if ~isfield(cfg.overwrite), cfg.overwrite = 0;  end %jestil se maji prepsat puvodni data, nebo ohlasit chyba a pokracovat v dalsim souboru 
-if ~isfield(cfg.podilcasuodpovedi), cfg.podilcasuodpovedi = 0; end  %jestli se maji epochy resamplovat na podil casu mezi podnetem a odpovedi
-if ~isfield(cfg.freqepochs), cfg.freqepochs = 0; end %jestli se maji uklada frekvencni data od vsech epoch - velka data!
-if ~isfield(cfg.srovnejresp), cfg.srovnejresp = 0; end %jestli se maji epochy zarovnava podle odpovedi
+if ~isfield(cfg,'hybernovat'), cfg.hybernovat = 0; end %jestli chci po konci skriptu pocitac uspat - ma prednost
+if ~isfield(cfg,'vypnout'), cfg.vypnout = 0; end %jestli chci po konci skriptu pocitac vypnout (a nechci ho hybernovat) 
+if ~isfield(cfg,'pouzetest'), cfg.pouzetest = 0; end %jestli chci jen otestovat pritomnost vsech souboru 
+if ~isfield(cfg,'overwrite'), cfg.overwrite = 0;  end %jestil se maji prepsat puvodni data, nebo ohlasit chyba a pokracovat v dalsim souboru 
+if ~isfield(cfg,'podilcasuodpovedi'), cfg.podilcasuodpovedi = 0; end  %jestli se maji epochy resamplovat na podil casu mezi podnetem a odpovedi
+if ~isfield(cfg,'freqepochs'), cfg.freqepochs = 0; end %jestli se maji uklada frekvencni data od vsech epoch - velka data!
+if ~isfield(cfg,'srovnejresp'), cfg.srovnejresp = 0; end %jestli se maji epochy zarovnava podle odpovedi
+if ~isfield(cfg,'suffix'), cfg.suffix = ['Ep' datestr(now,'YYYY-mm')]; end %defaultne automaticka pripona rok-mesic
 
 if strcmp(testname,'menrot')
     setup = setup_menrot( cfg.srovnejresp ); %nacte nastaveni testu Menrot- 11.1.2018 - 0 = zarovnani podle podnetu, 1=zarovnani podle odpovedi
@@ -25,9 +26,11 @@ end
 basedir = setup.basedir;
 epochtime = setup.epochtime;
 baseline = setup.baseline;
-suffix = setup.suffix;  % napriklad 'Ep2018-01' + Resp pokud serazeno podle odpovedi
+suffix = cfg.suffix;  % napriklad 'Ep2018-01' + Resp pokud serazeno podle odpovedi
 if cfg.podilcasuodpovedi == 1, suffix = [suffix 'PCO']; end %pokud, pridam jeste na konec priponu
+if cfg.srovnejresp,  suffix = [suffix 'RES']; end %pokud zarovnavam podle odpovedi, pridavam priponu
 if cfg.freqepochs == 1, suffix = [suffix '_FE']; end %pokud, pridam jeste na konec priponu
+
 prefix = setup.prefix;
 stat_kats = setup.stat_kats;
 stat_opak = setup.stat_opak;
@@ -89,11 +92,12 @@ reference(r).char = 'b';
 logfilename = ['logs\BatchHilbert_' setup.prefix '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') '.log'];
 [fileID,~] = fopen(logfilename,'wt'); %soubor na logovani prubehu
 assert(fileID>=0,['nemohu otevrit soubor pro zapis: ' logfilename ]);
-setuptext = setup2text(setup);
+setuptext = setup2text(setup,cfg);
 fprintf(fileID,setuptext); %ulozi setup do log souboru
 
 %nejdriv overim, jestli existuje vsechno co potrebuju nacist
 chybasoubor = false;
+
 for p = 1:numel(pacienti)
     if pacienti(p).todo 
         
@@ -149,7 +153,9 @@ end
 if (cfg.vypnout),    disp('system se po dokonceni vypne'); end 
 if (cfg.hybernovat), disp('system se po dokonceni uspi'); end
 clear E d tabs fs mults header RjEpoch psychopy H ans; %vymazu, kdyby tam byl nejaky zbytek z predchozich pacientu
-
+pocetcyklu = sum([frekvence.todo]) * sum([reference.todo]) * sum([pacienti.todo]);
+cyklus = 1;
+batchtimer = tic;
 for f=1:numel(frekvence)        
     if frekvence(f).todo
         msg  =[ '*****' frekvence(f).freqname '*****' ]; 
@@ -214,8 +220,12 @@ for f=1:numel(frekvence)
                             end
                             clear d;                        
                             E.RejectChannels(pacienti(p).rjch);
-                            if exist(pacienti(p).epievents,'file')~=2 %pokud existuji, nactu epieventy
-                                 E.GetEpiEvents(pacienti(p).epievents); 
+                            epieventfile = [basedir pacienti(p).folder '\' subfolder '\' pacienti(p).epievents];
+                            if exist(epieventfile,'file')==2 %pokud existuji, nactu epieventy
+                                 load(epieventfile);
+                                 E.GetEpiEvents(DE); 
+                            else
+                                disp(['epievent soubor neexistuje: ' epieventfile]);
                             end
                             if numel(reference(r).char)>0 %pokud se ma zmenit reference
                                 E.ChangeReference(reference(r).char);
@@ -255,7 +265,11 @@ for f=1:numel(frekvence)
                             disp(errorMessage);  fprintf(fileID,[errorMessage '\n']);  %#ok<DSPS> %zobrazim hlasku, zaloguju, ale snad to bude pokracovat dal                            
                             clear E d tabs fs mults header RjEpoch psychopy H ans; 
                         end    
-                    end
+                        cas = toc(batchtimer);
+                        odhadcelehocasu = pocetcyklu/cyklus * cas;
+                        fprintf(' %i/%i : cas zatim: %.1f min, zbyvajici cas %.1f s\n',cyklus,pocetcyklu,cas/60,(odhadcelehocasu - cas)/60); %vypisu v kolikatem jsem cyklu a kolik zbyva sekund do konce
+                        cyklus = cyklus + 1;
+                    end                    
                 end
             end
         end

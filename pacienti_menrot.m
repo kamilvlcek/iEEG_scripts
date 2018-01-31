@@ -11,7 +11,7 @@ pacienti(p).data = 'VT6_INV Test Vlcek1_X_menrot.mat'; %'VT6_INV Test Vlcek1_X_m
 pacienti(p).header = 'p73_header.mat'; % p73_header.mat je ten nejnovejsi od Jirky - 26.5.2017 'p73_header_kamil.mat';
 pacienti(p).psychopy = 'p073_menrot.mat';
 pacienti(p).rjepoch = 'menrot_RjEpoch.mat'; %2017 
-pacienti(p).epievents = 'p73_menrot_epievents.mat'; %2017 
+pacienti(p).epievents = 'p073_menrot_epievents.mat'; %2017 
 pacienti(p).rjch = [47 68]; %#ok<NB%#ok<MSNU> RAK>
 
 p=p+1;
@@ -21,7 +21,7 @@ pacienti(p).data = 'VT8_2015-04-09_09-46_001_concat_X_menrot.mat'; %'VT8_2015-04
 pacienti(p).header = 'P79_header.mat';
 pacienti(p).psychopy = 'p079_menrot.mat';
 pacienti(p).rjepoch = 'menrot_RjEpoch.mat'; %'menrot RjEpoch Resp.mat';
-pacienti(p).epievents = 'p79_menrot_epievents.mat'; %2017 
+pacienti(p).epievents = 'p079_menrot_epievents.mat'; %2017 
 pacienti(p).rjch = [47 64 114]; %#ok<NBR%#ok<MSNU> AK> 
 
 p=p+1;

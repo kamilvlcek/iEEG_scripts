@@ -1,12 +1,15 @@
 %% nejdriv normalni analyzu s razenim podle podnetu
-cfg = struct('hybernovat','0');
+disp(' ++++ ANALYZA 1 - RAZENI PODLE PODNETU ++++');
+cfg = struct('hybernovat',0);
 BatchHilbert('menrot',cfg);
 
 %% potom analyza s razenim podle odpovedi
-cfg = struct('hybernovat','0','srovnejresp',1);
+disp(' ++++ ANALYZA 2 - RAZENI PODLE ODPOVEDI ++++');
+cfg = struct('hybernovat',0,'srovnejresp',1);
 BatchHilbert('menrot',cfg);
 
 %% nakonec analyza s podilem casu odpovedi
 % uz budu na konci hybernovat
-cfg = struct('hybernovat','1','podilcasuodpovedi',1);
+disp(' ++++ ANALYZA 3 - PODIL CASU ODPOVEDI ++++');
+cfg = struct('hybernovat',1,'podilcasuodpovedi',1);
 BatchHilbert('menrot',cfg);
