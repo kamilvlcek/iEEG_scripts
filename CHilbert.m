@@ -318,6 +318,116 @@ classdef CHilbert < CiEEGData
             set(gcf, 'PaperPosition', [0 0 30 20]);
         end
         
+        function fig = PlotAllFrequencyPower(obj, channel)
+            %funkcia pre vykreslenie time x frequency a frequency x power plotov 
+            %pre dany channel a vsetky conditions
+            %priemerne z-scored power cez cely casovy usek pre kazdu frekvenciu
+            %a zvlast pre useky pred/po podnete
+            assert(~isempty(obj.HFreqEpochs),'soubor s frekvencnimi daty pro epochy neexistuje');
+            
+            correct_epochs{1} = obj.CorrectEpochs(channel, 3); %vyfiltruje len spravne epochy
+            correct_epochs{2} = obj.CorrectEpochs(channel, 0); %vyfiltruje len spravne epochy - cervena
+            correct_epochs{3} = obj.CorrectEpochs(channel, 1); %vyfiltruje len spravne epochy - vy
+            correct_epochs{4} = obj.CorrectEpochs(channel, 2); %vyfiltruje len spravne epochy - znacka
+            
+            time = linspace(obj.epochtime(1), obj.epochtime(2), size(obj.HFreqEpochs,1));
+            time_before = time(time<=0); %pred podnetom
+            
+            names = {obj.CH.H.channels.ass_brainAtlas}; %cast mozgu
+            labels = {obj.CH.H.channels.neurologyLabel}; %neurology label
+            electrodes = {obj.CH.H.channels.name}; %nazov elektrody
+            for i = 1:4
+                [mean_fs{i}, std_fs{i}] = obj.meanZscoredPower(1:length(time),channel,correct_epochs{i}); %priemer + odchylky power pre kazdu frekvenciu cez celu periodu
+                [mean_before{i}, std_before{i}] = obj.meanZscoredPower(1:length(time_before),channel,correct_epochs{i}); %priemer + odchylky power pre kazdu frekvenciu pred podnetom
+                [mean_after{i}, std_after{i}] = obj.meanZscoredPower((length(time_before)+1):length(time),channel,correct_epochs{i}); %priemer + odchylky power pre kazdu frekvenciu po podnete
+            end
+            %max_std = max([max(std_fs) max(std_before) max(std_after)]);
+            %mean_min = min([min(mean_fs) min(mean_before) min(std_after) ]) - max_std; %min a max means pre zjednotenie ylimits grafov
+            %mean_max = max([max(mean_fs) max(mean_before) max(mean_after)]) + max_std;
+            
+            fig = figure;
+            
+            %vykresli time x frequency x z-scored power pre dany channel
+            subplot(2,4,1);
+            obj.subplotTimeFrequency(squeeze(mean(obj.HFreqEpochs(:,channel,:,correct_epochs{1}),4))', names, labels, time);
+            subplot(2,4,2);
+            obj.subplotTimeFrequency(squeeze(mean(obj.HFreqEpochs(:,channel,:,correct_epochs{2}),4))', names, labels, time);
+            subplot(2,4,3);
+            obj.subplotTimeFrequency(squeeze(mean(obj.HFreqEpochs(:,channel,:,correct_epochs{3}),4))', names, labels, time);
+            subplot(2,4,4);
+            obj.subplotTimeFrequency(squeeze(mean(obj.HFreqEpochs(:,channel,:,correct_epochs{4}),4))', names, labels, time);
+            
+            
+            subplot(2,4,5);
+            %vykresli priemernu z-scored power pre kazdu frekvenciu napriec
+            %celym casom
+            errorbar(obj.Hf, mean_fs{1}, std_fs{1});
+            %ylim([mean_min mean_max]);
+            xlabel('Frequency (Hz)');
+            ylabel('z-scored power');
+            title('-1:1s');
+            
+            subplot(2,4,6);
+            %vykresli priemernu z-scored power pre kazdu frekvenciu
+            %pred podnetom
+            errorbar(obj.Hf, mean_before{1}, std_before{1});
+            %ylim([mean_min mean_max]);
+            xlabel('Frequency (Hz)');
+            ylabel('z-scored power');
+            title('-1:0s PRED PODNETOM');
+            
+            
+            %vykresli priemernu z-scored power pre kazdu frekvenciu
+            %po podnete
+            colors{2} = [0 0 0];
+            colors{3} = [0 255 0];
+            colors{4} = [255 0 0];
+            subplot(2,4,7);
+            for i=2:4
+                plotband(obj.Hf, mean_before{i}, std_before{i}, colors{i});
+                hold on;
+            end
+            %ylim([mean_min mean_max]);
+            xlabel('Frequency (Hz)');
+            ylabel('z-scored power');
+            title('-1:0s PRED PODNETOM');
+            
+            subplot(2,4,8);
+            %vykresli priemernu z-scored power pre kazdu frekvenciu
+            %po podnete
+            errorbar(mean_after{1}, std_after{1});
+            %ylim([mean_min mean_max]);
+            xlabel('Frequency (Hz)');
+            ylabel('z-scored power');
+            title('0:1s PO PODNETE');
+            
+%             if icondition == 3
+%                 mtit(sprintf('%s PACIENT %s - CHANNEL %d, ALL CONDITIONS \n (%d epoch) ', electrodes{channel}, obj.CH.H.subjName, channel, length(correct_epochs)));
+%             else
+%                 condition = obj.PsyData.CategoryName(icondition);  %zjisti jmeno kategorie z jejiho cisla
+%                 mtit(sprintf('%s PACIENT %s - CHANNEL %d, %s \n (%d epoch) ', electrodes{channel}, obj.CH.H.subjName, channel, condition, length(correct_epochs)));
+%             end
+            
+            set(gcf, 'PaperUnits', 'centimeters');
+            set(gcf, 'PaperPosition', [0 0 60 20]);
+        end
+        
+        function [fmean, fstd] = meanZscoredPower(obj, time, channel, epochs)
+            fmean = mean(squeeze(mean(obj.HFreqEpochs(time,channel,:,epochs),4)),1); %priemerna power pre kazdu frekvenciu cez time
+            fstd = std(squeeze(mean(obj.HFreqEpochs(time,channel,:,epochs),4)),1); %odchylky power pre kazdu frekvenciu cez time 
+        end
+        
+        function subplotTimeFrequency(obj, data, names, labels, time)
+            colormap parula; 
+            imagesc(data, 'XData', time, 'YData', obj.Hf); 
+            set(gca,'YDir','normal');
+            xlabel('Time (s)');
+            ylabel('Frequency (Hz)');
+            h = colorbar;
+            ylabel(h, 'z-scored power'); 
+           % title([names{channel}, ' ', labels{channel}]);
+        end
+        
         function PlotAllEpochs(obj, icondition, channel,zlimits)
             % PlotAllEpochs(obj, icondition, channel,ylimits) - cislo podminky, kanal, rozsah z osy
             % plots all available time x frequency epoch maps for given channel and condition (aedist: 1 = ego, 2 = allo, 0 = red)

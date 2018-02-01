@@ -36,6 +36,7 @@ classdef CiEEGData < handle
         DE = {}; %trida objektu CEpiEvents - epilepticke eventy ziskane pomoci skriptu spike_detector_hilbert_v16_byISARG
         DatumCas = {}; %ruzne casove udaje, kdy bylo co spocitano. Abych mel historii vypoctu pro zpetnou referenci
         PL = {}; %objekt CPlots
+        phases; % epochovane fazy
     end
     
     methods (Access = public)
@@ -204,7 +205,8 @@ classdef CiEEGData < handle
             iepochtime = round(epochtime(1:2).*obj.fs); %v poctu vzorku cas pred a po udalosti
             ibaseline =  round(baseline.*obj.fs); %v poctu vzorku cas pred a po udalosti
             ts_events = obj.PsyData.TimeStimuli(epochtime(3)); %timestampy vsech podnetu/odpovedi
-            de = zeros(iepochtime(2)-iepochtime(1), size(obj.d,2), size(ts_events,1)); %nova epochovana data time x channel x epoch            
+            de = zeros(iepochtime(2)-iepochtime(1), size(obj.d,2), size(ts_events,1)); %nova epochovana data time x channel x epoch  
+            ph = zeros(iepochtime(2)-iepochtime(1), size(obj.d,2), length(obj.Hf), size(ts_events,1)); % epochovane fazy
             tabs = zeros(iepochtime(2)-iepochtime(1),size(ts_events,1)); %#ok<*PROPLC,PROP> %udelam epochovane tabs
             obj.epochData = cell(size(ts_events,1),3); % sloupce kategorie, cislo kategorie, timestamp
             for epoch = 1:size(ts_events,1) %pro vsechny eventy
@@ -221,6 +223,9 @@ classdef CiEEGData < handle
                         baseline_mean = mean(obj.d(izacatek+ibaseline(1) : izacatek+ibaseline(2)-1, ch)); %baseline toho jednoho kanalu, jedne epochy
                     end
                     de(:,ch,epoch) = obj.d( izacatek+iepochtime(1) : izacatek+iepochtime(2)-1,ch) - baseline_mean; 
+                    if ~isempty(obj.fphase)
+                        ph(:,ch,:,epoch) = obj.fphase( izacatek+iepochtime(1) : izacatek+iepochtime(2)-1,ch,:);
+                    end
                     tabs(:,epoch) = obj.tabs(izacatek+iepochtime(1) : izacatek+iepochtime(2)-1); %#ok<PROP>
                 end
             end
