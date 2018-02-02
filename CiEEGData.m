@@ -231,42 +231,46 @@ classdef CiEEGData < handle
             obj.RjEpochCh = false(obj.channels,obj.epochs); %zatim zadne vyrazene epochy
             disp(['rozdeleno na ' num2str(obj.epochs) ' epoch']); 
         end
-        function obj = ResampleEpochs(obj)
+        function obj = ResampleEpochs(obj,newepochtime)
             %resampluje epochy na -0.1 1, pricemz 0-1 je cas odpovedi
             %epochy s delsim casem odpovedi nez je puvodni delka epochy vyradi
             rt = obj.PsyData.ReactionTime(1);
-            newepochtime = [-0.093 1]; %TODO aby epocha mohla konci po odpovedi, napriklad [-0.1 1.1]
-            newepochlength = newepochtime(2)-newepochtime(1);
-            d2 = zeros(round(obj.fs*newepochlength),size(obj.d,2), size(obj.d,3));
-            tabs2 = zeros(round(obj.fs*newepochlength),size(obj.d,3));
+            rtnew = 1; %v kolika sec bude reakcni cas            
+            if ~exist('newepochtime','var'), newepochtime = [-0.1 1.1]; end %epocha muze koncit po odpovedi
+            newepochlength = newepochtime(2)-newepochtime(1); %delka epochy v sec po resamplovani
+            d2 = zeros(round(obj.fs*newepochlength),size(obj.d,2), size(obj.d,3)); %tam budu ukladat eeg data, plati fs=512
+            tabs2 = zeros(round(obj.fs*newepochlength),size(obj.d,3)); %nove timestampy
+            rjepoch = false(1,obj.epochs); %seznam epoch k vyrazeni, kdyz nesedi cas na konci nebo zacatku
             for ep = 1:obj.epochs
-                dd = obj.d(:,:,ep); %jedna epocha, pres vsechny kanaly
-                dd = resample(dd,obj.fs*newepochtime(2),floor(obj.fs*rt(ep))); %resampluju celou epochu, takze rt bude 1s;
-                sample0 = round(obj.fs*(-obj.epochtime(1))/rt(ep)); %cislo vzorku kde je cas 0
-                sample01 = round(sample0 - obj.fs*(-newepochtime(1)));
-                if sample01<1
-                    new01 = max(-sample01,1); 
+                dd = obj.d(:,:,ep); %jedna epocha, vsechny kanaly a cas
+                dd = resample(dd,obj.fs*rtnew,floor(obj.fs*rt(ep))); %resampluju celou epochu, takze rt bude 1s;
+                fsnew = size(dd,1)/diff(obj.epochtime(1:2)); %nove spocitana vzorkovaci frekvence dd podle vysledku resample
+                    %dve ruzne fs: pro puvodni RT plati fsnew, pro normovane RT=1.0 plati fs=512
+                sample0 = round(fsnew*(-obj.epochtime(1))); %cislo vzorku v dd kde je cas 0 (podle nove i stare fs = zarovnani)
+                sample01 = round(sample0 - obj.fs*(-newepochtime(1))); %zacatek nove epochy v poli dd - takze normovane fs=512
+                if sample01<1 %pokud je zacatek nove epochy newepochtime(1) pred zacatkem puvodni epochy
+                    new01 = max(-sample01,1); %to je vlastne -sample1
                     sample01 = 1;
-                    obj.RjEpoch = unique( [obj.RjEpoch ep]);
+                    rjepoch(ep) = 1; %epochu musim vyradit, data na zacatku jsou jen 0                     
                 else
-                    new01 = 1; 
+                    new01 = 1; %zacatek nove epochy v poli d2, cas newepochtime(1)
                 end                
-                sample1 = round(sample0 + obj.fs);
-                if sample1>size(dd,1)                    
-                    sample1 = size(dd,1);
+                sample1 = round(sample0 + obj.fs*newepochtime(2)); %konec nove epochy v poli dd, cas newepochtime(2), normovane fs=512 pro RT=1
+                if sample1>size(dd,1) %pokud byl reakcni cas*newepochtime(2) za koncem puvodni epochy                    
+                    sample1 = size(dd,1); %zmensim, aby se veslo do epochy newepochtime(1 2)
                     %new1 = new01+size(dd,1)-1;
-                    new1 = sample1-sample01+new01;
-                    obj.RjEpoch = unique( [obj.RjEpoch ep]);
+                    new1 = sample1-sample01+new01; %konec zmensene epochy v poli d2
+                    rjepoch(ep) = 1; %epochu musim vyradit, data na konci jsou jen 0                    
                 else
-                    new1 = size(d2,1);
+                    new1 = size(d2,1); %konec nezmensene epochy se shoduje s velikosti d2
                 end
-                if sample1-sample01 > new1-new01
-                    sample1 = sample1-( (sample1-sample01)-(new1-new01));
+                if sample1-sample01 > new1-new01 %pokud chyba zaokrouhleni
+                    sample1 = sample1-( (sample1-sample01)-(new1-new01)); %odectu rozdil delek
                 end
                 d2(new01:new1,:,ep) = dd(sample01:sample1,:);
                 tablimits = [round((-newepochtime(1))*obj.fs) , round((-newepochtime(1))*obj.fs)+size(tabs2,1)-1  ]; %round((newepochlength-newepochtime(1))*obj.fs)                
                     %ten konec mi obcas nevychazel na velikost tabs2, tak to udelam takhle - 26.1.2018
-                tabs2(:,ep) = obj.tabs(tablimits(1) : tablimits(2) );
+                tabs2(:,ep) = obj.tabs(tablimits(1) : tablimits(2) );                
                 %close all;
                 %figure,plot(dd);
                 %figure,plot(d2(:,:,ep))
@@ -275,8 +279,9 @@ classdef CiEEGData < handle
             obj.tabs = tabs2;
             [obj.samples,obj.channels, obj.epochs] = obj.DSize();
             obj.epochtime = newepochtime;
-            obj.baseline = [newepochtime(1) 0]; 
-            disp(['resampled ' num2str(obj.epochs) ' epochs to ' num2str(newepochtime)]);
+            obj.baseline = [newepochtime(1) 0];
+            obj.RjEpoch = unique([obj.RjEpoch find(rjepoch)]); %pridam dalsi vyrazene epochy k dosud vyrazenym            
+            disp(['resampled ' num2str(obj.epochs) ' epochs to ' num2str(newepochtime) ', rejected new epochs: ' num2str(numel(setdiff(find(rjepoch),obj.RjEpoch)))]);
         end
         function [d,psy_rt,RjEpCh]= CategoryData(obj, katnum,rt,opak)
             %vraci eegdata epoch ve kterych podnet byl kategorie/podminky=katnum + reakcni casy - s uz globalne vyrazenymi epochami
