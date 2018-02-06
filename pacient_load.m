@@ -7,6 +7,9 @@ if strcmp(testname,'aedist')
 elseif strcmp(testname,'menrot')
     pacienti = pacienti_menrot(); %nactu celou strukturu pacientu
     setup = setup_menrot(0); %nactu nastaveni aedist  
+elseif strcmp(testname,'ppa')
+    pacienti = pacienti_ppa(); %nactu celou strukturu pacientu
+    setup = setup_ppa(0); %nactu nastaveni ppa  
 else
     error('zatim pracuji jen s aedist a menrot');
 end
@@ -73,10 +76,13 @@ else
 
     %vyradim epochy
     load([setup.basedir pacienti(p).folder '\' setup.subfolder '\' pacienti(p).rjepoch]);
+    if ~exist('RjEpochCh','var'), RjEpochCh = []; end %pokud neexistuje RjEpochCh - starsi data
     E.RejectEpochs(RjEpoch, RjEpochCh); %uz drive ulozene vyrazene epochy
     %E.RjEpochsEpi([],0);
     %E.RjEpochsEpi(30);
-    E.ResponseSearch(0.1,setup.stat_kats); %vypocitam statistiku
+    if exist('frequencies','var') %defaultne delam statistiku jen pro frekvencni data
+        E.ResponseSearch(0.1,setup.stat_kats); %vypocitam statistiku
+    end
 end
 end
 function DE = getepievents(filename)
@@ -95,8 +101,10 @@ function psychopy = getpsychopydata(filename,testname)
         load(filename);
         if strcmp(testname,'aedist')
             psychopy = aedist; %matrix s psychopy daty
+        elseif strcmp(testname,'menrot')
+            psychopy = menrot; %matrix s psychopy daty
         else
-            psychopy = menrot;
+            psychopy = ppa;
         end
     end
 end

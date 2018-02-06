@@ -20,6 +20,9 @@ if strcmp(testname,'menrot')
 elseif strcmp(testname,'aedist')
     setup = setup_aedist( cfg.srovnejresp ); %nacte nastaveni testu Aedist - 11.1.2018 - 0 = zarovnani podle podnetu, 1=zarovnani podle odpovedi
     pacienti = pacienti_aedist(); %nactu celou strukturu pacientu
+elseif strcmp(testname,'ppa')
+    setup = setup_ppa( cfg.srovnejresp ); %nacte nastaveni testu PPA - 6.2.2018 - 0 = zarovnani podle podnetu, 1=zarovnani podle odpovedi
+    pacienti = pacienti_ppa(); %nactu celou strukturu pacientu
 else
     error('nezname jmeno testu');
 end
@@ -73,7 +76,7 @@ frekvence(f).prekryv = 0.5; % 50% prekryv sousednich frekvencnich pasem
 
 reference = struct;
 r=1;
-reference(r).todo = 1;
+reference(r).todo = 0;
 reference(r).name = 'refOrig';
 reference(r).char = '';
 r=2;
@@ -240,7 +243,7 @@ for f=1:numel(frekvence)
                                     %pokud podilcasu, zdecimuju zatim jen malo, cele se mi ale nevejde do pameti
                             end
                             disp('extracting epochs ...');
-                            E.ExtractEpochs(psychopy,epochtime,baseline,cfg.freqepochs);        
+                            E.ExtractEpochs(psychopy,epochtime,baseline,cfg.freqepochs);                                 
                             if exist('RjEpoch','var') %muze byt prazne, pak se nevyrazuji zadne epochy
                                 E.RejectEpochs(RjEpoch); %globalne vyrazene epochy
                             end
@@ -267,7 +270,7 @@ for f=1:numel(frekvence)
                         end    
                         cas = toc(batchtimer);
                         odhadcelehocasu = pocetcyklu/cyklus * cas;
-                        fprintf(' %i/%i : cas zatim: %.1f min, zbyvajici cas %.1f s\n',cyklus,pocetcyklu,cas/60,(odhadcelehocasu - cas)/60); %vypisu v kolikatem jsem cyklu a kolik zbyva sekund do konce
+                        fprintf(' %i/%i : cas zatim: %.1f min, zbyvajici cas %.1f min\n',cyklus,pocetcyklu,cas/60,(odhadcelehocasu - cas)/60); %vypisu v kolikatem jsem cyklu a kolik zbyva sekund do konce
                         cyklus = cyklus + 1;
                     end                    
                 end
