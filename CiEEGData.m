@@ -549,12 +549,14 @@ classdef CiEEGData < handle
             if ~exist('channels','var') || isempty(channels) , channels = 1:obj.channels; end
             if ~exist('dofig','var'), dofig = 1; end %defaultne delam obrazek
             kats = obj.Wp.kats; 
+            [~, katstr] = obj.PsyData.Categories();
             %spocitam dynamicky permutace vsech kategorii, pro ktere mam spocitanou statistiku           
             kombinace = combinator(length(kats),2,'p'); %permutace bez opakovani z poctu kategorii
             kombinace = kombinace(kombinace(:,1)>kombinace(:,2),:); %vyberu jen perumtace, kde prvni cislo je vetsi nez druhe            
             prumery = zeros(numel(channels),size(intervaly,1),numel(kats)+length(kombinace));   % channels x intervaly x kategorie - celkova data a jednotlive kategorie            
             if dofig, figure('Name','IntervalyResp'); end
             for j = 1:size(intervaly,1) 
+                legendstr = cell(1,length(kombinace));
                 if dofig, subplot(2,ceil(size(intervaly,1) /2),j);  end %pro kazdy interval jiny subplot
                 %spocitam prumery celkove i za kazdou kategorii v kazdem casovem intervalu
                 % dve cisla v kazdem sloupci - od do ve vterinach   
@@ -563,19 +565,11 @@ classdef CiEEGData < handle
                 %katdata = obj.CategoryData(kats); 
                 %iCh = min(obj.Wp.D2(iintervalyStat(1):iintervalyStat(2),channels),[],1) < 0.05; %kanaly kde je signifikantni rozdil vuci baseline, alesponjednou
                 %prumery(iCh,j,1) = mean(mean(katdata(iintervalyData(1):iintervalyData(2),iCh,:),3),1); %prumer za vsechy epochy a cely casovy interval
-                colorskat = {[0 0 0],[0 1 0],[1 0 0]}; %barvy jako v PlotResponseCh
-                for k = 1: numel(kats)
-                    katdata = obj.CategoryData(kats(k)); 
-                    iCh = min(obj.Wp.WpKatBaseline{k,1}(iintervalyStat(1):iintervalyStat(2),channels),[],1) < 0.05; %kanaly kde je signifikantni rozdil vuci baseline, alespon jednou
-                    prumery(iCh,j,k) = mean(mean(katdata(iintervalyData(1):iintervalyData(2),iCh,:),3),1); %prumer pres epochy a pak pres cas
-                    P = squeeze(prumery(:,j,k));                    
-                    if dofig
-                        plot(P','.-','Color',colorskat{k}); %kreslim tuto kategorii
-                        hold on;
-                    end
-                end
-                %TODO chyba pro Menrot, chybi barva
-                for k = 1:length(kombinace) %cyklusy pres vsechny kombinace kategorii
+                colorskat = {[0 0 0],[0 1 0],[1 0 0],[0 0 1],[1 1 0],[0 1 1],[1 0 1]}; %barvy jako v PlotResponseCh, black, green, red, blue, yellow, aqua, fuchsia
+                colorkombinace = {0,1,2,4;0 0 3 5;0 0 0 6};
+                iChKats = false(1,numel(channels));             
+                                              
+                for k = 1:length(kombinace) %cyklus pres vsechny kombinace kategorii
                     katdata1 = obj.CategoryData(kats(kombinace(k,1))); 
                     katdata2 = obj.CategoryData(kats(kombinace(k,2))); 
                     prumery1 = mean(mean(katdata1(iintervalyData(1):iintervalyData(2),:,:),3),1); %prumer pres epochy a pak pres cas - kategorie 1
@@ -584,16 +578,38 @@ classdef CiEEGData < handle
                     iCh2 = prumery1>0 | prumery2>0; %chci jen kladne odpovedi
                     p = prumery1(:) - prumery2(:);                 
                     prumery(iCh & iCh2,j,k+numel(kats)) = p(iCh & iCh2);
-                    if dofig
-                        plot(prumery(:,j,k+numel(kats))+1,'.-','Color',colorskat{sum(kombinace(k,:))-2}); %kreslim tuto kombinaci kategorii nahoru
+                    if dofig %kreslim rozdily mezi odpovedmi pro kategorie
+                        plot(prumery(:,j,k+numel(kats))+1,'.-','Color',colorskat{colorkombinace{kombinace(k,2),kombinace(k,1)}}); %kreslim tuto kombinaci kategorii nahoru
+                        hold on;
                     end
+                    iChKats = iChKats | (iCh & iCh2);  %pridam dalsi kanaly, kde je signif odpoved                    
+                    legendstr{k}=['; ' katstr{kombinace(k,1)} ' x ' katstr{kombinace(k,2)} ];
+                end               
+                
+                %tohle musim vykreslit az jako druhe, protoze to ma min polozek - jinek nesedi barvy v legende
+                for k = 1: numel(kats) % cyklus pres kategorie - rozdil vuci baseline
+                    katdata = obj.CategoryData(kats(k)); 
+                    iCh = min(obj.Wp.WpKatBaseline{k,1}(iintervalyStat(1):iintervalyStat(2),channels),[],1) < 0.05; %kanaly kde je signifikantni rozdil vuci baseline, alespon jednou
+                    prumery(iCh,j,k) = mean(mean(katdata(iintervalyData(1):iintervalyData(2),iCh,:),3),1); %prumer pres epochy a pak pres cas
+                    P = squeeze(prumery(:,j,k));                    
+                    if dofig
+                        plot(P','.-','Color',colorskat{k}); %kreslim tuto kategorii                       
+                    end
+                    iChKats = iChKats | iCh; %pridam dalsi kanaly, kde je signif odpoved
+                    legendstr{k}=[katstr{k} legendstr{k}];
                 end
-                %P = squeeze(prumery(:,j,1)); %nakonec vykreslim prumer vsech kategorii, aby byl nejvic videt
-                %plot(P','.-');
-                [~, katstr] = obj.PsyData.Categories();
-                if dofig
-                    legend(katstr,'Location','NorthWest');
+                
+                if dofig              
+                    legend(legendstr,'Location','NorthWest');
                     title(['interval: ' mat2str(intervaly(j,:))]);
+                end
+                %vykreslim jmena u signifikatnich kanalu
+                xlim([-1 numel(channels)+1]);
+                for ch = 1:numel(channels) 
+                    if(iChKats(ch) && (ch==1 || ~iChKats(ch-1)))
+                        th = text(ch,max(P),[num2str(ch) ':' obj.CH.H.channels(ch).name]);
+                        th.Rotation = 90;
+                    end
                 end
             end 
             MNI = obj.CH.GetMNI(channels);
