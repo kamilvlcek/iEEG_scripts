@@ -369,10 +369,10 @@ classdef CiEEGData < handle
             
             %celkova signifikance vuci baseline - bez ohledu na kategorie
             baseline = [obj.epochtime(1) iff(obj.baseline(2)>obj.epochtime(1),obj.baseline(2),0)]; %zalezi jestli se baselina a epochtime prekryvaj
-            [P,ibaseline,iepochtime] = EEEGStat.WilcoxBaseline(obj.epochtime,baseline,timewindow,iEp,obj.RjEpochCh);   %puvodni baseline uz v epose nemam        
+            [P,ibaseline,iepochtime,itimewindow] = EEEGStat.WilcoxBaseline(obj.epochtime,baseline,timewindow,iEp,obj.RjEpochCh);   %puvodni baseline uz v epose nemam        
                 %11.12.2017 - pocitam signifikanci hned po konci baseline
                 %ibaseline je cast iepochtime pred koncem baseline nebo pred casem 0
-            if numel(timewindow) == 1 %chci maximalni hodnotu p z casoveho okna
+            if numel(timewindow) <= 1 %chci maximalni hodnotu p z casoveho okna
                 obj.Wp.D2 = P; %pole 2D signifikanci si ulozim kvuli kresleni - cas x channels                
             else
                 obj.Wp.D1 = P; %pole 1D signifikanci - jedna hodnota pro kazdy kanal            
@@ -392,7 +392,7 @@ classdef CiEEGData < handle
                 end
             end
             
-            if exist('kats','var') && numel(kats)>1  && numel(timewindow)==1                                      
+            if exist('kats','var') && numel(kats)>1  && numel(timewindow)<= 1                                      
                 %ziskam eeg data od jednotlivych kategorii
                 responsekat = cell(numel(kats),1); %eeg response zvlast pro kazdou kategorii 
                 baselinekat = cell(numel(kats),1); %baseline zvlast pro kazdou kategorii 
@@ -411,8 +411,12 @@ classdef CiEEGData < handle
                 WpKat = cell(numel(kats));
                 for k = 1:numel(kats) %budu statisticky porovnavat kazdou kat s kazdou, bez ohledu na poradi
                     for j = k+1:numel(kats)
-                        Wp = CStat.Wilcox2D(responsekat{k}, responsekat{j},1,[],['kat ' num2str(k) ' vs ' num2str(j)],rjepchkat{k},rjepchkat{j}); %#ok<PROP> % -------- WILCOX kazda kat s kazdou 
-                        WpKat{k,j} = Wp; %#ok<PROP> %CStat.Klouzaveokno(Wp,itimewindow(1),'max',1); %#ok<PROP>
+                        Wp = CStat.Wilcox2D(responsekat{k}, responsekat{j},1,[],['kat ' num2str(k) ' vs ' num2str(j)],rjepchkat{k},rjepchkat{j}); % -------- WILCOX kazda kat s kazdou 
+                        if numel(timewindow)==0 ||  true
+                            WpKat{k,j} = Wp;  %tohle chci vzdy - klouzave okno pouzivam jen v signifikanci vuci baseline
+                        else
+                            WpKat{k,j} = CStat.Klouzaveokno(Wp,itimewindow(1),'max',1);
+                        end
                     end
                 end
                 %rozdily kategorii vuci baseline - 28.3.2017
