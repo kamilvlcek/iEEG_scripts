@@ -47,33 +47,42 @@ classdef CBrainPlot < handle
                     if p==1
                         obj.katstr = katstr; %#ok<PROPLC> 
                         obj.katstr_pacients = cell(numel(pacienti),numel(katstr)); %#ok<PROPLC>
-                        elcount = zeros(size(prumery,2),size(prumery,3)); %pocet elektrod pro kazdy casovy interval a kategorii - interval x kategorie
-                        P = cell([numel(pacienti),size(prumery,2),size(prumery,3)]); % souhrnne prumery pro vsechny pacienty + + jejich kombinace
-                        M = cell([numel(pacienti),size(prumery,2),size(prumery,3)]); % souhrnne MNI koordinaty pro vsechny pacienty
-                        N = cell([numel(pacienti),size(prumery,2),size(prumery,3)]); % souhrnne names pro vsechny pacienty
+                        elcount = zeros(size(prumery,2),size(prumery,3)+1); %pocet elektrod pro kazdy casovy interval a kategorii - interval x kategorie
+                        P = cell([numel(pacienti),size(prumery,2),size(prumery,3)+1]); % souhrnne prumery pro vsechny pacienty: pacient*interval*kategorie
+                        M = cell([numel(pacienti),size(prumery,2),size(prumery,3)+1]); % souhrnne MNI koordinaty pro vsechny pacienty
+                        N = cell([numel(pacienti),size(prumery,2),size(prumery,3)+1]); % souhrnne names pro vsechny pacienty
+                            %+1 je pro obrazek vsech elektrod i tech bez odpovedi
                     end
                     obj.katstr_pacients(p,:) = katstr; %#ok<PROPLC> %jsou kategorie u vsech pacientu ve stejnem poradi?
                     for interval = 1:size(prumery,2) % cyklus intervaly
-                        for kat = 1:size(prumery,3) % cyklus kategorie podnetu
-                            if kat <= numel(obj.katstr)
-                                ip = prumery(:,interval, kat) > 0; % index pro prumery, MNI i names, chci jen kladne odpovedi
-                            else
-                                ip = prumery(:,interval, kat) ~= 0; % pro vyssi kategorie, ktere jsou rozdily odpovedi, chci i zaporny rozdil ; aby tam neco bylo 
+                        for kat = 1:size(prumery,3)+1 % cyklus kategorie podnetu
+                            if kat <= size(prumery,3) %obvykle kategorie
+                                if kat <= numel(obj.katstr)
+                                    ip = prumery(:,interval, kat) > 0; % index pro prumery, MNI i names, chci jen kladne odpovedi
+                                else
+                                    ip = prumery(:,interval, kat) ~= 0; % pro vyssi kategorie, ktere jsou rozdily odpovedi, chci i zaporny rozdil ; aby tam neco bylo 
+                                end
+                                P{p,interval,kat}=prumery(ip,interval, kat); %#ok<AGROW>
+                                M{p,interval,kat}=MNI(ip); %#ok<AGROW,PROPLC>>
+                                N{p,interval,kat}= strcat(cellstr(repmat([pacienti(p).folder '_'],sum(ip),1)),names(ip)); %#ok<AGROW>
+                                elcount(interval,kat) = elcount(interval,kat) + sum(ip); %#ok<AGROW>
+                            else %kategorie jakoby navic pro vykresleni jen pozice elekrod
+                                channels = size(prumery,1);
+                                P{p,interval,kat}=zeros(channels,1); %#ok<AGROW> % 0 pro kazdy kanal - vsechny stejnou barvou
+                                M{p,interval,kat}=MNI; %#ok<AGROW,PROPLC>>
+                                N{p,interval,kat}= strcat(cellstr(repmat([pacienti(p).folder '_'],channels,1)),names); %#ok<AGROW>
+                                elcount(interval,kat) = elcount(interval,kat) + channels; %#ok<AGROW>
                             end
-                            P{p,interval,kat}=prumery(ip,interval, kat); %#ok<AGROW>
-                            M{p,interval,kat}=MNI(ip); %#ok<AGROW,PROPLC>>
-                            N{p,interval,kat}= strcat(cellstr(repmat([pacienti(p).folder '_'],sum(ip),1)),names(ip)); %#ok<AGROW>
-                            elcount(interval,kat) = elcount(interval,kat) + sum(ip); %#ok<AGROW>
                         end                       
                     end 
                 end
             end
             %ted z P M a N rozdelenych po pacientech udelam souhrnna data
-            obj.VALS = cell(size(elcount)); %souhrnne prumery 
+            obj.VALS = cell(size(elcount)); %souhrnne prumery - interval * kategorie
             obj.MNI = cell(size(elcount)); 
             obj.NAMES = cell(size(elcount));       
             for interval = 1:size(prumery,2) 
-                for kat = 1:size(prumery,3)                    
+                for kat = 1:size(prumery,3)+1                   
                       obj.VALS{interval,kat} = zeros(elcount(interval,kat),1);
                       obj.MNI{interval,kat} = struct('MNI_x',{},'MNI_y',{},'MNI_z',{});
                       obj.NAMES{interval,kat} = cell(elcount(interval,kat),1);
@@ -113,6 +122,8 @@ classdef CBrainPlot < handle
                 for kat = kategorie                   
                     if kat <= numel(obj.katstr)
                         katname = obj.katstr{kat};
+                    elseif kat==size(obj.VALS,2) %posledni kategorie se vsemi kanaly
+                        katname = 'AllEl';
                     else
                         katname = [obj.katstr{kombinace(kat-3,1)} '-' obj.katstr{kombinace(kat-3,2)}];
                     end
@@ -126,6 +137,7 @@ classdef CBrainPlot < handle
                         mni_channels = obj.MNI{interval,kat};   %#ok<NASGU>                    
                         outputDir = 'd:\eeg\motol\CBrainPlot\';    %#ok<NASGU>                           
                         names_channels = []; %#ok<NASGU> 
+                        FontSize = 4; %#ok<NASGU>   
                         %nejdriv vykreslim bez popisku elektrod
                         main_brainPlot; %volam Jirkuv skript, vsechny ty promenne predtim jsou do nej
                         if isempty(obj.brainsurface)
