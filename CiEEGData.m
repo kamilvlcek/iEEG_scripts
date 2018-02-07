@@ -543,7 +543,7 @@ classdef CiEEGData < handle
             end
         end
         
-        function [prumery, MNI,names,intervaly,katstr] = IntervalyResp(obj, intervaly,channels,dofig)
+        function [prumery, MNI,names,intervaly,katsnames] = IntervalyResp(obj, intervaly,channels,dofig)
             %vypocita hodnoty v jednotlivych intervalech casu pro jednotlive kategorie i pro celkovy prumer       
             %vykresli graf pro kazdy interval do spolecneho plotu
             %vraci prumery[channels x intervaly x kategorie] a MNI(channels)
@@ -553,7 +553,11 @@ classdef CiEEGData < handle
             if ~exist('channels','var') || isempty(channels) , channels = 1:obj.channels; end
             if ~exist('dofig','var'), dofig = 1; end %defaultne delam obrazek
             kats = obj.Wp.kats; 
-            [~, katstr] = obj.PsyData.Categories();
+            [katnum, katstr] = obj.PsyData.Categories();
+            katsnames =  cell(1,numel(kats));
+            for k = 1:numel(kats)
+                katsnames{k} = katstr{katnum==kats(k)}; %jde to udelat najednou bez for cyklu?
+            end
             %spocitam dynamicky permutace vsech kategorii, pro ktere mam spocitanou statistiku           
             kombinace = combinator(length(kats),2,'p'); %permutace bez opakovani z poctu kategorii
             kombinace = kombinace(kombinace(:,1)>kombinace(:,2),:); %vyberu jen perumtace, kde prvni cislo je vetsi nez druhe            
@@ -564,8 +568,8 @@ classdef CiEEGData < handle
                 if dofig, subplot(2,ceil(size(intervaly,1) /2),j);  end %pro kazdy interval jiny subplot
                 %spocitam prumery celkove i za kazdou kategorii v kazdem casovem intervalu
                 % dve cisla v kazdem sloupci - od do ve vterinach   
-                iintervalyData = round((intervaly(j,:)-obj.epochtime(1)).*obj.fs); % pro data kde je na zacatku baseline             
-                iintervalyStat = round(intervaly(j,:).*obj.fs); % pro statistiku, kde na zacatku neni baseline              
+                iintervalyData = min(round((intervaly(j,:)-obj.epochtime(1)).*obj.fs),size(obj.d,1)); % pro data kde je na zacatku baseline             
+                iintervalyStat = min(round(intervaly(j,:).*obj.fs),size(obj.Wp.WpKat{1,2},1)); % pro statistiku, kde na zacatku neni baseline              
                 %katdata = obj.CategoryData(kats); 
                 %iCh = min(obj.Wp.D2(iintervalyStat(1):iintervalyStat(2),channels),[],1) < 0.05; %kanaly kde je signifikantni rozdil vuci baseline, alesponjednou
                 %prumery(iCh,j,1) = mean(mean(katdata(iintervalyData(1):iintervalyData(2),iCh,:),3),1); %prumer za vsechy epochy a cely casovy interval
@@ -587,7 +591,7 @@ classdef CiEEGData < handle
                         hold on;
                     end
                     iChKats = iChKats | (iCh & iCh2);  %pridam dalsi kanaly, kde je signif odpoved                    
-                    legendstr{k}=['; ' katstr{kombinace(k,1)} ' x ' katstr{kombinace(k,2)} ];
+                    legendstr{k}=['; ' katsnames{kombinace(k,1)} ' x ' katsnames{kombinace(k,2)} ];
                 end               
                 
                 %tohle musim vykreslit az jako druhe, protoze to ma min polozek - jinek nesedi barvy v legende
@@ -600,21 +604,22 @@ classdef CiEEGData < handle
                         plot(P','.-','Color',colorskat{k}); %kreslim tuto kategorii                       
                     end
                     iChKats = iChKats | iCh; %pridam dalsi kanaly, kde je signif odpoved
-                    legendstr{k}=[katstr{k} legendstr{k}];
+                    legendstr{k}=[katsnames{k} legendstr{k}];
                 end
                 
                 if dofig              
                     legend(legendstr,'Location','NorthWest');
                     title(['interval: ' mat2str(intervaly(j,:))]);
-                end
-                %vykreslim jmena u signifikatnich kanalu
-                xlim([-1 numel(channels)+1]);
-                for ch = 1:numel(channels) 
-                    if(iChKats(ch) && (ch==1 || ~iChKats(ch-1)))
-                        th = text(ch,max(P),[num2str(ch) ':' obj.CH.H.channels(ch).name]);
-                        th.Rotation = 90;
+                    xlim([-1 numel(channels)+1]);
+                    %vykreslim jmena u signifikatnich kanalu
+                    for ch = 1:numel(channels) 
+                        if(iChKats(ch) && (ch==1 || ~iChKats(ch-1)))
+                            th = text(ch,max(P),[num2str(ch) ':' obj.CH.H.channels(ch).name]);
+                            th.Rotation = 90;
+                        end
                     end
-                end
+                end                
+               
             end 
             MNI = obj.CH.GetMNI(channels);
             names = obj.CH.GetChNames(channels);

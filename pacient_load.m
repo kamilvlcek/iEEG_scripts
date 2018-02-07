@@ -11,7 +11,7 @@ elseif strcmp(testname,'ppa')
     pacienti = pacienti_ppa(); %nactu celou strukturu pacientu
     setup = setup_ppa(0); %nactu nastaveni ppa  
 else
-    error('zatim pracuji jen s aedist a menrot');
+    error('zatim pracuji jen s aedist, menrot a ppa');
 end
 nalezen = false;
 for p = 1:numel(pacienti)

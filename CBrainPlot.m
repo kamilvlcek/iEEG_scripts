@@ -9,6 +9,8 @@ classdef CBrainPlot < handle
         intervals; % intervaly z funkce IntervalyResp
         katstr; %jmena kategorii
         brainsurface; %ulozeny isosurface z main_brainPlot
+        testname; %jmeno zpracovavaneho testu
+        katstr_pacients;
     end
     
     methods (Access = public)        
@@ -20,39 +22,51 @@ classdef CBrainPlot < handle
             %napr CB.IntervalyResp('aedist',[0.2 0.8],'AEdist CHilbert 50-120 refBipo Ep2017-11_CHilb.mat');
             if strcmp(testname,'aedist')
                 pacienti = pacienti_aedist(); %nactu celou strukturu pacientu    
+            elseif strcmp(testname,'ppa')
+                pacienti = pacienti_ppa(); %nactu celou strukturu pacientu    
+            elseif strcmp(testname,'menrot')
+                pacienti = pacienti_menrot(); %nactu celou strukturu pacientu    
+            else
+                error('neznamy typ testu');
             end
+            obj.testname = testname;
             obj.intervals = intervals;            
             elcount = []; %jen inicializace            
             P = {}; M = {}; N = {}; %jen inicializace
             for p = 1:numel(pacienti) % cyklus pacienti
-                disp(['***   ' pacienti(p).folder '   ***']);
-                E = pacient_load(pacienti(p).folder,'aedist',filename); %nejspis objekt CHilbert, pripadne i jiny
-                if isempty(E)
-                    disp('no data');
-                    continue;
+                if pacienti(p).todo
+                    disp(['***   ' pacienti(p).folder '   ***']);
+                    E = pacient_load(pacienti(p).folder,testname,filename); %nejspis objekt CHilbert, pripadne i jiny
+                    if isempty(E)
+                        disp('no data');
+                        pacienti(p).todo = 0; %nechci ho dal zpracovavat
+                        continue;
+                    end
+                    [prumery, MNI,names,~,katstr] = E.IntervalyResp( intervals,[],0);   %#ok<PROPLC> %no figure, funkce z CiEEGData                           
+                    clear E;
+                    if p==1
+                        obj.katstr = katstr; %#ok<PROPLC> 
+                        obj.katstr_pacients = cell(numel(pacienti),numel(katstr)); %#ok<PROPLC>
+                        elcount = zeros(size(prumery,2),size(prumery,3)); %pocet elektrod pro kazdy casovy interval a kategorii - interval x kategorie
+                        P = cell([numel(pacienti),size(prumery,2),size(prumery,3)]); % souhrnne prumery pro vsechny pacienty + + jejich kombinace
+                        M = cell([numel(pacienti),size(prumery,2),size(prumery,3)]); % souhrnne MNI koordinaty pro vsechny pacienty
+                        N = cell([numel(pacienti),size(prumery,2),size(prumery,3)]); % souhrnne names pro vsechny pacienty
+                    end
+                    obj.katstr_pacients(p,:) = katstr; %#ok<PROPLC> %jsou kategorie u vsech pacientu ve stejnem poradi?
+                    for interval = 1:size(prumery,2) % cyklus intervaly
+                        for kat = 1:size(prumery,3) % cyklus kategorie podnetu
+                            if kat <= numel(obj.katstr)
+                                ip = prumery(:,interval, kat) > 0; % index pro prumery, MNI i names, chci jen kladne odpovedi
+                            else
+                                ip = prumery(:,interval, kat) ~= 0; % pro vyssi kategorie, ktere jsou rozdily odpovedi, chci i zaporny rozdil ; aby tam neco bylo 
+                            end
+                            P{p,interval,kat}=prumery(ip,interval, kat); %#ok<AGROW>
+                            M{p,interval,kat}=MNI(ip); %#ok<AGROW,PROPLC>>
+                            N{p,interval,kat}= strcat(cellstr(repmat([pacienti(p).folder '_'],sum(ip),1)),names(ip)); %#ok<AGROW>
+                            elcount(interval,kat) = elcount(interval,kat) + sum(ip); %#ok<AGROW>
+                        end                       
+                    end 
                 end
-                [prumery, MNI,names,~,katstr] = E.IntervalyResp( intervals,[],0); %#ok<PROP>    %no figure, funkce z CiEEGData       
-                clear E;
-                if p==1
-                    obj.katstr = katstr; %#ok<PROP>
-                    elcount = zeros(size(prumery,2),size(prumery,3)); %pocet elektrod pro kazdy casovy interval a kategorii - interval x kategorie
-                    P = cell([numel(pacienti),size(prumery,2),size(prumery,3)]); % souhrnne prumery pro vsechny pacienty + + jejich kombinace
-                    M = cell([numel(pacienti),size(prumery,2),size(prumery,3)]); % souhrnne MNI koordinaty pro vsechny pacienty
-                    N = cell([numel(pacienti),size(prumery,2),size(prumery,3)]); % souhrnne names pro vsechny pacienty
-                end
-                for interval = 1:size(prumery,2) % cyklus intervaly
-                    for kat = 1:size(prumery,3) % cyklus kategorie podnetu
-                        if kat <= numel(obj.katstr)
-                            ip = prumery(:,interval, kat) > 0; % index pro prumery, MNI i names, chci jen kladne odpovedi
-                        else
-                            ip = prumery(:,interval, kat) ~= 0; % pro vyssi kategorie, ktere jsou rozdily odpovedi, chci i zaporny rozdil ; aby tam neco bylo 
-                        end
-                        P{p,interval,kat}=prumery(ip,interval, kat); %#ok<AGROW>
-                        M{p,interval,kat}=MNI(ip); %#ok<AGROW,PROP>
-                        N{p,interval,kat}= strcat(cellstr(repmat([pacienti(p).folder '_'],sum(ip),1)),names(ip)); %#ok<AGROW>
-                        elcount(interval,kat) = elcount(interval,kat) + sum(ip); %#ok<AGROW>
-                    end                       
-                end                
             end
             %ted z P M a N rozdelenych po pacientech udelam souhrnna data
             obj.VALS = cell(size(elcount)); %souhrnne prumery 
@@ -65,11 +79,13 @@ classdef CBrainPlot < handle
                       obj.NAMES{interval,kat} = cell(elcount(interval,kat),1);
                       iVALS = 1;
                       for p = 1:numel(pacienti) 
-                          n = numel(P{p,interval,kat});
-                          obj.VALS{interval,kat} (iVALS:iVALS+n-1)=P{p,interval,kat};
-                          obj.MNI{interval,kat}  (iVALS:iVALS+n-1)=M{p,interval,kat};
-                          obj.NAMES{interval,kat}(iVALS:iVALS+n-1)=N{p,interval,kat};
-                          iVALS = iVALS + n;
+                          if pacienti(p).todo
+                              n = numel(P{p,interval,kat});
+                              obj.VALS{interval,kat} (iVALS:iVALS+n-1)=P{p,interval,kat};
+                              obj.MNI{interval,kat}  (iVALS:iVALS+n-1)=M{p,interval,kat};
+                              obj.NAMES{interval,kat}(iVALS:iVALS+n-1)=N{p,interval,kat};
+                              iVALS = iVALS + n;
+                          end
                       end
                 end
             end            
@@ -100,7 +116,7 @@ classdef CBrainPlot < handle
                     else
                         katname = [obj.katstr{kombinace(kat-3,1)} '-' obj.katstr{kombinace(kat-3,2)}];
                     end
-                    figureNamePrefix = ['AEdist_' mat2str(obj.intervals(interval,:)) '_' katname '_NOnames'];
+                    figureNamePrefix = [ obj.testname '_' mat2str(obj.intervals(interval,:)) '_' katname '_NOnames'];
                     if strcmp(figureVisible,'off')
                         disp('figures invisible');
                     end
@@ -117,7 +133,7 @@ classdef CBrainPlot < handle
                         end
                         
                         %a pak jeste s popisy elektrod
-                        figureNamePrefix = ['AEdist_' mat2str(obj.intervals(interval,:)) '_' katname '_names'];
+                        figureNamePrefix = [obj.testname '_' mat2str(obj.intervals(interval,:)) '_' katname '_names'];
                         disp(figureNamePrefix);
                         names_channels = obj.NAMES{interval,kat}; %#ok<NASGU>
                         main_brainPlot;                     else
