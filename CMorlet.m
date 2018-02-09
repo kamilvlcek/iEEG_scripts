@@ -1,6 +1,6 @@
 classdef  CMorlet < CHilbert
     properties (Access = public)
-        fphase; %faze vsech zpracovavanych frekvenci 
+        
     end    
     methods (Access = public)
         %% ELEMENTAL FUNCTIONS 

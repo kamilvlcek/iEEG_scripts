@@ -12,6 +12,7 @@ classdef CHilbert < CiEEGData
         hfilename; %jmeno souboru CHilbert  
         plotF = struct; %udaje o stavu plotu PlotResponseFreq
         plotEpochs = struct; %udaje o stavu plotu PlotMovingEpochs - Nada
+         fphase; %faze vsech zpracovavanych frekvenci - premiestnene z CMorlet pre vykreslenie a porovnanie faz z MW a Hilberta do buducna
     end
     methods (Access = public)
         %% ELEMENTAL FUNCTIONS 
@@ -80,30 +81,31 @@ classdef CHilbert < CiEEGData
             disp(['vytvoreno ' num2str(numel(obj.Hfmean)) ' frekvencnich pasem']); 
         end
         
-         function obj = Normalize(obj, type)
+        function obj = Normalize(obj, type, channels)
          %function for different normalization methods
          %to be used after PasmoFrekvence
             switch type
                  case 'orig' %(fpower./mean(fpower)) - povodna normalizacia
-                    for ch = 1:obj.channels
+                    for ch = channels
                         for f = 1:size(obj.HFreq,3)
-                            obj.HFreq(:,ch,f) = obj.HFreq(:,ch,f)/mean(obj.HFreq(:,ch,f)); 
+                            obj.HFreq(:,ch,f) = obj.HFreq(:,ch,f)./mean(obj.HFreq(:,ch,f)); 
                         end
                     end
                 case 'mean' %(fpower./mean(fpower))*100 ~ Bastin 2012   
-                    for ch = 1:obj.channels
+                    for ch = channels
                         for f = 1:size(obj.HFreq,3)
                             obj.HFreq(:,ch,f) = (obj.HFreq(:,ch,f)/mean(obj.HFreq(:,ch,f)))*100;
                         end
                     end
                 case 'z' %z-transform (fpower-mean(fwpower))/std(fpower)
-                    for ch = 1:obj.channels
+                    for ch = channels
                         for f = 1:size(obj.HFreq,3)
-                            obj.HFreq(:,ch,f) = (obj.HFreq(:,ch,f)-mean(obj.HFreq(:,ch,f)))./std(obj.HFreq(:,ch,f)); 
+                            obj.HFreq(:,ch,f) = (obj.HFreq(:,ch,f)-mean(obj.HFreq(:,ch,f)))./std(obj.HFreq(:,ch,f));
                         end
                     end
                 otherwise
-            end 
+            end
+            obj.d = squeeze(mean(obj.HFreq,3));
         
         end
         
@@ -257,16 +259,13 @@ classdef CHilbert < CiEEGData
             labels = {obj.CH.H.channels.neurologyLabel}; %neurology label
             electrodes = {obj.CH.H.channels.name}; %nazov elektrody
             
-            mean_fs = mean(squeeze(mean(obj.HFreqEpochs(:,channel,:,correct_epochs),4)),1); %priemerna power pre kazdu frekvenciu cez celu periodu
-            std_fs = std(squeeze(mean(obj.HFreqEpochs(:,channel,:,correct_epochs),4)),1); %odchylky power pre kazdu frekvenciu cez celu periodu
-            mean_before = mean(squeeze(mean(obj.HFreqEpochs(1:length(time_before),channel,:,correct_epochs),4)),1); %priemerna power pre kazdu frekvenciu pred podnetom
-            std_before = std(squeeze(mean(obj.HFreqEpochs(1:length(time_before),channel,:,correct_epochs),4)),1); %odchylky power pre kazdu frekvenciu pred podnetom
-            mean_after = mean(squeeze(mean(obj.HFreqEpochs((length(time_before)+1):end,channel,:,correct_epochs),4)),1); %priemerna power pre kazdu frekvenciu po podnete
-            std_after = std(squeeze(mean(obj.HFreqEpochs((length(time_before)+1):end,channel,:,correct_epochs),4)),1); %odchylky power pre kazdu frekvenciu po podnete
+            [mean_fs, std_fs] = obj.meanZscoredPower(1:length(time),channel,correct_epochs); %priemerna power a stredna chyba priemeru pre kazdu frekvenciu cez celu periodu
+            [mean_before, std_before] = obj.meanZscoredPower(1:length(time_before),channel,correct_epochs); %priemerna power a stredna chyba priemeru pre kazdu frekvenciu pred podnetom
+            [mean_after, std_after] = obj.meanZscoredPower((length(time_before)+1):length(time),channel,correct_epochs); %priemerna power a str. chyba priemeru pre kazdu frekvenciu po podnete
             
-            max_std = max([max(std_fs) max(std_before) max(std_after)]);
-            mean_min = min([min(mean_fs) min(mean_before) min(std_after) ]) - max_std; %min a max means pre zjednotenie ylimits grafov
-            mean_max = max([max(mean_fs) max(mean_before) max(mean_after)]) + max_std;
+            max_std = max(max([std_fs std_before std_after]));
+            mean_min = min(min([mean_fs mean_before mean_after])) - max_std; %min a max means pre zjednotenie ylimits grafov
+            mean_max = max(max([mean_fs mean_before mean_after])) + max_std;
             
             fig = figure;
             
@@ -307,6 +306,7 @@ classdef CHilbert < CiEEGData
             xlabel('Frequency (Hz)');
             ylabel('z-scored power');
             title('0:1s PO PODNETE');
+            
             if icondition == 3
                 mtit(sprintf('%s PACIENT %s - CHANNEL %d, ALL CONDITIONS \n (%d epoch) ', electrodes{channel}, obj.CH.H.subjName, channel, length(correct_epochs)));
             else
@@ -325,99 +325,99 @@ classdef CHilbert < CiEEGData
             %a zvlast pre useky pred/po podnete
             assert(~isempty(obj.HFreqEpochs),'soubor s frekvencnimi daty pro epochy neexistuje');
             
-            correct_epochs{1} = obj.CorrectEpochs(channel, 3); %vyfiltruje len spravne epochy
-            correct_epochs{2} = obj.CorrectEpochs(channel, 0); %vyfiltruje len spravne epochy - cervena
-            correct_epochs{3} = obj.CorrectEpochs(channel, 1); %vyfiltruje len spravne epochy - vy
-            correct_epochs{4} = obj.CorrectEpochs(channel, 2); %vyfiltruje len spravne epochy - znacka
-            
             time = linspace(obj.epochtime(1), obj.epochtime(2), size(obj.HFreqEpochs,1));
             time_before = time(time<=0); %pred podnetom
+            [katnum, katstr] = obj.PsyData.Categories();
+            kategories = length(katnum);
+            hue = 0.8;
+            colorskat = {[0 0 0],[0 1 0],[1 0 0],[0 0 1]; [hue hue hue],[hue 1 hue],[1 hue hue],[hue hue 1]};
             
+                    
             names = {obj.CH.H.channels.ass_brainAtlas}; %cast mozgu
             labels = {obj.CH.H.channels.neurologyLabel}; %neurology label
             electrodes = {obj.CH.H.channels.name}; %nazov elektrody
-            for i = 1:4
+            
+            for i = 1:kategories
+                correct_epochs{i} = obj.CorrectEpochs(channel, katnum(i)); %vyfiltruje len spravne epochy pre danu condition
                 [mean_fs{i}, std_fs{i}] = obj.meanZscoredPower(1:length(time),channel,correct_epochs{i}); %priemer + odchylky power pre kazdu frekvenciu cez celu periodu
                 [mean_before{i}, std_before{i}] = obj.meanZscoredPower(1:length(time_before),channel,correct_epochs{i}); %priemer + odchylky power pre kazdu frekvenciu pred podnetom
                 [mean_after{i}, std_after{i}] = obj.meanZscoredPower((length(time_before)+1):length(time),channel,correct_epochs{i}); %priemer + odchylky power pre kazdu frekvenciu po podnete
+            
             end
-            %max_std = max([max(std_fs) max(std_before) max(std_after)]);
-            %mean_min = min([min(mean_fs) min(mean_before) min(std_after) ]) - max_std; %min a max means pre zjednotenie ylimits grafov
-            %mean_max = max([max(mean_fs) max(mean_before) max(mean_after)]) + max_std;
+            
+            max_std = max(max([cell2mat(std_fs) cell2mat(std_before) cell2mat(std_after)]));
+            mean_min = min(min([cell2mat(mean_fs) cell2mat(mean_before) cell2mat(mean_after)])) - max_std; %min a max means pre zjednotenie ylimits grafov
+            mean_max = max(max([cell2mat(mean_fs) cell2mat(mean_before) cell2mat(mean_after)])) + max_std;
+            
+            zscore_min = min(min(squeeze(mean(obj.HFreqEpochs(:,channel,:,:),4))));
+            zscore_max = max(max(squeeze(mean(obj.HFreqEpochs(:,channel,:,:),4))));
             
             fig = figure;
-            
-            %vykresli time x frequency x z-scored power pre dany channel
-            subplot(2,4,1);
-            obj.subplotTimeFrequency(squeeze(mean(obj.HFreqEpochs(:,channel,:,correct_epochs{1}),4))', names, labels, time);
-            subplot(2,4,2);
-            obj.subplotTimeFrequency(squeeze(mean(obj.HFreqEpochs(:,channel,:,correct_epochs{2}),4))', names, labels, time);
-            subplot(2,4,3);
-            obj.subplotTimeFrequency(squeeze(mean(obj.HFreqEpochs(:,channel,:,correct_epochs{3}),4))', names, labels, time);
-            subplot(2,4,4);
-            obj.subplotTimeFrequency(squeeze(mean(obj.HFreqEpochs(:,channel,:,correct_epochs{4}),4))', names, labels, time);
-            
-            
-            subplot(2,4,5);
-            %vykresli priemernu z-scored power pre kazdu frekvenciu napriec
-            %celym casom
-            errorbar(obj.Hf, mean_fs{1}, std_fs{1});
-            %ylim([mean_min mean_max]);
-            xlabel('Frequency (Hz)');
-            ylabel('z-scored power');
-            title('-1:1s');
-            
-            subplot(2,4,6);
-            %vykresli priemernu z-scored power pre kazdu frekvenciu
-            %pred podnetom
-            errorbar(obj.Hf, mean_before{1}, std_before{1});
-            %ylim([mean_min mean_max]);
-            xlabel('Frequency (Hz)');
-            ylabel('z-scored power');
-            title('-1:0s PRED PODNETOM');
-            
-            
-            %vykresli priemernu z-scored power pre kazdu frekvenciu
-            %po podnete
-            colors{2} = [0 0 0];
-            colors{3} = [0 255 0];
-            colors{4} = [255 0 0];
-            subplot(2,4,7);
-            for i=2:4
-                plotband(obj.Hf, mean_before{i}, std_before{i}, colors{i});
+            for i = 1:kategories
+                subplot(2,length(katnum),i); %vykresli time x frequency x z-scored power pre dany channel
+                obj.subplotTimeFrequency(squeeze(mean(obj.HFreqEpochs(:,channel,:,correct_epochs{i}),4))', time);
+                %caxis([zscore_min zscore_max])
+                title(sprintf('%s (%d epoch)', katstr{i}, length(correct_epochs{i})));
                 hold on;
             end
-            %ylim([mean_min mean_max]);
-            xlabel('Frequency (Hz)');
-            ylabel('z-scored power');
-            title('-1:0s PRED PODNETOM');
             
-            subplot(2,4,8);
-            %vykresli priemernu z-scored power pre kazdu frekvenciu
-            %po podnete
-            errorbar(mean_after{1}, std_after{1});
-            %ylim([mean_min mean_max]);
-            xlabel('Frequency (Hz)');
-            ylabel('z-scored power');
-            title('0:1s PO PODNETE');
+            subplot(2,kategories,kategories+1); %priemerna z-scored power pre kazdu frekvenciu napriec celym casom (vsetky kategorie)
+            for i = 1:kategories
+                plotband(obj.Hf, mean_fs{i}, std_fs{i}, colorskat{2,i});
+                hold on;
+                h(i) = plot(obj.Hf, mean_fs{i},'LineWidth',1,'Color',colorskat{1,i});
+                hold on;
+                ylim([mean_min mean_max]);
+                xlabel('Frequency (Hz)');
+                ylabel('z-scored power');
+                title('-1:1s');
+            end
+            legend(h, katstr);
+            hold off;
             
-%             if icondition == 3
-%                 mtit(sprintf('%s PACIENT %s - CHANNEL %d, ALL CONDITIONS \n (%d epoch) ', electrodes{channel}, obj.CH.H.subjName, channel, length(correct_epochs)));
-%             else
-%                 condition = obj.PsyData.CategoryName(icondition);  %zjisti jmeno kategorie z jejiho cisla
-%                 mtit(sprintf('%s PACIENT %s - CHANNEL %d, %s \n (%d epoch) ', electrodes{channel}, obj.CH.H.subjName, channel, condition, length(correct_epochs)));
-%             end
-            
+            subplot(2,kategories,kategories+2); %priemerna z-scored power pre kazdu frekvenciu pred podnetom (vsetky kategorie)
+            for i = 1:kategories
+                plotband(obj.Hf, mean_before{i}, std_before{i}, colorskat{2,i});
+                hold on;
+                h(i) = plot(obj.Hf, mean_before{i},'LineWidth',1,'Color',colorskat{1,i});
+                hold on;
+                ylim([mean_min mean_max]);
+                xlabel('Frequency (Hz)');
+                ylabel('z-scored power');
+                title('-1:0s PRED PODNETOM');
+            end
+            legend(h, katstr);
+            hold off;
+             
+            subplot(2,kategories,kategories+3); %priemerna z-scored power pre kazdu frekvenciu po podnete (vsetky kategorie)
+            for i = 1:kategories
+                plotband(obj.Hf, mean_after{i}, std_after{i}, colorskat{2,i});
+                hold on;
+                h(i) = plot(obj.Hf, mean_after{i},'LineWidth',1,'Color',colorskat{1,i});
+                hold on;
+                ylim([mean_min mean_max]);
+                xlabel('Frequency (Hz)');
+                ylabel('z-scored power');
+                title('0:1s PO PODNETE');
+            end
+            legend(h, katstr);
+            hold off;
+      
+            mtit(sprintf('%s PACIENT %s - CHANNEL %d \n %s - %s \n ', electrodes{channel}, obj.CH.H.subjName, channel, names{channel}, labels{channel}));
+
             set(gcf, 'PaperUnits', 'centimeters');
-            set(gcf, 'PaperPosition', [0 0 60 20]);
+            set(gcf, 'PaperPosition', [0 0 55 30]);
         end
         
         function [fmean, fstd] = meanZscoredPower(obj, time, channel, epochs)
-            fmean = mean(squeeze(mean(obj.HFreqEpochs(time,channel,:,epochs),4)),1); %priemerna power pre kazdu frekvenciu cez time
-            fstd = std(squeeze(mean(obj.HFreqEpochs(time,channel,:,epochs),4)),1); %odchylky power pre kazdu frekvenciu cez time 
+            %vrati priemernu power a strednu chybu priemeru pre kazdu
+            %frekvenciu cez cas a epochy
+            mean_time = squeeze(mean(obj.HFreqEpochs(time,channel,:,epochs),1)); %priemerna power pre kazdu frekvenciu cez cas -> ostane freq x epoch
+            fmean = mean(mean_time,2); %priemerna power pre kazdu frekvenciu cez epochy
+            fstd = std(mean_time,0,2)./sqrt(length(epochs)); %stredna chyba priemeru pre kazdu frekvenciu cez epochy -> std()/sqrt(n)
         end
         
-        function subplotTimeFrequency(obj, data, names, labels, time)
+        function subplotTimeFrequency(obj, data, time)
             colormap parula; 
             imagesc(data, 'XData', time, 'YData', obj.Hf); 
             set(gca,'YDir','normal');
@@ -819,26 +819,20 @@ classdef CHilbert < CiEEGData
            end
         end
         
-        function correctEpochs = CorrectEpochs(obj, channel, icondition)
+        function iEp = CorrectEpochs(obj, channel, icondition)
             %pouzite v PlotFrequencyPower
             %vrati indexy vsetkych spravnych epoch pre dany channel a condition
             %condition 0=cervena, 1=vy, 2=znacka, 3=all
-            correctEpochs = [];
-            chyby = obj.PsyData.GetErrorTrials();
             
-            for i = 1:obj.epochs
-               if (icondition == 3 || obj.PsyData.P.data(i, 7) == icondition) ... % only those equal to condition
-                    && sum(chyby(i,:)) == 0 ...  % error trial periods
-                    &&  ~obj.PsyData.P.data(i, 6) ... % training phase
-                    &&   ~ismember(i, obj.RjEpoch) ... % not rejected epoch
-                    &&  obj.PsyData.P.data(i, 3) ... % error trials
-                    && ~obj.RjEpochCh(channel, i)  % not rejected channel epoch
-                    correctEpochs = [correctEpochs, i];
-               end
+            [iEp,~] = obj.GetEpochsExclude();
+            iEp = find(iEp);
+            if icondition ~= 3 %ak chceme len jednu konkretnu condition
+                iEp = intersect(iEp,find(obj.PsyData.P.data(:,7) == icondition));
             end
             
+            iEp = setdiff(iEp, find(obj.RjEpochCh(channel,:)));
         end
-        
+     
         function zlimits = getZlimits(obj, ch)
             %vypocita minimalnu a maximalnu power pre dany channel cez
             %vsetky epochy a frekvencie
