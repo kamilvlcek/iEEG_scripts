@@ -615,7 +615,9 @@ classdef CiEEGData < handle
                     for ch = 1:numel(channels) 
                         if(iChKats(ch) && (ch==1 || ~iChKats(ch-1)))
                             th = text(ch,max(P),[num2str(ch) ':' obj.CH.H.channels(ch).name]);
-                            th.Rotation = 90;
+                            if ~verLessThan('matlab','9.0') 
+                                th.Rotation = 90;
+                            end
                         end
                     end
                 end                
@@ -1047,7 +1049,8 @@ classdef CiEEGData < handle
                     M = mean(katdata(:,ch,~RjEpCh(ch,:)),3);
                     E = std(katdata(:,ch,~RjEpCh(ch,:)),[],3)/sqrt(size(katdata,3)); %std err of mean
                     %errorbar(T,M,E,'.','color',colorskat{2,k}); %nejdriv vykreslim errorbars aby byly vzadu[.8 .8 .8]
-                    plotband(T, M, E, colorskat{2,k});
+                    %plotband(T, M, E, colorskat{2,k});
+                    ciplot(M+E, M-E, T, colorskat{2,k}); %funguje dobre pri kopii do corelu
                     xlim(obj.epochtime(1:2)); 
                     hold on;
                     h_kat(k) = plot(T,M,'LineWidth',katlinewidth,'Color',colorskat{1,k});  %prumerna odpoved,  ulozim si handle na krivku  

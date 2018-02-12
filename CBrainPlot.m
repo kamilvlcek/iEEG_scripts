@@ -11,6 +11,7 @@ classdef CBrainPlot < handle
         brainsurface; %ulozeny isosurface z main_brainPlot
         testname; %jmeno zpracovavaneho testu
         katstr_pacients;
+        pacients; 
     end
     
     methods (Access = public)        
@@ -33,6 +34,7 @@ classdef CBrainPlot < handle
             obj.intervals = intervals;            
             elcount = []; %jen inicializace            
             P = {}; M = {}; N = {}; %jen inicializace
+            obj.pacients = cell(numel(pacienti),1); 
             for p = 1:numel(pacienti) % cyklus pacienti
                 if pacienti(p).todo
                     disp(['***   ' pacienti(p).folder '   ***']);
@@ -43,6 +45,7 @@ classdef CBrainPlot < handle
                         continue;
                     end
                     [prumery, MNI,names,~,katstr] = E.IntervalyResp( intervals,[],0);   %#ok<PROPLC> %no figure, funkce z CiEEGData                           
+                    obj.pacients{p} = pacienti(p).folder;
                     clear E;
                     if p==1
                         obj.katstr = katstr; %#ok<PROPLC> 
