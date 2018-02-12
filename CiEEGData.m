@@ -357,13 +357,14 @@ classdef CiEEGData < handle
             iEp = all(epochsEx==0,2); %index epoch k pouziti
         end
             
-        function obj = ResponseSearch(obj,timewindow,kats,opakovani)
+        function obj = ResponseSearch(obj,timewindow,kats,opakovani,method)
             %projede vsechny kanaly a hleda signif rozdil proti periode pred podnetem
             %timewindow - pokud dve hodnoty - porovnava prumernou hodnotu mezi nimi - sekundy relativne k podnetu/odpovedi
             % -- pokud jedna hodnota, je to sirka klouzaveho okna - maximalni p z teto delky
             %TODO - moznost spojit kategorie 
             assert(obj.epochs > 1,'only for epoched data');                       
-                       
+            if ~exist('method','var'), method = 'wilcox'; end  %defaultni metoda statistiky je wilcox test
+            
             iEp = obj.GetEpochsExclude(); %ziska seznam epoch k vyhodnoceni
             EEEGStat = CEEGStat(obj.d,obj.fs);
             
@@ -411,7 +412,14 @@ classdef CiEEGData < handle
                 WpKat = cell(numel(kats));
                 for k = 1:numel(kats) %budu statisticky porovnavat kazdou kat s kazdou, bez ohledu na poradi
                     for j = k+1:numel(kats)
-                        Wp = CStat.Wilcox2D(responsekat{k}, responsekat{j},1,[],['kat ' num2str(k) ' vs ' num2str(j)],rjepchkat{k},rjepchkat{j}); % -------- WILCOX kazda kat s kazdou 
+                        if strcmp(method,'wilcox')
+                            Wp = CStat.Wilcox2D(responsekat{k}, responsekat{j},1,[],['kat ' num2str(k) ' vs ' num2str(j)],rjepchkat{k},rjepchkat{j}); % -------- WILCOX kazda kat s kazdou 
+                        elseif strcmp(method,'permut')
+                            Wp = CStat.PermStat(responsekat{k}, responsekat{j},1,['kat ' num2str(k) ' vs ' num2str(j)],rjepchkat{k},rjepchkat{j}); % -------- Permutacni test kazda kat s kazdou 
+                        else
+                            disp('neznama metoda statistiky');
+                            Wp = [];
+                        end
                         if numel(timewindow)==0 ||  true
                             WpKat{k,j} = Wp;  %tohle chci vzdy - klouzave okno pouzivam jen v signifikanci vuci baseline
                         else

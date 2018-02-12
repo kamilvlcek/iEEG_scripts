@@ -15,7 +15,7 @@ classdef CStat
             %pokud fdr=1 nebo prazne, provadi fdr korekci
             %pokud print = 0 nebo prazne, netiskne nic
             if ~exist('print','var'), print = 0; end
-            if ~exist('fdr','var') || isempty(fdr), fdr = 1; end            
+            if ~exist('fdr','var') || isempty(fdr), fdr = 1; end %min striktni je default           
             if ~exist('msg','var'), msg = ''; end
             if ~exist('RjEpChA','var'), RjEpChA = false(size(A,2),size(A,3)); end
             if ~exist('RjEpChB','var'), RjEpChB = false(size(B,2),size(B,3)); end
@@ -25,7 +25,7 @@ classdef CStat
             for j = 1:size(A,1) % napr cas
                 if print && mod(j,50)==0, fprintf('%d ', j); end %tisknu jen cele padesatky
                 for k = 1:size(A,2) %napr kanaly                  
-                   aa = squeeze (A(j,k,~RjEpChA(k,:))); %je nevyrazene epochy 
+                   aa = squeeze (A(j,k,~RjEpChA(k,:))); %jen nevyrazene epochy 
                    bb = squeeze (B( min(j,size(B,1)) , min(k,size(B,2)) , ~RjEpChB(k,:) )); %jen nevyrazene epochy
                    if numel(aa) >= 2 && numel(bb) >= 2 
                       W(j,k) = ranksum(aa,bb); % Statistics and Machine Learning Toolbox
@@ -41,7 +41,22 @@ classdef CStat
             end
             if print, fprintf('%d .. done\n',j); end
         end
-        
+        function p_corrected = PermStat(A,B,print,msg,RjEpChA,RjEpChB) %#ok<INUSD>
+            %P = PermStat(A,B,print,msg,RjEpChA,RjEpChB)            
+            % A a B jsou cas x channels x epochs
+            % RjEpChA a B jsou channels x epochs
+            % funkce od Radka Bortela pro permutacni statistiku - 29.1.2018
+            if ~exist('print','var'), print = 0; end
+            if ~exist('msg','var'), msg = ''; end
+            if ~exist('RjEpChA','var'), RjEpChA = false(size(A,2),size(A,3)); end %#ok<NASGU>
+            if ~exist('RjEpChB','var'), RjEpChB = false(size(B,2),size(B,3)); end %#ok<NASGU>
+            %vyrazovani epoch pro jednotlive kanaly se zatim nepouziva, funkce to neumoznuje
+            if print, fprintf(['Permutation Test 2D - ' msg ': ']); end
+            timer = tic; %zadnu merit cas
+            p_corrected=CmpPerm(A,B,30000,2000); %pocty permutaci, cisla doporucena od Radka
+            toc(timer); %ukoncim mereni casu a vypisu
+            if print, fprintf(' .. done\n'); end            
+        end
         function [W] = Klouzaveokno(W,oknosirka, funkce,dimension)
             % oknosirka je v poctu bodu, funkce muze byt min, max, mean
             % 27.4.2015 - vynato z wilcoxmap, 21.6.2016 presunuto do CStat      
