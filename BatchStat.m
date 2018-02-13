@@ -38,20 +38,27 @@ for p = 1:numel(pacienti) % cyklus pacienti
     if pacienti(p).todo
         msg = ['***   ' pacienti(p).folder '   ***'];
         disp(msg); fprintf(fileID,[msg '\n']);
-        E = pacient_load(pacienti(p).folder,testname,filename); %nejspis objekt CHilbert, pripadne i jiny
-        if isempty(E)
-            msg = 'no data';
+        try
+            E = pacient_load(pacienti(p).folder,testname,filename); %nejspis objekt CHilbert, pripadne i jiny
+            if isempty(E)
+                msg = 'no data';
+                disp(msg); fprintf(fileID,[msg '\n']);
+                pacienti(p).todo = 0; %nechci ho dal zpracovavat
+                continue;
+            end
+            E.ResponseSearch(0.1,stat_kats, stat_opak,cfg.statmethod);
+            E.Save();
+            msg = ' file saved OK';
             disp(msg); fprintf(fileID,[msg '\n']);
-            pacienti(p).todo = 0; %nechci ho dal zpracovavat
-            continue;
-        end
-        E.ResponseSearch(0.1,stat_kats, stat_opak,cfg.statmethod);
-        E.Save();
-        msg = ' file saved OK';
-        disp(msg); fprintf(fileID,[msg '\n']);
-        cas = toc(batchtimer); %zjistim celkovy cas v sec
-        msg = sprintf(' cas zatim: %.1f min',cas/60); %celkovy cas v minutach
-        disp(msg); fprintf(fileID,[msg '\n']); %#ok<DSPS>
+            cas = toc(batchtimer); %zjistim celkovy cas v sec
+            msg = sprintf(' cas zatim: %.1f min',cas/60); %celkovy cas v minutach
+            disp(msg); fprintf(fileID,[msg '\n']); %#ok<DSPS>
+        catch exception 
+            errorMessage = sprintf('** Error in function %s() at line %d.\nError Message:\n%s', ...
+                exception.stack(1).name, exception.stack(1).line, exception.message);                            
+            disp(errorMessage);  fprintf(fileID,[errorMessage '\n']);  %#ok<DSPS> %zobrazim hlasku, zaloguju, ale snad to bude pokracovat dal                            
+            clear E ans; 
+        end  
     end
 end
 

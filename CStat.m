@@ -2,7 +2,7 @@ classdef CStat
     %CSTAT Class for custom statistical functions
     %   Kamil Vlcek, FGU AVCR, since 2016 06
     
-    properties
+    properties        
     end
     
     methods (Static,Access = public)
@@ -49,13 +49,17 @@ classdef CStat
             if ~exist('print','var'), print = 0; end
             if ~exist('msg','var'), msg = ''; end
             if ~exist('RjEpChA','var'), RjEpChA = false(size(A,2),size(A,3)); end %#ok<NASGU>
-            if ~exist('RjEpChB','var'), RjEpChB = false(size(B,2),size(B,3)); end %#ok<NASGU>
+            if ~exist('RjEpChB','var'), RjEpChB = false(size(B,2),size(B,3)); end %#ok<NASGU>                          
             %vyrazovani epoch pro jednotlive kanaly se zatim nepouziva, funkce to neumoznuje
+            if (size(A,3)==0 || size(B,3)==0 ) 
+                warning('Permutation Test 2D - zadne epochy');                
+            end
+          
             if print, fprintf(['Permutation Test 2D - ' msg ': ']); end
             timer = tic; %zadnu merit cas
             p_corrected=CmpPerm(A,B,30000,2000); %pocty permutaci, cisla doporucena od Radka
-            toc(timer); %ukoncim mereni casu a vypisu
-            if print, fprintf(' .. done\n'); end            
+            cas = toc(timer); %ukoncim mereni casu a vypisu
+            if print, fprintf(' .. done in %.1f min \n',cas/60); end            
         end
         function [W] = Klouzaveokno(W,oknosirka, funkce,dimension)
             % oknosirka je v poctu bodu, funkce muze byt min, max, mean

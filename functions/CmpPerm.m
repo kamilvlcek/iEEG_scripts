@@ -39,7 +39,10 @@ function p_corrected=CmpPerm(X,Y,Nperm1,Nperm2)
 %   % compute corrected p values
 %   p_corrected=CmpPerm(X,Y,30000,2000);
 %
-
+if isempty(X) || isempty(Y)
+  p_corrected = []; %kamil - jinak nastane chyba  
+  return
+end
 Xsize=size(X);
 Ysize=size(Y);
 X=reshape(X,[],Xsize(end));

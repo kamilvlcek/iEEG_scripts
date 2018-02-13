@@ -6,6 +6,7 @@ classdef CPsyData < handle
     properties  (Access = public)
         P; %psychopy behavioural data
         fhR; %figure handle from PlotResponses
+        warning_rt=false; %jestli uz byl warning o reakcnich casech
     end
     
     methods (Access = public)
@@ -33,6 +34,10 @@ classdef CPsyData < handle
                 rt = rt(any(~isnan(rt),2),:); % necha jen radky, kde je nejake ~NaN cislo           
             else
                 rt = 24*3600*(obj.P.data(:,obj.P.sloupce.ts_odpoved) - obj.P.data(:,obj.P.sloupce.ts_podnet));
+            end
+            if sum(rt<0)>=1 && isempty(obj.warning_rt)
+                warning('Pozor: %d zaporne reakcni casy',sum(rt<0));
+                obj.warning_rt = true;
             end
         end
         
