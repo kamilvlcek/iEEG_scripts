@@ -225,7 +225,7 @@ classdef CHilbert < CiEEGData
             figure('Name',[condition, ' - channel ', num2str(channel)], 'NumberTitle', 'off');
             time = linspace(obj.epochtime(1), obj.epochtime(2), size(obj.HFreqEpochs,1));
             
-            epochs = find(obj.PsyData.P.data(:, 7) == icondition);
+            epochs = find(obj.PsyData.P.data(:, obj.PsyData.P.sloupce.kategorie) == icondition);
             chyby = obj.PsyData.GetErrorTrials();
             correct = 0;
             correct_epochs = zeros(90,90);
@@ -265,23 +265,25 @@ classdef CHilbert < CiEEGData
            caxis(zlimits);
         end
         
-        function PlotMovingEpochs(obj, channels)
+        function PlotMovingEpochs(obj, channels,ichannel)
             %pro zadane channels kresli graf cas x frekvence pro kazdou epochu zvlast
             %sipkami se da prochazet pres epochy a kanaly - private function MovePlotEpochs
             %Nada since 2018/01
+            if ~exist('channels','var') || isempty(channels), channels = 1:obj.channels; end
+            if ~exist('ichannel','var'), ichannel = 1; end
             assert(~isempty(obj.HFreqEpochs),'soubor s frekvencnimi daty pro epochy neexistuje');
             obj.plotEpochs.f = figure('Name','All Epochs','Position', [20, 100, 1000, 600]);
             obj.plotEpochs.channels = channels;
             set(obj.plotEpochs.f, 'KeyPressFcn', @obj.MovePlotEpochs);
             
-            obj.plotEpochs.iChannel = 1; % initiate channel index
+            obj.plotEpochs.iChannel = ichannel; % initiate channel index
             obj.plotEpochs.iEpoch = 1; % initiate epoch index
             obj.plotEpochs.T = linspace(obj.epochtime(1), obj.epochtime(2), size(obj.HFreqEpochs,1)); % time
             obj.plotEpochs.rejectedEpochs = obj.PsyData.GetErrorTrials(); % get rejected epoch trials
             
             % calculate zlimits for all channels
-            obj.plotEpochs.zlimits = zeros(channels,2);
-            for ch = 1:size(channels)
+            obj.plotEpochs.zlimits = zeros(numel(channels),2);
+            for ch = 1:length(channels)
                 obj.plotEpochs.zlimits(ch, :) = obj.getZlimits(obj.plotEpochs.channels(ch));
             end
             
@@ -590,7 +592,7 @@ classdef CHilbert < CiEEGData
            %vraci true, pokud epocha neni oznacena jako vyrazena
            %pouziva se v PlotAllEpochs
            correct = false;           
-           if obj.PsyData.P.data(epoch, 6) % mark trening answers with red
+           if obj.PsyData.P.data(epoch, obj.PsyData.P.sloupce.zpetnavazba) % mark trening answers with red
                hold on; plot([time(1) time(end)], [obj.Hf(end) obj.Hf(1)],'red','LineWidth',6)
            
            elseif ~obj.PsyData.P.data(epoch, 3) || sum_chyby > 0 % mark wrong answers with black
@@ -620,9 +622,9 @@ classdef CHilbert < CiEEGData
             %rovnakej(same=1)/rozdielnej(same=0) kategorie
             %pouziva sa v PlotMovingEpochs pri numpad4/pagedown
             if same
-                last = find(obj.PsyData.P.data(1:(obj.plotEpochs.iEpoch-1),7) == obj.epochData{obj.plotEpochs.iEpoch,2}, 1, 'last');
+                last = find(obj.PsyData.P.data(1:(obj.plotEpochs.iEpoch-1),obj.PsyData.P.sloupce.kategorie) == obj.epochData{obj.plotEpochs.iEpoch,2}, 1, 'last');
             else 
-                last = find(obj.PsyData.P.data(1:(obj.plotEpochs.iEpoch-1),7) ~= obj.epochData{obj.plotEpochs.iEpoch,2}, 1, 'last');
+                last = find(obj.PsyData.P.data(1:(obj.plotEpochs.iEpoch-1),obj.PsyData.P.sloupce.kategorie) ~= obj.epochData{obj.plotEpochs.iEpoch,2}, 1, 'last');
             end  
             if isempty(last)
                 last = obj.plotEpochs.iEpoch;
@@ -634,9 +636,9 @@ classdef CHilbert < CiEEGData
             %rovnakej(same=1)/rozdielnej(same=0) kategorie
             %pouziva sa v PlotMovingEpochs pri numpad6/pageup
             if same
-                next = obj.plotEpochs.iEpoch + find(obj.PsyData.P.data((obj.plotEpochs.iEpoch+1):end,7) == obj.epochData{obj.plotEpochs.iEpoch,2}, 1);
+                next = obj.plotEpochs.iEpoch + find(obj.PsyData.P.data((obj.plotEpochs.iEpoch+1):end,obj.PsyData.P.sloupce.kategorie) == obj.epochData{obj.plotEpochs.iEpoch,2}, 1);
             else 
-                next = obj.plotEpochs.iEpoch + find(obj.PsyData.P.data((obj.plotEpochs.iEpoch+1):end,7) ~= obj.epochData{obj.plotEpochs.iEpoch,2}, 1);
+                next = obj.plotEpochs.iEpoch + find(obj.PsyData.P.data((obj.plotEpochs.iEpoch+1):end,obj.PsyData.P.sloupce.kategorie) ~= obj.epochData{obj.plotEpochs.iEpoch,2}, 1);
             end
             if isempty(next)
                 next = obj.plotEpochs.iEpoch;
