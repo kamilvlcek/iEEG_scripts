@@ -13,6 +13,7 @@ if ~isfield(cfg,'podilcasuodpovedi'), cfg.podilcasuodpovedi = 0; end  %jestli se
 if ~isfield(cfg,'freqepochs'), cfg.freqepochs = 0; end %jestli se maji uklada frekvencni data od vsech epoch - velka data!
 if ~isfield(cfg,'srovnejresp'), cfg.srovnejresp = 0; end %jestli se maji epochy zarovnava podle odpovedi
 if ~isfield(cfg,'suffix'), cfg.suffix = ['Ep' datestr(now,'YYYY-mm')]; end %defaultne automaticka pripona rok-mesic
+if ~isfield(cfg,'pacienti'), cfg.pacienti = {}; end; %muzu analyzovat jen vyber pacientu
 
 if strcmp(testname,'menrot')
     setup = setup_menrot( cfg.srovnejresp ); %nacte nastaveni testu Menrot- 11.1.2018 - 0 = zarovnani podle podnetu, 1=zarovnani podle odpovedi
@@ -25,6 +26,10 @@ elseif strcmp(testname,'ppa')
     pacienti = pacienti_ppa(); %nactu celou strukturu pacientu
 else
     error('nezname jmeno testu');
+end
+
+if numel(cfg.pacienti)>0
+    pacienti = filterpac(pacienti,cfg.pacienti);
 end
 basedir = setup.basedir;
 epochtime = setup.epochtime;
@@ -283,4 +288,22 @@ if cfg.hybernovat
     system('shutdown -h') 
 elseif cfg.vypnout            
     system('shutdown -s')
+end
+
+end  %function
+function pacienti= filterpac(pacienti,filter)
+    pacremove = []; %seznam pacientu k vyrazeni
+    for p = 1 : numel(pacienti)
+        nalezen = false;
+        for f = 1:numel(filter)
+            if strfind(pacienti(p).folder,filter(f))
+                nalezen = true; %pacient je uveden ve filtru
+                break;
+            end
+        end
+        if ~nalezen
+            pacremove = [pacremove p]; %#ok<AGROW> %for cyklus porad bere z puvodniho array, takze ho nemuzu zmensovat v ramci for cyklu
+        end
+    end
+    pacienti(pacremove) = [];
 end

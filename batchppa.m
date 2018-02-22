@@ -1,6 +1,9 @@
 %% nejdriv normalni analyzu s razenim podle podnetu
 disp(' ++++ ANALYZA 1 - RAZENI PODLE PODNETU ++++');
-cfg = struct('hybernovat',0);
+%cfg = struct('hybernovat',0); 
+pacienti = {'p073','p097','p132','p136'}; 
+cfg = struct('hybernovat',0,'freqepochs',1); %frekvence vsech epoch
+cfg.pacienti = pacienti; %kdyz to tam vlozim rovnou, tak se mi udela struct array
 BatchHilbert('ppa',cfg);
 
 %dalsi analyza uz nema smysl
