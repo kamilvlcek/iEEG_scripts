@@ -682,6 +682,17 @@ classdef CiEEGData < handle
             else
                 obj.plotEp.sortrt = sortrt;
             end
+            if isfield(obj.plotEp,'imgsc') %jestli se ma kreslit obrazek pomoci imagesc, bude se menit mezernikem
+                if isempty(obj.plotEp.imgsc) || obj.plotEp.imgsc == 0
+                    imgsc = 0; 
+                    obj.plotEp.imgsc = 0;
+                else
+                    imgsc = 1; 
+                end
+            else
+                imgsc = 1; %jeste nic nenastaveno, default je imagesc
+                obj.plotEp.imgsc = 1;
+            end
             if isfield(obj.plotEp,'fh') && ishandle(obj.plotEp.fh)
                 figure(obj.plotEp.fh); %pouziju uz vytvoreny graf
                 %clf(obj.plotEp.fh); %graf vycistim
@@ -689,6 +700,7 @@ classdef CiEEGData < handle
                 obj.plotEp.fh = figure('Name','All Epochs','Position', [20, 100, 1200, 300]);
                 colormap jet; %aby to bylo jasne u vsech verzi matlabu - i 2016
             end
+            clf; 
             T = linspace(obj.epochtime(1),obj.epochtime(2),size(obj.d,1)); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
             
             maxy = 0; %budu pocitat za vsechny kategorie
@@ -698,19 +710,27 @@ classdef CiEEGData < handle
                 subplot(1,numel(kategories),k);
                 [dkat,rt] = obj.CategoryData(katnum,sortrt);
                 E = 1:size(dkat,3); %cisla epoch - kazdou kategorii muze byt jine                
-                D = squeeze(dkat(:,ch,:));
-                imagesc(T,E,D');
+                D = squeeze(dkat(:,ch,:)); %cas x epochs
+                if imgsc
+                    imagesc(T,E,D'); %barevny colormap epoch
+                else
+                    plot(T,D); %normalni plot s epochami pres sebe
+                end
                 maxy = max([maxy max(max( D ))]);
                 miny = min([miny min(min( D ))]);                
                 xlabel('Time [s]');                
                 title(obj.PsyData.CategoryName(katnum));
                 hold on; 
-                if numel(obj.epochtime)<3 || obj.epochtime(3)==0
-                    plot(rt,E,'-k','LineWidth',1); %cara reakcnich casu, nebo podnetu, pokud zarovnano podle reakce      
-                else
-                    plot(-rt,E,'-k','LineWidth',1); %cara reakcnich casu, nebo podnetu, pokud zarovnano podle reakce      
+                if(max(rt)>0) %pokud jsou nejake reakcni casy, u PPA testu nejsou
+                    if numel(obj.epochtime)<3 || obj.epochtime(3)==0
+                        plot(rt,E,'-k','LineWidth',1); %cara reakcnich casu, nebo podnetu, pokud zarovnano podle reakce      
+                    else
+                        plot(-rt,E,'-k','LineWidth',1); %cara reakcnich casu, nebo podnetu, pokud zarovnano podle reakce      
+                    end
+                end                
+                if imgsc
+                    plot(zeros(size(E,2),1),E,'-k','LineWidth',1); %cara podnetu
                 end
-                plot(zeros(size(E,2),1),E,'-k','LineWidth',1); %cara podnetu
             end    
             if isfield(obj.plotEp,'ylim') && numel(obj.plotEp.ylim)>=2 %nactu nebo ulozim hodnoty y
                 miny = obj.plotEp.ylim(1); maxy = obj.plotEp.ylim(2);
@@ -719,7 +739,12 @@ classdef CiEEGData < handle
             end
             for k=1:numel(kategories)
                 subplot(1,numel(kategories),k);
-                caxis([miny,maxy]);
+                if imgsc
+                    caxis([miny,maxy]);
+                else
+                    ylim([miny,maxy]);
+                    line([0 0],[miny maxy ],'Color','black','LineWidth',1);
+                end
                 if k == 1, ylabel([ 'Epochs - channel ' num2str(ch)]); end %ylabel jen u prniho obrazku
                 if k == numel(kategories), colorbar('Position',[0.92 0.1 0.02 0.82]); end
             end
@@ -1521,7 +1546,14 @@ classdef CiEEGData < handle
                    obj.PlotEpochs( obj.plotEp.ch); %prekreslim grafy
                case {'subtract' , 'hyphen'} %signal minus - razeni epoch podle rt on/off   %u terezy na notebooku  
                    obj.plotEp.sortrt = 1 - obj.plotEp.sortrt;  %zmenim sortrt
-                   obj.PlotEpochs( obj.plotEp.ch); %prekreslim grafy                    
+                   obj.PlotEpochs( obj.plotEp.ch); %prekreslim grafy  
+               case 'space' %prepinani mezi color plot a plot pres sebe                   
+                   if isfield(obj.plotEp,'imgsc')
+                       obj.plotEp.imgsc = 1 - obj.plotEp.imgsc; %prepinam druh grafu
+                   else
+                       obj.plotEp.imgsc = 0;
+                   end
+                   obj.PlotEpochs( obj.plotEp.ch); %prekreslim grafy                     
             end
                    
         end
