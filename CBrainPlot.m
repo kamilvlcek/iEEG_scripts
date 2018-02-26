@@ -67,13 +67,13 @@ classdef CBrainPlot < handle
                                 end
                                 P{p,interval,kat}=prumery(ip,interval, kat); %#ok<AGROW>
                                 M{p,interval,kat}=MNI(ip); %#ok<AGROW,PROPLC>>
-                                N{p,interval,kat}= strcat(cellstr(repmat([pacienti(p).folder '_'],sum(ip),1)),names(ip)); %#ok<AGROW>
+                                N{p,interval,kat}= strcat(cellstr(repmat([pacienti(p).folder(1:4) '_'],sum(ip),1)),names(ip)); %#ok<AGROW>
                                 elcount(interval,kat) = elcount(interval,kat) + sum(ip); %#ok<AGROW>
                             else %kategorie jakoby navic pro vykresleni jen pozice elekrod
                                 channels = size(prumery,1);
                                 P{p,interval,kat}=zeros(channels,1); %#ok<AGROW> % 0 pro kazdy kanal - vsechny stejnou barvou
                                 M{p,interval,kat}=MNI; %#ok<AGROW,PROPLC>>
-                                N{p,interval,kat}= strcat(cellstr(repmat([pacienti(p).folder '_'],channels,1)),names); %#ok<AGROW>
+                                N{p,interval,kat}= strcat(cellstr(repmat([pacienti(p).folder(1:4) '_'],channels,1)),names); %#ok<AGROW>
                                 elcount(interval,kat) = elcount(interval,kat) + channels; %#ok<AGROW>
                             end
                         end                       
