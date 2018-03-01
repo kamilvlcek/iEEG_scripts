@@ -401,6 +401,8 @@ classdef CiEEGData < handle
                 for k = 1:numel(kats) %pro vsechny kategorie/opakovani
                     if exist('KATNUM','var') 
                         [katdata,~,RjEpCh] = obj.CategoryData(KATNUM,[],kats{k}); %v kats jsou ted opakovani
+                    elseif iscell(kats)
+                        [katdata,~,RjEpCh] = obj.CategoryData(kats{k}); %muze byt cellarray, aby mohlo byt vic kategorii proti jedne
                     else
                         [katdata,~,RjEpCh] = obj.CategoryData(kats(k)); %epochy time*channel*epochs jedne kategorie, uz jsou vyrazeny vyrazene epochy
                     end
@@ -979,7 +981,7 @@ classdef CiEEGData < handle
                 elseif isfield(obj.Wp,'kats')
                     kategories = obj.Wp.kats; %hodnoty pouzite ve statistice
                 else
-                   if numel(obj.PsyData.Categories())<=3
+                   if numel(obj.PsyData.Categories())<=4 %uz muzu pouzivat 4 kategorie, kvuli Menrot
                      kategories = obj.PsyData.Categories(); %pokud neni vic nez 3 kategorie, vezmu vsechny
                      obj.plotRCh.kategories = kategories;
                    end %pokud je kategorii vic nez tri, neberu je v uvahu a zobrazim pouze prumer
@@ -1070,29 +1072,36 @@ classdef CiEEGData < handle
             if exist('kategories','var') || exist('opakovani','var') %kategorie vykresluju jen pokud mam definovane karegorie                   
                 hue = 0.8;
                 colorskat = {[0 0 0],[0 1 0],[1 0 0],[0 0 1]; [hue hue hue],[hue 1 hue],[1 hue hue],[hue hue 1]}; % prvni radka - prumery, druha radka errorbars = svetlejsi
-                h_kat = zeros(numel(kategories),1); 
+                h_kat = zeros(numel(kategories),2);                 
                 for k= 1 : numel(kategories) %index 1-3 (nebo 4)
+                    if iscell(obj.Wp.kats), kk = obj.Wp.kats{k}(1);  else,   kk = obj.Wp.kats(k);    end % aby barvy odpovidaly kategoriim podnetum spis nez kategoriim podle statistiky
+                    %to se hodi zvlast, kdyz se delaji jen dve kategorie vuci sobe ane vsechny, nebo dve vuci jedne nebo dve vuci dvema
+                    colorkatk = [colorskat{1,kk+1} ; colorskat{2,kk+1}]; %dve barvy, na caru a stderr plochu kolem
                     if exist('opakovani','var') && ~isempty(opakovani)
                         opaknum = kategories{k}; %v kategories jsou opakovani k vykresleni, a je to cell array
                         [katdata,~,RjEpCh] = obj.CategoryData(KATNUM,[],opaknum); %eegdata - epochy pro tato opakovani
-                    else
-                        katnum = kategories(k); %cislo kategorie
+                    elseif iscell(kategories) %iff tady nefunguje, to by bylo samozrejme lepsi
+                        katnum = kategories{k}(1); %cislo kategorie, muze byt cell, pokud vice kategorii proti jedne
                         [katdata,~,RjEpCh] = obj.CategoryData(katnum); %eegdata - epochy jedne kategorie
+                    else
+                        katnum = kategories(k); %cislo kategorie, muze byt cell, pokud vice kategorii proti jedne
+                        [katdata,~,RjEpCh] = obj.CategoryData(katnum); %eegdata - epochy jedne kategorie                       
                     end    
                     M = mean(katdata(:,ch,~RjEpCh(ch,:)),3);
                     E = std(katdata(:,ch,~RjEpCh(ch,:)),[],3)/sqrt(size(katdata,3)); %std err of mean
-                    %errorbar(T,M,E,'.','color',colorskat{2,k}); %nejdriv vykreslim errorbars aby byly vzadu[.8 .8 .8]
-                    %plotband(T, M, E, colorskat{2,k});
-                    ciplot(M+E, M-E, T, colorskat{2,k}); %funguje dobre pri kopii do corelu
+                    %h_kat(k,2) = errorbar(T,M,E,'.','color',colorskat{2,k}); %nejdriv vykreslim errorbars aby byly vzadu[.8 .8 .8]
+                    %h_kat(k,2) = plotband(T, M, E, colorskat{2,k}); %nejlepsi, je pruhledny, ale nejde kopirovat do corelu
+                    h_kat(k,2) = ciplot(M+E, M-E, T, colorkatk(2,:)); %funguje dobre pri kopii do corelu, ulozim handle na barevny pas
                     xlim(obj.epochtime(1:2)); 
                     hold on;
-                    h_kat(k) = plot(T,M,'LineWidth',katlinewidth,'Color',colorskat{1,k});  %prumerna odpoved,  ulozim si handle na krivku  
+                    h_kat(k,1) = plot(T,M,'LineWidth',katlinewidth,'Color',colorkatk(1,:));  %prumerna odpoved,  ulozim si handle na krivku  
                     obj.plotRCh.range = [ min(obj.plotRCh.range(1),min(M)-max(E)) max(obj.plotRCh.range(2),max(M)+max(E))]; %pouziju to pak pri stlaceni / z obrazku
                     Tr = linspace(obj.Wp.baseline(2),obj.Wp.epochtime(2),size(obj.Wp.D2,1)); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
                     if isfield(obj.Wp,'WpKat') 
-                        for l = k+1:numel(kategories) %katnum jde od nuly
+                        for l = k+1:numel(kategories) %katnum jde od nuly 
+                            if iscell(obj.Wp.kats), colorkatl = obj.Wp.kats{l}(1)+1; else, colorkatl = obj.Wp.kats(l)+1; end
                             y = ymin + (ymax-ymin)*(0.3 - (k+l)*0.05)  ; %pozice na ose y
-                            if k==1, color=colorskat{1,l}; else color = colorskat{1,1}; end %green a red jsou proti kategorii 0, cerna je kat 1 vs kat 2
+                            if k==1, color=colorskat{1,colorkatl}; else color = colorskat{1,1}; end %green a red jsou proti kategorii 0, cerna je kat 1 vs kat 2
                             if pvalue %pokud chci zobrazovat hodnotu p value jako krivku                                
                                 plot(Tr,obj.Wp.WpKat{k,l}(:,ch), ':','Color',color); %carkovana cara oznacuje signifikanci kategorie vuci jine kategorii
                             end
@@ -1101,8 +1110,8 @@ classdef CiEEGData < handle
                             plot(Tr(iWp),ones(1,sum(iWp))*y, '.','Color',color); %                        
                             iWpfirst = find(iWp,1,'first');                        
                             if(numel(iWpfirst)>0)                                
-                                text(-0.01+Tr(1),y,[ num2str(round(Tr(iWpfirst)*1000)) 'ms']);  %cas zacatku signifikance 
-                                text(-0.18+Tr(1),y,[ 'p=' num2str(CStat.round(min(obj.Wp.WpKat{k,l}(:,ch)),3))]);  %cas zacatku signifikance 
+                                text(-0.05+Tr(1),y,[ num2str(round(Tr(iWpfirst)*1000)) 'ms']);  %cas zacatku signifikance 
+                                text(-0.15+Tr(1),y,[ 'p=' num2str(CStat.round(min(obj.Wp.WpKat{k,l}(:,ch)),3))]);  %cas zacatku signifikance 
                                 line([Tr(iWpfirst) Tr(iWpfirst)],obj.plotRCh.ylim,'Color',color); %modra svisla cara u zacatku signifikance                                
                             end                            
                             %potom jeste p < 0.01
@@ -1113,39 +1122,46 @@ classdef CiEEGData < handle
                                 kat1name =  obj.PsyData.OpakovaniName(kategories{l});
                                 kat2name =  obj.PsyData.OpakovaniName(kategories{k});
                                 kat3name =  [ ' (' obj.PsyData.CategoryName(obj.Wp.kats) ')' ]; %jmeno kategorie obrazku, ze ktere se opakovani pocitalo
+                            elseif iscell(kategories)
+                                kat1name =  obj.PsyData.CategoryName(kategories{l});
+                                kat2name =  obj.PsyData.CategoryName(kategories{k});
+                                kat3name = '';
                             else
                                 kat1name =  obj.PsyData.CategoryName(kategories(l));
                                 kat2name =  obj.PsyData.CategoryName(kategories(k));
                                 kat3name = '';
                             end
-                            text(0.05+Tr(1),y, ['\color[rgb]{' num2str(colorskat{1,l}) '}' kat1name ...
+                            text(0.05+obj.Wp.epochtime(1),y, ['\color[rgb]{' num2str(colorskat{1,colorkatl}) '}' kat1name ...
                                     '\color[rgb]{' num2str(color) '} *X* '  ...
-                                    '\color[rgb]{' num2str(colorskat{1,k}) '}' kat2name kat3name]);                            
+                                    '\color[rgb]{' num2str(colorkatk(1,:)) '}' kat2name kat3name]);                            
                         end                      
                         
                     end
                     if isfield(obj.Wp,'WpKatBaseline') %signifikance vuci baseline
                             iWpB = obj.Wp.WpKatBaseline{k,1}(:,ch)  <= 0.05; %nizsi signifikance
                             y = ymin + (ymax-ymin)*(0.28 - (k+2)*0.05)  ;
-                            plot(Tr(iWpB),ones(1,sum(iWpB))*y, '.','Color',colorskat{1,k},'MarkerSize',5); % 
+                            plot(Tr(iWpB),ones(1,sum(iWpB))*y, '.','Color',colorkatk(1,:),'MarkerSize',5); % 
                             iWpB = obj.Wp.WpKatBaseline{k,1}(:,ch)  <= 0.01; % vyssi signifikance
                             %y = ymin + (ymax-ymin)*(0.28 - (k+2)*0.05)  ;
-                            plot(Tr(iWpB),ones(1,sum(iWpB))*y, 'p','Color',colorskat{1,k},'MarkerSize',5); % 
+                            plot(Tr(iWpB),ones(1,sum(iWpB))*y, 'p','Color',colorkatk(1,:),'MarkerSize',5); % 
                             if exist('opakovani','var') && ~isempty(opakovani)
                                 kat2name =  obj.PsyData.OpakovaniName(kategories{k}); %pokud vyhodnocuju opakovani
+                            elseif iscell(kategories)
+                                kat2name =  obj.PsyData.CategoryName(kategories{k});
                             else
                                 kat2name =  obj.PsyData.CategoryName(kategories(k));
                             end
-                            text(0.05+Tr(1), y, ['\color[rgb]{' num2str(colorskat{1,k}) '}' kat2name ' vs.baseline'] );
+                            text(0.05+obj.Wp.epochtime(1), y, ['\color[rgb]{' num2str(colorkatk(1,:)) '}' kat2name ' vs.baseline'] );
                             line([Tr(1) Tr(end)],[y y]+(ymax-ymin)*0.03 ,'Color',[0.5 0.5 0.5]);
                                 %kazde jmeno kategorie jinou barvou
                             if pvalue %pokud chci zobrazovat hodnotu p value jako krivku
-                               plot(Tr,obj.Wp.WpKatBaseline{k,1}(:,ch), '.','Color',colorskat{1,k}); %tesckovana cara oznacuje signifikanci kategorie vuci baseline
+                               plot(Tr,obj.Wp.WpKatBaseline{k,1}(:,ch), '.','Color',colorskat{1,k}); %teckovana cara oznacuje signifikanci kategorie vuci baseline
                             end
                      end
                 end
                 for k= 1 : numel(kategories) %index 1-3
-                    uistack(h_kat(k), 'top'); %dam krivky prumeru kategorii pred jejich errorbars
+                    uistack(h_kat(k,1), 'top'); %dam krivky prumeru kategorii uplne dopredu
+                    uistack(h_kat(k,2), 'bottom'); %dam krivky errorbars uplne dozadu
                 end
                 
                 ylim( [ymin ymax].*1.1);
@@ -1579,8 +1595,12 @@ classdef CiEEGData < handle
                     ymin = obj.plotRCh.ylim(1);
                 else
                     ymax = 0; ymin = 0;
-                    for katnum=kategories
-                        katdata = obj.CategoryData(katnum); %epochy jedne kategorie
+                    for k=1:numel(kategories)
+                        if iscell(kategories) %tady iff nefunguje, vraci mi to chybu
+                            katdata = obj.CategoryData(kategories{k}); %pokud je kategorii spolecne vic
+                        else
+                            katdata = obj.CategoryData(kategories(k)); %epochy jedne kategorie
+                        end
                         channels = 1:obj.channels; %#ok<PROP>
                         channels(ismember(channels, [obj.RjCh obj.CH.GetTriggerCh()]))=[]; %#ok<PROP> %vymazu rejectovana a triggerovane channels 
                         ymax = max([ ymax max(mean(katdata(:,channels,:),3))]); %#ok<PROP>

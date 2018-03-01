@@ -1,4 +1,4 @@
-function varargout = plotband(x,y,ey,bcolor,transparency,varargin)
+function hh = plotband(x,y,ey,bcolor,transparency,varargin)
 % function plotband - plot graph with errorband
 %
 % syntax: h = plotband(x,y,ey,bcolor,line-properties)
@@ -36,8 +36,8 @@ washold = ishold;
 h(1,1)= fill([x;x(end:-1:1)],[ype;yme(end:-1:1)], bcolor, 'edgecolor','none');
 alpha(h(1,1), transparency);
 hold on
-h(2,1)= plot(x,y,'color',bcolor, varargin{:});
+h(2,1)= plot(x,y,'color',bcolor, varargin{:}); % co je tohle?
 
-if nargout>0, varargout= {h}; end
-
+%if nargout>0, varargout= {h}; end %puvodni vystupni parametr byl varargout
+hh = h(1,1); %kamil 1.3.2018
 if ~washold, hold off, end 

@@ -75,6 +75,7 @@ classdef CPsyData < handle
         end
         function [kat] = CategoryName(obj,katnum)
             %vraci jmeno kategorie z cisla, jmeno kategorie se pocita od 0
+            %muze byt i vic cisel kategorii
             if numel(katnum) == 1
                 kat = obj.P.strings.podminka{katnum+1};
             else

@@ -1,4 +1,4 @@
-function ciplot(lower,upper,x,colour)
+function h = ciplot(lower,upper,x,colour)
      
 % ciplot(lower,upper)       
 % ciplot(lower,upper,x)
@@ -33,4 +33,4 @@ lower=lower'; end
 if find(size(upper)==(max(size(upper))))<2
 upper=upper'; end
 
-fill([x fliplr(x)],[upper fliplr(lower)],colour,'LineStyle','none')
+h = fill([x fliplr(x)],[upper fliplr(lower)],colour,'LineStyle','none');
