@@ -554,6 +554,7 @@ classdef CHilbert < CiEEGData
             obj.plotFreqs.iTime = 0; % initiate epoch index
             obj.plotFreqs.timeDelay =  5*obj.fs;
             obj.plotFreqs.podnety = (obj.PsyData.P.data(:,obj.PsyData.P.sloupce.ts_podnet) - obj.tabs(1))*24*3600;
+            obj.plotFreqs.odpovede = (obj.PsyData.P.data(:,obj.PsyData.P.sloupce.ts_odpoved) - obj.tabs(1))*24*3600;
             
             % calculate ylimits for all channels
             obj.plotFreqs.ylimits = zeros(length(channels),2); %length(obj.Hf),
@@ -575,15 +576,14 @@ classdef CHilbert < CiEEGData
                 x = time./obj.fs;
                 y = obj.HFreq(time,obj.plotFreqs.channels(obj.plotFreqs.iChannel),iFreq);
                 neg = y<0;
-                
-                %ylim(obj.plotFreqs.ylimits(obj.plotFreqs.iChannel,:));
-                hold on;
                 plot(x(~neg),y(~neg),'r.',x(neg),y(neg),'b.','markers',5); hold on;
-                ylim(obj.plotFreqs.ylimits(obj.plotFreqs.iChannel,:));
-                size(repmat(ylim,length(obj.plotFreqs.podnety),1))
-                size([obj.plotFreqs.podnety obj.plotFreqs.podnety])
-                plot([obj.plotFreqs.podnety obj.plotFreqs.podnety]', repmat(ylim,length(obj.plotFreqs.podnety),1)','g');
                 xlim([x(1) x(end)]);
+                ylim(obj.plotFreqs.ylimits(obj.plotFreqs.iChannel,:));
+                podnety = obj.plotFreqs.podnety(obj.plotFreqs.podnety >= x(1) & obj.plotFreqs.podnety <= x(end));
+                plot([podnety podnety]', repmat(ylim,length(podnety),1)','g', 'LineWidth',3);
+                odpovede = obj.plotFreqs.odpovede(obj.plotFreqs.odpovede >= x(1) & obj.plotFreqs.odpovede <= x(end));
+                plot([odpovede odpovede]', repmat(ylim,length(odpovede),1)','k', 'LineWidth',2);
+                
                 title([num2str(obj.plotFreqs.freq(iFreq)), ' Hz'])
             end
         end
