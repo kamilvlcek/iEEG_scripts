@@ -368,7 +368,7 @@ classdef CiEEGData < handle
             iEp = obj.GetEpochsExclude(); %ziska seznam epoch k vyhodnoceni
             EEEGStat = CEEGStat(obj.d,obj.fs);
             
-            %celkova signifikance vuci baseline - bez ohledu na kategorie
+            %CELKOVA SIGNIFIKANCE VUCI BASELINE - bez ohledu na kategorie
             baseline = [obj.epochtime(1) iff(obj.baseline(2)>obj.epochtime(1),obj.baseline(2),0)]; %zalezi jestli se baselina a epochtime prekryvaj
             [P,ibaseline,iepochtime,itimewindow] = EEEGStat.WilcoxBaseline(obj.epochtime,baseline,timewindow,iEp,obj.RjEpochCh);   %puvodni baseline uz v epose nemam        
                 %11.12.2017 - pocitam signifikanci hned po konci baseline
@@ -384,22 +384,22 @@ classdef CiEEGData < handle
             obj.Wp.epochtime = obj.epochtime;
             obj.Wp.baseline = obj.baseline; %pro zpetnou kontrolu, zaloha parametru
             
-            if exist('opakovani','var') && ~isempty(opakovani)
-                if iscell(opakovani) 
-                    assert(numel(opakovani)<=3,'kategorie opakovani mohou byt maximalne tri');
-                    KATNUM = kats;
-                    kats = opakovani;   %POZOR kats se meni na opakovani, abych mohl pouzit kod dole   
-                    disp('hodnotim opakovani');
-                end
+            if exist('opakovani','var') && ~isempty(opakovani) && iscell(opakovani)
+                assert(numel(opakovani)<=4,'kategorie opakovani mohou byt maximalne ctyri');
+                KATNUM = kats; %cisla kategorii, pro ktere se pocita efekt opakovani
+                kats = opakovani;   %POZOR kats se meni na opakovani, abych mohl pouzit kod dole   
+                disp('hodnotim opakovani');
+            else
+                KATNUM = []; %hodnotim rozdily mezi kategorimi, 
             end
-            
-            if exist('kats','var') && numel(kats)>1  && numel(timewindow)<= 1                                      
-                %ziskam eeg data od jednotlivych kategorii
+            %STATISTIKA PRO JEDNOTLIVE KATEGORIE
+            if exist('kats','var') && numel(kats)>1  && numel(timewindow)<= 1 
+                %vygeneruju EEG data na statistiku pro kazdou kategorii zvlast
                 responsekat = cell(numel(kats),1); %eeg response zvlast pro kazdou kategorii 
                 baselinekat = cell(numel(kats),1); %baseline zvlast pro kazdou kategorii 
-                rjepchkat = cell(numel(kats),1); %epochyxkanaly k vyrazeni u kazde kategori
+                rjepchkat = cell(numel(kats),1); %epochyxkanaly k vyrazeni u kazde kategori          
                 for k = 1:numel(kats) %pro vsechny kategorie/opakovani
-                    if exist('KATNUM','var') 
+                    if ~isempty(KATNUM) 
                         [katdata,~,RjEpCh] = obj.CategoryData(KATNUM,[],kats{k}); %v kats jsou ted opakovani
                     elseif iscell(kats)
                         [katdata,~,RjEpCh] = obj.CategoryData(kats{k}); %muze byt cellarray, aby mohlo byt vic kategorii proti jedne
@@ -410,45 +410,16 @@ classdef CiEEGData < handle
                     baselinekat{k,1} = katdata( ibaseline(1) - iepochtime(1)+1 : ibaseline(2) - iepochtime(1),:,:); %jen cas po podnetu : cas x channel x epochs; 
                     rjepchkat{k,1} = RjEpCh;
                 end
-                %rozdily kategorii vuci sobe
-                WpKat = cell(numel(kats));
-                for k = 1:numel(kats) %budu statisticky porovnavat kazdou kat s kazdou, bez ohledu na poradi
-                    for j = k+1:numel(kats)
-                        if strcmp(method,'wilcox')
-                            Wp = CStat.Wilcox2D(responsekat{k}, responsekat{j},1,[],['kat ' num2str(k) ' vs ' num2str(j)],rjepchkat{k},rjepchkat{j}); % -------- WILCOX kazda kat s kazdou 
-                        elseif strcmp(method,'permut')
-                            Wp = CStat.PermStat(responsekat{k}, responsekat{j},1,['kat ' num2str(k) ' vs ' num2str(j)],rjepchkat{k},rjepchkat{j}); % -------- Permutacni test kazda kat s kazdou 
-                        else
-                            disp('neznama metoda statistiky');
-                            Wp = [];
-                        end
-                        if numel(timewindow)==0 ||  true
-                            WpKat{k,j} = Wp;  %tohle chci vzdy - klouzave okno pouzivam jen v signifikanci vuci baseline
-                        else
-                            WpKat{k,j} = CStat.Klouzaveokno(Wp,itimewindow(1),'max',1);
-                        end
-                    end
-                end
-                %rozdily kategorii vuci baseline - 28.3.2017
-                WpKatBaseline = cell(numel(kats),1); %?? Zahrnout do EEEGStat.WilcoxBaseline ??
-                for k =  1: numel(kats)
-                        baselineall = baselinekat{k};
-                        baselineA = mean(baselineall(1:floor(size(baselineall,1)/2)      ,:,:));
-                        baselineB = mean(baselineall(  floor(size(baselineall,1)/2)+1:end,:,:));
-                        WpBA = CStat.Wilcox2D(responsekat{k},baselineA,1,[],['kat ' num2str(k) ' vs baseline A'],rjepchkat{k},rjepchkat{k});
-                        WpBB = CStat.Wilcox2D(responsekat{k},baselineB,1,[],['kat ' num2str(k) ' vs baseline B'],rjepchkat{k},rjepchkat{k});
-                        WpKatBaseline{k,1} = max (WpBA,WpBB);
-                end
-                %ukladam vysledky
-                obj.Wp.WpKat = WpKat; %rozdily mezi kategorieme
-                obj.Wp.WpKatBaseline = WpKatBaseline; %rozdily kategorii vuci baseline
-                if exist('KATNUM','var') %pokud vyhodnocuju opakovani
+                %provedu statisticke testy
+                [obj.Wp.WpKat,obj.Wp.WpKatBaseline] = EEEGStat.WilcoxCat(kats,responsekat,baselinekat,rjepchkat,itimewindow,method);                
+                %ulozim parametry
+                if ~isempty(KATNUM) %pokud vyhodnocuju opakovani
                     obj.Wp.kats = KATNUM;    %puvodni kategorie
                     obj.Wp.opakovani = kats; %v kats jsou ted opakovani
                 else
                     obj.Wp.kats = kats; %ulozim si cisla kategorii kvuli grafu PlotResponseCh
                     obj.Wp.opakovani = {}; %opakovani nedelam
-                end                    
+                end  
             else
                 obj.Wp.kats = kats;
                 obj.Wp.WpKat = cell(0);

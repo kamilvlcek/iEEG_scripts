@@ -45,6 +45,40 @@ classdef CEEGStat
             end
         end
     end
+    methods (Static,Access = public)
+        function [WpKat,WpKatBaseline]=WilcoxCat(kats,responsekat,baselinekat,rjepchkat,itimewindow,method)
+            %spocita statistiky pro ruzne kategorie - vuci sobe navzajem a vuci baseline            
+            %rozdily kategorii vuci sobe
+            WpKat = cell(numel(kats)); %rozdily mezi kategorieme
+            for k = 1:numel(kats) %budu statisticky porovnavat kazdou kat s kazdou, bez ohledu na poradi
+                for j = k+1:numel(kats)
+                    if strcmp(method,'wilcox')
+                        Wr = CStat.Wilcox2D(responsekat{k}, responsekat{j},1,[],['kat ' num2str(k) ' vs ' num2str(j)],rjepchkat{k},rjepchkat{j}); % -------- WILCOX kazda kat s kazdou 
+                    elseif strcmp(method,'permut')
+                        Wr = CStat.PermStat(responsekat{k}, responsekat{j},1,['kat ' num2str(k) ' vs ' num2str(j)],rjepchkat{k},rjepchkat{j}); % -------- Permutacni test kazda kat s kazdou 
+                    else
+                        disp('neznama metoda statistiky');
+                        Wr = [];
+                    end
+                    if numel(itimewindow)==0 ||  true
+                        WpKat{k,j} = Wr;  %tohle chci vzdy - klouzave okno pouzivam jen v signifikanci vuci baseline
+                    else
+                        WpKat{k,j} = CStat.Klouzaveokno(Wr,itimewindow(1),'max',1);
+                    end
+                end
+            end
+            %rozdily kategorii vuci baseline - 28.3.2017
+            WpKatBaseline = cell(numel(kats),1);  %rozdily kategorii vuci baseline   
+            for k =  1: numel(kats)
+                    baselineall = baselinekat{k};
+                    baselineA = mean(baselineall(1:floor(size(baselineall,1)/2)      ,:,:));
+                    baselineB = mean(baselineall(  floor(size(baselineall,1)/2)+1:end,:,:));
+                    WpBA = CStat.Wilcox2D(responsekat{k},baselineA,1,[],['kat ' num2str(k) ' vs baseline A'],rjepchkat{k},rjepchkat{k});
+                    WpBB = CStat.Wilcox2D(responsekat{k},baselineB,1,[],['kat ' num2str(k) ' vs baseline B'],rjepchkat{k},rjepchkat{k});
+                    WpKatBaseline{k,1} = max (WpBA,WpBB);
+            end            
+        end
+    end
     
 end
 
