@@ -33,6 +33,7 @@ classdef CiEEGData < handle
         reference; %slovni popis reference original, avg perHeadbox, perElectrode, Bipolar
         yrange = [10 10 50 50]; %minimum y, krok y0, hranice y1, krok y1, viz funkce - a + v hybejPlot
         Wp = {}; %pole signifikanci pro jednotlive kanaly vuci baseline, vysledek  ResponseSearch     
+        WpActive=1; %cislo aktivniho pole signifikanci - muze byt spocitano vic statistik
         DE = {}; %trida objektu CEpiEvents - epilepticke eventy ziskane pomoci skriptu spike_detector_hilbert_v16_byISARG
         DatumCas = {}; %ruzne casove udaje, kdy bylo co spocitano. Abych mel historii vypoctu pro zpetnou referenci
         PL = {}; %objekt CPlots
@@ -96,9 +97,10 @@ classdef CiEEGData < handle
                 disp('no Hheader');
             end 
             if ~isempty(obj.Wp)
-                if isfield(obj.Wp,'opakovani'), opakstat = num2str(obj.Wp.opakovani); else opakstat = 'no'; end
-                if isfield(obj.Wp,'kats'), kats = num2str(obj.Wp.kats); else kats = 'no'; end
-                disp (['Wilcox stats done, kats: ' kats ', opakovani: ' opakstat]);
+                for WpA = 1:numel(obj.Wp)
+                    [katstr, opakstr] = obj.KatOpak2Str(WpA);                       
+                    disp (['Wilcox stats ' num2str(WpA) ' done, kats: ' katstr ', opakovani: ' opakstr]);
+                end
             else
                 disp('no Wilcox stats');
             end
@@ -367,22 +369,22 @@ classdef CiEEGData < handle
             
             iEp = obj.GetEpochsExclude(); %ziska seznam epoch k vyhodnoceni
             EEEGStat = CEEGStat(obj.d,obj.fs);
-            
+            WpA = obj.WpActive; %jen zkratka
             %CELKOVA SIGNIFIKANCE VUCI BASELINE - bez ohledu na kategorie
             baseline = [obj.epochtime(1) iff(obj.baseline(2)>obj.epochtime(1),obj.baseline(2),0)]; %zalezi jestli se baselina a epochtime prekryvaj
             [P,ibaseline,iepochtime,itimewindow] = EEEGStat.WilcoxBaseline(obj.epochtime,baseline,timewindow,iEp,obj.RjEpochCh);   %puvodni baseline uz v epose nemam        
                 %11.12.2017 - pocitam signifikanci hned po konci baseline
                 %ibaseline je cast iepochtime pred koncem baseline nebo pred casem 0
             if numel(timewindow) <= 1 %chci maximalni hodnotu p z casoveho okna
-                obj.Wp.D2 = P; %pole 2D signifikanci si ulozim kvuli kresleni - cas x channels                
+                obj.Wp(WpA).D2 = P; %pole 2D signifikanci si ulozim kvuli kresleni - cas x channels                
             else
-                obj.Wp.D1 = P; %pole 1D signifikanci - jedna hodnota pro kazdy kanal            
+                obj.Wp(WpA).D1 = P; %pole 1D signifikanci - jedna hodnota pro kazdy kanal            
             end
-            obj.Wp.Dparams = timewindow; %hodnoty pro zpetnou kontrolu
-            obj.Wp.Dfdr = 1;
-            obj.Wp.DiEp = iEp; %index zpracovanych epoch 
-            obj.Wp.epochtime = obj.epochtime;
-            obj.Wp.baseline = obj.baseline; %pro zpetnou kontrolu, zaloha parametru
+            obj.Wp(WpA).Dparams = timewindow; %hodnoty pro zpetnou kontrolu
+            obj.Wp(WpA).Dfdr = 1;
+            obj.Wp(WpA).DiEp = iEp; %index zpracovanych epoch 
+            obj.Wp(WpA).epochtime = obj.epochtime;
+            obj.Wp(WpA).baseline = obj.baseline; %pro zpetnou kontrolu, zaloha parametru
             
             if exist('opakovani','var') && ~isempty(opakovani) && iscell(opakovani)
                 assert(numel(opakovani)<=4,'kategorie opakovani mohou byt maximalne ctyri');
@@ -411,23 +413,33 @@ classdef CiEEGData < handle
                     rjepchkat{k,1} = RjEpCh;
                 end
                 %provedu statisticke testy
-                [obj.Wp.WpKat,obj.Wp.WpKatBaseline] = EEEGStat.WilcoxCat(kats,responsekat,baselinekat,rjepchkat,itimewindow,method);                
+                [obj.Wp(WpA).WpKat,obj.Wp(WpA).WpKatBaseline] = EEEGStat.WilcoxCat(kats,responsekat,baselinekat,rjepchkat,itimewindow,method);                
                 %ulozim parametry
                 if ~isempty(KATNUM) %pokud vyhodnocuju opakovani
-                    obj.Wp.kats = KATNUM;    %puvodni kategorie
-                    obj.Wp.opakovani = kats; %v kats jsou ted opakovani
+                    obj.Wp(WpA).kats = KATNUM;    %puvodni kategorie
+                    obj.Wp(WpA).opakovani = kats; %v kats jsou ted opakovani
                 else
-                    obj.Wp.kats = kats; %ulozim si cisla kategorii kvuli grafu PlotResponseCh
-                    obj.Wp.opakovani = {}; %opakovani nedelam
+                    obj.Wp(WpA).kats = kats; %ulozim si cisla kategorii kvuli grafu PlotResponseCh
+                    obj.Wp(WpA).opakovani = {}; %opakovani nedelam
                 end  
             else
-                obj.Wp.kats = kats;
-                obj.Wp.WpKat = cell(0);
-                obj.Wp.opakovani = {};
+                obj.Wp(WpA).kats = kats;
+                obj.Wp(WpA).WpKat = cell(0);
+                obj.Wp(WpA).opakovani = {};
             end
             obj.DatumCas.ResponseSearch = datestr(now);
         end
-        
+        function obj = SetStatActive(obj,WpActive)
+            WpActive = max(1,min(obj.WpActive+1,WpActive)); %osetreni na prilis vysoke a nizke cislo            
+            if WpActive > numel(obj.Wp)
+                disp(['nastavena nova prazdna statistika ' num2str(WpActive)]);
+            else
+               [katstr, opakstr] = obj.KatOpak2Str(WpActive);                
+                disp(['nastavena statistika s kats: ' katstr ', opakovani: ' opakstr]);            
+            end
+            obj.WpActive = WpActive;
+            
+        end
         function Categories(obj)
             %funkce ktera jen vypise kategorie
             obj.PsyData.Categories(1);
@@ -529,11 +541,11 @@ classdef CiEEGData < handle
             %vykresli graf pro kazdy interval do spolecneho plotu
             %vraci prumery[channels x intervaly x kategorie] a MNI(channels)
             %TODO vypisovat jmena kanalu na vysku - nebo jen u tech signifikantnich
-            assert(isfield(obj.Wp, 'kats'),'musi byt definovany kategorie podnetu');
-            assert(isfield(obj.Wp, 'WpKatBaseline'),'musi byt spocitana statistika kategorii');
+            assert(isfield(obj.Wp(obj.WpActive), 'kats'),'musi byt definovany kategorie podnetu');
+            assert(isfield(obj.Wp(obj.WpActive), 'WpKatBaseline'),'musi byt spocitana statistika kategorii');
             if ~exist('channels','var') || isempty(channels) , channels = 1:obj.channels; end
             if ~exist('dofig','var'), dofig = 1; end %defaultne delam obrazek
-            kats = obj.Wp.kats; 
+            kats = obj.Wp(obj.WpActive).kats; 
             [katnum, katstr] = obj.PsyData.Categories();
             katsnames =  cell(1,numel(kats));
             for k = 1:numel(kats)
@@ -550,7 +562,7 @@ classdef CiEEGData < handle
                 %spocitam prumery celkove i za kazdou kategorii v kazdem casovem intervalu
                 % dve cisla v kazdem sloupci - od do ve vterinach   
                 iintervalyData = min(round((intervaly(j,:)-obj.epochtime(1)).*obj.fs),size(obj.d,1)); % pro data kde je na zacatku baseline             
-                iintervalyStat = min(round(intervaly(j,:).*obj.fs),size(obj.Wp.WpKat{1,2},1)); % pro statistiku, kde na zacatku neni baseline              
+                iintervalyStat = min(round(intervaly(j,:).*obj.fs),size(obj.Wp(obj.WpActive).WpKat{1,2},1)); % pro statistiku, kde na zacatku neni baseline              
                 %katdata = obj.CategoryData(kats); 
                 %iCh = min(obj.Wp.D2(iintervalyStat(1):iintervalyStat(2),channels),[],1) < 0.05; %kanaly kde je signifikantni rozdil vuci baseline, alesponjednou
                 %prumery(iCh,j,1) = mean(mean(katdata(iintervalyData(1):iintervalyData(2),iCh,:),3),1); %prumer za vsechy epochy a cely casovy interval
@@ -563,7 +575,7 @@ classdef CiEEGData < handle
                     katdata2 = obj.CategoryData(kats(kombinace(k,2))); 
                     prumery1 = mean(mean(katdata1(iintervalyData(1):iintervalyData(2),:,:),3),1); %prumer pres epochy a pak pres cas - kategorie 1
                     prumery2 = mean(mean(katdata2(iintervalyData(1):iintervalyData(2),:,:),3),1); %prumer pres epochy a pak pres cas - kategorie 2
-                    iCh = min(obj.Wp.WpKat{kombinace(k,2),kombinace(k,1)}(iintervalyStat(1):iintervalyStat(2),channels),[],1) < 0.05; %kanaly, kde je signifikantni rozdil mezi kategoriemi, alespon jednou
+                    iCh = min(obj.Wp(obj.WpActive).WpKat{kombinace(k,2),kombinace(k,1)}(iintervalyStat(1):iintervalyStat(2),channels),[],1) < 0.05; %kanaly, kde je signifikantni rozdil mezi kategoriemi, alespon jednou
                     iCh2 = prumery1>0 | prumery2>0; %chci jen kladne odpovedi
                     p = prumery1(:) - prumery2(:);                 
                     prumery(iCh & iCh2,j,k+numel(kats)) = p(iCh & iCh2);
@@ -578,7 +590,7 @@ classdef CiEEGData < handle
                 %tohle musim vykreslit az jako druhe, protoze to ma min polozek - jinek nesedi barvy v legende
                 for k = 1: numel(kats) % cyklus pres kategorie - rozdil vuci baseline
                     katdata = obj.CategoryData(kats(k)); 
-                    iCh = min(obj.Wp.WpKatBaseline{k,1}(iintervalyStat(1):iintervalyStat(2),channels),[],1) < 0.05; %kanaly kde je signifikantni rozdil vuci baseline, alespon jednou
+                    iCh = min(obj.Wp(obj.WpActive).WpKatBaseline{k,1}(iintervalyStat(1):iintervalyStat(2),channels),[],1) < 0.05; %kanaly kde je signifikantni rozdil vuci baseline, alespon jednou
                     prumery(iCh,j,k) = mean(mean(katdata(iintervalyData(1):iintervalyData(2),iCh,:),3),1); %prumer pres epochy a pak pres cas
                     P = squeeze(prumery(:,j,k));                    
                     if dofig
@@ -944,13 +956,14 @@ classdef CiEEGData < handle
             else
                 obj.plotRCh.ch = ch;
             end
+            WpA = obj.WpActive; %jen zkratka
             if ~exist('kategories','var') || isempty(kategories)
-                if isfield(obj.Wp, 'kats')
-                    kategories = obj.Wp.kats; %pokud jsou kategorie v parametru, prvni volba je pouzit je ze statistiky
+                if isfield(obj.Wp(WpA), 'kats')
+                    kategories = obj.Wp(WpA).kats; %pokud jsou kategorie v parametru, prvni volba je pouzit je ze statistiky
                 elseif isfield(obj.plotRCh,'kategories')
                     kategories = obj.plotRCh.kategories; %hodnoty drive pouzite v grafu, ty maji prednost pred statistikou
-                elseif isfield(obj.Wp,'kats')
-                    kategories = obj.Wp.kats; %hodnoty pouzite ve statistice
+                elseif isfield(obj.Wp(WpA),'kats')
+                    kategories = obj.Wp(WpA).kats; %hodnoty pouzite ve statistice
                 else
                    if numel(obj.PsyData.Categories())<=4 %uz muzu pouzivat 4 kategorie, kvuli Menrot
                      kategories = obj.PsyData.Categories(); %pokud neni vic nez 3 kategorie, vezmu vsechny
@@ -959,15 +972,15 @@ classdef CiEEGData < handle
                 end                
             else                
                 assert(numel(kategories)<=3,'kategorie mohou byt maximalne tri');
-                if ~isempty(obj.Wp.WpKat) && (isempty(obj.Wp.kats) || ~isequal(obj.Wp.kats, kategories))
+                if ~isempty(obj.Wp(WpA).WpKat) && (isempty(obj.Wp(WpA).kats) || ~isequal(obj.Wp(WpA).kats, kategories))
                     disp('Statistika spocitana bez kategorii nebo pro jine kategorie')
                 end
                 obj.plotRCh.kategories = kategories;    %hodnoty zadane parametrem, ty maji absolutni prednost
             end
             %opakovani obrazku kvuli PPA - 28.9.2016
             if ~exist('opakovani','var') || isempty(opakovani)     
-                if isfield(obj.Wp,'opakovani')
-                    opakovani = obj.Wp.opakovani;
+                if isfield(obj.Wp(WpA),'opakovani')
+                    opakovani = obj.Wp(WpA).opakovani;
                 elseif isfield(obj.plotRCh,'opakovani')  %neni zadne drive ulozene
                     opakovani = obj.plotRCh.opakovani; %hodnoty drive pouzite v grafu, ty maji prednost pred statistikou    
                 else 
@@ -978,7 +991,7 @@ classdef CiEEGData < handle
                 obj.plotRCh.opakovani = opakovani;  
             else
                 assert(numel(opakovani)<=3,'kategorie opakovani mohou byt maximalne tri');
-                if ~isempty(obj.Wp.WpKat) && (isempty(obj.Wp.opakovani) || ~isequal(obj.Wp.opakovani, opakovani))
+                if ~isempty(obj.Wp(WpA).WpKat) && (isempty(obj.Wp(WpA).opakovani) || ~isequal(obj.Wp(WpA).opakovani, opakovani))
                     disp('Statistika spocitana bez opakovani nebo pro jina opakovani')
                 end
                 obj.plotRCh.opakovani = opakovani;    %hodnoty zadane parametrem, ty maji absolutni prednost
@@ -1012,22 +1025,22 @@ classdef CiEEGData < handle
                 xlim(obj.epochtime(1:2));
                
                 obj.plotRCh.range = [min(M)-max(E) max(M)+max(E)]; %zjistim a ulozim rozsah hodnot pro moznost nastaveni osy y
-                if isfield(obj.Wp,'D2') %krivka p hodnot z W testu
-                    Tr = linspace(0,obj.epochtime(2),size(obj.Wp.D2,1)); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
+                if isfield(obj.Wp(WpA),'D2') %krivka p hodnot z W testu
+                    Tr = linspace(0,obj.epochtime(2),size(obj.Wp(WpA).D2,1)); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
                     if pvalue %pokud chci zobrazovat hodnotu p value jako krivku
-                        plot(Tr,obj.Wp.D2(:,ch),'b:');  %carkovana modra cara oznacuje signifikanci prumeru
+                        plot(Tr,obj.Wp(WpA).D2(:,ch),'b:');  %carkovana modra cara oznacuje signifikanci prumeru
                     end
                     y = ymin + (ymax-ymin)*0.2;
-                    iWp = obj.Wp.D2(:,ch) <= 0.05;
+                    iWp = obj.Wp(WpA).D2(:,ch) <= 0.05;
                     plot(Tr(iWp),ones(1,sum(iWp))*y,'b.'); %tecky jsou p < 0.05                
                     iWpfirst = find(iWp,1,'first');                 
                     if(numel(iWpfirst)>0) 
                         text(-0.01,y,[ num2str( round(Tr(iWpfirst)*1000)) 'ms']); %cas zacatku signifikance
-                        text(-0.18,y,[ 'p=' num2str(CStat.round(min(obj.Wp.D2(:,ch)),3))]);  %cas zacatku signifikance 
+                        text(-0.18,y,[ 'p=' num2str(CStat.round(min(obj.Wp(WpA).D2(:,ch)),3))]);  %cas zacatku signifikance 
                         line([Tr(iWpfirst) Tr(iWpfirst)],obj.plotRCh.ylim,'Color','blue'); %modra svisla cara u zacatku signifikance
                         text(0.05,y, 'Mean');
                     end
-                    iWp = obj.Wp.D2(:,ch) <= 0.01;
+                    iWp = obj.Wp(WpA).D2(:,ch) <= 0.01;
                     plot(Tr(iWp),ones(1,sum(iWp))*y,'b*'); %hvezdicky jsou p < 0.01
                 end               
                 ylim( [ymin ymax].*1.1);
@@ -1045,7 +1058,7 @@ classdef CiEEGData < handle
                 colorskat = {[0 0 0],[0 1 0],[1 0 0],[0 0 1]; [hue hue hue],[hue 1 hue],[1 hue hue],[hue hue 1]}; % prvni radka - prumery, druha radka errorbars = svetlejsi
                 h_kat = zeros(numel(kategories),2);                 
                 for k= 1 : numel(kategories) %index 1-3 (nebo 4)
-                    if iscell(obj.Wp.kats), kk = obj.Wp.kats{k}(1);  else,   kk = obj.Wp.kats(k);    end % aby barvy odpovidaly kategoriim podnetum spis nez kategoriim podle statistiky
+                    if iscell(obj.Wp(WpA).kats), kk = obj.Wp(WpA).kats{k}(1);  else,   kk = obj.Wp(WpA).kats(k);    end % aby barvy odpovidaly kategoriim podnetum spis nez kategoriim podle statistiky
                     %to se hodi zvlast, kdyz se delaji jen dve kategorie vuci sobe ane vsechny, nebo dve vuci jedne nebo dve vuci dvema
                     colorkatk = [colorskat{1,kk+1} ; colorskat{2,kk+1}]; %dve barvy, na caru a stderr plochu kolem
                     if exist('opakovani','var') && ~isempty(opakovani)
@@ -1067,32 +1080,32 @@ classdef CiEEGData < handle
                     hold on;
                     h_kat(k,1) = plot(T,M,'LineWidth',katlinewidth,'Color',colorkatk(1,:));  %prumerna odpoved,  ulozim si handle na krivku  
                     obj.plotRCh.range = [ min(obj.plotRCh.range(1),min(M)-max(E)) max(obj.plotRCh.range(2),max(M)+max(E))]; %pouziju to pak pri stlaceni / z obrazku
-                    Tr = linspace(obj.Wp.baseline(2),obj.Wp.epochtime(2),size(obj.Wp.D2,1)); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
-                    if isfield(obj.Wp,'WpKat') 
+                    Tr = linspace(obj.Wp(WpA).baseline(2),obj.Wp(WpA).epochtime(2),size(obj.Wp(WpA).D2,1)); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
+                    if isfield(obj.Wp(WpA),'WpKat') 
                         for l = k+1:numel(kategories) %katnum jde od nuly 
-                            if iscell(obj.Wp.kats), colorkatl = obj.Wp.kats{l}(1)+1; else, colorkatl = obj.Wp.kats(l)+1; end
+                            if iscell(obj.Wp(WpA).kats), colorkatl = obj.Wp(WpA).kats{l}(1)+1; else, colorkatl = obj.Wp(WpA).kats(l)+1; end
                             y = ymin + (ymax-ymin)*(0.3 - (k+l)*0.05)  ; %pozice na ose y
                             if k==1, color=colorskat{1,colorkatl}; else color = colorskat{1,1}; end %green a red jsou proti kategorii 0, cerna je kat 1 vs kat 2
                             if pvalue %pokud chci zobrazovat hodnotu p value jako krivku                                
-                                plot(Tr,obj.Wp.WpKat{k,l}(:,ch), ':','Color',color); %carkovana cara oznacuje signifikanci kategorie vuci jine kategorii
+                                plot(Tr,obj.Wp(WpA).WpKat{k,l}(:,ch), ':','Color',color); %carkovana cara oznacuje signifikanci kategorie vuci jine kategorii
                             end
                             %nejdriv p < 0.05                            
-                            iWp = obj.Wp.WpKat{k,l}(:,ch)  <= 0.05; 
+                            iWp = obj.Wp(WpA).WpKat{k,l}(:,ch)  <= 0.05; 
                             plot(Tr(iWp),ones(1,sum(iWp))*y, '.','Color',color); %                        
                             iWpfirst = find(iWp,1,'first');                        
                             if(numel(iWpfirst)>0)                                
                                 text(-0.05+Tr(1),y,[ num2str(round(Tr(iWpfirst)*1000)) 'ms']);  %cas zacatku signifikance 
-                                text(-0.15+Tr(1),y,[ 'p=' num2str(CStat.round(min(obj.Wp.WpKat{k,l}(:,ch)),3))]);  %cas zacatku signifikance 
+                                text(-0.15+Tr(1),y,[ 'p=' num2str(CStat.round(min(obj.Wp(WpA).WpKat{k,l}(:,ch)),3))]);  %cas zacatku signifikance 
                                 line([Tr(iWpfirst) Tr(iWpfirst)],obj.plotRCh.ylim,'Color',color); %modra svisla cara u zacatku signifikance                                
                             end                            
                             %potom jeste p < 0.01
-                            iWp = obj.Wp.WpKat{k,l}(:,ch)  <= 0.01;                          
+                            iWp = obj.Wp(WpA).WpKat{k,l}(:,ch)  <= 0.01;                          
                             plot(Tr(iWp),ones(1,sum(iWp))*y,  '*','Color',color); %
                             % jmena kategorii vypisuju vzdy
                             if exist('opakovani','var') && ~isempty(opakovani)   %pokud vyhodnocuju opakovani
                                 kat1name =  obj.PsyData.OpakovaniName(kategories{l});
                                 kat2name =  obj.PsyData.OpakovaniName(kategories{k});
-                                kat3name =  [ ' (' obj.PsyData.CategoryName(obj.Wp.kats) ')' ]; %jmeno kategorie obrazku, ze ktere se opakovani pocitalo
+                                kat3name =  [ ' (' obj.PsyData.CategoryName(obj.Wp(WpA).kats) ')' ]; %jmeno kategorie obrazku, ze ktere se opakovani pocitalo
                             elseif iscell(kategories)
                                 kat1name =  obj.PsyData.CategoryName(kategories{l});
                                 kat2name =  obj.PsyData.CategoryName(kategories{k});
@@ -1102,17 +1115,17 @@ classdef CiEEGData < handle
                                 kat2name =  obj.PsyData.CategoryName(kategories(k));
                                 kat3name = '';
                             end
-                            text(0.05+obj.Wp.epochtime(1),y, ['\color[rgb]{' num2str(colorskat{1,colorkatl}) '}' kat1name ...
+                            text(0.05+obj.Wp(WpA).epochtime(1),y, ['\color[rgb]{' num2str(colorskat{1,colorkatl}) '}' kat1name ...
                                     '\color[rgb]{' num2str(color) '} *X* '  ...
                                     '\color[rgb]{' num2str(colorkatk(1,:)) '}' kat2name kat3name]);                            
                         end                      
                         
                     end
-                    if isfield(obj.Wp,'WpKatBaseline') %signifikance vuci baseline
-                            iWpB = obj.Wp.WpKatBaseline{k,1}(:,ch)  <= 0.05; %nizsi signifikance
+                    if isfield(obj.Wp(WpA),'WpKatBaseline') %signifikance vuci baseline
+                            iWpB = obj.Wp(WpA).WpKatBaseline{k,1}(:,ch)  <= 0.05; %nizsi signifikance
                             y = ymin + (ymax-ymin)*(0.28 - (k+2)*0.05)  ;
                             plot(Tr(iWpB),ones(1,sum(iWpB))*y, '.','Color',colorkatk(1,:),'MarkerSize',5); % 
-                            iWpB = obj.Wp.WpKatBaseline{k,1}(:,ch)  <= 0.01; % vyssi signifikance
+                            iWpB = obj.Wp(WpA).WpKatBaseline{k,1}(:,ch)  <= 0.01; % vyssi signifikance
                             %y = ymin + (ymax-ymin)*(0.28 - (k+2)*0.05)  ;
                             plot(Tr(iWpB),ones(1,sum(iWpB))*y, 'p','Color',colorkatk(1,:),'MarkerSize',5); % 
                             if exist('opakovani','var') && ~isempty(opakovani)
@@ -1122,11 +1135,11 @@ classdef CiEEGData < handle
                             else
                                 kat2name =  obj.PsyData.CategoryName(kategories(k));
                             end
-                            text(0.05+obj.Wp.epochtime(1), y, ['\color[rgb]{' num2str(colorkatk(1,:)) '}' kat2name ' vs.baseline'] );
+                            text(0.05+obj.Wp(WpA).epochtime(1), y, ['\color[rgb]{' num2str(colorkatk(1,:)) '}' kat2name ' vs.baseline'] );
                             line([Tr(1) Tr(end)],[y y]+(ymax-ymin)*0.03 ,'Color',[0.5 0.5 0.5]);
                                 %kazde jmeno kategorie jinou barvou
                             if pvalue %pokud chci zobrazovat hodnotu p value jako krivku
-                               plot(Tr,obj.Wp.WpKatBaseline{k,1}(:,ch), '.','Color',colorskat{1,k}); %teckovana cara oznacuje signifikanci kategorie vuci baseline
+                               plot(Tr,obj.Wp(WpA).WpKatBaseline{k,1}(:,ch), '.','Color',colorskat{1,k}); %teckovana cara oznacuje signifikanci kategorie vuci baseline
                             end
                      end
                 end
@@ -1169,12 +1182,13 @@ classdef CiEEGData < handle
             %vykresli signifikanci odpovedi u vsech kanalu EEG vypocitanou pomoci ResponseSearch                                
             assert(obj.epochs > 1,'only for epoched data');
             T = 0:0.1:obj.epochtime(2); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
-            if isfield(obj.Wp,'D1') %první 2D plot
+            WpA = obj.WpActive; %jen zkratka
+            if isfield(obj.Wp(WpA),'D1') %první 2D plot
                 figure('Name','W plot 1D');
-                isignif = obj.Wp.D1<0.05;
-                plot(find(~isignif),obj.Wp.D1(~isignif),'o','MarkerSize',8,'MarkerEdgeColor','b','MarkerFaceColor','b');
+                isignif = obj.Wp(WpA).D1<0.05;
+                plot(find(~isignif),obj.Wp(WpA).D1(~isignif),'o','MarkerSize',8,'MarkerEdgeColor','b','MarkerFaceColor','b');
                 hold on;
-                plot(find(isignif),obj.Wp.D1(isignif),'o','MarkerSize',8,'MarkerEdgeColor','r','MarkerFaceColor','r');
+                plot(find(isignif),obj.Wp(WpA).D1(isignif),'o','MarkerSize',8,'MarkerEdgeColor','r','MarkerFaceColor','r');
                 ylim([0 0.1]);
                 view(-90, 90); %# Swap the axes
                 set(gca, 'ydir', 'reverse'); %# Reverse the y-axis 
@@ -1184,14 +1198,14 @@ classdef CiEEGData < handle
                     text(obj.els(e)-1,-0.01,obj.CH.H.channels(1,obj.els(e)).name);
                 end
                 for ch=1:obj.channels
-                    if obj.Wp.D1(ch)<0.1 %anatomicka jmena u signif kontaktu
+                    if obj.Wp(WpA).D1(ch)<0.1 %anatomicka jmena u signif kontaktu
                         text(ch,0.102,obj.CH.H.channels(1,ch).neurologyLabel);
                     end
                 end
             end
-            if isfield(obj.Wp,'D2') %isprop(obj,'Wp') && isfield(obj.Wp,'D2')
+            if isfield(obj.Wp(WpA),'D2') %isprop(obj,'Wp') && isfield(obj.Wp,'D2')
                 figure('Name','W map 2D');
-                imagesc(T,1:obj.channels,1 - obj.Wp.D2', [0.95 1]); %mapa, od p>0.05 bude modra barva 
+                imagesc(T,1:obj.channels,1 - obj.Wp(WpA).D2', [0.95 1]); %mapa, od p>0.05 bude modra barva 
                 axis ij;
                 ylabel('channels');
                 xlabel('time [s]');
@@ -1201,7 +1215,7 @@ classdef CiEEGData < handle
                     text(-T(end)/10,obj.els(e)-1,obj.CH.H.channels(1,obj.els(e)).name);
                 end
                 for ch=1:obj.channels %anatomicka jmena u signif kontaktu
-                    if any(obj.Wp.D2(:,ch)<0.05)
+                    if any(obj.Wp(WpA).D2(:,ch)<0.05)
                         text(T(end)*1.07,ch,[ ' ' obj.CH.H.channels(1,ch).neurologyLabel ',' obj.CH.H.channels(1,ch).ass_brainAtlas],'FontSize',8);
                         text(T(end)/10,ch,num2str(ch),'color','w');
                     end
@@ -1503,8 +1517,8 @@ classdef CiEEGData < handle
                    obj.plotRCh.ylim = obj.plotRCh.range; %spocitalo se pri volani PlotResponseCh
                    obj.PlotResponseCh( obj.plotRCh.ch); %prekreslim grafy
                case 'space' %zobrazi i prumerne krivky
-                   if isa(obj,'CHilbert'), obj.PlotResponseFreq(obj.plotRCh.ch,obj.Wp.kats); end %vykreslim vsechna frekvencni pasma
-                   obj.PlotEpochs(obj.plotRCh.ch,obj.Wp.kats); %vykreslim prumery freq u vsech epoch
+                   if isa(obj,'CHilbert'), obj.PlotResponseFreq(obj.plotRCh.ch,obj.Wp(obj.WpActive).kats); end %vykreslim vsechna frekvencni pasma
+                   obj.PlotEpochs(obj.plotRCh.ch,obj.Wp(obj.WpActive).kats); %vykreslim prumery freq u vsech epoch
                    figure(obj.plotRCh.fh); %dam puvodni obrazek dopredu
                otherwise
                    disp(['You just pressed: ' eventDat.Key]);
@@ -1597,6 +1611,27 @@ classdef CiEEGData < handle
             RjEpochCh = RjEpochCh * filterMatrix; 
             RjEpochCh(RjEpochCh == 2) = 1;
             obj.RjEpochCh = RjEpochCh'; %vyrazeni kazdeho kanalu puvodni reference znamena vyrazeni dvou kanalu bipolarni reference 
+        end
+        function [katstr, opakstr] = KatOpak2Str(obj,WpA)
+            if ~exist('WpA','var'), WpA = 1; end
+            if isfield(obj.Wp(WpA),'opakovani')
+                if iscell(obj.Wp(WpA).opakovani)
+                    opakstr = strjoin(cellfun(@num2str,obj.Wp(WpA).opakovani,'un',0));  %tohle jsem nejak vygooglil, ale nevypisuje to slozene zavorky
+                else
+                    opakstr = num2str(obj.Wp(WpA).opakovani); 
+                end
+            else 
+                opakstr = 'no'; 
+            end
+            if isfield(obj.Wp(WpA),'kats')
+               if iscell(obj.Wp(WpA).kats)
+                   katstr = strjoin(cellfun(@num2str,obj.Wp(WpA).kats,'un',0)); %chci nejak vypsat kategorie v cell array
+               else
+                   katstr = num2str(obj.Wp(WpA).kats);  
+               end
+            else
+                katstr = 'no';
+            end
         end
     end
     

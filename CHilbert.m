@@ -164,8 +164,8 @@ classdef CHilbert < CiEEGData
             end
             
             if ~exist('kategories','var')
-                if isfield(obj.Wp, 'kats')
-                    kategories = obj.Wp.kats; 
+                if isfield(obj.Wp(obj.WpActive), 'kats')
+                    kategories = obj.Wp(obj.WpActive).kats; 
                 elseif isfield(obj.plotF,'kategories')
                     kategories = obj.plotF.kategories;
                 else
