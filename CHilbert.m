@@ -410,25 +410,6 @@ classdef CHilbert < CiEEGData
             set(gcf, 'PaperPosition', [0 0 55 30]);
         end
         
-        function [fmean, fstd] = meanZscoredPower(obj, time, channel, epochs)
-            %vrati priemernu power a strednu chybu priemeru pre kazdu
-            %frekvenciu cez cas a epochy
-            mean_time = squeeze(mean(obj.HFreqEpochs(time,channel,:,epochs),1)); %priemerna power pre kazdu frekvenciu cez cas -> ostane freq x epoch
-            fmean = mean(mean_time,2); %priemerna power pre kazdu frekvenciu cez epochy
-            fstd = std(mean_time,0,2)./sqrt(length(epochs)); %stredna chyba priemeru pre kazdu frekvenciu cez epochy -> std()/sqrt(n)
-        end
-        
-        function subplotTimeFrequency(obj, data, time)
-            colormap parula; 
-            imagesc(data, 'XData', time, 'YData', obj.Hf); 
-            set(gca,'YDir','normal');
-            xlabel('Time (s)');
-            ylabel('Frequency (Hz)');
-            h = colorbar;
-            ylabel(h, 'z-scored power'); 
-           % title([names{channel}, ' ', labels{channel}]);
-        end
-        
         function PlotAllEpochs(obj, icondition, channel,zlimits)
             % PlotAllEpochs(obj, icondition, channel,ylimits) - cislo podminky, kanal, rozsah z osy
             % plots all available time x frequency epoch maps for given channel and condition (aedist: 1 = ego, 2 = allo, 0 = red)
@@ -506,86 +487,39 @@ classdef CHilbert < CiEEGData
             obj.plotEpochData();
         end    
          
-        function plotEpochData(obj)     
-            %vykresli vlavo time x frequency graf pre danu epochu 
-            %vpravo average power cez vsetky frekvencie danej epochy 
-            %pouziva sa v PlotMovingEpochs
-            assert(~isempty(obj.HFreqEpochs),'soubor s frekvencnimi daty pro epochy neexistuje');
-            subplot(1,2,1) % subplot time x frequency power for given epoch
-            imagesc(squeeze(obj.HFreqEpochs(:,obj.plotEpochs.channels(obj.plotEpochs.iChannel),:,obj.plotEpochs.iEpoch))', 'XData', obj.plotEpochs.T, 'YData', obj.Hf);
-            caxis(obj.plotEpochs.zlimits(obj.plotEpochs.iChannel,:));
-            colormap parula; %aby to bylo jasne u vsech verzi matlabu - i 2016
-            set(gca,'YDir','normal');
-            colorbar;
-            
-            hold on; % plot rejected line 
-            obj.PlotRejected(obj.plotEpochs.channels(obj.plotEpochs.iChannel), obj.plotEpochs.T, obj.plotEpochs.iEpoch, sum(obj.plotEpochs.rejectedEpochs(obj.plotEpochs.iEpoch,:)));
-            response_time = obj.PsyData.P.data(obj.plotEpochs.iEpoch, 4);
-            
-            hold on; % plot response time 
-            plot([response_time response_time], [obj.Hf(1)-10 obj.Hf(end)+10],'black','LineWidth',4);
-            hold on;
-            
-            subplot(1,2,2) % subplot mean power across all frequencies
-            plot(obj.plotEpochs.T, obj.d(:,obj.plotEpochs.channels(obj.plotEpochs.iChannel), obj.plotEpochs.iEpoch)');
-            
-            hold on; % plot response time 
-            plot([response_time response_time], obj.plotEpochs.zlimits(obj.plotEpochs.iChannel,:), 'black', 'LineWidth', 4);
-            ylim(obj.plotEpochs.zlimits(obj.plotEpochs.iChannel,:)); % y axis = zlimits (default/specified by user)
-            xlim([obj.plotEpochs.T(1) obj.plotEpochs.T(end)]); % x axis = time
-            
-            title(sprintf('%s - channel %d epoch %d', obj.epochData{obj.plotEpochs.iEpoch,1}, obj.plotEpochs.channels(obj.plotEpochs.iChannel), obj.plotEpochs.iEpoch), 'FontSize', 12);
-            hold off;
-        end
-        
-        function plotFrequencies(obj, psy, channels, frequencies, limits)
-            
-            assert(isa(psy,'struct'),'prvni parametry musi by struktura s daty z psychopy');
-            obj.PsyData = CPsyData(psy);
-            
-            if isempty(frequencies); obj.plotFreqs.freq = obj.Hf; %~exists(frequencies) || 
-                else obj.plotFreqs.freq = frequencies; end
-            
-            obj.plotFreqs.f = figure('Name','All Frequencies','Position', [20, 100, 1000, 600]);
+        function PlotFrequencies(obj, psy, channels, frequencies, limits, timeDelay)
+            % plots time x (z-scored) frequency of unepoched data for all/selected
+            % frequencies and given channel
+            assert(isa(psy,'struct'),'Prvy parameter musi byt struktura s datami z psychopy');
+            obj.PsyData = CPsyData(psy); 
             obj.plotFreqs.channels = channels;
-            set(obj.plotFreqs.f, 'KeyPressFcn', @obj.MovePlotFreqs);
-            
-            obj.plotFreqs.iChannel = 1; % initiate channel index
-            obj.plotFreqs.iTime = 0; % initiate epoch index
-            obj.plotFreqs.timeDelay =  5*obj.fs;
-            obj.plotFreqs.podnety = (obj.PsyData.P.data(:,obj.PsyData.P.sloupce.ts_podnet) - obj.tabs(1))*24*3600;
-            obj.plotFreqs.odpovede = (obj.PsyData.P.data(:,obj.PsyData.P.sloupce.ts_odpoved) - obj.tabs(1))*24*3600;
-            
+            if ~exist('frequencies','var') || isempty(frequencies); obj.plotFreqs.iFreq = 1:obj.Hf;
+                else [~,obj.plotFreqs.iFreq] = intersect(obj.Hf,frequencies); end % ak sme nevybrali frekvencie, zobrazia sa vsetky
             % calculate ylimits for all channels
-            obj.plotFreqs.ylimits = zeros(length(channels),2); %length(obj.Hf),
-            for ch = 1:length(channels)
-                if isempty(limits)
-                    obj.plotFreqs.ylimits(ch, :) = obj.getYlimits(obj.plotFreqs.channels(ch), obj.plotFreqs.freq)';
+            obj.plotFreqs.ylimits = zeros(length(channels),2);
+            zeros(length(channels),2)
+            for ch = 1:length(channels) % zatial je len jeden, do buducna moznost prepinat medzi channels?
+                if ~exist('limits','var') || isempty(limits)
+                    obj.getYlimits(obj.plotFreqs.channels(ch), obj.plotFreqs.iFreq)'
+                    obj.plotFreqs.ylimits(ch, :) = obj.getYlimits(obj.plotFreqs.channels(ch), obj.plotFreqs.iFreq)';
                 else
                     obj.plotFreqs.ylimits(ch, :) = limits;
                 end
             end
+            if ~exist('timeDelay','var'); obj.plotFreqs.timeDelay = 10*obj.fs; 
+                else obj.plotFreqs.timeDelay = timeDelay*obj.fs; end
+            
+            obj.plotFreqs.f = figure('Name','All Frequencies','Position', [20, 100, 1000, 600]);
+            set(obj.plotFreqs.f, 'KeyPressFcn', @obj.MovePlotFreqs);
+            
+            obj.plotFreqs.iChannel = 1; % initiate channel index
+            obj.plotFreqs.iTime = 0; % initiate epoch index
+     
+            obj.plotFreqs.podnety = (obj.PsyData.P.data(:,obj.PsyData.P.sloupce.ts_podnet) - obj.tabs(1))*24*3600;
+            obj.plotFreqs.odpovede = (obj.PsyData.P.data(:,obj.PsyData.P.sloupce.ts_odpoved) - obj.tabs(1))*24*3600;
+            obj.plotFreqs.colors = {'black','green','red','blue'};
             
             obj.plotFreqData();
-        end
-        
-        function plotFreqData(obj)
-            for iFreq = 1:length(obj.plotFreqs.freq)
-                subplot(length(obj.plotFreqs.freq),1,iFreq)
-                time = (obj.plotFreqs.iTime*obj.fs+1):(obj.plotFreqs.iTime*obj.fs+obj.plotFreqs.timeDelay);
-                x = time./obj.fs;
-                y = obj.HFreq(time,obj.plotFreqs.channels(obj.plotFreqs.iChannel),iFreq);
-                neg = y<0;
-                plot(x(~neg),y(~neg),'r.',x(neg),y(neg),'b.','markers',5); hold on;
-                xlim([x(1) x(end)]);
-                ylim(obj.plotFreqs.ylimits(obj.plotFreqs.iChannel,:));
-                podnety = obj.plotFreqs.podnety(obj.plotFreqs.podnety >= x(1) & obj.plotFreqs.podnety <= x(end));
-                plot([podnety podnety]', repmat(ylim,length(podnety),1)','g', 'LineWidth',3);
-                odpovede = obj.plotFreqs.odpovede(obj.plotFreqs.odpovede >= x(1) & obj.plotFreqs.odpovede <= x(end));
-                plot([odpovede odpovede]', repmat(ylim,length(odpovede),1)','k', 'LineWidth',2);
-                
-                title([num2str(obj.plotFreqs.freq(iFreq)), ' Hz'])
-            end
         end
         
         function fig = plotTheta(obj, channel)
@@ -965,8 +899,9 @@ classdef CHilbert < CiEEGData
         end
         
         function ylimits = getYlimits(obj, ch, freq)
-            ymin = min(min(squeeze(obj.HFreq(:,ch,freq))));
-            ymax = max(max(squeeze(obj.HFreq(:,ch,freq))));
+            [~,fq] = intersect(obj.Hf, freq);
+            ymin = min(min(squeeze(obj.HFreq(:,ch,fq))));
+            ymax = max(max(squeeze(obj.HFreq(:,ch,fq))));
             ylimits = [ymin; ymax];
         end
         
@@ -998,7 +933,86 @@ classdef CHilbert < CiEEGData
             end
         end
         
-       
+        function [fmean, fstd] = meanZscoredPower(obj, time, channel, epochs)
+            %vrati priemernu power a strednu chybu priemeru pre kazdu
+            %frekvenciu cez cas a epochy
+            mean_time = squeeze(mean(obj.HFreqEpochs(time,channel,:,epochs),1)); %priemerna power pre kazdu frekvenciu cez cas -> ostane freq x epoch
+            fmean = mean(mean_time,2); %priemerna power pre kazdu frekvenciu cez epochy
+            fstd = std(mean_time,0,2)./sqrt(length(epochs)); %stredna chyba priemeru pre kazdu frekvenciu cez epochy -> std()/sqrt(n)
+        end
+        
+        function subplotTimeFrequency(obj, data, time)
+            colormap parula; 
+            imagesc(data, 'XData', time, 'YData', obj.Hf); 
+            set(gca,'YDir','normal');
+            xlabel('Time (s)');
+            ylabel('Frequency (Hz)');
+            h = colorbar;
+            ylabel(h, 'z-scored power'); 
+           % title([names{channel}, ' ', labels{channel}]);
+        end
+        
+        function plotEpochData(obj)     
+            %vykresli vlavo time x frequency graf pre danu epochu 
+            %vpravo average power cez vsetky frekvencie danej epochy 
+            %pouziva sa v PlotMovingEpochs
+            assert(~isempty(obj.HFreqEpochs),'soubor s frekvencnimi daty pro epochy neexistuje');
+            subplot(1,2,1) % subplot time x frequency power for given epoch
+            imagesc(squeeze(obj.HFreqEpochs(:,obj.plotEpochs.channels(obj.plotEpochs.iChannel),:,obj.plotEpochs.iEpoch))', 'XData', obj.plotEpochs.T, 'YData', obj.Hf);
+            caxis(obj.plotEpochs.zlimits(obj.plotEpochs.iChannel,:));
+            colormap parula; %aby to bylo jasne u vsech verzi matlabu - i 2016
+            set(gca,'YDir','normal');
+            colorbar;
+            
+            hold on; % plot rejected line 
+            obj.PlotRejected(obj.plotEpochs.channels(obj.plotEpochs.iChannel), obj.plotEpochs.T, obj.plotEpochs.iEpoch, sum(obj.plotEpochs.rejectedEpochs(obj.plotEpochs.iEpoch,:)));
+            response_time = obj.PsyData.P.data(obj.plotEpochs.iEpoch, 4);
+            
+            hold on; % plot response time 
+            plot([response_time response_time], [obj.Hf(1)-10 obj.Hf(end)+10],'black','LineWidth',4);
+            hold on;
+            
+            subplot(1,2,2) % subplot mean power across all frequencies
+            plot(obj.plotEpochs.T, obj.d(:,obj.plotEpochs.channels(obj.plotEpochs.iChannel), obj.plotEpochs.iEpoch)');
+            
+            hold on; % plot response time 
+            plot([response_time response_time], obj.plotEpochs.zlimits(obj.plotEpochs.iChannel,:), 'black', 'LineWidth', 4);
+            ylim(obj.plotEpochs.zlimits(obj.plotEpochs.iChannel,:)); % y axis = zlimits (default/specified by user)
+            xlim([obj.plotEpochs.T(1) obj.plotEpochs.T(end)]); % x axis = time
+            
+            title(sprintf('%s - channel %d epoch %d', obj.epochData{obj.plotEpochs.iEpoch,1}, obj.plotEpochs.channels(obj.plotEpochs.iChannel), obj.plotEpochs.iEpoch), 'FontSize', 12);
+            hold off;
+        end
+        
+        function plotFreqData(obj)
+            % plot all unepoched transformed data
+            % one subplot = one frequency
+            % called from PlotFrequencies()
+            time = (obj.plotFreqs.iTime*obj.fs+1):(obj.plotFreqs.iTime*obj.fs+obj.plotFreqs.timeDelay);
+            x = time./obj.fs; % x axis
+            
+            for iFreq = 1:length(obj.plotFreqs.iFreq)
+                subplot(length(obj.plotFreqs.iFreq),1,iFreq)
+                
+                y = obj.HFreq(time,obj.plotFreqs.channels(obj.plotFreqs.iChannel),obj.plotFreqs.iFreq(iFreq)); % frequency (z-scored) power values
+                neg = y<0; % negative frequency power values
+                plot(x(~neg),y(~neg),'r.',x(neg),y(neg),'b.','markers',5); hold on; % plots positive values with red, negative with blue
+                xlim([x(1) x(end)]); % set x axis limits
+                ylim(obj.plotFreqs.ylimits(obj.plotFreqs.iChannel,:)); % set y axis limits
+                iPodnety = find(obj.plotFreqs.podnety >= x(1) & obj.plotFreqs.podnety <= x(end));
+                t = '';
+                for i = 1:numel(iPodnety) % plot colored stimuli and responses
+                    podnet = obj.PsyData.P.data(iPodnety(i),obj.PsyData.P.sloupce.kategorie);
+                    plot([obj.plotFreqs.podnety(iPodnety(i)) obj.plotFreqs.podnety(iPodnety(i))]', ylim', 'LineWidth',3,'Color', obj.plotFreqs.colors{podnet+1}); hold on;    
+                    t = strcat(t,'{\color{', obj.plotFreqs.colors{podnet+1},'}',obj.PsyData.P.strings.podminka(podnet+1),'}, '); % title
+                end
+                
+                odpovede = obj.plotFreqs.odpovede(obj.plotFreqs.odpovede >= x(1) & obj.plotFreqs.odpovede <= x(end));
+                plot([odpovede odpovede]', repmat(ylim,length(odpovede),1)','k', 'LineWidth',2);
+                title(strcat(num2str(obj.plotFreqs.iFreq(iFreq)), ' Hz (', t, ')'))
+            end
+        end
+        
     end
 end
 
