@@ -1,12 +1,12 @@
 function [ ] = BatchStat( testname,filename )
 %BATCHSTAT vypocita statistiku pro vsechny soubory pro jeden test
-%   hlavne kvuli 
+%   puvodne hlavne kvuli permutacni statistice a potom kvuli doplneni statistiky o dalsi 
 
 cfg=struct;
 cfg.srovnejresp = 0;
 cfg.hybernovat = 1;
-cfg.statmethod = 'permut'; 
-%cfg.statmethod = 'wilcox';
+%cfg.statmethod = 'permut'; 
+cfg.statmethod = 'wilcox';
 
 if ~isfield(cfg,'hybernovat'), cfg.hybernovat = 0; end %jestli chci po konci skriptu pocitac uspat - ma prednost
 if ~isfield(cfg,'vypnout'), cfg.vypnout = 0; end %jestli chci po konci skriptu pocitac vypnout (a nechci ho hybernovat) 
@@ -46,7 +46,14 @@ for p = 1:numel(pacienti) % cyklus pacienti
                 pacienti(p).todo = 0; %nechci ho dal zpracovavat
                 continue;
             end
-            E.ResponseSearch(0.1,stat_kats, stat_opak,cfg.statmethod);
+            if iscell(stat_kats) %pokud mam nekolik ruznych statistik na spocitani
+                for WpA = 1:numel(stat_kats)
+                    E.SetStatActive(WpA);
+                    E.ResponseSearch(0.1,stat_kats{WpA},stat_opak,cfg.statmethod);
+                end
+            else
+                E.ResponseSearch(0.1,stat_kats, stat_opak,cfg.statmethod);
+            end
             E.Save();
             msg = ' file saved OK';
             disp(msg); fprintf(fileID,[msg '\n']);

@@ -1615,20 +1615,22 @@ classdef CiEEGData < handle
         function [katstr, opakstr] = KatOpak2Str(obj,WpA)
             if ~exist('WpA','var'), WpA = 1; end
             if isfield(obj.Wp(WpA),'opakovani')
-                if iscell(obj.Wp(WpA).opakovani)
-                    opakstr = strjoin(cellfun(@num2str,obj.Wp(WpA).opakovani,'un',0));  %tohle jsem nejak vygooglil, ale nevypisuje to slozene zavorky
-                else
-                    opakstr = num2str(obj.Wp(WpA).opakovani); 
-                end
+                opakstr = cell2str(obj.Wp(WpA).opakovani);
+%                 if iscell(obj.Wp(WpA).opakovani)
+%                     strjoin(cellfun(@num2str,obj.Wp(WpA).opakovani,'un',0));  %tohle jsem nejak vygooglil, ale nevypisuje to slozene zavorky
+%                 else
+%                     opakstr = num2str(obj.Wp(WpA).opakovani); 
+%                 end
             else 
                 opakstr = 'no'; 
             end
             if isfield(obj.Wp(WpA),'kats')
-               if iscell(obj.Wp(WpA).kats)
-                   katstr = strjoin(cellfun(@num2str,obj.Wp(WpA).kats,'un',0)); %chci nejak vypsat kategorie v cell array
-               else
-                   katstr = num2str(obj.Wp(WpA).kats);  
-               end
+               katstr = cell2str(obj.Wp(WpA).kats); %moje nova funkce 6.3.2018
+%                if iscell(obj.Wp(WpA).kats)
+%                    katstr = strjoin(cellfun(@num2str,obj.Wp(WpA).kats,'un',0)); %chci nejak vypsat kategorie v cell array
+%                else
+%                    katstr = num2str(obj.Wp(WpA).kats);  
+%                end
             else
                 katstr = 'no';
             end

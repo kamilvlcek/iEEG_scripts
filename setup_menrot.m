@@ -13,7 +13,7 @@ else %zarovnani epoch podle podnetu (tj. normalne)
     setup.baseline = [-.2 0]  ; %baseline [-1 0.8]; [-0.5 -0.2] Aedist 2017. 2017/11 - zase [-.2 0]    
 end
 setup.prefix = 'Menrot'; %musi byt bud AlloEgo, PPA, AEdist
-setup.stat_kats = [0 1 2 3];  %  Menrot 'vy-2D' 'vy-3D' 'znacka-2D' 'znacka-3D'; 
+setup.stat_kats = {[0 1 2 3],{[0 1],[2 3]},{[0 2],[1 3]}};  %  Menrot 'vy-2D' 'vy-3D' 'znacka-2D' 'znacka-3D'; 
 setup.stat_opak = {}; %{[1 2],[4 5]}; %PPA opakovani 12 vs 45
 setup.subfolder = 'menrot'; %podadresar, specificky pro test, muze byt prazdne pokud se nepouzivaji podadresare
 setup.alignresponse = alignresponse;
