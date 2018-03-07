@@ -15,12 +15,13 @@ classdef CBrainPlot < handle
     end
     
     methods (Access = public)        
-        function [obj] = IntervalyResp(obj,testname,intervals,filename)
+        function [obj] = IntervalyResp(obj,testname,intervals,filename,contrast)
             %vola postupne pro vsechny pacienty E.IntervalyResp a uklada vysledky
             %vyradi vsechny kontakty bez odpovedi nebo se zapornou odpovedi
             %spoji vsechno dohromady
             %vrati vysledky ve formatu pro SEEE-vizualization
             %napr CB.IntervalyResp('aedist',[0.2 0.8],'AEdist CHilbert 50-120 refBipo Ep2017-11_CHilb.mat');
+            if ~exist('contrast','var'), contrast = 1; end; %defaultni je prvni kontrast
             if strcmp(testname,'aedist')
                 pacienti = pacienti_aedist(); %nactu celou strukturu pacientu    
             elseif strcmp(testname,'ppa')
@@ -44,6 +45,7 @@ classdef CBrainPlot < handle
                         pacienti(p).todo = 0; %nechci ho dal zpracovavat
                         continue;
                     end
+                    E.SetStatActive(contrast); %nastavi jeden z ulozenych statistickych kontrastu
                     [prumery, MNI,names,~,katstr] = E.IntervalyResp( intervals,[],0);   %#ok<PROPLC> %no figure, funkce z CiEEGData                           
                     obj.pacients{p} = pacienti(p).folder;
                     clear E;
@@ -110,9 +112,10 @@ classdef CBrainPlot < handle
             obj.katstr = CB.katstr;
             obj.intervals = CB.intervals;       
         end
-        function PlotBrain3D(obj,kategorie)
+        function PlotBrain3D(obj,kategorie,outputDir) %#ok<INUSD>
             assert(~isempty(obj.VALS),'zadna data VALS');
-            if ~exist('kategorie','var'), kategorie = 1:size(obj.VALS,2); end %muzu chtit jen nektere kategorie
+            if ~exist('kategorie','var') || isempty(kategorie) , kategorie = 1:size(obj.VALS,2); end %muzu chtit jen nektere kategorie
+            if ~exist('outputDir','var'), outputDir = 'd:\eeg\motol\CBrainPlot\'; end; %#ok<NASGU>   
             if ~isempty(obj.brainsurface)
                 brainsurface = obj.brainsurface;  %#ok<PROPLC>
             end
@@ -138,7 +141,7 @@ classdef CBrainPlot < handle
                         disp(figureNamePrefix);
                         vals_channels = obj.VALS{interval,kat}; %#ok<NASGU>
                         mni_channels = obj.MNI{interval,kat};   %#ok<NASGU>                    
-                        outputDir = 'd:\eeg\motol\CBrainPlot\';    %#ok<NASGU>                           
+                                                    
                         names_channels = []; %#ok<NASGU> 
                         FontSize = 4; %#ok<NASGU>   
                         %nejdriv vykreslim bez popisku elektrod

@@ -403,10 +403,8 @@ classdef CiEEGData < handle
                 for k = 1:numel(kats) %pro vsechny kategorie/opakovani
                     if ~isempty(KATNUM) 
                         [katdata,~,RjEpCh] = obj.CategoryData(KATNUM,[],kats{k}); %v kats jsou ted opakovani
-                    elseif iscell(kats)
-                        [katdata,~,RjEpCh] = obj.CategoryData(kats{k}); %muze byt cellarray, aby mohlo byt vic kategorii proti jedne
                     else
-                        [katdata,~,RjEpCh] = obj.CategoryData(kats(k)); %epochy time*channel*epochs jedne kategorie, uz jsou vyrazeny vyrazene epochy
+                        [katdata,~,RjEpCh] = obj.CategoryData(cellval(kats,k)); %epochy time*channel*epochs jedne kategorie, uz jsou vyrazeny vyrazene epochy
                     end
                     responsekat{k,1} = katdata( ibaseline(2) - iepochtime(1)+1 :end,:,:); %jen cas po podnetu : cas x channel x epochs; 
                     baselinekat{k,1} = katdata( ibaseline(1) - iepochtime(1)+1 : ibaseline(2) - iepochtime(1),:,:); %jen cas po podnetu : cas x channel x epochs; 
@@ -539,8 +537,7 @@ classdef CiEEGData < handle
         function [prumery, MNI,names,intervaly,katsnames] = IntervalyResp(obj, intervaly,channels,dofig)
             %vypocita hodnoty v jednotlivych intervalech casu pro jednotlive kategorie i pro celkovy prumer       
             %vykresli graf pro kazdy interval do spolecneho plotu
-            %vraci prumery[channels x intervaly x kategorie] a MNI(channels)
-            %TODO vypisovat jmena kanalu na vysku - nebo jen u tech signifikantnich
+            %vraci prumery [channels x intervaly x kategorie] a MNI(channels)           
             assert(isfield(obj.Wp(obj.WpActive), 'kats'),'musi byt definovany kategorie podnetu');
             assert(isfield(obj.Wp(obj.WpActive), 'WpKatBaseline'),'musi byt spocitana statistika kategorii');
             if ~exist('channels','var') || isempty(channels) , channels = 1:obj.channels; end
@@ -549,7 +546,15 @@ classdef CiEEGData < handle
             [katnum, katstr] = obj.PsyData.Categories();
             katsnames =  cell(1,numel(kats));
             for k = 1:numel(kats)
-                katsnames{k} = katstr{katnum==kats(k)}; %jde to udelat najednou bez for cyklu?
+                if iscell(kats(k)) %mame tu vic kategorii proti vice - na jedne strane kontrastu
+                    kknames = cell(1,numel(kats{k})); %jmena individualnich kategorii na jedne strane kontrastu
+                    for kk = 1: numel(kats{k})
+                        kknames{kk}=katstr{kats{k}(kk)+1}; %katnum jsou od 0, katstr indexovany od 1
+                    end
+                    katsnames{k} = strjoin(kknames,'+'); %vice kategorii
+                else
+                    katsnames{k} = katstr{katnum==kats(k)}; %jde to udelat najednou bez for cyklu?
+                end
             end
             %spocitam dynamicky permutace vsech kategorii, pro ktere mam spocitanou statistiku           
             kombinace = combinator(length(kats),2,'p'); %permutace bez opakovani z poctu kategorii
@@ -557,7 +562,7 @@ classdef CiEEGData < handle
             prumery = zeros(numel(channels),size(intervaly,1),numel(kats)+length(kombinace));   % channels x intervaly x kategorie - celkova data a jednotlive kategorie            
             if dofig, figure('Name','IntervalyResp'); end
             for j = 1:size(intervaly,1) 
-                legendstr = cell(1,length(kombinace));
+                legendstr = cell(1,max(numel(kats),size(kombinace,1)));
                 if dofig, subplot(2,ceil(size(intervaly,1) /2),j);  end %pro kazdy interval jiny subplot
                 %spocitam prumery celkove i za kazdou kategorii v kazdem casovem intervalu
                 % dve cisla v kazdem sloupci - od do ve vterinach   
@@ -570,9 +575,9 @@ classdef CiEEGData < handle
                 colorkombinace = {0,1,2,4;0 0 3 5;0 0 0 6};
                 iChKats = false(1,numel(channels));             
                                               
-                for k = 1:length(kombinace) %cyklus pres vsechny kombinace kategorii
-                    katdata1 = obj.CategoryData(kats(kombinace(k,1))); 
-                    katdata2 = obj.CategoryData(kats(kombinace(k,2))); 
+                for k = 1:size(kombinace,1) %cyklus pres vsechny kombinace kategorii
+                    katdata1 = obj.CategoryData(cellval(kats,kombinace(k,1))); 
+                    katdata2 = obj.CategoryData(cellval(kats,kombinace(k,2)));                     
                     prumery1 = mean(mean(katdata1(iintervalyData(1):iintervalyData(2),:,:),3),1); %prumer pres epochy a pak pres cas - kategorie 1
                     prumery2 = mean(mean(katdata2(iintervalyData(1):iintervalyData(2),:,:),3),1); %prumer pres epochy a pak pres cas - kategorie 2
                     iCh = min(obj.Wp(obj.WpActive).WpKat{kombinace(k,2),kombinace(k,1)}(iintervalyStat(1):iintervalyStat(2),channels),[],1) < 0.05; %kanaly, kde je signifikantni rozdil mezi kategoriemi, alespon jednou
@@ -584,12 +589,13 @@ classdef CiEEGData < handle
                         hold on;
                     end
                     iChKats = iChKats | (iCh & iCh2);  %pridam dalsi kanaly, kde je signif odpoved                    
-                    legendstr{k}=['; ' katsnames{kombinace(k,1)} ' x ' katsnames{kombinace(k,2)} ];
-                end               
+                    legendstr{k}=[katsnames{kombinace(k,1)} ' x ' katsnames{kombinace(k,2)} ];
+                end
+                text(0,1.1,'kontrasty mezi kat');
                 
                 %tohle musim vykreslit az jako druhe, protoze to ma min polozek - jinek nesedi barvy v legende
                 for k = 1: numel(kats) % cyklus pres kategorie - rozdil vuci baseline
-                    katdata = obj.CategoryData(kats(k)); 
+                    katdata = obj.CategoryData(cellval(kats,k)); 
                     iCh = min(obj.Wp(obj.WpActive).WpKatBaseline{k,1}(iintervalyStat(1):iintervalyStat(2),channels),[],1) < 0.05; %kanaly kde je signifikantni rozdil vuci baseline, alespon jednou
                     prumery(iCh,j,k) = mean(mean(katdata(iintervalyData(1):iintervalyData(2),iCh,:),3),1); %prumer pres epochy a pak pres cas
                     P = squeeze(prumery(:,j,k));                    
@@ -597,8 +603,9 @@ classdef CiEEGData < handle
                         plot(P','.-','Color',colorskat{k}); %kreslim tuto kategorii                       
                     end
                     iChKats = iChKats | iCh; %pridam dalsi kanaly, kde je signif odpoved
-                    legendstr{k}=[katsnames{k} legendstr{k}];
+                    legendstr{k+size(kombinace,1)}=katsnames{k}; %pridam jmeno kategorie na zacatek [legendstr{k}]
                 end
+                text(0,0.1,'kat vuci baseline');
                 
                 if dofig              
                     legend(legendstr,'Location','NorthWest');

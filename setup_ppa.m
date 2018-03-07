@@ -16,7 +16,7 @@ if(alignresponse)
    setup.suffix = [setup.suffix 'Resp']; %pokud zarovnavam podle odpovedi, pridavam priponu
 end
 setup.prefix = 'PPA'; %musi byt bud AlloEgo, PPA, AEdist
-setup.stat_kats = [2 3 1];  % PPA [2 3 1] Face, Object, Scene ; AEdist [0 1 2] Control, Ego, Allo; 
+setup.stat_kats = {[2 3 1],{[2 3],1},{2,[3 1]},{3,[2 1]}};  % PPA [2 3 1] Face, Object, Scene ; 
 setup.stat_opak = {}; %{[1 2],[4 5]}; %PPA opakovani 12 vs 45
 setup.subfolder = 'PPA'; %podadresar, specificky pro test, muze byt prazdne pokud se nepouzivaji podadresare
 setup.alignresponse = alignresponse;

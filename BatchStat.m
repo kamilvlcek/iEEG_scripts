@@ -49,6 +49,7 @@ for p = 1:numel(pacienti) % cyklus pacienti
             if iscell(stat_kats) %pokud mam nekolik ruznych statistik na spocitani
                 for WpA = 1:numel(stat_kats)
                     E.SetStatActive(WpA);
+                    disp(['pocitam kontrast' cell2str(stat_kats{WpA}) ]);
                     E.ResponseSearch(0.1,stat_kats{WpA},stat_opak,cfg.statmethod);
                 end
             else
