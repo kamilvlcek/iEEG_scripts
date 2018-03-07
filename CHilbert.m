@@ -493,7 +493,7 @@ classdef CHilbert < CiEEGData
             assert(isa(psy,'struct'),'Prvy parameter musi byt struktura s datami z psychopy');
             obj.PsyData = CPsyData(psy); 
             obj.plotFreqs.channels = channels;
-            if ~exist('frequencies','var') || isempty(frequencies); obj.plotFreqs.iFreq = 1:obj.Hf;
+            if ~exist('frequencies','var') || isempty(frequencies); obj.plotFreqs.iFreq = 1:obj.Hf; % index frekvencie
                 else [~,obj.plotFreqs.iFreq] = intersect(obj.Hf,frequencies); end % ak sme nevybrali frekvencie, zobrazia sa vsetky
             % calculate ylimits for all channels
             obj.plotFreqs.ylimits = zeros(length(channels),2);
@@ -506,7 +506,7 @@ classdef CHilbert < CiEEGData
                     obj.plotFreqs.ylimits(ch, :) = limits;
                 end
             end
-            if ~exist('timeDelay','var'); obj.plotFreqs.timeDelay = 10*obj.fs; 
+            if ~exist('timeDelay','var'); obj.plotFreqs.timeDelay = 10*obj.fs; % seconds visible on the screen
                 else obj.plotFreqs.timeDelay = timeDelay*obj.fs; end
             
             obj.plotFreqs.f = figure('Name','All Frequencies','Position', [20, 100, 1000, 600]);
@@ -520,56 +520,6 @@ classdef CHilbert < CiEEGData
             obj.plotFreqs.colors = {'black','green','red','blue'};
             
             obj.plotFreqData();
-        end
-        
-        function fig = plotTheta(obj, channel)
-            time = linspace(obj.epochtime(1), obj.epochtime(2), size(obj.HFreqEpochs,1));
-            time_before = time(time<=0);
-            
-            names = {obj.CH.H.channels.ass_brainAtlas};
-            electrodes = {obj.CH.H.channels.name};
-            mean_fs = mean(squeeze(mean(obj.HFreqEpochs(1:end,channel,:,:),4)),1);
-            mean_before = mean(squeeze(mean(obj.HFreqEpochs(1:length(time_before),channel,:,:),4)),1);
-            mean_after = mean(squeeze(mean(obj.HFreqEpochs((length(time_before)+1):end,channel,:,:),4)),1);
-            mean_min = min([min(mean_fs) min(mean_before) min(mean_after)]);
-            mean_max = max([max(mean_fs) max(mean_before) max(mean_after)]);
-            
-            fig = figure;
-            subplot(2,2,1);
-
-            colormap parula; 
-            imagesc(squeeze(mean(obj.HFreqEpochs(:,channel,:,:),4))', 'XData', time, 'YData', obj.Hf); 
-            set(gca,'YDir','normal');
-            xlabel('Time (s)');
-            ylabel('Frequency (Hz)');
-            h = colorbar;
-            ylabel(h, 'z-scored power'); 
-            title(names{channel})
-            
-            subplot(2,2,2);
-            plot(mean_fs);
-            ylim([mean_min mean_max]);
-            xlabel('Frequency (Hz)');
-            ylabel('z-scored power');
-            title('-1:1s');
-            
-            subplot(2,2,3);
-            plot(mean_before);
-            ylim([mean_min mean_max]);
-            xlabel('Frequency (Hz)');
-            ylabel('z-scored power');
-            title('-1:0s PRED PODNETOM');
-            
-            subplot(2,2,4);
-            plot(mean_after);
-            ylim([mean_min mean_max]);
-            xlabel('Frequency (Hz)');
-            ylabel('z-scored power');
-            title('0:1s PO PODNETE');
-            
-            mtit(sprintf('%s PACIENT %s - CHANNEL %d, ALL CONDITIONS \n  ', electrodes{channel}, obj.CH.H.subjName, channel));
-            set(gcf, 'PaperUnits', 'centimeters');
-            set(gcf, 'PaperPosition', [0 0 30 20]);
         end
         
         %% SAVE AND LOAD FILE
@@ -806,10 +756,6 @@ classdef CHilbert < CiEEGData
                     obj.plotFreqs.iTime = obj.plotFreqs.iTime + 1; %min([obj.plotEpochs.iTime + 1, size(obj.HFreqEpochs,4)]);
                 case 'leftarrow'  % -1 epoch
                     obj.plotFreqs.iTime = max([obj.plotFreqs.iTime - 1, 0]);%max([obj.plotEpochs.iEpoch - 1, 1]);
-                case 'uparrow'    % -1 channel
-                    obj.plotFreqs.iChannel = max([obj.plotFreqs.iChannel - 1, 1]);
-                case 'downarrow'  % +1 channel
-                    obj.plotFreqs.iChannel = min([obj.plotFreqs.iChannel + 1, length(obj.plotFreqs.channels)]);
                 otherwise  
                    display(['key pressed: ' eventDat.Key]); %vypise stlacenou klavesu
             end
@@ -952,7 +898,7 @@ classdef CHilbert < CiEEGData
            % title([names{channel}, ' ', labels{channel}]);
         end
         
-        function plotEpochData(obj)     
+        function plotEpochData(obj)
             %vykresli vlavo time x frequency graf pre danu epochu 
             %vpravo average power cez vsetky frekvencie danej epochy 
             %pouziva sa v PlotMovingEpochs
@@ -1009,7 +955,7 @@ classdef CHilbert < CiEEGData
                 
                 odpovede = obj.plotFreqs.odpovede(obj.plotFreqs.odpovede >= x(1) & obj.plotFreqs.odpovede <= x(end));
                 plot([odpovede odpovede]', repmat(ylim,length(odpovede),1)','k', 'LineWidth',2);
-                title(strcat(num2str(obj.plotFreqs.iFreq(iFreq)), ' Hz (', t, ')'))
+                title(strcat(num2str(obj.Hf(obj.plotFreqs.iFreq(iFreq))), ' Hz (', t, ')'))
             end
         end
         
