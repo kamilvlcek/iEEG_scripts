@@ -37,6 +37,7 @@ classdef CiEEGData < handle
         DatumCas = {}; %ruzne casove udaje, kdy bylo co spocitano. Abych mel historii vypoctu pro zpetnou referenci
         PL = {}; %objekt CPlots
         phases; % epochovane fazy
+        HOrigData;
     end
     
     methods (Access = public)

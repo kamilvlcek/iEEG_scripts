@@ -104,6 +104,12 @@ classdef CHilbert < CiEEGData
                             obj.HFreq(:,ch,f) = (obj.HFreq(:,ch,f)-mean(obj.HFreq(:,ch,f)))./std(obj.HFreq(:,ch,f));
                         end
                     end
+                case 'log' %log = 1/fpower
+                for ch = channels
+                    for f = 1:size(obj.HFreq,3)
+                        obj.HFreq(:,ch,f) = (obj.HFreq(:,ch,f)-mean(obj.HFreq(:,ch,f)))./std(obj.HFreq(:,ch,f));
+                    end
+                end
                 otherwise
             end
             obj.d = squeeze(mean(obj.HFreq,3));
@@ -410,6 +416,46 @@ classdef CHilbert < CiEEGData
             set(gcf, 'PaperPosition', [0 0 55 30]);
         end
         
+        function fig = PlotFrequencyPower_Zhang(obj, channel)
+            %funkcia pre vykreslenie time x frequency a frequency x power plotov 
+            %pre dany channel a condition (napriklad 0=cervena, 1=vy, 2=znacka, 9=all conditions)
+            %priemerne z-scored power cez cely casovy usek pre kazdu frekvenciu
+            %a zvlast pre useky pred/po podnete
+            assert(~isempty(obj.HFreqEpochs),'soubor s frekvencnimi daty pro epochy neexistuje');
+            correct_epochs = obj.CorrectEpochs(channel, 9); %vyfiltruje len spravne epochy
+            
+            time = linspace(obj.epochtime(1), obj.epochtime(2), size(obj.HFreqEpochs,1));
+            time_before = time(time<=0); %pred podnetom
+            
+            names = {obj.CH.H.channels.ass_brainAtlas}; %cast mozgu
+            labels = {obj.CH.H.channels.neurologyLabel}; %neurology label
+            electrodes = {obj.CH.H.channels.name}; %nazov elektrody
+            
+            [mean_fs, std_fs] = obj.meanZscoredPower(1:length(time),channel,correct_epochs); %priemerna power a stredna chyba priemeru pre kazdu frekvenciu cez celu periodu
+            [mean_before, std_before] = obj.meanZscoredPower(1:length(time_before),channel,correct_epochs); %priemerna power a stredna chyba priemeru pre kazdu frekvenciu pred podnetom
+            [mean_after, std_after] = obj.meanZscoredPower((length(time_before)+1):length(time),channel,correct_epochs); %priemerna power a str. chyba priemeru pre kazdu frekvenciu po podnete
+            
+            max_std = max(max([std_fs std_before std_after]));
+            mean_min = min(min([mean_fs mean_before mean_after])) - max_std; %min a max means pre zjednotenie ylimits grafov
+            mean_max = max(max([mean_fs mean_before mean_after])) + max_std;
+            
+            fig = figure;
+            
+            %vykresli priemernu z-scored power pre kazdu frekvenciu napriec
+            %celym casom
+            errorbar(mean_fs, std_fs);
+            %ylim([mean_min mean_max]);
+            xlabel('Frequency (Hz)');
+            ylabel('z-scored power');
+            title('-1:1s');
+            
+      
+            title(sprintf('%s PACIENT %s - CHANNEL %d \n %s - %s \n ', electrodes{channel}, obj.CH.H.subjName, channel, names{channel}, labels{channel}));
+
+            set(gcf, 'PaperUnits', 'centimeters');
+            set(gcf, 'PaperPosition', [0 0 55 30]);
+        end
+        
         function PlotAllEpochs(obj, icondition, channel,zlimits)
             % PlotAllEpochs(obj, icondition, channel,ylimits) - cislo podminky, kanal, rozsah z osy
             % plots all available time x frequency epoch maps for given channel and condition (aedist: 1 = ego, 2 = allo, 0 = red)
@@ -487,9 +533,10 @@ classdef CHilbert < CiEEGData
             obj.plotEpochData();
         end    
          
-        function PlotFrequencies(obj, psy, channels, frequencies, limits, timeDelay)
+        function PlotFrequencies(obj, all, psy, channels, frequencies, limits, timeDelay)
             % plots time x (z-scored) frequency of unepoched data for all/selected
             % frequencies and given channel
+            obj.plotFreqs.all = all;
             assert(isa(psy,'struct'),'Prvy parameter musi byt struktura s datami z psychopy');
             obj.PsyData = CPsyData(psy); 
             obj.plotFreqs.channels = channels;
@@ -520,6 +567,14 @@ classdef CHilbert < CiEEGData
             obj.plotFreqs.colors = {'black','green','red','blue'};
             
             obj.plotFreqData();
+        end
+        
+        function PlotElectrodeGroups(obj, iGroup)
+            contacts = E.CH.chgroups{iGroup};
+            for contact = 1:numel(contacts)
+               subplot(numel(contacts),1,contact);
+               
+            end
         end
         
         %% SAVE AND LOAD FILE
@@ -936,13 +991,16 @@ classdef CHilbert < CiEEGData
             % called from PlotFrequencies()
             time = (obj.plotFreqs.iTime*obj.fs+1):(obj.plotFreqs.iTime*obj.fs+obj.plotFreqs.timeDelay);
             x = time./obj.fs; % x axis
+            numSubplot = length(obj.plotFreqs.iFreq);
+            
+            if obj.plotFreqs.all; numSubplot = length(obj.plotFreqs.iFreq)+2; end
             
             for iFreq = 1:length(obj.plotFreqs.iFreq)
-                subplot(length(obj.plotFreqs.iFreq),1,iFreq)
+                subplot(numSubplot,1,iFreq)
                 
                 y = obj.HFreq(time,obj.plotFreqs.channels(obj.plotFreqs.iChannel),obj.plotFreqs.iFreq(iFreq)); % frequency (z-scored) power values
                 neg = y<0; % negative frequency power values
-                plot(x(~neg),y(~neg),'r.',x(neg),y(neg),'b.','markers',5); hold on; % plots positive values with red, negative with blue
+                plot(x(~neg),y(~neg),'r.',x(neg),y(neg),'b.','markers',4); hold on; % plots positive values with red, negative with blue
                 xlim([x(1) x(end)]); % set x axis limits
                 ylim(obj.plotFreqs.ylimits(obj.plotFreqs.iChannel,:)); % set y axis limits
                 iPodnety = find(obj.plotFreqs.podnety >= x(1) & obj.plotFreqs.podnety <= x(end));
@@ -956,6 +1014,17 @@ classdef CHilbert < CiEEGData
                 odpovede = obj.plotFreqs.odpovede(obj.plotFreqs.odpovede >= x(1) & obj.plotFreqs.odpovede <= x(end));
                 plot([odpovede odpovede]', repmat(ylim,length(odpovede),1)','k', 'LineWidth',2);
                 title(strcat(num2str(obj.Hf(obj.plotFreqs.iFreq(iFreq))), ' Hz (', t, ')'))
+                
+                
+            end
+            
+            if obj.plotFreqs.all
+                subplot(numSubplot,1,[numSubplot-1,numSubplot])
+
+                y = obj.HOrigData(time,obj.plotFreqs.channels(obj.plotFreqs.iChannel)); % original eeg values
+                plot(x, y, 'Color', 'black'); hold on;
+                xlim([x(1) x(end)]); % set x axis limits
+                ylim([-80,80]); % set y axis limits
             end
         end
         
