@@ -1,6 +1,7 @@
 function [ E ] = pacient_load( nick,testname,filename ,frequencies,classname,channels)
 %PACIENT_LOAD nacte soubor pacienta, bud ze zdrojvych data (pokud neni udano filename) nebo uz ulozeny soubor
 %   zdrojova data rovnou zpracuje, rozepochuje atd 
+%   E= pacient_load( nick,testname,filename ,frequencies,classname,channels)
 if strcmp(testname,'aedist')
     pacienti = pacienti_aedist(); %nactu celou strukturu pacientu
     setup = setup_aedist(0); %nactu nastaveni aedist  

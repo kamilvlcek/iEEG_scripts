@@ -120,18 +120,15 @@ classdef CBrainPlot < handle
                 brainsurface = obj.brainsurface;  %#ok<PROPLC>
             end
             hybernovat = 0; %jestli chci po konci skriptu pocitac uspat - ma prednost
-            vypnout = 0;  %jestli chci po konci skriptu pocitac vypnout (a nechci ho hybernovat) 
-            kombinace = [2 1; 3 1 ; 3 2 ]; %kombinace kategorii
+            vypnout = 0;  %jestli chci po konci skriptu pocitac vypnout (a nechci ho hybernovat)             
             figureVisible = 'off';   %nechci zobrazovat obrazek 
             tic; %zadnu meric cas
             for interval = 1:size(obj.VALS,1) 
                 for kat = kategorie                   
-                    if kat <= numel(obj.katstr)
+                    if kat <= numel(obj.katstr) %pokud puvodni kategorie z intervalyResp
                         katname = obj.katstr{kat};
                     elseif kat==size(obj.VALS,2) %posledni kategorie se vsemi kanaly
-                        katname = 'AllEl';
-                    else
-                        katname = [obj.katstr{kombinace(kat-3,1)} '-' obj.katstr{kombinace(kat-3,2)}];
+                        katname = 'AllEl';                    
                     end
                     figureNamePrefix = [ obj.testname '_' mat2str(obj.intervals(interval,:)) '_' katname '_NOnames'];
                     if strcmp(figureVisible,'off')
