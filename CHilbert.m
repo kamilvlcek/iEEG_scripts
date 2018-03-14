@@ -533,35 +533,27 @@ classdef CHilbert < CiEEGData
             obj.plotEpochData();
         end    
          
-        function PlotFrequencies(obj, all, psy, channels, frequencies, limits, timeDelay)
-            % plots time x (z-scored) frequency of unepoched data for all/selected
-            % frequencies and given channel
-            obj.plotFreqs.all = all;
+        function PlotFrequencies(obj, psy, channels, frequencies, limits, timeDelay, plotChannels)
+            % plots powers and phases of transformed eeg signal for :
+            %   * all selected frequencies for one channel
+            %   * or one frequency for all channels
+
             assert(isa(psy,'struct'),'Prvy parameter musi byt struktura s datami z psychopy');
             obj.PsyData = CPsyData(psy); 
-            obj.plotFreqs.channels = channels;
-            if ~exist('frequencies','var') || isempty(frequencies); obj.plotFreqs.iFreq = 1:obj.Hf; % index frekvencie
-                else [~,obj.plotFreqs.iFreq] = intersect(obj.Hf,frequencies); end % ak sme nevybrali frekvencie, zobrazia sa vsetky
-            % calculate ylimits for all channels
-            obj.plotFreqs.ylimits = zeros(length(channels),2);
-            zeros(length(channels),2)
-            for ch = 1:length(channels) % zatial je len jeden, do buducna moznost prepinat medzi channels?
-                if ~exist('limits','var') || isempty(limits)
-                    obj.getYlimits(obj.plotFreqs.channels(ch), obj.plotFreqs.iFreq)'
-                    obj.plotFreqs.ylimits(ch, :) = obj.getYlimits(obj.plotFreqs.channels(ch), obj.plotFreqs.iFreq)';
-                else
-                    obj.plotFreqs.ylimits(ch, :) = limits;
-                end
-            end
+            obj.plotFreqs.iChannels = channels;
+            if ~exist('frequencies','var') || isempty(frequencies); obj.plotFreqs.iFreqs = 1:numel(obj.Hf); % ak sme nevybrali frekvencie, zobrazia sa vsetky
+                else [~,obj.plotFreqs.iFreqs] = intersect(obj.Hf,frequencies); end % indexy vybranych frekvencii
+            obj.plotFreqs.ylimits = limits;
+            
             if ~exist('timeDelay','var'); obj.plotFreqs.timeDelay = 10*obj.fs; % seconds visible on the screen
                 else obj.plotFreqs.timeDelay = timeDelay*obj.fs; end
             
             obj.plotFreqs.f = figure('Name','All Frequencies','Position', [20, 100, 1000, 600]);
             set(obj.plotFreqs.f, 'KeyPressFcn', @obj.MovePlotFreqs);
             
-            obj.plotFreqs.iChannel = 1; % initiate channel index
             obj.plotFreqs.iTime = 0; % initiate epoch index
      
+            obj.plotFreqs.plotChannels = plotChannels;
             obj.plotFreqs.podnety = (obj.PsyData.P.data(:,obj.PsyData.P.sloupce.ts_podnet) - obj.tabs(1))*24*3600;
             obj.plotFreqs.odpovede = (obj.PsyData.P.data(:,obj.PsyData.P.sloupce.ts_odpoved) - obj.tabs(1))*24*3600;
             obj.plotFreqs.colors = {'black','green','red','blue'};
@@ -569,12 +561,9 @@ classdef CHilbert < CiEEGData
             obj.plotFreqData();
         end
         
-        function PlotElectrodeGroups(obj, iGroup)
-            contacts = E.CH.chgroups{iGroup};
-            for contact = 1:numel(contacts)
-               subplot(numel(contacts),1,contact);
-               
-            end
+        function PlotElectrodeGroup(obj, iGroup, psy, frequency, limits, timeDelay)
+            contacts = obj.CH.chgroups{iGroup};
+            obj.PlotFrequencies(psy, contacts, frequency, limits, timeDelay, true);
         end
         
         %% SAVE AND LOAD FILE
@@ -991,42 +980,134 @@ classdef CHilbert < CiEEGData
             % called from PlotFrequencies()
             time = (obj.plotFreqs.iTime*obj.fs+1):(obj.plotFreqs.iTime*obj.fs+obj.plotFreqs.timeDelay);
             x = time./obj.fs; % x axis
-            numSubplot = length(obj.plotFreqs.iFreq);
+            % plot channels or frequencies
+            if obj.plotFreqs.plotChannels; numSubplot = length(obj.plotFreqs.iChannels); else numSubplot = length(obj.plotFreqs.iFreqs); end
             
-            if obj.plotFreqs.all; numSubplot = length(obj.plotFreqs.iFreq)+2; end
-            
-            for iFreq = 1:length(obj.plotFreqs.iFreq)
-                subplot(numSubplot,1,iFreq)
+            for i = 1:numSubplot 
+                % POWERS on left side
+                subplot(numSubplot+4,2,i*2-1)
                 
-                y = obj.HFreq(time,obj.plotFreqs.channels(obj.plotFreqs.iChannel),obj.plotFreqs.iFreq(iFreq)); % frequency (z-scored) power values
+                if obj.plotFreqs.plotChannels; 
+                    y = squeeze(obj.HFreq(time,obj.plotFreqs.iChannels(i),obj.plotFreqs.iFreqs)); % channel power values
+                    display('correct, more')
+                else
+                    y = squeeze(obj.HFreq(time,obj.plotFreqs.iChannels,obj.plotFreqs.iFreqs(i))); % frequency power values
+                end
                 neg = y<0; % negative frequency power values
-                plot(x(~neg),y(~neg),'r.',x(neg),y(neg),'b.','markers',4); hold on; % plots positive values with red, negative with blue
+                plot(x(~neg),y(~neg),'b.',x(neg),y(neg),'r.','markers',4); hold on; % plots positive values with blue, negative with red
+                
                 xlim([x(1) x(end)]); % set x axis limits
-                ylim(obj.plotFreqs.ylimits(obj.plotFreqs.iChannel,:)); % set y axis limits
+                ylim(obj.plotFreqs.ylimits); % set y axis limits
+                
                 iPodnety = find(obj.plotFreqs.podnety >= x(1) & obj.plotFreqs.podnety <= x(end));
                 t = '';
-                for i = 1:numel(iPodnety) % plot colored stimuli and responses
-                    podnet = obj.PsyData.P.data(iPodnety(i),obj.PsyData.P.sloupce.kategorie);
-                    plot([obj.plotFreqs.podnety(iPodnety(i)) obj.plotFreqs.podnety(iPodnety(i))]', ylim', 'LineWidth',3,'Color', obj.plotFreqs.colors{podnet+1}); hold on;    
+                for iPodnet = 1:numel(iPodnety) % plot colored stimuli and responses
+                    podnet = obj.PsyData.P.data(iPodnety(iPodnet),obj.PsyData.P.sloupce.kategorie);
+                    plot([obj.plotFreqs.podnety(iPodnety(iPodnet)) obj.plotFreqs.podnety(iPodnety(iPodnet))]', ylim', 'LineWidth',3,'Color', obj.plotFreqs.colors{podnet+1}); hold on;    
                     t = strcat(t,'{\color{', obj.plotFreqs.colors{podnet+1},'}',obj.PsyData.P.strings.podminka(podnet+1),'}, '); % title
                 end
                 
                 odpovede = obj.plotFreqs.odpovede(obj.plotFreqs.odpovede >= x(1) & obj.plotFreqs.odpovede <= x(end));
-                plot([odpovede odpovede]', repmat(ylim,length(odpovede),1)','k', 'LineWidth',2);
-                title(strcat(num2str(obj.Hf(obj.plotFreqs.iFreq(iFreq))), ' Hz (', t, ')'))
+                plot([odpovede odpovede]', repmat(ylim,length(odpovede),1)','k', 'LineWidth',2); % plot responses
+                if obj.plotFreqs.plotChannels; 
+                    title(strcat(num2str(obj.plotFreqs.iChannels(i)), '. channel (', t, ')'));
+                else
+                    title(strcat(num2str(obj.Hf(obj.plotFreqs.iFreqs(i))), ' Hz (', t, ')'));
+                end
                 
+                % PHASES
+                subplot(numSubplot+4,2,i*2)
+                % phase values
+                if obj.plotFreqs.plotChannels; 
+                    y = squeeze(obj.fphase(time,obj.plotFreqs.iChannels(i),obj.plotFreqs.iFreqs)); % channel phase values
+                    display('correct, more')
+                else
+                    y = squeeze(obj.fphase(time,obj.plotFreqs.iChannels,obj.plotFreqs.iFreqs(i))); % frequency phase values
+                end 
+                plot(x,y, 'Color', 'b'); hold on;
+                xlim([x(1) x(end)]); % set x axis limits
+                ylim([-5,5]); % set y axis limits
+                iPodnety = find(obj.plotFreqs.podnety >= x(1) & obj.plotFreqs.podnety <= x(end));
+                t = '';
+                for iPodnet = 1:numel(iPodnety) % plot colored stimuli and responses
+                    podnet = obj.PsyData.P.data(iPodnety(iPodnet),obj.PsyData.P.sloupce.kategorie);
+                    plot([obj.plotFreqs.podnety(iPodnety(iPodnet)) obj.plotFreqs.podnety(iPodnety(iPodnet))]', ylim', 'LineWidth',3,'Color', obj.plotFreqs.colors{podnet+1}); hold on;    
+                    t = strcat(t,'{\color{', obj.plotFreqs.colors{podnet+1},'}',obj.PsyData.P.strings.podminka(podnet+1),'}, '); % title
+                end
                 
+                odpovede = obj.plotFreqs.odpovede(obj.plotFreqs.odpovede >= x(1) & obj.plotFreqs.odpovede <= x(end));
+                plot([odpovede odpovede]', repmat(ylim,length(odpovede),1)','k', 'LineWidth',2); % plot responses
             end
-            
-            if obj.plotFreqs.all
-                subplot(numSubplot,1,[numSubplot-1,numSubplot])
+            if ~obj.plotFreqs.plotChannels;
+                subplot(numSubplot,2,numSubplot*2-4:numSubplot*2)
 
                 y = obj.HOrigData(time,obj.plotFreqs.channels(obj.plotFreqs.iChannel)); % original eeg values
                 plot(x, y, 'Color', 'black'); hold on;
                 xlim([x(1) x(end)]); % set x axis limits
                 ylim([-80,80]); % set y axis limits
             end
+           
         end
+        
+%         function plotFreqData(obj)
+%             % plot all unepoched transformed data
+%             % one subplot = one frequency
+%             % called from PlotFrequencies()
+%             time = (obj.plotFreqs.iTime*obj.fs+1):(obj.plotFreqs.iTime*obj.fs+obj.plotFreqs.timeDelay);
+%             x = time./obj.fs; % x axis
+%             numSubplot = length(obj.plotFreqs.iFreq);
+%             
+%             if obj.plotFreqs.all; numSubplot = length(obj.plotFreqs.iFreq)+4; end
+%             
+%             for iFreq = 1:length(obj.plotFreqs.iFreq)
+%                 % POWERS on left side
+%                 subplot(numSubplot,2,iFreq*2-1)
+%                 
+%                 y = obj.HFreq(time,obj.plotFreqs.channels(obj.plotFreqs.iChannel),obj.plotFreqs.iFreq(iFreq)); % frequency power values
+%                 neg = y<0; % negative frequency power values
+%                 plot(x(~neg),y(~neg),'b.',x(neg),y(neg),'r.','markers',4); hold on; % plots positive values with blue, negative with red
+%                 xlim([x(1) x(end)]); % set x axis limits
+%                 ylim(obj.plotFreqs.ylimits(obj.plotFreqs.iChannel,:)); % set y axis limits
+%                 iPodnety = find(obj.plotFreqs.podnety >= x(1) & obj.plotFreqs.podnety <= x(end));
+%                 t = '';
+%                 for i = 1:numel(iPodnety) % plot colored stimuli and responses
+%                     podnet = obj.PsyData.P.data(iPodnety(i),obj.PsyData.P.sloupce.kategorie);
+%                     plot([obj.plotFreqs.podnety(iPodnety(i)) obj.plotFreqs.podnety(iPodnety(i))]', ylim', 'LineWidth',3,'Color', obj.plotFreqs.colors{podnet+1}); hold on;    
+%                     t = strcat(t,'{\color{', obj.plotFreqs.colors{podnet+1},'}',obj.PsyData.P.strings.podminka(podnet+1),'}, '); % title
+%                 end
+%                 
+%                 odpovede = obj.plotFreqs.odpovede(obj.plotFreqs.odpovede >= x(1) & obj.plotFreqs.odpovede <= x(end));
+%                 plot([odpovede odpovede]', repmat(ylim,length(odpovede),1)','k', 'LineWidth',2); % plot responses
+%                 title(strcat(num2str(obj.Hf(obj.plotFreqs.iFreq(iFreq))), ' Hz (', t, ')'))
+%                 
+%                 % PHASES
+%                 subplot(numSubplot,2,iFreq*2)
+%                 
+%                 y = obj.fphase(time,obj.plotFreqs.channels(obj.plotFreqs.iChannel),obj.plotFreqs.iFreq(iFreq)); % phase values
+%                 plot(x,y, 'Color', 'b'); hold on;
+%                 xlim([x(1) x(end)]); % set x axis limits
+%                 ylim([-5,5]); % set y axis limits
+%                 iPodnety = find(obj.plotFreqs.podnety >= x(1) & obj.plotFreqs.podnety <= x(end));
+%                 t = '';
+%                 for i = 1:numel(iPodnety) % plot colored stimuli and responses
+%                     podnet = obj.PsyData.P.data(iPodnety(i),obj.PsyData.P.sloupce.kategorie);
+%                     plot([obj.plotFreqs.podnety(iPodnety(i)) obj.plotFreqs.podnety(iPodnety(i))]', ylim', 'LineWidth',3,'Color', obj.plotFreqs.colors{podnet+1}); hold on;    
+%                     t = strcat(t,'{\color{', obj.plotFreqs.colors{podnet+1},'}',obj.PsyData.P.strings.podminka(podnet+1),'}, '); % title
+%                 end
+%                 
+%                 odpovede = obj.plotFreqs.odpovede(obj.plotFreqs.odpovede >= x(1) & obj.plotFreqs.odpovede <= x(end));
+%                 plot([odpovede odpovede]', repmat(ylim,length(odpovede),1)','k', 'LineWidth',2); % plot responses
+%             end
+%             
+%             if obj.plotFreqs.all
+%                 subplot(numSubplot,2,numSubplot*2-4:numSubplot*2)
+% 
+%                 y = obj.HOrigData(time,obj.plotFreqs.channels(obj.plotFreqs.iChannel)); % original eeg values
+%                 plot(x, y, 'Color', 'black'); hold on;
+%                 xlim([x(1) x(end)]); % set x axis limits
+%                 ylim([-80,80]); % set y axis limits
+%             end
+%         end
         
     end
 end
