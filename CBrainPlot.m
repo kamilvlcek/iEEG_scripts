@@ -11,7 +11,7 @@ classdef CBrainPlot < handle
         brainsurface; %ulozeny isosurface z main_brainPlot
         testname; %jmeno zpracovavaneho testu
         katstr_pacients;
-        pacients; 
+        pacients;         
     end
     
     methods (Access = public)        
@@ -21,7 +21,7 @@ classdef CBrainPlot < handle
             %spoji vsechno dohromady
             %vrati vysledky ve formatu pro SEEE-vizualization
             %napr CB.IntervalyResp('aedist',[0.2 0.8],'AEdist CHilbert 50-120 refBipo Ep2017-11_CHilb.mat');
-            if ~exist('contrast','var'), contrast = 1; end; %defaultni je prvni kontrast
+            if ~exist('contrast','var'), contrast = 1; end; %defaultni je prvni kontrast            
             if strcmp(testname,'aedist')
                 pacienti = pacienti_aedist(); %nactu celou strukturu pacientu    
             elseif strcmp(testname,'ppa')
@@ -32,7 +32,7 @@ classdef CBrainPlot < handle
                 error('neznamy typ testu');
             end
             obj.testname = testname;
-            obj.intervals = intervals;            
+            obj.intervals = intervals; 
             elcount = []; %jen inicializace            
             P = {}; M = {}; N = {}; %jen inicializace
             obj.pacients = cell(numel(pacienti),1); 
@@ -50,7 +50,7 @@ classdef CBrainPlot < handle
                     obj.pacients{p} = pacienti(p).folder;
                     clear E;
                     if p==1
-                        obj.katstr = katstr; %#ok<PROPLC> 
+                        obj.katstr = [katstr 'AllEl']; %#ok<PROPLC> 
                         obj.katstr_pacients = cell(numel(pacienti),numel(katstr)); %#ok<PROPLC>
                         elcount = zeros(size(prumery,2),size(prumery,3)+1); %pocet elektrod pro kazdy casovy interval a kategorii - interval x kategorie
                         P = cell([numel(pacienti),size(prumery,2),size(prumery,3)+1]); % souhrnne prumery pro vsechny pacienty: pacient*interval*kategorie
@@ -62,11 +62,7 @@ classdef CBrainPlot < handle
                     for interval = 1:size(prumery,2) % cyklus intervaly
                         for kat = 1:size(prumery,3)+1 % cyklus kategorie podnetu
                             if kat <= size(prumery,3) %obvykle kategorie
-                                if kat <= numel(obj.katstr)
-                                    ip = prumery(:,interval, kat) > 0; % index pro prumery, MNI i names, chci jen kladne odpovedi
-                                else
-                                    ip = prumery(:,interval, kat) ~= 0; % pro vyssi kategorie, ktere jsou rozdily odpovedi, chci i zaporny rozdil ; aby tam neco bylo 
-                                end
+                                ip = prumery(:,interval, kat) ~= 0; % chci i zaporny rozdil ; aby tam neco bylo 
                                 P{p,interval,kat}=prumery(ip,interval, kat); %#ok<AGROW>
                                 M{p,interval,kat}=MNI(ip); %#ok<AGROW,PROPLC>>
                                 N{p,interval,kat}= strcat(cellstr(repmat([pacienti(p).folder(1:4) '_'],sum(ip),1)),names(ip)); %#ok<AGROW>
@@ -76,7 +72,7 @@ classdef CBrainPlot < handle
                                 P{p,interval,kat}=zeros(channels,1); %#ok<AGROW> % 0 pro kazdy kanal - vsechny stejnou barvou
                                 M{p,interval,kat}=MNI; %#ok<AGROW,PROPLC>>
                                 N{p,interval,kat}= strcat(cellstr(repmat([pacienti(p).folder(1:4) '_'],channels,1)),names); %#ok<AGROW>
-                                elcount(interval,kat) = elcount(interval,kat) + channels; %#ok<AGROW>
+                                elcount(interval,kat) = elcount(interval,kat) + channels; %#ok<AGROW>                                
                             end
                         end                       
                     end 
@@ -112,10 +108,11 @@ classdef CBrainPlot < handle
             obj.katstr = CB.katstr;
             obj.intervals = CB.intervals;       
         end
-        function PlotBrain3D(obj,kategorie,outputDir) %#ok<INUSD>
+        function PlotBrain3D(obj,kategorie,signum,outputDir) %#ok<INUSD>
             assert(~isempty(obj.VALS),'zadna data VALS');
             if ~exist('kategorie','var') || isempty(kategorie) , kategorie = 1:size(obj.VALS,2); end %muzu chtit jen nektere kategorie
             if ~exist('outputDir','var'), outputDir = 'd:\eeg\motol\CBrainPlot\'; end; %#ok<NASGU>   
+            if ~exist('signum','var'), signum = 0; end; %defaultni je rozdil kladny i zaporny
             if ~isempty(obj.brainsurface)
                 brainsurface = obj.brainsurface;  %#ok<PROPLC>
             end
@@ -124,23 +121,34 @@ classdef CBrainPlot < handle
             figureVisible = 'off';   %nechci zobrazovat obrazek 
             tic; %zadnu meric cas
             for interval = 1:size(obj.VALS,1) 
-                for kat = kategorie                   
-                    if kat <= numel(obj.katstr) %pokud puvodni kategorie z intervalyResp
-                        katname = obj.katstr{kat};
-                    elseif kat==size(obj.VALS,2) %posledni kategorie se vsemi kanaly
-                        katname = 'AllEl';                    
+                for kat = kategorie
+                    if signum > 0 
+                        iV = obj.VALS{interval,kat} > 0; %jen kladne rozdily
+                    elseif signum <0 
+                        iV = obj.VALS{interval,kat} < 0; %jen zaporne rozdily
+                    else
+                        iV = true(size(obj.VALS{interval,kat})); %vsechny rozdily
                     end
-                    figureNamePrefix = [ obj.testname '_' mat2str(obj.intervals(interval,:)) '_' katname '_NOnames'];
+                    
+%                     if kat <= numel(obj.katstr) %pokud puvodni kategorie z intervalyResp
+                    katname = obj.katstr{kat};
+%                     elseif kat==size(obj.VALS,2) %posledni kategorie se vsemi kanaly
+%                         katname = 'AllEl';                    
+%                     end
+                    figureNamePrefix = [ obj.testname '_' mat2str(obj.intervals(interval,:))  '_' katname '_' num2str(signum) '_NOnames'];
                     if strcmp(figureVisible,'off')
                         disp('figures invisible');
                     end
-                    if numel(obj.VALS{interval,kat}) > 0
+                    if numel(obj.VALS{interval,kat}(iV)) > 0
                         disp(figureNamePrefix);
-                        vals_channels = obj.VALS{interval,kat}; %#ok<NASGU>
-                        mni_channels = obj.MNI{interval,kat};   %#ok<NASGU>                    
-                                                    
+                        vals_channels = obj.VALS{interval,kat}(iV); 
+                        if signum ~= 0
+                            vals_channels = vals_channels*signum; %#ok<NASGU> %u zapornych hodnot prehodim znamenko
+                        end
+                        mni_channels = obj.MNI{interval,kat}(iV);   %#ok<NASGU>                                                                      
                         names_channels = []; %#ok<NASGU> 
                         FontSize = 4; %#ok<NASGU>   
+                        myColorMap = iff(signum ~= 0,parula(128) ,jet(128)); %#ok<NASGU>   %pokud jednostrane rozdily, chci parula
                         %nejdriv vykreslim bez popisku elektrod
                         main_brainPlot; %volam Jirkuv skript, vsechny ty promenne predtim jsou do nej
                         if isempty(obj.brainsurface)
@@ -148,7 +156,7 @@ classdef CBrainPlot < handle
                         end
                         
                         %a pak jeste s popisy elektrod
-                        figureNamePrefix = [obj.testname '_' mat2str(obj.intervals(interval,:)) '_' katname '_names'];
+                        figureNamePrefix = [obj.testname '_' mat2str(obj.intervals(interval,:)) '_' katname '_' num2str(signum) '_names'];
                         disp(figureNamePrefix);
                         names_channels = obj.NAMES{interval,kat}; %#ok<NASGU>
                         main_brainPlot;                     else
