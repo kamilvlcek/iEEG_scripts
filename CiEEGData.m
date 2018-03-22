@@ -36,6 +36,7 @@ classdef CiEEGData < handle
         DE = {}; %trida objektu CEpiEvents - epilepticke eventy ziskane pomoci skriptu spike_detector_hilbert_v16_byISARG
         DatumCas = {}; %ruzne casove udaje, kdy bylo co spocitano. Abych mel historii vypoctu pro zpetnou referenci
         PL = {}; %objekt CPlots
+        PLN = {};
         phases; % epochovane fazy
         HOrigData;
     end
@@ -105,6 +106,7 @@ classdef CiEEGData < handle
                 disp('no Wilcox stats');
             end
             obj.PL = CPlots();
+            obj.PLN = CPlotsN(obj);
             end %(nargin ~= 0) 
         end
         
