@@ -99,7 +99,9 @@ classdef CBrainPlot < handle
                           end
                       end
                 end
-            end            
+            end 
+            disp(''); %prazdna radka
+            disp(['vytvoreny ' num2str(numel(obj.katstr)) ' kategorie: ' cell2str(obj.katstr)]);
         end
         function obj = ImportData(obj,CB)
             %vlozi data, ktera jsem vytvoril pomoci CHilbert.ExtractBrainPlotData

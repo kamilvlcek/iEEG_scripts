@@ -540,7 +540,7 @@ classdef CiEEGData < handle
             %vraci prumery [channels x intervaly x kategorie] a MNI(channels)           
             assert(isfield(obj.Wp(obj.WpActive), 'kats'),'musi byt definovany kategorie podnetu');
             assert(isfield(obj.Wp(obj.WpActive), 'WpKatBaseline'),'musi byt spocitana statistika kategorii');
-            if ~exist('intervaly','var'), intervaly = [0.1 obj.epochtime(2)]; end %defaultni epocha je cely interval
+            if ~exist('intervaly','var') || isempty(intervaly), intervaly = [0.1 obj.epochtime(2)]; end %defaultni epocha je cely interval
             if ~exist('channels','var') || isempty(channels) , channels = 1:obj.channels; end
             if ~exist('dofig','var'), dofig = 1; end %defaultne delam obrazek
             kats = obj.Wp(obj.WpActive).kats; 
