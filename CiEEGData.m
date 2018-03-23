@@ -428,12 +428,12 @@ classdef CiEEGData < handle
             obj.DatumCas.ResponseSearch = datestr(now);
         end
         function obj = SetStatActive(obj,WpActive)
-            WpActive = max(1,min(obj.WpActive+1,WpActive)); %osetreni na prilis vysoke a nizke cislo            
+            WpActive = max(1,min(size(obj.Wp,2)+1,WpActive)); %osetreni na prilis vysoke a nizke cislo            
             if WpActive > numel(obj.Wp)
                 disp(['nastavena nova prazdna statistika ' num2str(WpActive)]);
             else
                [katstr, opakstr] = obj.KatOpak2Str(WpActive);                
-                disp(['nastavena statistika s kats: ' katstr ', opakovani: ' opakstr]);            
+                disp(['nastavena statistika ' num2str(WpActive) ' s kats: ' katstr ', opakovani: ' opakstr]);            
             end
             obj.WpActive = WpActive;
             
@@ -540,6 +540,7 @@ classdef CiEEGData < handle
             %vraci prumery [channels x intervaly x kategorie] a MNI(channels)           
             assert(isfield(obj.Wp(obj.WpActive), 'kats'),'musi byt definovany kategorie podnetu');
             assert(isfield(obj.Wp(obj.WpActive), 'WpKatBaseline'),'musi byt spocitana statistika kategorii');
+            if ~exist('intervaly','var'), intervaly = [0.1 obj.epochtime(2)]; end %defaultni epocha je cely interval
             if ~exist('channels','var') || isempty(channels) , channels = 1:obj.channels; end
             if ~exist('dofig','var'), dofig = 1; end %defaultne delam obrazek
             kats = obj.Wp(obj.WpActive).kats; 
@@ -554,7 +555,7 @@ classdef CiEEGData < handle
             ploth = zeros(1,max(numel(kats),size(kombinace,1))); %handles na jednotlive ploty, kvuli legende
             for j = 1:size(intervaly,1) 
                 legendstr = cell(1,max(numel(kats),size(kombinace,1)));
-                if dofig, subplot(2,ceil(size(intervaly,1) /2),j);  end %pro kazdy interval jiny subplot
+                if dofig, subplot(min(2,size(intervaly,1)),ceil(size(intervaly,1) /2),j);  end %pro kazdy interval jiny subplot
                 %spocitam prumery celkove i za kazdou kategorii v kazdem casovem intervalu
                 % dve cisla v kazdem sloupci - od do ve vterinach   
                 iintervalyData = min(round((intervaly(j,:)-obj.epochtime(1)).*obj.fs),size(obj.d,1)); % pro data kde je na zacatku baseline             
@@ -564,19 +565,24 @@ classdef CiEEGData < handle
                 %prumery(iCh,j,1) = mean(mean(katdata(iintervalyData(1):iintervalyData(2),iCh,:),3),1); %prumer za vsechy epochy a cely casovy interval
                 colorskat = {[0 0 0],[0 1 0],[1 0 0],[0 0 1],[1 1 0],[0 1 1],[1 0 1]}; %barvy jako v PlotResponseCh, black, green, red, blue, yellow, aqua, fuchsia
                 colorkombinace = {0,1,2,4;0 0 3 5;0 0 0 6};
-                iChKats = false(1,numel(channels));                                                                            
+                iChKats = false(2,numel(channels));  %dva radky pro rozdily vuci baselina a kategorii vuci sobe                                                                          
                 
                 %nejdriv samotne kategorie
+                Pmax = zeros(numel(kats),1); %sbiram maxima kategorii kvuli tomu kde posadit konrasty mezi kat
                 for k = 1: numel(kats) % cyklus pres kategorie - rozdil vuci baseline
                     katdata = obj.CategoryData(cellval(kats,k)); 
                     iCh = min(obj.Wp(obj.WpActive).WpKatBaseline{k,1}(iintervalyStat(1):iintervalyStat(2),channels),[],1) < 0.05; %kanaly kde je signifikantni rozdil vuci baseline, alespon jednou
-                    prumery(iCh,j,k) = mean(mean(katdata(iintervalyData(1):iintervalyData(2),iCh,:),3),1); %prumer pres epochy a pak pres cas
+                    data = mean(katdata(iintervalyData(1):iintervalyData(2),iCh,:),3); %time x channels, uz jen vybrane kanaly, prumer pres epochy
+                    [~,sub]= max(abs(data),[],1); %cisla radku pro kazdy kanal, kde je maximalni nebo minimalni hodnota
+                    ind = sub2ind(size(data),sub,1:size(data,2)); %predelam indexovani na absolutni
+                    prumery(iCh,j,k) = data(ind); %max nebo min hodnota z kazdeho kanalu                    
                     P = squeeze(prumery(:,j,k));                    
+                    Pmax(k) = max(P);
                     if dofig
                         ploth(k) = plot(P','.-','Color',colorskat{k}); %kreslim tuto kategorii                       
                         hold on;
                     end
-                    iChKats = iChKats | iCh; %pridam dalsi kanaly, kde je signif odpoved
+                    iChKats(1,:) = iChKats(1,:) | iCh; %pridam dalsi kanaly, kde je signif odpoved
                     
                     if iscell(kats(k)) %mame tu vic kategorii proti vice - na jedne strane kontrastu
                         kknames = cell(1,numel(kats{k})); %jmena individualnich kategorii na jedne strane kontrastu
@@ -590,21 +596,30 @@ classdef CiEEGData < handle
                     legendstr{k}=katsnames{k}; %pridam jmeno kategorie na zacatek [legendstr{k}]
                 end                
                 
+                yKombinace = ceil(max(Pmax)+0.5);
                 for k = 1:size(kombinace,1) %cyklus pres vsechny kombinace kategorii
                     katdata1 = obj.CategoryData(cellval(kats,kombinace(k,1))); 
                     katdata2 = obj.CategoryData(cellval(kats,kombinace(k,2)));                     
-                    prumery1 = mean(mean(katdata1(iintervalyData(1):iintervalyData(2),:,:),3),1); %prumer pres epochy a pak pres cas - kategorie 1
-                    prumery2 = mean(mean(katdata2(iintervalyData(1):iintervalyData(2),:,:),3),1); %prumer pres epochy a pak pres cas - kategorie 2
+                    prumery1 = mean(katdata1(iintervalyData(1):iintervalyData(2),:,:),3); %prumer pres epochy a pak pres cas - kategorie 1
+                    prumery2 = mean(katdata2(iintervalyData(1):iintervalyData(2),:,:),3); %prumer pres epochy a pak pres cas - kategorie 2
                     iCh = min(obj.Wp(obj.WpActive).WpKat{kombinace(k,2),kombinace(k,1)}(iintervalyStat(1):iintervalyStat(2),channels),[],1) < 0.05; %kanaly, kde je signifikantni rozdil mezi kategoriemi, alespon jednou
-                    iCh2 = prumery1>0 | prumery2>0; %chci jen kladne odpovedi
-                    p = prumery1(:) - prumery2(:);                 
-                    prumery(iCh & iCh2,j,k+numel(kats)) = p(iCh & iCh2);
+                    %iCh2 = prumery1>0 | prumery2>0; %chci jen kladne odpovedi
+                    for ch = 1:size(iCh,2) 
+                        if iCh(ch) && mean(prumery1(:,ch))>0 && mean(prumery2(:,ch))>0 %jestli v tomhle kanalu signif rozdil, a obe odpovedi jsou prumerne kladne
+                            p = prumery1(:,ch) - prumery2(:,ch);  %rozdil mezi kategoriemi pro jeden kanal pro vsechny vzory
+                            %iCas = prumery1(:,ch)>0 & prumery2(:,ch)>0; %tohle mozna nebude idealni, spis pouzit ze prumer odpovedi je kladny
+                            iMax = find( p==max(abs(p)) | p==-max(abs(p))); %index maximalni absolutni hodnoty
+                            prumery(ch,j,k+numel(kats))=p(iMax); %#ok<FNDSB>
+                        end
+                    end
+                    %p2 = max(p(iCh2),[],1);
+                    %prumery(iCh & iCh2,j,k+numel(kats)) = p;
                     colorindex = colorkombinace{kombinace(k,2),kombinace(k,1)};
                     if dofig %kreslim rozdily mezi odpovedmi pro kategorie                        
-                        ph = plot(prumery(:,j,k+numel(kats))+1,'.-','Color',colorskat{colorindex}); %kreslim tuto kombinaci kategorii nahoru                        
+                        ph = plot(prumery(:,j,k+numel(kats))+yKombinace,'.-','Color',colorskat{colorindex}); %kreslim tuto kombinaci kategorii nahoru                        
                         if k>numel(kats), ploth(k) = ph; end %pokud je kombinaci vic nez kategorii, ulozim si handle, budu ho potrebovat na legendu
                     end
-                    iChKats = iChKats | (iCh & iCh2);  %pridam dalsi kanaly, kde je signif odpoved                    
+                    iChKats(2,:) = iChKats(2,:) | iCh ;  %pridam dalsi kanaly, kde je signif odpoved                    
                     legendstr{colorindex}=[legendstr{colorindex} ';' katsnames{kombinace(k,1)} ' x ' katsnames{kombinace(k,2)} ];
                     katsnames{k+numel(kats)} = [katsnames{kombinace(k,1)} ' x ' katsnames{kombinace(k,2)} ];
                 end  
@@ -614,15 +629,18 @@ classdef CiEEGData < handle
                     title(['interval: ' mat2str(intervaly(j,:))]);
                     xlim([-1 numel(channels)+1]);
                     %vykreslim jmena u signifikatnich kanalu
-                    for ch = 1:numel(channels) 
-                        if(iChKats(ch) && (ch==1 || ~iChKats(ch-1)))
-                            th = text(ch,max(P),[num2str(ch) ':' obj.CH.H.channels(ch).name]);
+                    for ch = 1:numel(channels)                        
+                        if((iChKats(1,ch) && (ch==1 || ~iChKats(1,ch-1))) || (iChKats(2,ch) && (ch==1 || ~iChKats(2,ch-1))) || ismember(ch-1,obj.els)) %pokud je kanal signif a predchozi neni nebo se jedna o zacatek elektrody
+                            th = text(ch,yKombinace*0.6,[num2str(ch) ':' obj.CH.H.channels(ch).name]);
                             if ~verLessThan('matlab','9.0') 
                                 th.Rotation = 90;
                             end
                         end
+                        if ismember(ch,obj.els)
+                            line([ch+.5 ch+.5],[0 yKombinace],'Color',[.8 .8 .8]); %kreslim hranice elektrod
+                        end
                     end
-                    text(0,1.1,'kontrasty mezi kat');
+                    text(0,yKombinace*1.1,'kontrasty mezi kat');
                     text(0,0.1,'kat vuci baseline');
                 end                
                

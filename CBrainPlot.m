@@ -36,8 +36,9 @@ classdef CBrainPlot < handle
             elcount = []; %jen inicializace            
             P = {}; M = {}; N = {}; %jen inicializace
             obj.pacients = cell(numel(pacienti),1); 
+            obj.katstr_pacients = []; %musim to smazat, nize testuju, jestil to je prazdne
             for p = 1:numel(pacienti) % cyklus pacienti
-                if pacienti(p).todo
+                if pacienti(p).todo 
                     disp(['***   ' pacienti(p).folder '   ***']);
                     E = pacient_load(pacienti(p).folder,testname,filename); %nejspis objekt CHilbert, pripadne i jiny
                     if isempty(E)
@@ -49,7 +50,7 @@ classdef CBrainPlot < handle
                     [prumery, MNI,names,~,katstr] = E.IntervalyResp( intervals,[],0);   %#ok<PROPLC> %no figure, funkce z CiEEGData                           
                     obj.pacients{p} = pacienti(p).folder;
                     clear E;
-                    if p==1
+                    if isempty(obj.katstr_pacients)
                         obj.katstr = [katstr 'AllEl']; %#ok<PROPLC> 
                         obj.katstr_pacients = cell(numel(pacienti),numel(katstr)); %#ok<PROPLC>
                         elcount = zeros(size(prumery,2),size(prumery,3)+1); %pocet elektrod pro kazdy casovy interval a kategorii - interval x kategorie
