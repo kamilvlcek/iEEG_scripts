@@ -250,46 +250,6 @@ classdef CHilbert < CiEEGData
             set(obj.plotF.fh,'KeyPressFcn',methodhandle);             
         end 
         
-        function fig = PlotFrequencyPower_Zhang(obj, channel)
-            %funkcia pre vykreslenie time x frequency a frequency x power plotov 
-            %pre dany channel a condition (napriklad 0=cervena, 1=vy, 2=znacka, 9=all conditions)
-            %priemerne z-scored power cez cely casovy usek pre kazdu frekvenciu
-            %a zvlast pre useky pred/po podnete
-            assert(~isempty(obj.HFreqEpochs),'soubor s frekvencnimi daty pro epochy neexistuje');
-            correct_epochs = obj.CorrectEpochs(channel, 9); %vyfiltruje len spravne epochy
-            
-            time = linspace(obj.epochtime(1), obj.epochtime(2), size(obj.HFreqEpochs,1));
-            time_before = time(time<=0); %pred podnetom
-            
-            names = {obj.CH.H.channels.ass_brainAtlas}; %cast mozgu
-            labels = {obj.CH.H.channels.neurologyLabel}; %neurology label
-            electrodes = {obj.CH.H.channels.name}; %nazov elektrody
-            
-            [mean_fs, std_fs] = obj.meanZscoredPower(1:length(time),channel,correct_epochs); %priemerna power a stredna chyba priemeru pre kazdu frekvenciu cez celu periodu
-            [mean_before, std_before] = obj.meanZscoredPower(1:length(time_before),channel,correct_epochs); %priemerna power a stredna chyba priemeru pre kazdu frekvenciu pred podnetom
-            [mean_after, std_after] = obj.meanZscoredPower((length(time_before)+1):length(time),channel,correct_epochs); %priemerna power a str. chyba priemeru pre kazdu frekvenciu po podnete
-            
-            max_std = max(max([std_fs std_before std_after]));
-            mean_min = min(min([mean_fs mean_before mean_after])) - max_std; %min a max means pre zjednotenie ylimits grafov
-            mean_max = max(max([mean_fs mean_before mean_after])) + max_std;
-            
-            fig = figure;
-            
-            %vykresli priemernu z-scored power pre kazdu frekvenciu napriec
-            %celym casom
-            errorbar(mean_fs, std_fs);
-            %ylim([mean_min mean_max]);
-            xlabel('Frequency (Hz)');
-            ylabel('z-scored power');
-            title('-1:1s');
-            
-      
-            title(sprintf('%s PACIENT %s - CHANNEL %d \n %s - %s \n ', electrodes{channel}, obj.CH.H.subjName, channel, names{channel}, labels{channel}));
-
-            set(gcf, 'PaperUnits', 'centimeters');
-            set(gcf, 'PaperPosition', [0 0 55 30]);
-        end
-        
         %% SAVE AND LOAD FILE
         %dve funkce na ulozeni a nacteni vypocitane Hilbertovy obalky, protoze to trva hrozne dlouho
         %uklada se vcetne dat parenta CiEEGData
@@ -516,26 +476,6 @@ classdef CHilbert < CiEEGData
                    obj.plotF.ylim = [];
                    obj.PlotResponseFreq( obj.plotEp.ch); %prekreslim grafy
            end
-        end
-        
-        function obj = MovePlotFreqs(obj,~,eventDat)
-            %zpracovava stlaceni klavesy pro graf PlotMovingFreqs
-            switch eventDat.Key
-                case 'rightarrow' % +1 epoch
-                    obj.plotFreqs.iTime = obj.plotFreqs.iTime + 1; %min([obj.plotEpochs.iTime + 1, size(obj.HFreqEpochs,4)]);
-                case 'leftarrow'  % -1 epoch
-                    obj.plotFreqs.iTime = max([obj.plotFreqs.iTime - 1, 0]);%max([obj.plotEpochs.iEpoch - 1, 1]);
-                otherwise  
-                   display(['key pressed: ' eventDat.Key]); %vypise stlacenou klavesu
-            end
-            obj.plotFreqData();
-        end
-        
-        function ylimits = getYlimits(obj, ch, freq)
-            [~,fq] = intersect(obj.Hf, freq);
-            ymin = min(min(squeeze(obj.HFreq(:,ch,fq))));
-            ymax = max(max(squeeze(obj.HFreq(:,ch,fq))));
-            ylimits = [ymin; ymax];
         end
         
     end

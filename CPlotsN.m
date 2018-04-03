@@ -457,7 +457,7 @@ classdef CPlotsN < handle
             assert(~isempty(obj.E.HFreqEpochs),'soubor s frekvencnimi daty pro epochy neexistuje');
             subplot(1,2,1) % subplot time x frequency power for given epoch
             imagesc(squeeze(obj.E.HFreqEpochs(:,obj.plotEpochs.channels(obj.plotEpochs.iChannel),:,obj.plotEpochs.iEpoch))', 'XData', obj.plotEpochs.T, 'YData', obj.E.Hf);
-            caxis(obj.plotEpochs.zlimits(obj.plotEpochs.iChannel,:));
+            caxis(obj.plotEpochs.zlimits(obj.plotEpochs.iChannel,:));xlabel('Time (s)'); ylabel('Frequency (Hz)'); 
             colormap parula; %aby to bylo jasne u vsech verzi matlabu - i 2016
             set(gca,'YDir','normal');
             colorbar;
@@ -465,7 +465,6 @@ classdef CPlotsN < handle
             hold on; % plot rejected line 
             obj.PlotRejected(obj.plotEpochs.channels(obj.plotEpochs.iChannel), obj.plotEpochs.T, obj.plotEpochs.iEpoch, sum(obj.plotEpochs.rejectedEpochs(obj.plotEpochs.iEpoch,:)));
             response_time = obj.E.PsyData.P.data(obj.plotEpochs.iEpoch, 4);
-            
             hold on; % plot response time 
             plot([response_time response_time], [obj.E.Hf(1)-10 obj.E.Hf(end)+10],'black','LineWidth',4);
             hold on;
@@ -477,7 +476,7 @@ classdef CPlotsN < handle
             plot([response_time response_time], obj.plotEpochs.zlimits(obj.plotEpochs.iChannel,:), 'black', 'LineWidth', 4);
             ylim(obj.plotEpochs.zlimits(obj.plotEpochs.iChannel,:)); % y axis = zlimits (default/specified by user)
             xlim([obj.plotEpochs.T(1) obj.plotEpochs.T(end)]); % x axis = time
-            
+            xlabel('Time (s)'); ylabel('Power');
             title(sprintf('%s - channel %d epoch %d', obj.E.epochData{obj.plotEpochs.iEpoch,1}, obj.plotEpochs.channels(obj.plotEpochs.iChannel), obj.plotEpochs.iEpoch), 'FontSize', 12);
             hold off;
         end
