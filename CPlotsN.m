@@ -5,6 +5,7 @@ classdef CPlotsN < handle
     properties (Access = public)
         E;                      % CiEEGData object
         plotFreqs = struct;     % contains figure and plot info
+        plotEpochs = struct;    % contains figure and plot info for PlotMovingEpochs
     end
     
     methods (Access = public)
@@ -180,7 +181,6 @@ classdef CPlotsN < handle
             set(gcf, 'PaperPosition', [0 0 30 20]);
         end
         
-        
         function fig = PlotAllFrequencyPower(obj, channel)
             %funkcia pre vykreslenie time x frequency a frequency x power plotov 
             %pre dany channel a vsetky conditions
@@ -266,11 +266,36 @@ classdef CPlotsN < handle
             legend(h, katstr);
             hold off;
       
-            mtit(sprintf('%s PACIENT %s - CHANNEL %d \n %s - %s \n ', electrodes{channel}, obj.CH.H.subjName, channel, names{channel}, labels{channel}));
+            mtit(sprintf('%s PACIENT %s - CHANNEL %d \n %s - %s \n ', electrodes{channel}, obj.E.CH.H.subjName, channel, names{channel}, labels{channel}));
 
             set(gcf, 'PaperUnits', 'centimeters');
             set(gcf, 'PaperPosition', [0 0 55 30]);
         end
+        
+        function PlotMovingEpochs(obj, channels, iChannel)
+            %pro zadane channels kresli graf cas x frekvence pro kazdou epochu zvlast
+            %sipkami se da prochazet pres epochy a kanaly - private function MovePlotEpochs
+            %Nada since 2018/01
+            if ~exist('iChannel', 'var'); iChannel = 1; end
+            if ~exist('channels', 'var') || isempty(channels); channels = 1:obj.E.channels; end 
+            assert(~isempty(obj.E.HFreqEpochs),'soubor s frekvencnimi daty pro epochy neexistuje');
+            obj.plotEpochs.f = figure('Name','All Epochs','Position', [20, 100, 1000, 600]);
+            obj.plotEpochs.channels = channels;
+            set(obj.plotEpochs.f, 'KeyPressFcn', @obj.MovePlotEpochs);
+            
+            obj.plotEpochs.iChannel = iChannel; % initiate channel index
+            obj.plotEpochs.iEpoch = 1; % initiate epoch index
+            obj.plotEpochs.T = linspace(obj.E.epochtime(1), obj.E.epochtime(2), size(obj.E.HFreqEpochs,1)); % time
+            obj.plotEpochs.rejectedEpochs = obj.E.PsyData.GetErrorTrials(); % get rejected epoch trials
+            
+            % calculate zlimits for all channels
+            obj.plotEpochs.zlimits = zeros(length(channels),2);
+            for ch = 1:length(channels)
+                obj.plotEpochs.zlimits(ch, :) = obj.getZlimits(obj.plotEpochs.channels(ch));
+            end
+            
+            obj.plotEpochData();
+        end    
     end
     
     
@@ -412,6 +437,125 @@ classdef CPlotsN < handle
             mean_time = squeeze(mean(obj.E.HFreqEpochs(time,channel,:,epochs),1)); %priemerna power pre kazdu frekvenciu cez cas -> ostane freq x epoch
             fmean = mean(mean_time,2); %priemerna power pre kazdu frekvenciu cez epochy
             fstd = std(mean_time,0,2)./sqrt(length(epochs)); %stredna chyba priemeru pre kazdu frekvenciu cez epochy -> std()/sqrt(n)
+        end
+        
+        function subplotTimeFrequency(obj, data, time)
+            colormap parula; 
+            imagesc(data, 'XData', time, 'YData', obj.E.Hf); 
+            set(gca,'YDir','normal');
+            xlabel('Time (s)');
+            ylabel('Frequency (Hz)');
+            h = colorbar;
+            ylabel(h, 'z-scored power'); 
+           % title([names{channel}, ' ', labels{channel}]);
+        end
+        
+        function plotEpochData(obj)
+            %vykresli vlavo time x frequency graf pre danu epochu 
+            %vpravo average power cez vsetky frekvencie danej epochy 
+            %pouziva sa v PlotMovingEpochs
+            assert(~isempty(obj.E.HFreqEpochs),'soubor s frekvencnimi daty pro epochy neexistuje');
+            subplot(1,2,1) % subplot time x frequency power for given epoch
+            imagesc(squeeze(obj.E.HFreqEpochs(:,obj.plotEpochs.channels(obj.plotEpochs.iChannel),:,obj.plotEpochs.iEpoch))', 'XData', obj.plotEpochs.T, 'YData', obj.E.Hf);
+            caxis(obj.plotEpochs.zlimits(obj.plotEpochs.iChannel,:));
+            colormap parula; %aby to bylo jasne u vsech verzi matlabu - i 2016
+            set(gca,'YDir','normal');
+            colorbar;
+            
+            hold on; % plot rejected line 
+            obj.PlotRejected(obj.plotEpochs.channels(obj.plotEpochs.iChannel), obj.plotEpochs.T, obj.plotEpochs.iEpoch, sum(obj.plotEpochs.rejectedEpochs(obj.plotEpochs.iEpoch,:)));
+            response_time = obj.E.PsyData.P.data(obj.plotEpochs.iEpoch, 4);
+            
+            hold on; % plot response time 
+            plot([response_time response_time], [obj.E.Hf(1)-10 obj.E.Hf(end)+10],'black','LineWidth',4);
+            hold on;
+            
+            subplot(1,2,2) % subplot mean power across all frequencies
+            plot(obj.plotEpochs.T, obj.E.d(:,obj.plotEpochs.channels(obj.plotEpochs.iChannel), obj.plotEpochs.iEpoch)');
+            
+            hold on; % plot response time 
+            plot([response_time response_time], obj.plotEpochs.zlimits(obj.plotEpochs.iChannel,:), 'black', 'LineWidth', 4);
+            ylim(obj.plotEpochs.zlimits(obj.plotEpochs.iChannel,:)); % y axis = zlimits (default/specified by user)
+            xlim([obj.plotEpochs.T(1) obj.plotEpochs.T(end)]); % x axis = time
+            
+            title(sprintf('%s - channel %d epoch %d', obj.E.epochData{obj.plotEpochs.iEpoch,1}, obj.plotEpochs.channels(obj.plotEpochs.iChannel), obj.plotEpochs.iEpoch), 'FontSize', 12);
+            hold off;
+        end
+        
+        function zlimits = getZlimits(obj, ch)
+            %vypocita minimalnu a maximalnu power pre dany channel cez
+            %vsetky epochy a frekvencie
+            %pouziva sa v PlotMovingEpochs
+            ymin = min(min(obj.E.d(:, ch, :)));
+            ymax = max(max(obj.E.d(:, ch, :)));
+            zlimits = [ymin ymax];
+        end
+        
+        function obj = MovePlotEpochs(obj,~,eventDat)
+            %zpracovava stlaceni klavesy pro graf PlotMovingEpochs
+            switch eventDat.Key
+                case 'rightarrow' % +1 epoch
+                    obj.plotEpochs.iEpoch = min([obj.plotEpochs.iEpoch + 1, size(obj.E.HFreqEpochs,4)]);
+                case 'leftarrow'  % -1 epoch
+                    obj.plotEpochs.iEpoch = max([obj.plotEpochs.iEpoch - 1, 1]);
+                case 'uparrow'    % -1 channel
+                    obj.plotEpochs.iChannel = max([obj.plotEpochs.iChannel - 1, 1]);
+                case 'downarrow'  % +1 channel
+                    obj.plotEpochs.iChannel = min([obj.plotEpochs.iChannel + 1, length(obj.plotEpochs.channels)]);
+                case 'numpad6' % nasledujuca s rovnakou condition
+                    obj.plotEpochs.iEpoch = min([obj.getNextCondition(1), size(obj.E.HFreqEpochs,4)]);
+                case 'numpad4' % predchadzajuca s rovnakou condition
+                    obj.plotEpochs.iEpoch = max([obj.getLastCondition(1), 1]);
+                case 'pageup' % nasledujuca condition
+                    obj.plotEpochs.iEpoch = min([obj.getNextCondition(0), size(obj.E.HFreqEpochs,4)]);
+                case 'pagedown' % predchadzajuca condition
+                    obj.plotEpochs.iEpoch = max([obj.getLastCondition(0), 1]);
+                case {'multiply','8'} %hvezdicka na numericke klavesnici
+                   %dialog na vlozeni minima a maxima osy y
+                   answ = inputdlg('Enter ymax and min:','Yaxis limits', [1 50], {num2str(obj.plotEpochs.zlimits(obj.plotEpochs.iChannel,:))});
+                   if numel(answ)>0  %odpoved je vzdy cell 1x1 - pri cancel je to cell 0x0
+                       if isempty(answ{1}) || any(answ{1}=='*') %pokud vlozim hvezdicku nebo nic, chci znovy spocitat max a min
+                           obj.plotEpochs.zlimits(obj.plotEpochs.iChannel,:) = obj.getZlimits(obj.plotEpochs.channels(obj.plotEpochs.iChannel));
+                       else %jinak predpokladam dve hodnoty
+                           data = str2num(answ{:});  %#ok<ST2NM>
+                           if numel(data)>= 2 %pokud nejsou dve hodnoty, nedelam nic
+                             obj.plotEpochs.zlimits(obj.plotEpochs.iChannel,:) = [data(1) data(2)];
+                           end
+                       end
+                   end
+                   obj.plotEpochData(); %prekreslim grafy
+                otherwise  
+                   display(['key pressed: ' eventDat.Key]); %vypise stlacenou klavesu
+            end
+            obj.plotEpochData();
+        end
+        
+        function last = getLastCondition(obj, same)
+            %najde index poslednej najblizsej epochy 
+            %rovnakej(same=1)/rozdielnej(same=0) kategorie
+            %pouziva sa v PlotMovingEpochs pri numpad4/pagedown
+            if same
+                last = find(obj.E.PsyData.P.data(1:(obj.plotEpochs.iEpoch-1),7) == obj.E.epochData{obj.plotEpochs.iEpoch,2}, 1, 'last');
+            else 
+                last = find(obj.E.PsyData.P.data(1:(obj.plotEpochs.iEpoch-1),7) ~= obj.E.epochData{obj.plotEpochs.iEpoch,2}, 1, 'last');
+            end  
+            if isempty(last)
+                last = obj.plotEpochs.iEpoch;
+            end
+        end
+        
+        function next = getNextCondition(obj, same)
+            %najde index najblizsej epochy 
+            %rovnakej(same=1)/rozdielnej(same=0) kategorie
+            %pouziva sa v PlotMovingEpochs pri numpad6/pageup
+            if same
+                next = obj.plotEpochs.iEpoch + find(obj.E.PsyData.P.data((obj.plotEpochs.iEpoch+1):end,obj.E.PsyData.P.sloupce.kategorie) == obj.E.epochData{obj.plotEpochs.iEpoch,2}, 1);
+            else 
+                next = obj.plotEpochs.iEpoch + find(obj.E.PsyData.P.data((obj.plotEpochs.iEpoch+1):end,obj.E.PsyData.P.sloupce.kategorie) ~= obj.E.epochData{obj.plotEpochs.iEpoch,2}, 1);
+            end
+            if isempty(next)
+                next = obj.plotEpochs.iEpoch;
+            end
         end
          
     end
