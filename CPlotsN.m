@@ -143,7 +143,7 @@ classdef CPlotsN < handle
             xlabel('Time (s)');
             ylabel('Frequency (Hz)');
             h = colorbar;
-            ylabel(h, 'z-scored power'); 
+            ylabel(h, 'Power'); 
             title([names{channel}, ' ', labels{channel}]);
             
             subplot(2,2,2);
@@ -151,7 +151,7 @@ classdef CPlotsN < handle
             errorbar(mean_fs, std_fs);
             %ylim([mean_min mean_max]);
             xlabel('Frequency (Hz)');
-            ylabel('z-scored power');
+            ylabel('Power');
             title('-1:1s');
             
             subplot(2,2,3);
@@ -159,7 +159,7 @@ classdef CPlotsN < handle
             errorbar(mean_before, std_before);
             ylim([mean_min mean_max]);
             xlabel('Frequency (Hz)');
-            ylabel('z-scored power');
+            ylabel('Power');
             title('-1:0s PRED PODNETOM');
             
             subplot(2,2,4);
@@ -167,7 +167,7 @@ classdef CPlotsN < handle
             errorbar(mean_after, std_after);
             ylim([mean_min mean_max]); 
             xlabel('Frequency (Hz)');
-            ylabel('z-scored power');
+            ylabel('Power');
             title('0:1s PO PODNETE');
             
             if icondition == 9
@@ -295,7 +295,43 @@ classdef CPlotsN < handle
             end
             
             obj.plotEpochData();
-        end    
+        end   
+        
+        function PlotITPC(obj, channel, iFrequency)
+        % funkcia pre vykreslenie ITPC pre jeden channel a jednu frekvenciu    
+            itpc = zeros(length(obj.E.samples)); % inicializacia vektoru itpc v dlzke 1 epochy
+            for i = 1:obj.E.samples
+                itpc(i) = abs(mean(exp(1i*squeeze(obj.E.fphaseEpochs(i,channel,iFrequency,:)))));
+            end
+            plot(itpc);
+        end
+        
+        function fig = PlotITPCall(obj, channel, icondition)
+        % funkcia pre vykreslenie mapy ITPC pre jeden channel   
+            iEp = obj.CorrectEpochs(channel, icondition);
+            n_time = obj.E.samples;
+            n_freq = length(obj.E.Hf);
+            itpc = zeros(n_freq,n_time); % inicializacia matice itpc v dlzke 1 epochy
+            for fq = 1:n_freq
+                for i = 1:n_time
+                    itpc(fq,i) = abs(mean(exp(1i*squeeze(obj.E.fphaseEpochs(i,channel,fq,iEp)))));
+                end
+            end
+            names = {obj.E.CH.H.channels.ass_brainAtlas}; %cast mozgu
+            labels = {obj.E.CH.H.channels.neurologyLabel}; %neurology label
+            electrodes = {obj.E.CH.H.channels.name}; %nazov elektrody
+            fig = figure
+            %contourf(linspace(obj.E.epochtime(1), obj.E.epochtime(2),n_time), obj.E.Hf, itpc)
+            image(linspace(obj.E.epochtime(1), obj.E.epochtime(2),n_time), obj.E.Hf, itpc, 'CDataMapping', 'scaled')
+            set(gca,'YDir','normal')
+            xlabel('Time (s)'); ylabel('Frequency (Hz)');
+            title([electrodes{channel}, ' Channel ', num2str(channel), ', ', labels{channel}, ', ', names{channel}]);
+            colorbar
+            figure
+            plot(mean(itpc,1));
+            xlabel('Time (s)'); ylabel('Mean ITPC');
+        end
+        
     end
     
     

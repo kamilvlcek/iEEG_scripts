@@ -14,6 +14,7 @@ classdef CHilbert < CiEEGData
         plotEpochs = struct; %udaje o stavu plotu PlotMovingEpochs - Nada
         plotFreqs = struct;
         fphase; %faze vsech zpracovavanych frekvenci - premiestnene z CMorlet pre vykreslenie a porovnanie faz z MW a Hilberta do buducna
+        fphaseEpochs;
     end
     methods (Access = public)
         %% ELEMENTAL FUNCTIONS 
@@ -132,8 +133,10 @@ classdef CHilbert < CiEEGData
                  Hfreq2 = zeros(iepochtime(2)-iepochtime(1), size(obj.d,2), numel(obj.Hfmean),size(kategorie,1)); %nova epochovana data time x channel x freq x kategorie=podminka
                  if freqepochs
                      obj.HFreqEpochs = zeros(iepochtime(2)-iepochtime(1),size(obj.HFreq,2),size(obj.HFreq,3),obj.epochs); % time x channel x frequency x epoch
+                     obj.fphaseEpochs = zeros(iepochtime(2)-iepochtime(1),size(obj.HFreq,2),size(obj.HFreq,3),obj.epochs); % time x channel x frequency x epoch
                  else
                      obj.HFreqEpochs = [];
+                     obj.fphaseEpochs = [];
                  end
                  %cyklus po kategoriich ne po epochach
                  for katnum = kategorie' %potrebuji to v radcich
@@ -143,8 +146,10 @@ classdef CHilbert < CiEEGData
                          for ch=1:obj.channels
                             baseline_mean = mean(obj.HFreq(izacatek + ibaseline(1) : izacatek+ibaseline(2)-1,ch,:),1); %baseline pro vsechny frekvencni pasma dohromady
                             epoch_data = bsxfun(@minus,obj.HFreq(izacatek + iepochtime(1) : izacatek+iepochtime(2)-1,ch,:) , baseline_mean); %odecteni baseline pro aktualni epochu a kanal
+
                             if freqepochs
                                 obj.HFreqEpochs(:,ch,:,epoch) = epoch_data; 
+                                obj.fphaseEpochs(:,ch,:,epoch) = obj.fphase(izacatek + iepochtime(1) : izacatek + iepochtime(2)-1, ch, :);
                             end
                             Hfreq2(:,ch,:,katnum+1) = Hfreq2(:,ch,:,katnum+1) + epoch_data; %soucet power pro kategorii, pres prislusne epochy
                             %tady se mi to mozna odecetlo blbe? KOntrola
