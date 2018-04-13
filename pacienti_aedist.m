@@ -178,7 +178,7 @@ pacienti(p).data = 'VT23_2017-05-09_17-12_001_aedist.mat';
 pacienti(p).header = 'p144_header.mat';
 pacienti(p).psychopy = 'p144_aedist.mat';
 pacienti(p).rjepoch = 'p144_aedist_RjEpoch.mat'; 
-pacienti(p).epievents = 'p144_aedist_epievents.mat'; %2017 
+pacienti(p).epievents = 'p144_aedist_epievents.mat'; %2017  
 pacienti(p).rjch = [ 47]; 
 
 p=p+1;
@@ -191,6 +191,15 @@ pacienti(p).rjepoch = 'p147_aedist_RjEpoch.mat';
 pacienti(p).epievents = 'p147_aedist_epievents.mat'; %2017 
 pacienti(p).rjch = [47]; 
 
+p=p+1;
+pacienti(p).todo = 1;
+pacienti(p).folder = 'p153 Ven VT26';
+pacienti(p).data = 'VT26_2017-11-08_09-17_001_concat_aedist.mat';
+pacienti(p).header = 'p153_header.mat';
+pacienti(p).psychopy = 'p153_aedist.mat';
+pacienti(p).rjepoch = 'p153_aedist_RjEpoch.mat';
+pacienti(p).epievents = 'p153_aedist_epievents.mat'; %2017 
+pacienti(p).rjch = [47]; 
  
 
 end

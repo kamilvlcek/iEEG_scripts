@@ -35,7 +35,7 @@ classdef CPsyData < handle
             else
                 rt = 24*3600*(obj.P.data(:,obj.P.sloupce.ts_odpoved) - obj.P.data(:,obj.P.sloupce.ts_podnet));
             end
-            if sum(rt<0)>=1 && isempty(obj.warning_rt)
+            if any(sum(rt<0)>=1) && isempty(obj.warning_rt)
                 warning('Pozor: %d zaporne reakcni casy',sum(rt<0));
                 obj.warning_rt = true;
             end

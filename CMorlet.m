@@ -15,12 +15,12 @@ classdef  CMorlet < CHilbert
             disp('vytvoren objekt CMorlet');             
         end
         
-        function obj = PasmoFrekvence(obj,freq,channels,prekryv,decimatefactor)
+        function obj = PasmoFrekvence(obj,freq,channels,~,decimatefactor)
             %   podle figure 1311 z knihy Mike X Cohen 
             %   pouziva data d z parentu a take fs
             %   freq    seznam freqvenci pro ktere se ma delat prumer - lo, .., ..., .., hi
             if ~exist('channels','var'), channels = 1:obj.channels; end
-            if ~exist('prekryv','var'), prekryv = 0; end %kolik se maji prekryvat sousedni frekvencni pasma, napriklad 0.5
+            %if ~exist('prekryv','var'), prekryv = 0; end %kolik se maji prekryvat sousedni frekvencni pasma, napriklad 0.5
             if ~exist('decimatefactor','var'), decimatefactor = obj.decimatefactor; end; %volitelny parametr decimatefactor 
             obj.HFreq = zeros(ceil(obj.samples/decimatefactor),obj.channels,numel(freq)); %inicializace pole - power
             obj.fphase = zeros(ceil(obj.samples/decimatefactor),obj.channels,numel(freq)); % inicializace pole - faze
@@ -55,9 +55,9 @@ classdef  CMorlet < CHilbert
                     end
                     obj.HFreq(:,ch,fno) = (fpower./mean(fpower)); %podil prumeru = prumerna hodnota                   
                     %fprintf('%i Hz, ',loF);
-                    fphase = angle(eegconv); %#ok<PROP> %faze frekvence 
+                    fphase = angle(eegconv); %#ok<PROPLC> %faze frekvence 
                     if decimatefactor > 1
-                        obj.fphase(:,ch,fno) = decimate(fphase,decimatefactor);    %#ok<PROP>                         
+                        obj.fphase(:,ch,fno) = decimate(fphase,decimatefactor);    %#ok<PROPLC>                        
                     end
                 end
                 %fprintf('\n'); %tisk znova na stejnou radku
@@ -86,7 +86,7 @@ classdef  CMorlet < CHilbert
             
             scales = 5./(2*pi*(freq)); %prevedu frekvence na scales - to jsem okopiroval z Mike X Cohena a funguje to
               % = gaussian width (or stdev) - 5=pet cyklu waveletu - pro kazdou frekvenci zvlas
-            [S,f,t] = VlnkovaTransformacia(obj.d(:,channels),scales,obj.fs); %#ok<NASGU,ASGLU> %rozmery S: frekvence x delka x kanaly
+            [S,f,t] = VlnkovaTransformacia(obj.d(:,channels),scales,obj.fs); %#ok<ASGLU> %rozmery S: frekvence x delka x kanaly
             S = permute(S,[ 2 3 1]); % predelam freq 1 x cas 2 x kanal 3  na cas x kanal x freq 
             fprintf('... computing mean'); %ukoncim radku
             for ch = 1:numel(channels) %S ma v sobe jen jeden kanal, ale Hfreq vsechny kanaly
