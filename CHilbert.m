@@ -48,23 +48,31 @@ classdef CHilbert < CiEEGData
             samples = ceil(obj.samples/decimatefactor); 
             disp(['vytvarim pole ' num2str(samples) 'x' num2str(obj.channels) 'x' num2str(numel(freq)-1) ... 
                 '=' num2str(samples*obj.channels*(numel(freq)-1)*8/1024/1024) ' MBytes']); %zpravu abych vedel, v jakych velikostech se pohybuju
-            obj.HFreq = zeros(samples,obj.channels,numel(freq)-1); %inicializace pole   
+            HFreq = zeros(samples,obj.channels,numel(freq)-1); %#ok<PROPLC> %inicializace pole   
             timer = tic; %zadnu merit cas
             fprintf('kanal ze %i: ', max(channels) );
-            for ch = channels %jednotlive elektrody
-                %fprintf('channel %i: Hz ',ch);
-                           
-                fprintf('%i,',ch);
-                for fno = 1:numel(freq)-1 %seznam frekvenci
-                    loF = freq(fno) -prekryv*(freq(fno+1)-freq(fno)); 
-                    hiF = freq(fno+1)-0.1 +prekryv*(freq(fno+1)-freq(fno));  %napr 50 - 59.9
-                    hh = obj.hilbertJirka(obj.d(:,ch),loF,hiF,obj.fs); %cista hilbertova obalka, tohle i skript hodne zrychli
+            freq1 = freq(2:end); %kvuli parfor, aby bylo konzistentni indexovani
+            fs = obj.fs; %jen kvuli parfor  
+            fnocyclenum = numel(freq)-1; %kvuli parfor, aby jasny pocet cyklu
+            for ch = channels %jednotlive elektrody 
+                % outer parfor mi zatim nefunguje, hrozne pameti se nacetlo (d se asi ze ctyrnasobilo pro 4 workers) a pak to vyhodilo chybu:
+                  
+                %fprintf('channel %i: Hz ',ch);                         
+                fprintf('%i,',ch); 
+                d = obj.d(:,ch);
+                if sum(d)==0, continue; end %pro vyrazene kanaly jsou hodnoty 0 pri jine nez bipol ref. Z tech pak vznikne nan, pri tomhle cyklu, coz vadi dal                                  
+                parfor fno = 1:fnocyclenum %seznam frekvenci
+                    loF = freq(fno) -prekryv*(freq1(fno)-freq(fno)); 
+                    hiF = freq1(fno)-0.1 +prekryv*(freq1(fno)-freq(fno));  %napr 50 - 59.9
+                    hh = CHilbert.hilbertJirka(d,loF,hiF,fs); %cista hilbertova obalka, tohle i skript hodne zrychli
                     hh = decimate(hh,decimatefactor); % mensi sampling rate                    
-                    obj.HFreq(:,ch,fno) = (hh./mean(hh)); %podil prumeru = prumerna hodnota
+                    HFreq(:,ch,fno) = (hh./mean(hh)); %#ok<PROPLC> %podil prumeru = prumerna hodnota
                     %fprintf('%i Hz, ',loF);
                 end
                 %fprintf('\n'); %tisk znova na stejnou radku
             end
+            obj.HFreq = HFreq; %#ok<PROPLC>
+            toc(timer); %ukoncim mereni casu a vypisu, skore inner parfor=136s, for=175s
             obj.d = squeeze(mean(obj.HFreq,3)); %11.5.2016 - prepisu puvodni data prumerem
             obj.fs = obj.fs/decimatefactor;
             obj.tabs = downsample(obj.tabs,decimatefactor);
@@ -77,7 +85,7 @@ classdef CHilbert < CiEEGData
             fprintf('\n'); %ukoncim radku
             toc(timer); %ukoncim mereni casu a vypisu
             obj.DatumCas.HilbertComputed = datestr(now);
-            disp(['vytvoreno ' num2str(numel(obj.Hfmean)) ' frekvencnich pasem']); 
+            disp(['vytvoreno ' num2str(numel(obj.Hfmean)) ' frekvencnich pasem v case' num2str(toc(timer)) 's']); 
         end
         
         function obj = ExtractEpochs(obj, PsyData,epochtime,baseline,freqepochs)

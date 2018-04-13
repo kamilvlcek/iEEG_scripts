@@ -95,7 +95,7 @@ frekvence(f).prekryv = 0.5; % 50% prekryv sousednich frekvencnich pasem
 
 reference = struct;
 r=1;
-reference(r).todo = 0;
+reference(r).todo = 1;
 reference(r).name = 'refOrig';
 reference(r).char = '';
 r=2;

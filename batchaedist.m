@@ -1,6 +1,8 @@
 %% nejdriv normalni analyzu s razenim podle podnetu
 disp(' ++++ ANALYZA 1 - RAZENI PODLE PODNETU ++++');
+%pacienti = {'p132'}; 
 cfg = struct('hybernovat',0);
+%cfg.pacienti = pacienti; %kdyz to tam vlozim rovnou, tak se mi udela struct array
 BatchHilbert('aedist',cfg);
 
 %% potom analyza s razenim podle odpovedi

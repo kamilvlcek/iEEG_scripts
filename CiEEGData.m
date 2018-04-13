@@ -337,7 +337,7 @@ classdef CiEEGData < handle
                 end
             end
             [obj.samples,obj.channels, obj.epochs] = obj.DSize();
-            obj.RjCh = []; %rejectovane kanaly uz byly vyrazeny, ted nejsou zadne
+            if ref=='b', obj.RjCh = []; end %rejectovane kanaly uz byly vyrazeny, ted nejsou zadne
             obj.GetHHeader(obj.CH.H); %novy header s vyrazenymi kanaly - prepisu puvodni header
            
             obj.filename = []; %nechci si omylem prepsat puvodni data 
@@ -514,7 +514,7 @@ classdef CiEEGData < handle
                 fprintf('%i, ',ch);
                 if obj.epochs == 1
                     dd(:,ch) = decimate(obj.d(:,ch),podil); %na 500 Hz z 8000 Hz
-                    if ch==1, obj.tabs = downsample(obj.tabs,podil); end % to delam jen jednou, treba u prvniho kanalu                   
+                    if ch==1, tabs = downsample(obj.tabs,podil); end % to delam jen jednou, treba u prvniho kanalu                   
                 else
                     for ep = 1:obj.epochs
                         dd(:,ch,ep) = decimate(obj.d(:,ch,ep),podil); %na 500 Hz z 8000 Hz
@@ -532,6 +532,7 @@ classdef CiEEGData < handle
                 obj.d = obj.d(1:rtrim,:,:);
                 obj.tabs = obj.tabs(1:rtrim,:);
             end
+            [obj.samples,obj.channels, obj.epochs] = obj.DSize();
         end
         
         function [prumery, MNI,names,intervaly,katsnames] = IntervalyResp(obj, intervaly,channels,dofig)
