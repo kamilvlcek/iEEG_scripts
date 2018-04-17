@@ -1,6 +1,6 @@
 classdef CPlotsN < handle
-    %CPlotsN Summary of this class goes here
-    %   Detailed explanation goes here
+    %CPlotsN pokrocile funkce na zobrazeni frekvencnich dat, pouziti napr. PN = CPlotsN(E)
+    %   Nada Bednarova 2018/04
     
     properties (Access = public)
         E;                      % CiEEGData object
@@ -391,7 +391,7 @@ classdef CPlotsN < handle
                     ylim([-80,80]); % set y axis limits
                 else
                     subplot(numSubplot,2,i*2-1)
-                    if obj.plotFreqs.plotGroup; % data to be subplotted (given channel or frequency)
+                    if obj.plotFreqs.plotGroup % data to be subplotted (given channel or frequency)
                         y = squeeze(obj.E.HFreq(time,obj.plotFreqs.iChannels(i),obj.plotFreqs.iFreqs)); % channel power values
                         names = {obj.E.CH.H.channels.ass_brainAtlas}; %cast mozgu
                         labels = {obj.E.CH.H.channels.neurologyLabel}; %neurology label

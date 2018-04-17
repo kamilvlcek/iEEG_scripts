@@ -266,6 +266,7 @@ for f=1:numel(frekvence)
                                 end                                
                                 E.PasmoFrekvence(frekvence(f).freq,[],prekryv,iff(cfg.podilcasuodpovedi,2,[])); 
                                     %pokud podilcasu, zdecimuju zatim jen malo, cele se mi ale nevejde do pameti
+                                E.Normalize('orig'); %puvodni moje normalizace
                             end
                             disp('extracting epochs ...');
                             if ERP

@@ -7,14 +7,13 @@ classdef CHilbert < CiEEGData
     properties (Access = public)
         HFreq; %hilberova obalka pro kazde frekvenci pasmo - time x channel x freq (x kategorie)
         HFreqEpochs; %Hf bez priemerovania cez epochy - time x channel x frequency x epoch
+        fphaseEpochs; %analogie HFreqEpochs pro faze
         Hf; %frekvencni pasma pro ktere jsou pocitany obalky - okraje pasem, pocet je tedy vetsi o 1 nez pocet spocitanych pasem
         Hfmean; %stredni hodnoty pasem  - pocet = pocet spocitanych pasem
         hfilename; %jmeno souboru CHilbert  
         plotF = struct; %udaje o stavu plotu PlotResponseFreq
-        plotEpochs = struct; %udaje o stavu plotu PlotMovingEpochs - Nada
-        plotFreqs = struct; 
-        fphase; %faze vsech zpracovavanych frekvenci - premiestnene z CMorlet pre vykreslenie a porovnanie faz z MW a Hilberta do buducna
-        fphaseEpochs;
+        plotEpochs = struct; %udaje o stavu plotu PlotMovingEpochs - Nada        
+        fphase; %faze vsech zpracovavanych frekvenci - premiestnene z CMorlet pre vykreslenie a porovnanie faz z MW a Hilberta do buducna        
     end
     methods (Access = public)
         %% ELEMENTAL FUNCTIONS 
@@ -69,7 +68,7 @@ classdef CHilbert < CiEEGData
                     hiF = freq1(fno)-0.1 +prekryv*(freq1(fno)-freq(fno));  %napr 50 - 59.9
                     hh = CHilbert.hilbertJirka(d,loF,hiF,fs); %cista hilbertova obalka, tohle i skript hodne zrychli
                     hh = decimate(hh,decimatefactor); % mensi sampling rate                    
-                    HFreq(:,ch,fno) = hh; % povodna normalizacia (hh./mean(hh)) premiestnena do funkcie Normalize
+                    HFreq(:,ch,fno) = hh; %#ok<PROPLC> % povodna normalizacia (hh./mean(hh)) premiestnena do funkcie Normalize
                     %fprintf('%i Hz, ',loF);
                 end
                 %fprintf('\n'); %tisk znova na stejnou radku
@@ -157,7 +156,9 @@ classdef CHilbert < CiEEGData
 
                             if freqepochs
                                 obj.HFreqEpochs(:,ch,:,epoch) = epoch_data; 
-                                obj.fphaseEpochs(:,ch,:,epoch) = obj.fphase(izacatek + iepochtime(1) : izacatek + iepochtime(2)-1, ch, :);
+                                if isprop(obj,'fphase') && ~isempty(obj.fphase)
+                                    obj.fphaseEpochs(:,ch,:,epoch) = obj.fphase(izacatek + iepochtime(1) : izacatek + iepochtime(2)-1, ch, :);
+                                end
                             end
                             Hfreq2(:,ch,:,katnum+1) = Hfreq2(:,ch,:,katnum+1) + epoch_data; %soucet power pro kategorii, pres prislusne epochy
                             %tady se mi to mozna odecetlo blbe? KOntrola

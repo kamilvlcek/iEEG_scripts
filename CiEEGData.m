@@ -37,8 +37,8 @@ classdef CiEEGData < handle
         DE = {}; %trida objektu CEpiEvents - epilepticke eventy ziskane pomoci skriptu spike_detector_hilbert_v16_byISARG
         DatumCas = {}; %ruzne casove udaje, kdy bylo co spocitano. Abych mel historii vypoctu pro zpetnou referenci
         PL = {}; %objekt CPlots
-        PLN = {};
-        HOrigData;
+        % PLN = {};  %objekt CPlotsN nada - budeme pouzivat opacne - objekt PLN bude brat jako parametr E
+        %HOrigData; presuneme do CPlotsN 
     end
     
     methods (Access = public)
@@ -107,7 +107,7 @@ classdef CiEEGData < handle
                 disp('no Wilcox stats');
             end
             obj.PL = CPlots();
-            obj.PLN = CPlotsN(obj);
+            %obj.PLN = CPlotsN(obj); 
             end %(nargin ~= 0) 
         end
         
@@ -120,9 +120,11 @@ classdef CiEEGData < handle
               
         function obj = GetHHeader(obj,H)
             %nacte header z promenne H - 25.5.2016
+            assert(size(H.channels,2) == size(obj.d,2),['nesouhlasi pocet elektrod (data:' num2str(size(obj.d,2)) ',header:' num2str(size(H.channels,2)) ') - spatny header?']);
             obj.CH = CHHeader(H); %vypocita i selCh_H
             [~, ~, obj.els] = obj.CH.ChannelGroups();  
             assert(max(obj.els)<=size(obj.d,2),['nesouhlasi pocet elektrod (data:' num2str(size(obj.d,2)) ',header:' num2str(max(obj.els)) ') - spatny header?']);
+            
             disp(['header nacten: ' obj.CH.PacientTag() ', triggerch: ' num2str(obj.CH.GetTriggerCh())]);
         end
          
