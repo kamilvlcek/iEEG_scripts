@@ -13,6 +13,7 @@ classdef CHilbertMulti < CHilbert
     methods
         function obj = CHilbertMulti()              
         end
+
         function TestExtract(obj,filenames)
              for fileno = 1:numel(filenames)
                 filename = filenames{fileno}; %cell array, zatim to musi byt plna cesta                
@@ -73,6 +74,7 @@ classdef CHilbertMulti < CHilbert
                     %frekvencni data
                     obj.GetHfreq(Hf,Hfmean,HFreq);
                     
+                    obj.GetStat(Wp); %mam funkci, ale statistiku zatim neimportuju
                     %jen kopie - zatim nezpracovavam                                                           
                     obj.orig(fileno).DatumCas = DatumCas;
                     obj.orig(fileno).filename = filename;     
@@ -247,7 +249,10 @@ classdef CHilbertMulti < CHilbert
                 obj.baseline = baseline;
             end              
         end
-        
+        function obj = GetStat(~) %zatim neimportuju
+            obj.Wp = [];
+        end
+      
     end
     methods (Static,Access = private)
         function bloky = GetBlocks(epochData)

@@ -32,6 +32,8 @@ if exist('filename','var') && ~isempty(filename) %pokud filename ~= []
     if exist(fullfilename,'file')==2
         if strfind(filename,'CHilbert') 
             E = CHilbert(fullfilename);
+        elseif strfind(filename,'CMorlet') 
+            E = CMorlet(fullfilename);
         else
             E = CiEEGData(fullfilename);
         end      

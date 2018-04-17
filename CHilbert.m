@@ -385,7 +385,7 @@ classdef CHilbert < CiEEGData
             %pole d, tabs, RjEpochCh a header H
             %jen epochovana data, bipolarni reference
             assert(obj.epochs > 1,'nejsou epochovana data');
-            assert(strcmp(obj.reference,'Bipolar'),'neni bipolarni reference');
+            %assert(strcmp(obj.reference,'Bipolar'),'neni bipolarni reference');
             d = obj.d(:,chns,:); %#ok<NASGU> %vsechny casy a epochy, vyber kanalu
             tabs = obj.tabs; %#ok<NASGU> %to je spolecne pro vsechny kanaly; time x epochs
             tabs_orig = obj.tabs_orig; %#ok<NASGU> 
@@ -409,11 +409,12 @@ classdef CHilbert < CiEEGData
             Hfmean = obj.Hfmean;  %#ok<PROPLC> 
             if isempty(Hfmean), Hfmean = (Hf(1:end-1) + Hf(2:end)) ./ 2; end %#ok<PROPLC,NASGU>             
             HFreq = obj.HFreq(:,chns,:,:); %#ok<PROPLC,NASGU>  %time x channel x freq (x kategorie)            
-            
+            Wp = obj.Wp;%#ok<PROPLC>  %exportuju statistiku
             [filepath,fname,ext] = CHilbert.matextension(obj.filename);
             podtrzitko = strfind(fname,'_'); %chci zrusit cast za poslednim podtrzitkem
             filename =[filepath filesep fname(1:podtrzitko(end)-1) ' ' label '_Extract' ext]; 
-            save(filename,'d','tabs','tabs_orig','fs','P','epochtime','baseline','RjEpochCh','epochData','DatumCas','H','Hf','Hfmean','HFreq','-v7.3'); 
+            save(filename,'d','tabs','tabs_orig','fs','P','epochtime','baseline','RjEpochCh','epochData','DatumCas','H','Hf','Hfmean','HFreq','Wp','-v7.3'); 
+            disp(['extract saved to "' fname(1:podtrzitko(end)-1) ' ' label '_Extract' ext '"']);
         end
         
         function CB = ExtractBrainPlotData(obj,chns)
