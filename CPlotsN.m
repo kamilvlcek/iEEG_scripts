@@ -297,13 +297,26 @@ classdef CPlotsN < handle
             obj.plotEpochData();
         end   
         
-        function PlotITPC(obj, channel, iFrequency)
+        function PlotITPC(obj, channel, iFrequency, icondition)
         % funkcia pre vykreslenie ITPC pre jeden channel a jednu frekvenciu    
+            if ~exist('icondition', 'var'), icondition = 9; end;
+            iEp = obj.CorrectEpochs(channel, icondition);
+            time = linspace(obj.E.epochtime(1), obj.E.epochtime(2), size(obj.E.fphaseEpochs,1));
+            names = {obj.E.CH.H.channels.ass_brainAtlas}; %cast mozgu
+            labels = {obj.E.CH.H.channels.neurologyLabel}; %neurology label
+            electrodes = {obj.E.CH.H.channels.name}; %nazov elektrody
             itpc = zeros(length(obj.E.samples)); % inicializacia vektoru itpc v dlzke 1 epochy
             for i = 1:obj.E.samples
-                itpc(i) = abs(mean(exp(1i*squeeze(obj.E.fphaseEpochs(i,channel,iFrequency,:)))));
+                itpc(i) = abs(mean(exp(1i*squeeze(obj.E.fphaseEpochs(i,channel,iFrequency,iEp)))));
             end
-            plot(itpc);
+            sig = itpc > sqrt((-log(0.01))/length(iEp));
+            plot(time,itpc); hold on;
+            plot(time(~sig),itpc(~sig),'b.',time(sig),itpc(sig),'r.','markers',10);
+            xlabel('Time (s)');
+            ylabel('ITPC');
+            title(sprintf('%s - Channel %d - %d Hz \n %s - %s', electrodes{channel}, channel, obj.E.Hf(iFrequency), labels{channel}, names{channel}));
+            hold on;
+            plot(itpc(sig(i)),'r')
         end
         
         function fig = PlotITPCall(obj, channel, icondition)
@@ -317,6 +330,7 @@ classdef CPlotsN < handle
                     itpc(fq,i) = abs(mean(exp(1i*squeeze(obj.E.fphaseEpochs(i,channel,fq,iEp)))));
                 end
             end
+            time = linspace(obj.E.epochtime(1), obj.E.epochtime(2), size(obj.E.fphaseEpochs,1));
             names = {obj.E.CH.H.channels.ass_brainAtlas}; %cast mozgu
             labels = {obj.E.CH.H.channels.neurologyLabel}; %neurology label
             electrodes = {obj.E.CH.H.channels.name}; %nazov elektrody
@@ -325,11 +339,16 @@ classdef CPlotsN < handle
             image(linspace(obj.E.epochtime(1), obj.E.epochtime(2),n_time), obj.E.Hf, itpc, 'CDataMapping', 'scaled')
             set(gca,'YDir','normal')
             xlabel('Time (s)'); ylabel('Frequency (Hz)');
-            title([electrodes{channel}, ' Channel ', num2str(channel), ', ', labels{channel}, ', ', names{channel}]);
+            title(sprintf('%s - Channel %d \n %s - %s', electrodes{channel}, channel, labels{channel}, names{channel}));
             colorbar
+            colormap(jet)
             figure
-            plot(mean(itpc,1));
+            mean_itpc = mean(itpc,1);
+            sig = mean_itpc > sqrt((-log(0.01))/length(iEp));
+            plot(time,mean_itpc); hold on;
+            plot(time(~sig),mean_itpc(~sig),'b.',time(sig),mean_itpc(sig),'r.','markers',10);
             xlabel('Time (s)'); ylabel('Mean ITPC');
+            title(sprintf('%s - Channel %d \n %s - %s', electrodes{channel}, channel, labels{channel}, names{channel}));
         end
         
     end
