@@ -37,6 +37,8 @@ classdef CiEEGData < handle
         DE = {}; %trida objektu CEpiEvents - epilepticke eventy ziskane pomoci skriptu spike_detector_hilbert_v16_byISARG
         DatumCas = {}; %ruzne casove udaje, kdy bylo co spocitano. Abych mel historii vypoctu pro zpetnou referenci
         PL = {}; %objekt CPlots
+        PLN = {};
+        HOrigData;
     end
     
     methods (Access = public)
@@ -105,6 +107,7 @@ classdef CiEEGData < handle
                 disp('no Wilcox stats');
             end
             obj.PL = CPlots();
+            obj.PLN = CPlotsN(obj);
             end %(nargin ~= 0) 
         end
         
@@ -206,7 +209,7 @@ classdef CiEEGData < handle
             iepochtime = round(epochtime(1:2).*obj.fs); %v poctu vzorku cas pred a po udalosti
             ibaseline =  round(baseline.*obj.fs); %v poctu vzorku cas pred a po udalosti
             ts_events = obj.PsyData.TimeStimuli(epochtime(3)); %timestampy vsech podnetu/odpovedi
-            de = zeros(iepochtime(2)-iepochtime(1), size(obj.d,2), size(ts_events,1)); %nova epochovana data time x channel x epoch            
+            de = zeros(iepochtime(2)-iepochtime(1), size(obj.d,2), size(ts_events,1)); %nova epochovana data time x channel x epoch  
             tabs = zeros(iepochtime(2)-iepochtime(1),size(ts_events,1)); %#ok<*PROPLC,PROP> %udelam epochovane tabs
             obj.epochData = cell(size(ts_events,1),3); % sloupce kategorie, cislo kategorie, timestamp
             for epoch = 1:size(ts_events,1) %pro vsechny eventy
