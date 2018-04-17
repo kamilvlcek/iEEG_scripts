@@ -7,12 +7,11 @@ classdef CHilbert < CiEEGData
     properties (Access = public)
         HFreq; %hilberova obalka pro kazde frekvenci pasmo - time x channel x freq (x kategorie)
         HFreqEpochs; %Hf bez priemerovania cez epochy - time x channel x frequency x epoch
-        fphaseEpochs; %analogie HFreqEpochs pro faze
+        fphaseEpochs; % epochovane fazy fphase ~HFreqEpochs
         Hf; %frekvencni pasma pro ktere jsou pocitany obalky - okraje pasem, pocet je tedy vetsi o 1 nez pocet spocitanych pasem
         Hfmean; %stredni hodnoty pasem  - pocet = pocet spocitanych pasem
         hfilename; %jmeno souboru CHilbert  
         plotF = struct; %udaje o stavu plotu PlotResponseFreq
-        plotEpochs = struct; %udaje o stavu plotu PlotMovingEpochs - Nada        
         fphase; %faze vsech zpracovavanych frekvenci - premiestnene z CMorlet pre vykreslenie a porovnanie faz z MW a Hilberta do buducna        
     end
     methods (Access = public)

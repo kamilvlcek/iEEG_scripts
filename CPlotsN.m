@@ -4,13 +4,18 @@ classdef CPlotsN < handle
     
     properties (Access = public)
         E;                      % CiEEGData object
-        plotFreqs = struct;     % contains figure and plot info
-        plotEpochs = struct;    % contains figure and plot info for PlotMovingEpochs
+        HOrigData;              % original untransformed EEG data
+        plotData = struct;      % contains figure and plot info
     end
     
     methods (Access = public)
-        function obj = CPlotsN(E)
-           obj.E = E;
+        function obj = CPlotsN(E, HOrigData)
+            obj.E = E;
+            if ~exist('HOrigData', 'var')
+                obj.HOrigData = downsample(E.d,E.decimatefactor);
+            else
+                obj.HOrigData = HOrigData;
+            end
         end
         
         function PlotFrequencies(obj, psy, channels, frequencies, limits, timeDelay, plotGroup)
@@ -20,28 +25,28 @@ classdef CPlotsN < handle
             assert(isa(psy,'struct'),'Prvy parameter musi byt struktura s datami z psychopy');
             obj.E.PsyData = CPsyData(psy); 
             
-            obj.plotFreqs.iChannels = channels;
+            obj.plotData.iChannels = channels;
             
-            if ~exist('frequencies','var') || isempty(frequencies); obj.plotFreqs.iFreqs = 1:numel(obj.E.Hf); % ak sme nevybrali frekvencie, zobrazia sa vsetky
-                else [~,obj.plotFreqs.iFreqs] = intersect(obj.E.Hf,frequencies); end % indexy vybranych frekvencii
+            if ~exist('frequencies','var') || isempty(frequencies); obj.plotData.iFreqs = 1:numel(obj.E.Hf); % ak sme nevybrali frekvencie, zobrazia sa vsetky
+                else [~,obj.plotData.iFreqs] = intersect(obj.E.Hf,frequencies); end % indexy vybranych frekvencii
                 
             if ~exist('limits','var') || isempty(limits); limits = [0,1000]; end % set y axis limits
-            obj.plotFreqs.ylimits = limits;
+            obj.plotData.ylimits = limits;
             
             if ~exist('timeDelay','var'); timeDelay = 10; end % seconds visible on the screen
-            obj.plotFreqs.timeDelay = timeDelay*obj.E.fs;
+            obj.plotData.timeDelay = timeDelay*obj.E.fs;
             
-            obj.plotFreqs.f = figure('Name','All Frequencies','Position', [20, 100, 1000, 600]); % init the figure
-            set(obj.plotFreqs.f, 'KeyPressFcn', @obj.MovePlotFreqs); % set key press function
+            obj.plotData.f = figure('Name','All Frequencies','Position', [20, 100, 1000, 600]); % init the figure
+            set(obj.plotData.f, 'KeyPressFcn', @obj.MovePlotFreqs); % set key press function
             
-            if ~exist('plotGroup','var'); obj.plotFreqs.plotGroup = false; else obj.plotFreqs.plotGroup = plotGroup; end
+            if ~exist('plotGroup','var'); obj.plotData.plotGroup = false; else obj.plotData.plotGroup = plotGroup; end
             
-            obj.plotFreqs.iTime = 0; % initiate time index
+            obj.plotData.iTime = 0; % initiate time index
      
-            if ~isfield(obj.plotFreqs,'plotGroup'); obj.plotFreqs.plotGroup = false; end 
-            obj.plotFreqs.stimuli = (obj.E.PsyData.P.data(:,obj.E.PsyData.P.sloupce.ts_podnet) - obj.E.tabs(1))*24*3600;
-            obj.plotFreqs.responses = (obj.E.PsyData.P.data(:,obj.E.PsyData.P.sloupce.ts_odpoved) - obj.E.tabs(1))*24*3600;
-            obj.plotFreqs.colors = {'black','green','red','blue'};
+            if ~isfield(obj.plotData,'plotGroup'); obj.plotData.plotGroup = false; end 
+            obj.plotData.stimuli = (obj.E.PsyData.P.data(:,obj.E.PsyData.P.sloupce.ts_podnet) - obj.E.tabs(1))*24*3600;
+            obj.plotData.responses = (obj.E.PsyData.P.data(:,obj.E.PsyData.P.sloupce.ts_odpoved) - obj.E.tabs(1))*24*3600;
+            obj.plotData.colors = {'black','green','red','blue'};
             
             obj.plotFreqData();
         end
@@ -279,19 +284,19 @@ classdef CPlotsN < handle
             if ~exist('iChannel', 'var'); iChannel = 1; end
             if ~exist('channels', 'var') || isempty(channels); channels = 1:obj.E.channels; end 
             assert(~isempty(obj.E.HFreqEpochs),'soubor s frekvencnimi daty pro epochy neexistuje');
-            obj.plotEpochs.f = figure('Name','All Epochs','Position', [20, 100, 1000, 600]);
-            obj.plotEpochs.channels = channels;
-            set(obj.plotEpochs.f, 'KeyPressFcn', @obj.MovePlotEpochs);
+            obj.plotData.f = figure('Name','All Epochs','Position', [20, 100, 1000, 600]);
+            obj.plotData.channels = channels;
+            set(obj.plotData.f, 'KeyPressFcn', @obj.MovePlotEpochs);
             
-            obj.plotEpochs.iChannel = iChannel; % initiate channel index
-            obj.plotEpochs.iEpoch = 1; % initiate epoch index
-            obj.plotEpochs.T = linspace(obj.E.epochtime(1), obj.E.epochtime(2), size(obj.E.HFreqEpochs,1)); % time
-            obj.plotEpochs.rejectedEpochs = obj.E.PsyData.GetErrorTrials(); % get rejected epoch trials
+            obj.plotData.iChannel = iChannel; % initiate channel index
+            obj.plotData.iEpoch = 1; % initiate epoch index
+            obj.plotData.T = linspace(obj.E.epochtime(1), obj.E.epochtime(2), size(obj.E.HFreqEpochs,1)); % time
+            obj.plotData.rejectedEpochs = obj.E.PsyData.GetErrorTrials(); % get rejected epoch trials
             
             % calculate zlimits for all channels
-            obj.plotEpochs.zlimits = zeros(length(channels),2);
+            obj.plotData.zlimits = zeros(length(channels),2);
             for ch = 1:length(channels)
-                obj.plotEpochs.zlimits(ch, :) = obj.getZlimits(obj.plotEpochs.channels(ch));
+                obj.plotData.zlimits(ch, :) = obj.getZlimits(obj.plotData.channels(ch));
             end
             
             obj.plotEpochData();
@@ -360,9 +365,9 @@ classdef CPlotsN < handle
             %zpracovava stlaceni klavesy pro graf PlotFrequencies
             switch eventDat.Key
                 case 'rightarrow' % +1 time window
-                    obj.plotFreqs.iTime = obj.plotFreqs.iTime + 1; %min([obj.plotEpochs.iTime + 1, size(obj.HFreqEpochs,4)]);
+                    obj.plotData.iTime = obj.plotData.iTime + 1; %min([obj.plotData.iTime + 1, size(obj.HFreqEpochs,4)]);
                 case 'leftarrow'  % -1 time window
-                    obj.plotFreqs.iTime = max([obj.plotFreqs.iTime - 1, 0]);%max([obj.plotEpochs.iEpoch - 1, 1]);
+                    obj.plotData.iTime = max([obj.plotData.iTime - 1, 0]);%max([obj.plotData.iEpoch - 1, 1]);
                 otherwise  
                    display(['key pressed: ' eventDat.Key]); %vypise stlacenou klavesu
             end
@@ -374,60 +379,60 @@ classdef CPlotsN < handle
             % one subplot = one frequency
             % called from PlotFrequencies()
             
-            time = (obj.plotFreqs.iTime*obj.E.fs+1):(obj.plotFreqs.iTime*obj.E.fs+obj.plotFreqs.timeDelay); % moving time window
+            time = (obj.plotData.iTime*obj.E.fs+1):(obj.plotData.iTime*obj.E.fs+obj.plotData.timeDelay); % moving time window
             x = time./obj.E.fs; % current x axis in seconds
             % determine number of subplots based on selected channels or frequencies
-            if obj.plotFreqs.plotGroup; numSubplot = length(obj.plotFreqs.iChannels); % plot electrode channels 
-            else numSubplot = length(obj.plotFreqs.iFreqs)+1; end                     % plot frequencies + original eeg data
+            if obj.plotData.plotGroup; numSubplot = length(obj.plotData.iChannels); % plot electrode channels 
+            else numSubplot = length(obj.plotData.iFreqs)+1; end                     % plot frequencies + original eeg data
 
             for i = 1:numSubplot 
                 %%%%%%%%%%%%%%%%%%% POWER %%%%%%%%%%%%%%%%%%% 
                 
-                if ~obj.plotFreqs.plotGroup && i > numSubplot-1 % if plotting frequencies, display also original signal on the bottom
+                if ~obj.plotData.plotGroup && i > numSubplot-1 % if plotting frequencies, display also original signal on the bottom
                     subplot(numSubplot,2,[i*2-1,i*2])
-                    y = obj.E.HOrigData(time,obj.plotFreqs.iChannels); % original eeg values
+                    y = obj.HOrigData(time,obj.plotData.iChannels); % original eeg values
                     plot(x, y, 'Color', 'black'); hold on;
                     xlim([x(1) x(end)]); % set x axis limits
                     ylim([-80,80]); % set y axis limits
                 else
                     subplot(numSubplot,2,i*2-1)
-                    if obj.plotFreqs.plotGroup % data to be subplotted (given channel or frequency)
-                        y = squeeze(obj.E.HFreq(time,obj.plotFreqs.iChannels(i),obj.plotFreqs.iFreqs)); % channel power values
+                    if obj.plotData.plotGroup; % data to be subplotted (given channel or frequency)
+                        y = squeeze(obj.E.HFreq(time,obj.plotData.iChannels(i),obj.plotData.iFreqs)); % channel power values
                         names = {obj.E.CH.H.channels.ass_brainAtlas}; %cast mozgu
                         labels = {obj.E.CH.H.channels.neurologyLabel}; %neurology label
                     else
-                        y = squeeze(obj.E.HFreq(time,obj.plotFreqs.iChannels,obj.plotFreqs.iFreqs(i))); % frequency power values
+                        y = squeeze(obj.E.HFreq(time,obj.plotData.iChannels,obj.plotData.iFreqs(i))); % frequency power values
                     end
                     neg = y<0; % negative frequency power values
                     plot(x(~neg),y(~neg),'b.',x(neg),y(neg),'r.','markers',4); hold on; % plots positive values with blue, negative with red
 
                     xlim([x(1) x(end)]); % set x axis limits
-                    ylim(obj.plotFreqs.ylimits); % set y axis limits
+                    ylim(obj.plotData.ylimits); % set y axis limits
 
-                    iStimuli = find(obj.plotFreqs.stimuli >= x(1) & obj.plotFreqs.stimuli <= x(end));
+                    iStimuli = find(obj.plotData.stimuli >= x(1) & obj.plotData.stimuli <= x(end));
                     t = '';
                     for iPodnet = 1:numel(iStimuli) % plot colored stimuli and responses
                         podnet = obj.E.PsyData.P.data(iStimuli(iPodnet),obj.E.PsyData.P.sloupce.kategorie);
-                        plot([obj.plotFreqs.stimuli(iStimuli(iPodnet)) obj.plotFreqs.stimuli(iStimuli(iPodnet))]', ylim', 'LineWidth',3,'Color', obj.plotFreqs.colors{podnet+1}); hold on;    
-                        t = strcat(t,'{\color{', obj.plotFreqs.colors{podnet+1},'}',obj.E.PsyData.P.strings.podminka(podnet+1),'}, '); % title
+                        plot([obj.plotData.stimuli(iStimuli(iPodnet)) obj.plotData.stimuli(iStimuli(iPodnet))]', ylim', 'LineWidth',3,'Color', obj.plotData.colors{podnet+1}); hold on;    
+                        t = strcat(t,'{\color{', obj.plotData.colors{podnet+1},'}',obj.E.PsyData.P.strings.podminka(podnet+1),'}, '); % title
                     end
 
-                    responses = obj.plotFreqs.responses(obj.plotFreqs.responses >= x(1) & obj.plotFreqs.responses <= x(end));
+                    responses = obj.plotData.responses(obj.plotData.responses >= x(1) & obj.plotData.responses <= x(end));
                     plot([responses responses]', repmat(ylim,length(responses),1)','k', 'LineWidth',2); % plot responses
-                    if obj.plotFreqs.plotGroup; 
-                        title(strcat(num2str(obj.plotFreqs.iChannels(i)), '. channel (', t, ') ',names{obj.plotFreqs.iChannels(i)},'-',labels{obj.plotFreqs.iChannels(i)}));
+                    if obj.plotData.plotGroup; 
+                        title(strcat(num2str(obj.plotData.iChannels(i)), '. channel (', t, ') ',names{obj.plotData.iChannels(i)},'-',labels{obj.plotData.iChannels(i)}));
                     else
-                        title(strcat(num2str(obj.E.Hf(obj.plotFreqs.iFreqs(i))), ' Hz (', t, ')'));
+                        title(strcat(num2str(obj.E.Hf(obj.plotData.iFreqs(i))), ' Hz (', t, ')'));
                     end
 
                     %%%%%%%%%%%%%%%%%%% PHASE %%%%%%%%%%%%%%%%%%% 
                     subplot(numSubplot,2,i*2)
                     % phase values
-                    if obj.plotFreqs.plotGroup; 
-                        y = squeeze(obj.E.fphase(time,obj.plotFreqs.iChannels(i),obj.plotFreqs.iFreqs)); % channel phase values
+                    if obj.plotData.plotGroup; 
+                        y = squeeze(obj.E.fphase(time,obj.plotData.iChannels(i),obj.plotData.iFreqs)); % channel phase values
                         display('correct, more')
                     else
-                        y = squeeze(obj.E.fphase(time,obj.plotFreqs.iChannels,obj.plotFreqs.iFreqs(i))); % frequency phase values
+                        y = squeeze(obj.E.fphase(time,obj.plotData.iChannels,obj.plotData.iFreqs(i))); % frequency phase values
                     end 
                     %phasemap('rad')
 
@@ -436,15 +441,15 @@ classdef CPlotsN < handle
                     plot(x,y, 'Color', 'b'); hold on;
                     xlim([x(1) x(end)]); % set x axis limits
                     ylim([-5,5]); % set y axis limits
-                    iStimuli = find(obj.plotFreqs.stimuli >= x(1) & obj.plotFreqs.stimuli <= x(end));
+                    iStimuli = find(obj.plotData.stimuli >= x(1) & obj.plotData.stimuli <= x(end));
                     t = '';
                     for iPodnet = 1:numel(iStimuli) % plot colored stimuli and responses
                         podnet = obj.E.PsyData.P.data(iStimuli(iPodnet),obj.E.PsyData.P.sloupce.kategorie);
-                        plot([obj.plotFreqs.stimuli(iStimuli(iPodnet)) obj.plotFreqs.stimuli(iStimuli(iPodnet))]', ylim', 'LineWidth',3,'Color', obj.plotFreqs.colors{podnet+1}); hold on;    
-                        t = strcat(t,'{\color{', obj.plotFreqs.colors{podnet+1},'}',obj.E.PsyData.P.strings.podminka(podnet+1),'}, '); % title
+                        plot([obj.plotData.stimuli(iStimuli(iPodnet)) obj.plotData.stimuli(iStimuli(iPodnet))]', ylim', 'LineWidth',3,'Color', obj.plotData.colors{podnet+1}); hold on;    
+                        t = strcat(t,'{\color{', obj.plotData.colors{podnet+1},'}',obj.E.PsyData.P.strings.podminka(podnet+1),'}, '); % title
                     end
 
-                    responses = obj.plotFreqs.responses(obj.plotFreqs.responses >= x(1) & obj.plotFreqs.responses <= x(end));
+                    responses = obj.plotData.responses(obj.plotData.responses >= x(1) & obj.plotData.responses <= x(end));
                     plot([responses responses]', repmat(ylim,length(responses),1)','k', 'LineWidth',2); % plot responses
                 end
                 
@@ -511,28 +516,28 @@ classdef CPlotsN < handle
             %pouziva sa v PlotMovingEpochs
             assert(~isempty(obj.E.HFreqEpochs),'soubor s frekvencnimi daty pro epochy neexistuje');
             subplot(1,2,1) % subplot time x frequency power for given epoch
-            imagesc(squeeze(obj.E.HFreqEpochs(:,obj.plotEpochs.channels(obj.plotEpochs.iChannel),:,obj.plotEpochs.iEpoch))', 'XData', obj.plotEpochs.T, 'YData', obj.E.Hf);
-            caxis(obj.plotEpochs.zlimits(obj.plotEpochs.iChannel,:));xlabel('Time (s)'); ylabel('Frequency (Hz)'); 
+            imagesc(squeeze(obj.E.HFreqEpochs(:,obj.plotData.channels(obj.plotData.iChannel),:,obj.plotData.iEpoch))', 'XData', obj.plotData.T, 'YData', obj.E.Hf);
+            caxis(obj.plotData.zlimits(obj.plotData.iChannel,:));xlabel('Time (s)'); ylabel('Frequency (Hz)'); 
             colormap parula; %aby to bylo jasne u vsech verzi matlabu - i 2016
             set(gca,'YDir','normal');
             colorbar;
             
             hold on; % plot rejected line 
-            obj.PlotRejected(obj.plotEpochs.channels(obj.plotEpochs.iChannel), obj.plotEpochs.T, obj.plotEpochs.iEpoch, sum(obj.plotEpochs.rejectedEpochs(obj.plotEpochs.iEpoch,:)));
-            response_time = obj.E.PsyData.P.data(obj.plotEpochs.iEpoch, 4);
+            obj.PlotRejected(obj.plotData.channels(obj.plotData.iChannel), obj.plotData.T, obj.plotData.iEpoch, sum(obj.plotData.rejectedEpochs(obj.plotData.iEpoch,:)));
+            response_time = obj.E.PsyData.P.data(obj.plotData.iEpoch, 4);
             hold on; % plot response time 
             plot([response_time response_time], [obj.E.Hf(1)-10 obj.E.Hf(end)+10],'black','LineWidth',4);
             hold on;
             
             subplot(1,2,2) % subplot mean power across all frequencies
-            plot(obj.plotEpochs.T, obj.E.d(:,obj.plotEpochs.channels(obj.plotEpochs.iChannel), obj.plotEpochs.iEpoch)');
+            plot(obj.plotData.T, obj.E.d(:,obj.plotData.channels(obj.plotData.iChannel), obj.plotData.iEpoch)');
             
             hold on; % plot response time 
-            plot([response_time response_time], obj.plotEpochs.zlimits(obj.plotEpochs.iChannel,:), 'black', 'LineWidth', 4);
-            ylim(obj.plotEpochs.zlimits(obj.plotEpochs.iChannel,:)); % y axis = zlimits (default/specified by user)
-            xlim([obj.plotEpochs.T(1) obj.plotEpochs.T(end)]); % x axis = time
+            plot([response_time response_time], obj.plotData.zlimits(obj.plotData.iChannel,:), 'black', 'LineWidth', 4);
+            ylim(obj.plotData.zlimits(obj.plotData.iChannel,:)); % y axis = zlimits (default/specified by user)
+            xlim([obj.plotData.T(1) obj.plotData.T(end)]); % x axis = time
             xlabel('Time (s)'); ylabel('Power');
-            title(sprintf('%s - channel %d epoch %d', obj.E.epochData{obj.plotEpochs.iEpoch,1}, obj.plotEpochs.channels(obj.plotEpochs.iChannel), obj.plotEpochs.iEpoch), 'FontSize', 12);
+            title(sprintf('%s - channel %d epoch %d', obj.E.epochData{obj.plotData.iEpoch,1}, obj.plotData.channels(obj.plotData.iChannel), obj.plotData.iEpoch), 'FontSize', 12);
             hold off;
         end
         
@@ -549,31 +554,31 @@ classdef CPlotsN < handle
             %zpracovava stlaceni klavesy pro graf PlotMovingEpochs
             switch eventDat.Key
                 case 'rightarrow' % +1 epoch
-                    obj.plotEpochs.iEpoch = min([obj.plotEpochs.iEpoch + 1, size(obj.E.HFreqEpochs,4)]);
+                    obj.plotData.iEpoch = min([obj.plotData.iEpoch + 1, size(obj.E.HFreqEpochs,4)]);
                 case 'leftarrow'  % -1 epoch
-                    obj.plotEpochs.iEpoch = max([obj.plotEpochs.iEpoch - 1, 1]);
+                    obj.plotData.iEpoch = max([obj.plotData.iEpoch - 1, 1]);
                 case 'uparrow'    % -1 channel
-                    obj.plotEpochs.iChannel = max([obj.plotEpochs.iChannel - 1, 1]);
+                    obj.plotData.iChannel = max([obj.plotData.iChannel - 1, 1]);
                 case 'downarrow'  % +1 channel
-                    obj.plotEpochs.iChannel = min([obj.plotEpochs.iChannel + 1, length(obj.plotEpochs.channels)]);
+                    obj.plotData.iChannel = min([obj.plotData.iChannel + 1, length(obj.plotData.channels)]);
                 case 'numpad6' % nasledujuca s rovnakou condition
-                    obj.plotEpochs.iEpoch = min([obj.getNextCondition(1), size(obj.E.HFreqEpochs,4)]);
+                    obj.plotData.iEpoch = min([obj.getNextCondition(1), size(obj.E.HFreqEpochs,4)]);
                 case 'numpad4' % predchadzajuca s rovnakou condition
-                    obj.plotEpochs.iEpoch = max([obj.getLastCondition(1), 1]);
+                    obj.plotData.iEpoch = max([obj.getLastCondition(1), 1]);
                 case 'pageup' % nasledujuca condition
-                    obj.plotEpochs.iEpoch = min([obj.getNextCondition(0), size(obj.E.HFreqEpochs,4)]);
+                    obj.plotData.iEpoch = min([obj.getNextCondition(0), size(obj.E.HFreqEpochs,4)]);
                 case 'pagedown' % predchadzajuca condition
-                    obj.plotEpochs.iEpoch = max([obj.getLastCondition(0), 1]);
+                    obj.plotData.iEpoch = max([obj.getLastCondition(0), 1]);
                 case {'multiply','8'} %hvezdicka na numericke klavesnici
                    %dialog na vlozeni minima a maxima osy y
-                   answ = inputdlg('Enter ymax and min:','Yaxis limits', [1 50], {num2str(obj.plotEpochs.zlimits(obj.plotEpochs.iChannel,:))});
+                   answ = inputdlg('Enter ymax and min:','Yaxis limits', [1 50], {num2str(obj.plotData.zlimits(obj.plotData.iChannel,:))});
                    if numel(answ)>0  %odpoved je vzdy cell 1x1 - pri cancel je to cell 0x0
                        if isempty(answ{1}) || any(answ{1}=='*') %pokud vlozim hvezdicku nebo nic, chci znovy spocitat max a min
-                           obj.plotEpochs.zlimits(obj.plotEpochs.iChannel,:) = obj.getZlimits(obj.plotEpochs.channels(obj.plotEpochs.iChannel));
+                           obj.plotData.zlimits(obj.plotData.iChannel,:) = obj.getZlimits(obj.plotData.channels(obj.plotData.iChannel));
                        else %jinak predpokladam dve hodnoty
                            data = str2num(answ{:});  %#ok<ST2NM>
                            if numel(data)>= 2 %pokud nejsou dve hodnoty, nedelam nic
-                             obj.plotEpochs.zlimits(obj.plotEpochs.iChannel,:) = [data(1) data(2)];
+                             obj.plotData.zlimits(obj.plotData.iChannel,:) = [data(1) data(2)];
                            end
                        end
                    end
@@ -589,12 +594,12 @@ classdef CPlotsN < handle
             %rovnakej(same=1)/rozdielnej(same=0) kategorie
             %pouziva sa v PlotMovingEpochs pri numpad4/pagedown
             if same
-                last = find(obj.E.PsyData.P.data(1:(obj.plotEpochs.iEpoch-1),7) == obj.E.epochData{obj.plotEpochs.iEpoch,2}, 1, 'last');
+                last = find(obj.E.PsyData.P.data(1:(obj.plotData.iEpoch-1),7) == obj.E.epochData{obj.plotData.iEpoch,2}, 1, 'last');
             else 
-                last = find(obj.E.PsyData.P.data(1:(obj.plotEpochs.iEpoch-1),7) ~= obj.E.epochData{obj.plotEpochs.iEpoch,2}, 1, 'last');
+                last = find(obj.E.PsyData.P.data(1:(obj.plotData.iEpoch-1),7) ~= obj.E.epochData{obj.plotData.iEpoch,2}, 1, 'last');
             end  
             if isempty(last)
-                last = obj.plotEpochs.iEpoch;
+                last = obj.plotData.iEpoch;
             end
         end
         
@@ -603,12 +608,12 @@ classdef CPlotsN < handle
             %rovnakej(same=1)/rozdielnej(same=0) kategorie
             %pouziva sa v PlotMovingEpochs pri numpad6/pageup
             if same
-                next = obj.plotEpochs.iEpoch + find(obj.E.PsyData.P.data((obj.plotEpochs.iEpoch+1):end,obj.E.PsyData.P.sloupce.kategorie) == obj.E.epochData{obj.plotEpochs.iEpoch,2}, 1);
+                next = obj.plotData.iEpoch + find(obj.E.PsyData.P.data((obj.plotData.iEpoch+1):end,obj.E.PsyData.P.sloupce.kategorie) == obj.E.epochData{obj.plotData.iEpoch,2}, 1);
             else 
-                next = obj.plotEpochs.iEpoch + find(obj.E.PsyData.P.data((obj.plotEpochs.iEpoch+1):end,obj.E.PsyData.P.sloupce.kategorie) ~= obj.E.epochData{obj.plotEpochs.iEpoch,2}, 1);
+                next = obj.plotData.iEpoch + find(obj.E.PsyData.P.data((obj.plotData.iEpoch+1):end,obj.E.PsyData.P.sloupce.kategorie) ~= obj.E.epochData{obj.plotData.iEpoch,2}, 1);
             end
             if isempty(next)
-                next = obj.plotEpochs.iEpoch;
+                next = obj.plotData.iEpoch;
             end
         end
          
