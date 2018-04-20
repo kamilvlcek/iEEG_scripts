@@ -67,7 +67,8 @@ classdef CHilbert < CiEEGData
                     hiF = freq1(fno)-0.1 +prekryv*(freq1(fno)-freq(fno));  %napr 50 - 59.9
                     hh = CHilbert.hilbertJirka(d,loF,hiF,fs); %cista hilbertova obalka, tohle i skript hodne zrychli
                     hh = decimate(hh,decimatefactor); % mensi sampling rate                    
-                    HFreq(:,ch,fno) = hh; %#ok<PROPLC> % povodna normalizacia (hh./mean(hh)) premiestnena do funkcie Normalize
+                    HFreq(:,ch,fno) = (hh./mean(hh));  %#ok<PROPLC> % %hh; povodna normalizacia (hh./mean(hh)) premiestnena do funkcie Normalize
+                    %normalizace zase docasne vracena, viz poznamky ve funkci normalize
                     %fprintf('%i Hz, ',loF);
                 end
                 %fprintf('\n'); %tisk znova na stejnou radku
@@ -83,21 +84,23 @@ classdef CHilbert < CiEEGData
             obj.mults = ones(1,size(obj.d,2)); %nove pole uz je double defaultove jednicky pro kazdy kanal
             obj.yrange = [1 1 5 5]; %zmenim rozliseni osy y v grafu
             [obj.samples,obj.channels, obj.epochs] = obj.DSize();
-            fprintf('\n'); %ukoncim radku
-            toc(timer); %ukoncim mereni casu a vypisu
+            fprintf('\n'); %ukoncim radku            
             obj.DatumCas.HilbertComputed = datestr(now);
-            disp(['vytvoreno ' num2str(numel(obj.Hfmean)) ' frekvencnich pasem v case' num2str(toc(timer)) 's']); 
+            disp(['vytvoreno ' num2str(numel(obj.Hfmean)) ' frekvencnich pasem v case ' num2str(toc(timer)) 's']); 
         end
         
         function obj = Normalize(obj, type, channels)
          %function for different normalization methods
          %to be used after PasmoFrekvence
+         %TODO 2018-04-20 - tohle se neda pouzivat, protoze se nenormalizuje d - a to se ma normalizovat pro kazde f pasmo zvlast
+         %TODO musi se osetrit, kdyz je prumer 0
+            if ~exist('channels','var'), channels = 1:obj.channels; end
             switch type
                  case 'orig' %(fpower./mean(fpower)) - povodna normalizacia
                     for ch = channels
                         for f = 1:size(obj.HFreq,3)
                             obj.HFreq(:,ch,f) = obj.HFreq(:,ch,f)./mean(obj.HFreq(:,ch,f)); 
-                        end
+                        end                        
                     end
                 case 'mean' %(fpower./mean(fpower))*100 ~ Bastin 2012   
                     for ch = channels
@@ -412,23 +415,17 @@ classdef CHilbert < CiEEGData
             %vraci jmeno souboru s daty tridy CiEEGData
            filename=strrep(filename,'_CHilb',''); %odstranim pripony vytvorene pri save
            filename=strrep(filename,'_CiEEG','');
-           [pathstr,fname,ext] = CHilbert.matextension(filename);         
+           [pathstr,fname,ext] = CiEEGData.matextension(filename);         
            filename2 = fullfile(pathstr,[fname '_CiEEG' ext]);
         end
         function filename2 = filenameH(filename)
              %vraci jmeno souboru s daty teto tridy
            filename=strrep(filename,'_CHilb',''); %odstranim pripony vytvorene pri save
            filename=strrep(filename,'_CiEEG','');
-           [pathstr,fname,ext] = CHilbert.matextension(filename);            
+           [pathstr,fname,ext] = CiEEGData.matextension(filename);            
            filename2 = fullfile(pathstr,[fname '_CHilb' ext]);
         end
-        function [pathstr,fname,ext] = matextension(filename)
-            [pathstr,fname,ext] = fileparts(filename);
-            if strcmp(ext,'.mat')==false || numel(ext)<1
-               fname = [fname ext]; %pokud pripona neni mat, pridam ji na konec jmena a vytvorim priponu mat
-               ext = '.mat';
-            end 
-        end
+        
     end
         
     %  --------- privatni metody ----------------------
@@ -446,7 +443,7 @@ classdef CHilbert < CiEEGData
             n = 4; % butterworth order
             [b,a] = butter(n, Wn); % returns polynoms of Butterw. filter
             filtData = filtfilt(b, a, rawData);
-
+            assert(sum(isnan(filtData))==0, ['hilbertJirka: spatne definovany filtr ' num2str(loF) '-' num2str(hiF) ' Hz']);
              %2) analyticky signal pomoci Hilbertovy transformace:
             tmp = hilbert(filtData);
 

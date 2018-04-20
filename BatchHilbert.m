@@ -71,7 +71,7 @@ frekvence(f).freq = 15:3:31;
 frekvence(f).freqname = '15-31'; % beta
 f=f+1;
 frekvence(f).todo = 1;
-frekvence(f).freq = 4:1:8;
+frekvence(f).freq = 4:2:8;
 frekvence(f).freqname = '4-8'; % theta fast
 f=f+1;
 frekvence(f).todo = 1;
@@ -79,8 +79,8 @@ frekvence(f).freq = 4:1:8;
 frekvence(f).freqname = '4-8M'; % theta fast Morlet
 frekvence(f).classname = 'Morlet'; % 
 f=f+1;
-frekvence(f).todo = 1;
-frekvence(f).freq = 1:1:4;
+frekvence(f).todo = 0; %hilbertJirka: spatne definovany filtr 1-3.9 Hz - driv to fungovalo?
+frekvence(f).freq = 1:3:4; 
 frekvence(f).freqname = '1-4'; % theta slow
 f=f+1;
 frekvence(f).todo = 1;
@@ -202,7 +202,7 @@ for f=1:numel(frekvence)
                                 suffixclass = '.mat';
                             elseif isfield(frekvence(f),'classname') && strcmp(frekvence(f).classname,'Morlet')
                                 classname = 'CMorlet';
-                                suffixclass = '_CMorl.mat';
+                                suffixclass = '_CHilb.mat';
                             else
                                 classname = 'CHilbert';
                                 suffixclass = '_CHilb.mat'; 
@@ -266,7 +266,7 @@ for f=1:numel(frekvence)
                                 end                                
                                 E.PasmoFrekvence(frekvence(f).freq,[],prekryv,iff(cfg.podilcasuodpovedi,2,[])); 
                                     %pokud podilcasu, zdecimuju zatim jen malo, cele se mi ale nevejde do pameti
-                                E.Normalize('orig'); %puvodni moje normalizace
+                                %E.Normalize('orig'); %puvodni moje normalizace
                             end
                             disp('extracting epochs ...');
                             if ERP

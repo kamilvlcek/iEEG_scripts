@@ -117,7 +117,9 @@ classdef CiEEGData < handle
               
         function obj = GetHHeader(obj,H)
             %nacte header z promenne H - 25.5.2016
-            assert(size(H.channels,2) == size(obj.d,2),['nesouhlasi pocet elektrod (data:' num2str(size(obj.d,2)) ',header:' num2str(size(H.channels,2)) ') - spatny header?']);
+            if isfield(H,'selCh_H'),  H_channels = size(H.selCh_H,2); else, H_channels = 0; end
+            assert(H_channels == size(obj.d,2) || size(H.channels,2)==size(obj.d,2), ...
+                 ['nesouhlasi pocet elektrod (data:' num2str(size(obj.d,2)) ',H_channels:' num2str(H_channels) ', header' num2str(size(H.channels,2)) ') - spatny header?']);
             obj.CH = CHHeader(H); %vypocita i selCh_H
             [~, ~, obj.els] = obj.CH.ChannelGroups();  
             assert(max(obj.els)<=size(obj.d,2),['nesouhlasi pocet elektrod (data:' num2str(size(obj.d,2)) ',header:' num2str(max(obj.els)) ') - spatny header?']);
@@ -1345,10 +1347,12 @@ classdef CiEEGData < handle
             Wp = obj.Wp;                    %#ok<PROP,NASGU>
             DE = obj.DE;                    %#ok<PROP,NASGU>
             DatumCas = obj.DatumCas;        %#ok<PROP,NASGU>
-            save(filename,'d','tabs','tabs_orig','fs','header','sce','PsyDataP','epochtime','baseline','CH_H','els',...
+            [pathstr,fname,ext] = CiEEGData.matextension(filename);        
+            filename2 = fullfile(pathstr,[fname ext]);
+            save(filename2,'d','tabs','tabs_orig','fs','header','sce','PsyDataP','epochtime','baseline','CH_H','els',...
                     'plotES','RjCh','RjEpoch','RjEpochCh','epochTags','epochLast','reference','epochData','Wp','DE','DatumCas', ...
                     'CH_filterMatrix','-v7.3');  
-            disp(['ulozeno do ' filename]); 
+            disp(['ulozeno do ' filename2]); 
         end
         function obj = Load(obj,filename)
             % nacte veskere promenne tridy ze souboru
@@ -1422,6 +1426,16 @@ classdef CiEEGData < handle
            
             obj.filename = filename;
             disp(['nacten soubor ' filename]); 
+        end
+    end
+    %% staticke metody
+    methods (Static,Access = public)
+        function [pathstr,fname,ext] = matextension(filename)
+            [pathstr,fname,ext] = fileparts(filename);
+            if strcmp(ext,'.mat')==false || numel(ext)<1
+               fname = [fname ext]; %pokud pripona neni mat, pridam ji na konec jmena a vytvorim priponu mat
+               ext = '.mat';
+            end 
         end
     end
     %% privatni metody

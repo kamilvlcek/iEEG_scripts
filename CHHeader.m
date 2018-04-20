@@ -241,6 +241,7 @@ classdef CHHeader < handle
                 %assert(size(rawData,2) == size(filterMatrix,1));            
             if ref=='b' %u bipolarni reference se mi meni pocet kanalu
                 H.channels = struct; %#ok<PROPLC> 
+                selCh_H = zeros(1,size(filterMatrix,2)); %#ok<PROPLC>
                 for ch = 1:size(filterMatrix,2) %#ok<PROPLC> % v tehle matrix jsou radky stare kanaly a sloupce nove kanaly - takze cyklus pres nove kanaly
                     oldch = find(filterMatrix(:,ch)==1); %#ok<PROPLC> %cislo stareho kanalu ve sloupci s novym kanalem ch
                     fnames = fieldnames(obj.H.channels(oldch)); %jmena poli struktury channels
@@ -259,7 +260,9 @@ classdef CHHeader < handle
                     H.channels(ch).MNI_y =  MNI2(2); %#ok<PROPLC> 
                     H.channels(ch).MNI_z =  MNI2(3); %#ok<PROPLC> 
                     H.channels(ch).MNI_dist = sqrt( sum((MNI(1,:) - MNI(2,:)).^2)); %#ok<PROPLC>  %vzdalenost mezi puvodnimi MNI body                                                           
+                    selCh_H(ch) = ch;
                 end 
+                H.selCh_H = selCh_H; %#ok<PROPLC> 
 %                 obj.ChangeReferenceRjEpochCh(filterMatrix); %prepocitam na bipolarni referenci i RjEpochCh 
             end
             obj.H = H; %#ok<PROPLC> %prepisu puvodni ulozeny header
