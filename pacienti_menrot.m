@@ -155,14 +155,14 @@ p=p+1; %kamil 6.9.2017
 pacienti(p).todo = 1; 
 pacienti(p).folder = 'p142 Nam VT22';
 pacienti(p).data = 'VT22_2017-04-5_10-31_002_concat_500Hz_menrot.mat';
-pacienti(p).header = 'p142_64ch_header.mat';
+pacienti(p).header = 'p142_64ch_header.mat'; %mereni s wifi
 pacienti(p).psychopy = 'p142_menrot.mat';
 pacienti(p).rjepoch = 'menrot_RjEpoch.mat';
 pacienti(p).epievents = 'p142_menrot_epievents.mat'; %2017 
 pacienti(p).rjch = [2];
 
 p=p+1; %kamil 11.1.2018
-pacienti(p).todo = 0; 
+pacienti(p).todo = 1; 
 pacienti(p).folder = 'p153 Ven VT26';
 pacienti(p).data = 'VT26_2017-11-08_09-17_001_concat_menrot.mat';
 pacienti(p).header = 'p153_header.mat';
@@ -172,7 +172,7 @@ pacienti(p).epievents = 'p153_menrot_epievents.mat'; %2018
 pacienti(p).rjch = [47];
 
 p=p+1; %kamil 11.1.2018
-pacienti(p).todo = 0; 
+pacienti(p).todo = 1; 
 pacienti(p).folder = 'p155 Svi VT27';
 pacienti(p).data = 'VT27_2017-11-22_08-36_001_concat_menrot.mat';
 pacienti(p).header = 'p155_header.mat';
@@ -182,7 +182,7 @@ pacienti(p).epievents = 'p155_menrot_epievents.mat'; %2018
 pacienti(p).rjch = [47];
 
 p=p+1; %kamil 11.1.2018
-pacienti(p).todo = 0; 
+pacienti(p).todo = 1; 
 pacienti(p).folder = 'p160 Kor VT28';
 pacienti(p).data = 'VT28_2017-12-11_09-39_001_menrot.mat';
 pacienti(p).header = 'p160_header.mat';
