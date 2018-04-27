@@ -11,11 +11,13 @@ classdef CBrainPlot < handle
         brainsurface; %ulozeny isosurface z main_brainPlot
         testname; %jmeno zpracovavaneho testu
         katstr_pacients;
+        numelP; %pocty  signif elektrod pro kazdy pacient x interval x kategorie
         pacients;         
     end
     
     methods (Access = public)        
         function [obj] = IntervalyResp(obj,testname,intervals,filename,contrast)
+            %IntervalyResp(testname,intervals,filename,contrast)
             %vola postupne pro vsechny pacienty E.IntervalyResp a uklada vysledky
             %vyradi vsechny kontakty bez odpovedi nebo se zapornou odpovedi
             %spoji vsechno dohromady
@@ -37,6 +39,7 @@ classdef CBrainPlot < handle
             P = {}; M = {}; N = {}; %jen inicializace
             obj.pacients = cell(numel(pacienti),1); 
             obj.katstr_pacients = []; %musim to smazat, nize testuju, jestil to je prazdne
+            obj.numelP = [];  %tam budu ukladat pocty elektrod pro kazdy pacient x interval x kategorie
             for p = 1:numel(pacienti) % cyklus pacienti
                 if pacienti(p).todo 
                     disp(['***   ' pacienti(p).folder '   ***']);
@@ -53,6 +56,7 @@ classdef CBrainPlot < handle
                     if isempty(obj.katstr_pacients)
                         obj.katstr = [katstr 'AllEl']; %#ok<PROPLC> 
                         obj.katstr_pacients = cell(numel(pacienti),numel(katstr)); %#ok<PROPLC>
+                        obj.numelP = zeros(numel(pacienti),size(intervals,1),numel(katstr)+1); %#ok<PROPLC> %tam budu ukladat pocty elektrod pro kazdy interval a pacienta
                         elcount = zeros(size(prumery,2),size(prumery,3)+1); %pocet elektrod pro kazdy casovy interval a kategorii - interval x kategorie
                         P = cell([numel(pacienti),size(prumery,2),size(prumery,3)+1]); % souhrnne prumery pro vsechny pacienty: pacient*interval*kategorie
                         M = cell([numel(pacienti),size(prumery,2),size(prumery,3)+1]); % souhrnne MNI koordinaty pro vsechny pacienty
@@ -68,12 +72,14 @@ classdef CBrainPlot < handle
                                 M{p,interval,kat}=MNI(ip); %#ok<AGROW,PROPLC>>
                                 N{p,interval,kat}= strcat(cellstr(repmat([pacienti(p).folder(1:4) '_'],sum(ip),1)),names(ip)); %#ok<AGROW>
                                 elcount(interval,kat) = elcount(interval,kat) + sum(ip); %#ok<AGROW>
+                                obj.numelP(p,interval,kat)=sum(ip);
                             else %kategorie jakoby navic pro vykresleni jen pozice elekrod
                                 channels = size(prumery,1);
                                 P{p,interval,kat}=zeros(channels,1); %#ok<AGROW> % 0 pro kazdy kanal - vsechny stejnou barvou
                                 M{p,interval,kat}=MNI; %#ok<AGROW,PROPLC>>
                                 N{p,interval,kat}= strcat(cellstr(repmat([pacienti(p).folder(1:4) '_'],channels,1)),names); %#ok<AGROW>
                                 elcount(interval,kat) = elcount(interval,kat) + channels; %#ok<AGROW>                                
+                                obj.numelP(p,interval,kat)=channels;
                             end
                         end                       
                     end 
@@ -83,25 +89,38 @@ classdef CBrainPlot < handle
             obj.VALS = cell(size(elcount)); %souhrnne prumery - interval * kategorie
             obj.MNI = cell(size(elcount)); 
             obj.NAMES = cell(size(elcount));       
-            for interval = 1:size(prumery,2) 
-                for kat = 1:size(prumery,3)+1                   
-                      obj.VALS{interval,kat} = zeros(elcount(interval,kat),1);
-                      obj.MNI{interval,kat} = struct('MNI_x',{},'MNI_y',{},'MNI_z',{});
-                      obj.NAMES{interval,kat} = cell(elcount(interval,kat),1);
-                      iVALS = 1;
-                      for p = 1:numel(pacienti) 
-                          if pacienti(p).todo
-                              n = numel(P{p,interval,kat});
-                              obj.VALS{interval,kat} (iVALS:iVALS+n-1)=P{p,interval,kat};
-                              obj.MNI{interval,kat}  (iVALS:iVALS+n-1)=M{p,interval,kat};
-                              obj.NAMES{interval,kat}(iVALS:iVALS+n-1)=N{p,interval,kat};
-                              iVALS = iVALS + n;
+            if sum([pacienti.todo])>0 
+                for interval = 1:size(prumery,2) 
+                    for kat = 1:size(prumery,3)+1                   
+                          obj.VALS{interval,kat} = zeros(elcount(interval,kat),1);
+                          obj.MNI{interval,kat} = struct('MNI_x',{},'MNI_y',{},'MNI_z',{});
+                          obj.NAMES{interval,kat} = cell(elcount(interval,kat),1);
+                          iVALS = 1;
+                          for p = 1:numel(pacienti) 
+                              if pacienti(p).todo
+                                  n = numel(P{p,interval,kat});
+                                  obj.VALS{interval,kat} (iVALS:iVALS+n-1)=P{p,interval,kat};
+                                  obj.MNI{interval,kat}  (iVALS:iVALS+n-1)=M{p,interval,kat};
+                                  obj.NAMES{interval,kat}(iVALS:iVALS+n-1)=N{p,interval,kat};
+                                  iVALS = iVALS + n;
+                              end
                           end
-                      end
-                end
-            end 
-            disp(''); %prazdna radka
-            disp(['vytvoreny ' num2str(numel(obj.katstr)) ' kategorie: ' cell2str(obj.katstr)]);
+                    end
+                end             
+                disp(''); %prazdna radka
+                %disp(['vytvoreny ' num2str(numel(obj.katstr)) ' kategorie: ' cell2str(obj.katstr)]);
+                %jeste vypisu pocty elektrod pro kazdou kategorii
+                fprintf('\npocty elektrod v %i kategoriich (pro vsechny pacienty):\n',numel(obj.katstr));
+                for kat = 1:numel(obj.katstr)
+                    fprintf('%s:\t', obj.katstr{kat});
+                    for int = 1:size(intervals,1)
+                        fprintf(' %i,', sum(obj.numelP(:,int,kat)));
+                    end
+                    fprintf('\n');
+                end               
+            else
+                disp('zadny soubor nenalezen');
+            end
         end
         function obj = ImportData(obj,CB)
             %vlozi data, ktera jsem vytvoril pomoci CHilbert.ExtractBrainPlotData
@@ -185,9 +204,14 @@ classdef CBrainPlot < handle
             if ischar(struktura), struktura = {struktura}; end %prevedu na cell array
             if ischar(label), label = {label}; end %prevedu na cell array
             if strcmp(testname,'aedist')
-                pacienti = pacienti_aedist(); %nactu celou strukturu pacientu    
+                pacienti = pacienti_aedist(); %nactu celou strukturu pacientu
+                setup = setup_menrot(  );
             elseif strcmp(testname,'menrot')
                 pacienti = pacienti_menrot(); %nactu celou strukturu pacientu    
+                setup = setup_aedist();
+            elseif strcmp(testname,'ppa')
+                pacienti = pacienti_ppa(); %nactu celou strukturu pacientu    
+                setup = setup_ppa();
             else
                 error('nezname jmeno testu');
             end
@@ -195,7 +219,7 @@ classdef CBrainPlot < handle
             iPAC = 1;
             for p = 1:numel(pacienti)
                 disp(['* ' pacienti(p).folder ' - ' pacienti(p).header ' *']);
-                hfilename = ['D:\eeg\motol\pacienti\' pacienti(p).folder '\' pacienti(p).header];
+                hfilename = [setup.basedir pacienti(p).folder '\' pacienti(p).header];                
                 if exist(hfilename,'file')==2
                     load(hfilename);
                 else
