@@ -317,7 +317,7 @@ classdef CHilbert < CiEEGData
             obj.hfilename = filename; 
         end 
         
-        function obj = ExtractData(obj,chns,label)
+        function [filename,basefilename] = ExtractData(obj,chns,label)
             %ExtractData(obj,chns,filename)
             %vytvori data z vyberu elektrod, pro sdruzeni elektrod pres vsechny pacienty. 
             %pole d, tabs, RjEpochCh a header H
@@ -347,12 +347,13 @@ classdef CHilbert < CiEEGData
             Hfmean = obj.Hfmean;  %#ok<PROPLC> 
             if isempty(Hfmean), Hfmean = (Hf(1:end-1) + Hf(2:end)) ./ 2; end %#ok<PROPLC,NASGU>             
             HFreq = obj.HFreq(:,chns,:,:); %#ok<PROPLC,NASGU>  %time x channel x freq (x kategorie)            
-            Wp = obj.Wp;%#ok<PROPLC>  %exportuju statistiku
+            Wp = obj.Wp;  %#ok<NASGU>  %exportuju statistiku
             [filepath,fname,ext] = CHilbert.matextension(obj.filename);
             podtrzitko = strfind(fname,'_'); %chci zrusit cast za poslednim podtrzitkem
-            filename =[filepath filesep fname(1:podtrzitko(end)-1) ' ' label '_Extract' ext]; 
+            basefilename = [fname(1:podtrzitko(end)-1) ' ' label '_Extract' ext]; %jmeno bez cesty
+            filename =[filepath filesep basefilename]; 
             save(filename,'d','tabs','tabs_orig','fs','P','epochtime','baseline','RjEpochCh','epochData','DatumCas','H','Hf','Hfmean','HFreq','Wp','-v7.3'); 
-            disp(['extract saved to "' fname(1:podtrzitko(end)-1) ' ' label '_Extract' ext '"']);
+            disp(['extract saved to "' basefilename '"']);
         end
         
         function CB = ExtractBrainPlotData(obj,chns)

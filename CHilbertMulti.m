@@ -13,7 +13,7 @@ classdef CHilbertMulti < CHilbert
     methods
         function obj = CHilbertMulti()              
         end
-
+        
         function TestExtract(obj,filenames)
              for fileno = 1:numel(filenames)
                 filename = filenames{fileno}; %cell array, zatim to musi byt plna cesta                
@@ -253,6 +253,31 @@ classdef CHilbertMulti < CHilbert
             obj.Wp = [];
         end
       
+    end
+    methods (Static,Access = public)
+        function filenames = ExtractData(PAC,testname,filename,label)
+            %filenames = ExtractData(PAC,testname,filename,label)
+            %podle struct vystupu z funkce CBrainPlot.StructFind, jmena testu, a jmena souboru
+            %u kazdeho pacienta vytvori extract pro danou strukturu se jmenemm label
+            %vrati seznam filenames, ktery se pak da primo pouzit ve funkcich TestExtract a ImportExtract
+           
+            pacienti = unique({PAC.pacient}); %trik po delsim usili vygooglovany, jak ziskat ze struct jedno pole
+            filenames = cell(1,numel(pacienti));
+            
+            for p = 1:numel(pacienti)                                
+                ipacienti = strcmp({PAC.pacient}, pacienti{p})==1; %indexy ve strukture PAC pro tohoto pacienta
+                E = pacient_load(pacienti{p},testname,filename);  %pokud spatny testname, zde se vrati chyba
+                if ~isempty(E) %soubor muze neexistovat, chci pokracovat dalsim souborem
+                    [filename_extract,basefilename_extract] = E.ExtractData([PAC(ipacienti).ch],label);
+                    filenames{p} = filename_extract;
+                    disp(['*** OK: ' pacienti{p} ': chns ' num2str([PAC(ipacienti).ch],'%i ') ', ' basefilename_extract]);
+                end
+                fprintf('\n');   
+            end
+            %PAC muzu take ziskat z xls souboru pomoci [~ ~ raw]=xlsread('structfind_mat.xlsx'); PAC = cell2struct(raw(2:end,:),raw(1,:),2);
+            %akorat ze budou kolem vsech retezcu apostrofy, ty bych musel nejak dat pryc
+            %treba pomoci strrep(raw(:,1),'''','') pro kazdy sloupec, protoze pro cisla=channels to nefunguje
+        end
     end
     methods (Static,Access = private)
         function bloky = GetBlocks(epochData)

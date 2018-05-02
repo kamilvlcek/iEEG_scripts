@@ -205,10 +205,10 @@ classdef CBrainPlot < handle
             if ischar(label), label = {label}; end %prevedu na cell array
             if strcmp(testname,'aedist')
                 pacienti = pacienti_aedist(); %nactu celou strukturu pacientu
-                setup = setup_menrot(  );
+                setup = setup_aedist(  );
             elseif strcmp(testname,'menrot')
                 pacienti = pacienti_menrot(); %nactu celou strukturu pacientu    
-                setup = setup_aedist();
+                setup = setup_menrot();
             elseif strcmp(testname,'ppa')
                 pacienti = pacienti_ppa(); %nactu celou strukturu pacientu    
                 setup = setup_ppa();
@@ -224,6 +224,7 @@ classdef CBrainPlot < handle
                     load(hfilename);
                 else
                     disp(['header ' hfilename ' neexistuje']);
+                    continue; %zkusim dalsiho pacienta, abych vypsal, ktere vsechny headery neexistujou
                 end               
                 if ~isempty(reference)
                     CH = CHHeader(H);
