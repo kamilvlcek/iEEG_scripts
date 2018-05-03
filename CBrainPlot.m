@@ -203,18 +203,7 @@ classdef CBrainPlot < handle
             if ~exist('reference','var'), reference = []; end %defaultni test
             if ischar(struktura), struktura = {struktura}; end %prevedu na cell array
             if ischar(label), label = {label}; end %prevedu na cell array
-            if strcmp(testname,'aedist')
-                pacienti = pacienti_aedist(); %nactu celou strukturu pacientu
-                setup = setup_aedist(  );
-            elseif strcmp(testname,'menrot')
-                pacienti = pacienti_menrot(); %nactu celou strukturu pacientu    
-                setup = setup_menrot();
-            elseif strcmp(testname,'ppa')
-                pacienti = pacienti_ppa(); %nactu celou strukturu pacientu    
-                setup = setup_ppa();
-            else
-                error('nezname jmeno testu');
-            end
+            [ pacienti, setup ] = pacienti_setup_load( testname );
             PAC = {};
             iPAC = 1;
             for p = 1:numel(pacienti)

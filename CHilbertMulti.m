@@ -15,8 +15,8 @@ classdef CHilbertMulti < CHilbert
         end
         
         function TestExtract(obj,filenames)
-             for fileno = 1:numel(filenames)
-                filename = filenames{fileno}; %cell array, zatim to musi byt plna cesta                
+             for fileno = 1:size(filenames,1)
+                filename = filenames{fileno,1}; %cell array, zatim to musi byt plna cesta                
                 if exist(filename,'file') 
                     disp(obj.basename(filename)); %zobrazim jmeno souboru s pouze koncem 
                     obj.filenames{fileno} = filename;
@@ -24,7 +24,7 @@ classdef CHilbertMulti < CHilbert
                     load(filename,'d','P'); %nacte vsechny promenne
                     test = ~P.data(:,P.sloupce.zpetnavazba); %index testovych epoch
                     d = d(:,:,test);
-                    disp(['  velikost d:' num2str(size(d))]);                    
+                    disp(['  velikost d (samples x channels x epochs):' num2str(size(d))]);                    
                 else
                     disp(['soubor neexistuje ' filename]);  
                 end
@@ -37,8 +37,8 @@ classdef CHilbertMulti < CHilbert
 %             obj.HFreq = [];
 %         end
         function obj = ImportExtract(obj,filenames)
-            for fileno = 1:numel(filenames)
-                filename = filenames{fileno}; %cell array, zatim to musi byt plna cesta                
+            for fileno = 1:size(filenames,1)
+                filename = filenames{fileno,1}; %cell array, zatim to musi byt plna cesta                
                 if exist(filename,'file') 
                     disp(obj.basename(filename)); %zobrazim jmeno souboru s pouze koncem 
                     obj.filenames{fileno} = filename;
@@ -249,7 +249,7 @@ classdef CHilbertMulti < CHilbert
                 obj.baseline = baseline;
             end              
         end
-        function obj = GetStat(~) %zatim neimportuju
+        function obj = GetStat(obj) %zatim neimportuju
             obj.Wp = [];
         end
       
@@ -262,14 +262,14 @@ classdef CHilbertMulti < CHilbert
             %vrati seznam filenames, ktery se pak da primo pouzit ve funkcich TestExtract a ImportExtract
            
             pacienti = unique({PAC.pacient}); %trik po delsim usili vygooglovany, jak ziskat ze struct jedno pole
-            filenames = cell(1,numel(pacienti));
+            filenames = cell(numel(pacienti),1);
             
             for p = 1:numel(pacienti)                                
                 ipacienti = strcmp({PAC.pacient}, pacienti{p})==1; %indexy ve strukture PAC pro tohoto pacienta
                 E = pacient_load(pacienti{p},testname,filename);  %pokud spatny testname, zde se vrati chyba
                 if ~isempty(E) %soubor muze neexistovat, chci pokracovat dalsim souborem
                     [filename_extract,basefilename_extract] = E.ExtractData([PAC(ipacienti).ch],label);
-                    filenames{p} = filename_extract;
+                    filenames{p,1} = filename_extract;
                     disp(['*** OK: ' pacienti{p} ': chns ' num2str([PAC(ipacienti).ch],'%i ') ', ' basefilename_extract]);
                 end
                 fprintf('\n');   
@@ -277,6 +277,21 @@ classdef CHilbertMulti < CHilbert
             %PAC muzu take ziskat z xls souboru pomoci [~ ~ raw]=xlsread('structfind_mat.xlsx'); PAC = cell2struct(raw(2:end,:),raw(1,:),2);
             %akorat ze budou kolem vsech retezcu apostrofy, ty bych musel nejak dat pryc
             %treba pomoci strrep(raw(:,1),'''','') pro kazdy sloupec, protoze pro cisla=channels to nefunguje
+        end
+        function filenames = FindExtract(testname,label,filename)
+            %filenames = FindExtract(testname,label,filename) 
+            %najde existujici extrakty dat podle label            
+            if(~exist('filename','var')) || isempty(filename) , filename = '*'; end %filename nemusim zadat, pak hledam cokoliv s timto label
+            [pacienti,setup] = pacienti_setup_load( testname );
+            filenames = cell(0,5); %budu vrace vsechny nalezene udaje, nejen filename, kvuli prehledu
+            for p = 1:numel(pacienti)
+               path = [setup.basedir pacienti(p).folder filesep setup.subfolder filesep];
+               files = dir([path filename ' ' label '_Extract.mat']);
+               for f = 1:numel(files)
+                   files(f).name = [path files(f).name];                   
+               end
+               filenames = cat(1,filenames,struct2cell(files)'); %prevedu struct na cell array
+            end
         end
     end
     methods (Static,Access = private)

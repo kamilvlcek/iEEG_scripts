@@ -15,22 +15,8 @@ if ~isfield(cfg,'srovnejresp'), cfg.srovnejresp = 0; end %jestli se maji epochy 
 if ~isfield(cfg,'suffix'), cfg.suffix = ['Ep' datestr(now,'YYYY-mm')]; end %defaultne automaticka pripona rok-mesic
 if ~isfield(cfg,'pacienti'), cfg.pacienti = {}; end; %muzu analyzovat jen vyber pacientu
 
-if strcmp(testname,'menrot')
-    setup = setup_menrot( cfg.srovnejresp ); %nacte nastaveni testu Menrot- 11.1.2018 - 0 = zarovnani podle podnetu, 1=zarovnani podle odpovedi
-    pacienti = pacienti_menrot(); %nactu celou strukturu pacientu
-    [ frekvence,reference ] = freqref_menrot(); %nactu frekvence a reference k vyhodnoceni 
-elseif strcmp(testname,'aedist')
-    setup = setup_aedist( cfg.srovnejresp ); %nacte nastaveni testu Aedist - 11.1.2018 - 0 = zarovnani podle podnetu, 1=zarovnani podle odpovedi
-    pacienti = pacienti_aedist(); %nactu celou strukturu pacientu
-    [ frekvence,reference ] = freqref_aedist(); %nactu frekvence a reference k vyhodnoceni 
-elseif strcmp(testname,'ppa')
-    setup = setup_ppa( cfg.srovnejresp ); %nacte nastaveni testu PPA - 6.2.2018 - 0 = zarovnani podle podnetu, 1=zarovnani podle odpovedi
-    pacienti = pacienti_ppa(); %nactu celou strukturu pacientu
-    [ frekvence,reference ] = freqref_ppa(); %nactu frekvence a reference k vyhodnoceni 
-else
-    error('nezname jmeno testu');
-end
 
+[ pacienti, setup,frekvence,reference  ] = pacienti_setup_load( testname,cfg.srovnejresp ); %11.1.2018 - 0 = zarovnani podle podnetu, 1=zarovnani podle odpovedi
 if numel(cfg.pacienti)>0
     pacienti = filterpac(pacienti,cfg.pacienti);
 end
