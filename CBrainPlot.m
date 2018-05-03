@@ -223,8 +223,12 @@ classdef CBrainPlot < handle
                 end
                 ii = ~cellfun(@isempty,{H.channels.neurologyLabel}); %neprazdne cells
                 index = [];
-                for jj = 1:size(label,2)
-                    index = [index find(~cellfun('isempty',strfind(lower({H.channels(ii).neurologyLabel}),lower(label{jj}))))];  %#ok<AGROW>
+                labels = lower({H.channels(ii).neurologyLabel}');
+                for jj = 1:size(label,2)                    
+                    indexjj =  find(~cellfun('isempty',strfind(labels,lower(label{jj}))))'; %rozepsal jsem, aby se to dalo lepe debugovat
+                    index = [index indexjj];  %#ok<AGROW>
+                    % 3.5.2018 nejakym zahadnym zpusobem funguje hledani pomoci strfind ve sloupci a ne v radku. 
+                    % Proto nejdriv prehodim pomoci ' na sloupec a pak zase na radek
                 end
                 iiBA = ~cellfun(@isempty,{H.channels.ass_brainAtlas}); %neprazdne cells
                 iiCM = ~cellfun(@isempty,{H.channels.ass_cytoarchMap}); %neprazdne cells
@@ -243,8 +247,18 @@ classdef CBrainPlot < handle
                     PAC(iPAC).ass_cytoarchMap = H.channels(index(ii)).ass_cytoarchMap; %#ok<AGROW>
                     iPAC = iPAC + 1;
                 end
-            end
-            
+            end            
+        end
+        function PAC = StructFindLoad(xlsfile)
+            %nacteni struktury PAC z existujiciho xls souboru, napr po editaci radku            
+             [~ ,~ , raw]=xlsread(xlsfile); 
+             for iraw = 1:numel(raw)
+                 if(~isnumeric(raw{iraw}))
+                     raw{iraw} = strrep(raw{iraw},'''',''); %neprisel jsem na zpusob, jak o udelat hromadne, isnumeric nefunguje na cely cellarray
+                     %mozna by to slo po sloupcich, to ted neresim
+                 end
+             end
+             PAC = cell2struct(raw(2:end,:),raw(1,:),2);   
         end
     end
     

@@ -328,7 +328,10 @@ classdef CHilbert < CiEEGData
             tabs = obj.tabs; %#ok<NASGU> %to je spolecne pro vsechny kanaly; time x epochs
             tabs_orig = obj.tabs_orig; %#ok<NASGU> 
             fs = obj.fs; %#ok<NASGU> 
-            P = obj.PsyData.P; %#ok<NASGU> %psychopy data
+            P = obj.PsyData.P;  %psychopy data
+            if isempty(P.pacientid) || numel(P.pacientid)<=1 % u nekterych pacientu je pacientid praznde
+                P.pacientid = obj.CH.PacientTag();
+            end
             epochtime = obj.epochtime; %#ok<NASGU> %abych vedel kde je podnet
             baseline = obj.baseline; %#ok<NASGU> 
             RjEpochCh = obj.RjEpochCh(chns,:); %#ok<NASGU> %kanaly vs epochy

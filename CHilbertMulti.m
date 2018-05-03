@@ -30,13 +30,27 @@ classdef CHilbertMulti < CHilbert
                 end
              end
         end
-%         function Clear()
-%             obj.d = [];
-%             obj.Hf = [];
-%             obj.Hfmean  =[];
-%             obj.HFreq = [];
-%         end
+        function obj = Clear(obj)
+            %smaze data objektu, kvuli volani z ImportExtract, jinak je mozna jednodussi znova objekt vytvorit
+            obj.d = [];
+            obj.tabs = [];
+            obj.Hf = [];
+            obj.Hfmean  =[];
+            obj.HFreq = [];
+            obj.CH = [];
+            obj.filenames = {};
+            obj.filesimported = 0;
+            obj.epochData = {};
+            disp('data objektu smazana');
+        end
         function obj = ImportExtract(obj,filenames)
+            if numel(obj.filenames)>0
+                if obj.filesimported == 0 %nejaky soubor naimportovan castecne kvuli chybe - musim smazat
+                    obj.Clear();
+                else
+                    disp(['pridavam data k existujicim souborum: ' num2str(obj.filesimported)]);
+                end
+            end
             for fileno = 1:size(filenames,1)
                 filename = filenames{fileno,1}; %cell array, zatim to musi byt plna cesta                
                 if exist(filename,'file') 
@@ -74,7 +88,7 @@ classdef CHilbertMulti < CHilbert
                     %frekvencni data
                     obj.GetHfreq(Hf,Hfmean,HFreq);
                     
-                    obj.GetStat(Wp); %mam funkci, ale statistiku zatim neimportuju
+                    %obj.GetStat(Wp); %mam funkci, ale statistiku zatim neimportuju
                     %jen kopie - zatim nezpracovavam                                                           
                     obj.orig(fileno).DatumCas = DatumCas;
                     obj.orig(fileno).filename = filename;     
@@ -83,6 +97,7 @@ classdef CHilbertMulti < CHilbert
                 end
                 
             end
+            disp(['nacteno souboru: ' num2str(obj.filesimported)]);
         end
         function [d,tabs,RjEpochCh,P]= PrehazejEpochy(obj,d,tabs,RjEpochCh,P,test) 
             %vyradi treningove epochy ze vsech dat 
@@ -273,10 +288,7 @@ classdef CHilbertMulti < CHilbert
                     disp(['*** OK: ' pacienti{p} ': chns ' num2str([PAC(ipacienti).ch],'%i ') ', ' basefilename_extract]);
                 end
                 fprintf('\n');   
-            end
-            %PAC muzu take ziskat z xls souboru pomoci [~ ~ raw]=xlsread('structfind_mat.xlsx'); PAC = cell2struct(raw(2:end,:),raw(1,:),2);
-            %akorat ze budou kolem vsech retezcu apostrofy, ty bych musel nejak dat pryc
-            %treba pomoci strrep(raw(:,1),'''','') pro kazdy sloupec, protoze pro cisla=channels to nefunguje
+            end            
         end
         function filenames = FindExtract(testname,label,filename)
             %filenames = FindExtract(testname,label,filename) 
