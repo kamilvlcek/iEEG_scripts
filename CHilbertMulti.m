@@ -10,7 +10,7 @@ classdef CHilbertMulti < CHilbert
         filesimported = 0;
     end
     
-    methods
+    methods (Access = public)  
         function obj = CHilbertMulti()              
         end
         
@@ -293,16 +293,18 @@ classdef CHilbertMulti < CHilbert
         function filenames = FindExtract(testname,label,filename)
             %filenames = FindExtract(testname,label,filename) 
             %najde existujici extrakty dat podle label            
-            if(~exist('filename','var')) || isempty(filename) , filename = '*'; end %filename nemusim zadat, pak hledam cokoliv s timto label
+            if ~exist('filename','var') || isempty(filename) , filename = '*'; end %filename nemusim zadat, pak hledam cokoliv s timto label
+            if ~exist('label','var') || isempty(label) , label = '*'; end 
             [pacienti,setup] = pacienti_setup_load( testname );
-            filenames = cell(0,5); %budu vrace vsechny nalezene udaje, nejen filename, kvuli prehledu
+            filenames = cell(0,4); %budu vrace vsechny nalezene udaje, nejen filename, kvuli prehledu
             for p = 1:numel(pacienti)
                path = [setup.basedir pacienti(p).folder filesep setup.subfolder filesep];
                files = dir([path filename ' ' label '_Extract.mat']);
                for f = 1:numel(files)
                    files(f).name = [path files(f).name];                   
                end
-               filenames = cat(1,filenames,struct2cell(files)'); %prevedu struct na cell array
+               files_cell = struct2cell(files)';
+               filenames = cat(1,filenames,files_cell(:,1:4)); %prevedu struct na cell array, jen prvni 4 sloupce
             end
         end
     end

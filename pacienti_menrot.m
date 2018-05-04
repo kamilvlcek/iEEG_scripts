@@ -12,7 +12,7 @@ pacienti(p).header = 'p73_header.mat'; % p73_header.mat je ten nejnovejsi od Jir
 pacienti(p).psychopy = 'p073_menrot.mat';
 pacienti(p).rjepoch = 'menrot_RjEpoch.mat'; %2017 
 pacienti(p).epievents = 'p073_menrot_epievents.mat'; %2017 
-pacienti(p).rjch = [47 68]; %#ok<NB%#ok<MSNU> RAK>
+pacienti(p).rjch = [47 68]; 
 
 p=p+1;
 pacienti(p).todo = 1;
@@ -22,7 +22,7 @@ pacienti(p).header = 'P79_header.mat';
 pacienti(p).psychopy = 'p079_menrot.mat';
 pacienti(p).rjepoch = 'menrot_RjEpoch.mat'; %'menrot RjEpoch Resp.mat';
 pacienti(p).epievents = 'p079_menrot_epievents.mat'; %2017 
-pacienti(p).rjch = [47 64 114]; %#ok<NBR%#ok<MSNU> AK> 
+pacienti(p).rjch = [47 64 114]; 
 
 p=p+1;
 pacienti(p).todo = 1;
@@ -32,7 +32,7 @@ pacienti(p).header = 'P82_header.mat';
 pacienti(p).psychopy = 'p082_menrot.mat';
 pacienti(p).rjepoch = 'menrot_RjEpoch.mat';
 pacienti(p).epievents = 'p082_menrot_epievents.mat'; %2017 
-pacienti(p).rjch = [47 68]; %#ok<NB%#ok<MSNU> RAK>
+pacienti(p).rjch = [47 68]; 
 
 p=p+1;
 pacienti(p).todo = 1;
@@ -128,7 +128,7 @@ pacienti(p).header = 'p129_header.mat';
 pacienti(p).psychopy = 'p129_menrot.mat';
 pacienti(p).rjepoch = 'menrot_RjEpoch.mat';
 pacienti(p).epievents = 'p129_menrot_epievents.mat'; %2017 
-pacienti(p).rjch = [47]; 
+pacienti(p).rjch = [47]; %#ok<NBRAK>
 
 p=p+1; %kamil 6.9.2017
 pacienti(p).todo = 1;
@@ -159,7 +159,7 @@ pacienti(p).header = 'p142_64ch_header.mat'; %mereni s wifi
 pacienti(p).psychopy = 'p142_menrot.mat';
 pacienti(p).rjepoch = 'menrot_RjEpoch.mat';
 pacienti(p).epievents = 'p142_menrot_epievents.mat'; %2017 
-pacienti(p).rjch = [2];
+pacienti(p).rjch = [2];%#ok<NBRAK>
 
 p=p+1; %kamil 11.1.2018
 pacienti(p).todo = 1; 
@@ -169,7 +169,7 @@ pacienti(p).header = 'p153_header.mat';
 pacienti(p).psychopy = 'p153_menrot.mat';
 pacienti(p).rjepoch = 'menrot_RjEpoch.mat';
 pacienti(p).epievents = 'p153_menrot_epievents.mat'; %2018 
-pacienti(p).rjch = [47];
+pacienti(p).rjch = [47];%#ok<NBRAK>
 
 p=p+1; %kamil 11.1.2018
 pacienti(p).todo = 1; 
@@ -179,7 +179,7 @@ pacienti(p).header = 'p155_header.mat';
 pacienti(p).psychopy = 'p155_menrot.mat';
 pacienti(p).rjepoch = 'menrot_RjEpoch.mat';
 pacienti(p).epievents = 'p155_menrot_epievents.mat'; %2018 
-pacienti(p).rjch = [47];
+pacienti(p).rjch = [47];%#ok<NBRAK>
 
 p=p+1; %kamil 11.1.2018
 pacienti(p).todo = 1; 
@@ -189,7 +189,7 @@ pacienti(p).header = 'p160_header.mat';
 pacienti(p).psychopy = 'p160_menrot.mat';
 pacienti(p).rjepoch = 'menrot_RjEpoch.mat';
 pacienti(p).epievents = 'p160_menrot_epievents.mat'; %2018 
-pacienti(p).rjch = [47];
+pacienti(p).rjch = [47]; %#ok<NBRAK>
 
 end
 
