@@ -164,7 +164,7 @@ classdef CiEEGData < handle
             
         end
         
-        function obj = RjEpochsEpi(obj,NEpi,obrazek)
+        function [BadChannels,obj] = RjEpochsEpi(obj,NEpi,obrazek)
             %vyradi epochy podle poctu epileptickych udalosti - pokud >= NEpi
             %uz vyrazene epochy rucne nemeni - neoznaci jako spravne
             assert(obj.epochs > 1,'nejsou epochovana data');
@@ -182,7 +182,7 @@ classdef CiEEGData < handle
             end
             
             if obrazek &&  isempty(NEpi)
-                obj.PL.EpochsEpi(obj.RjEpochCh,obj.els,obj.CH); %graf Rejected epochs in individual channels
+                BadChannels = obj.PL.EpochsEpi(obj.RjEpochCh,obj.els,obj.CH); %graf Rejected epochs in individual channels
             end            
             
         end

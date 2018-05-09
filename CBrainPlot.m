@@ -237,6 +237,11 @@ classdef CBrainPlot < handle
                     index = [ index find(~cellfun('isempty',strfind(lower({H.channels(iiBA).ass_brainAtlas}),lower(struktura{jj}))))]; %#ok<AGROW>
                 end
                 index = union(index,[]); %vsechny tri dohromady
+                if isempty(reference) || reference ~= 'b' %pokud jsem kanaly nevyradil uz pri zmene reference - vyrazuji se jen pri bipolarni
+                    indexvyradit = ismember(index, pacienti(p).rjch); %vyrazene kanaly tady nechci
+                    index(indexvyradit)=[]; 
+                end
+                
                 %vrati indexy radku ze struct array, ktere obsahuji v sloupci neurologyLabel substring struktura
                 for ii = 1:numel(index)                
                     PAC(iPAC).pacient = pacienti(p).folder; %#ok<AGROW>
@@ -249,16 +254,17 @@ classdef CBrainPlot < handle
                 end
             end            
         end
-        function PAC = StructFindLoad(xlsfile)
+        function PAC = StructFindLoad(xlsfile,sheet)
             %nacteni struktury PAC z existujiciho xls souboru, napr po editaci radku            
-             [~ ,~ , raw]=xlsread(xlsfile); 
+             if ~exist('sheet','var'), sheet = 1; end %defaultni je prvni list
+             [~ ,~ , raw]=xlsread(xlsfile,sheet); 
              for iraw = 1:numel(raw)
                  if(~isnumeric(raw{iraw}))
                      raw{iraw} = strrep(raw{iraw},'''',''); %neprisel jsem na zpusob, jak o udelat hromadne, isnumeric nefunguje na cely cellarray
                      %mozna by to slo po sloupcich, to ted neresim
                  end
              end
-             PAC = cell2struct(raw(2:end,:),raw(1,:),2);   
+             PAC = cell2struct(raw(2:end,:),raw(1,:),2)';  %originalni PAC struktura z StructFind ma rozmer 1 x N, takze transponuju z excelu
         end
     end
     

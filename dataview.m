@@ -69,6 +69,7 @@ x = start;
             if ~isempty(secs) && secs>sekund_zac && secs<sekund_konec && ~isempty(evts(a).annotation)                
                 line([secs secs],[-3000 3000],'Color','red');
                 text(secs,2900-zobrazenych*80,evts(a).annotation,'Color','red');
+                text(secs,2000-zobrazenych*80, evts(a).dateStr,'Color','magenta');
                 zobrazenych = zobrazenych+1;
             end
         end
