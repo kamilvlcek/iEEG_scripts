@@ -201,6 +201,66 @@ pacienti(p).rjepoch = 'p153_aedist_RjEpoch.mat';
 pacienti(p).epievents = 'p153_aedist_epievents.mat'; %2017 
 pacienti(p).rjch = [47]; 
  
+p=p+1;
+pacienti(p).todo = 1;
+pacienti(p).folder = 'p155 Svi VT27';
+pacienti(p).data = 'VT27_2017-11-22_08-36_001_concat_aedist.mat';
+pacienti(p).header = 'p155_header.mat';
+pacienti(p).psychopy = 'p155_aedist.mat';
+pacienti(p).rjepoch = 'p155_aedist_RjEpoch.mat'; %2018
+pacienti(p).epievents = 'p155_aedist_epievents.mat'; %2018
+pacienti(p).rjch = [47]; 
+
+p=p+1;
+pacienti(p).todo = 1;
+pacienti(p).folder = 'p162 Fra VT29';
+pacienti(p).data = 'VT29_2018-01-05_10-21_001_aedist.mat';
+pacienti(p).header = 'p162_header.mat';
+pacienti(p).psychopy = 'p162_aedist.mat';
+pacienti(p).rjepoch = 'p162_aedist_RjEpoch.mat'; %2018
+pacienti(p).epievents = 'p162_aedist_epievents.mat'; %2018
+pacienti(p).rjch = [47 114	36	37	38	39	51	52	59	60	61	62	63	64	65	66	67	68	70	71	72	73	74	75	76	77	78	79	80	81	82	83	84	85	86	87	88	89	90	91	92	93	94	95	96	97	98	99	100	101	102	103	104	105	106	107	108	109	112	113	114	115	116	117	118	119	120]; 
+% spousta epileptickych kanalu, abych nevyradil vsechny epochy, vyradil jsem ty kanaly, ktere pres 30% epoch k vyrazeni
+
+p=p+1;
+pacienti(p).todo = 1;
+pacienti(p).folder = 'p165 Jan VT30';
+pacienti(p).data = 'VT30_2018-01-19_09-21_001_aedist.mat';
+pacienti(p).header = 'p165_header.mat';
+pacienti(p).psychopy = 'p165_aedist.mat';
+pacienti(p).rjepoch = 'p165_aedist_RjEpoch.mat'; %2018-05
+pacienti(p).epievents = 'p165_aedist_epievents.mat'; %2018
+pacienti(p).rjch = [47]; 
+
+p=p+1;
+pacienti(p).todo = 1;
+pacienti(p).folder = 'p170 Zem VT32';
+pacienti(p).data = 'VT32_2018-03-10_13-39_001_concat_aedist.mat';
+pacienti(p).header = 'p170_header.mat';
+pacienti(p).psychopy = 'p170_aedist.mat';
+pacienti(p).rjepoch = 'p170_aedist_rjEpoch.mat'; %2018-05
+pacienti(p).epievents = 'p170_aedist_epiEvents.mat'; %2018
+pacienti(p).rjch = [47 84]; 
+
+p=p+1;
+pacienti(p).todo = 1;
+pacienti(p).folder = 'p099 Hos VT33';
+pacienti(p).data = 'VT33_2018-03-23_10-33_001_aedist.mat';
+pacienti(p).header = 'p099_header.mat';
+pacienti(p).psychopy = 'p099_aedist.mat';
+pacienti(p).rjepoch = 'p099_aedist_rjepoch.mat'; %2018-05
+pacienti(p).epievents = 'p099_aedist_epievents.mat'; %2018
+pacienti(p).rjch = [47]; 
+
+p=p+1;
+pacienti(p).todo = 1;
+pacienti(p).folder = 'p173 Mar VT34';
+pacienti(p).data = 'VT34_2018-04-09_10-39_001_concat_aedist.mat';
+pacienti(p).header = 'p099_header.mat';
+pacienti(p).psychopy = 'p173_aedist.mat';
+pacienti(p).rjepoch = 'p173_aedist_rjepoch.mat'; %2018-05
+pacienti(p).epievents = 'p173_aedist_epievents.mat'; %2018
+pacienti(p).rjch = [47]; 
 
 end
 
