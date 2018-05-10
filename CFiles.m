@@ -82,6 +82,48 @@ classdef CFiles < handle
                 end
             end
         end
+        function IND = FindZeros(testname,pacient)
+            %prohleda vsechny pacienty od testu testname a hleda useky nul pomoci funkce findZeros
+            %nebo muze zobrazit vystup jen pro jednoho pacienta, pokud je uveden v parametru pacient
+            %vraci cellarray se jmeny pacientu a vystupen funkce findZeros
+            [pacienti,setup] = pacienti_setup_load( testname );              
+            pocetnul = 5; %kolik nul za sebou se ma hledat
+            if ~exist('pacient','var') || isempty(pacient)
+                IND = cell(numel(pacienti),2);
+                for p = 1:numel(pacienti)
+                    fprintf('* %s *', pacienti(p).folder);
+                    path = [setup.basedir pacienti(p).folder filesep];
+                    filename = [path pacienti(p).data];
+                    load(filename,'d');
+                    IND{p,1}=pacienti(p).folder;
+                    indexes = findZeros(d, pocetnul,pacienti(p).folder);
+                    if ~isempty(indexes)
+                        fprintf(' !! chyby nalezeny! \n');                        
+                        IND{p,2} = indexes;
+                    else
+                        fprintf(' OK \n');
+                        IND{p,2}= 'OK';
+                    end
+                end
+            else
+                nalezen = false;
+                for p = 1:numel(pacienti)
+                    if strfind(pacienti(p).folder,pacient)
+                        nalezen = true;
+                        break; %nasel jsem pacienta
+                    end        
+                end
+                if ~nalezen
+                    error(['pacient nenalezen: ' pacient]);    
+                end
+                disp(['loading pacient ' pacienti(p).folder ]);
+                path = [setup.basedir pacienti(p).folder filesep];
+                filename = [path pacienti(p).data];
+                load(filename,'d');
+                indexes = findZeros(d, pocetnul,pacienti(p).folder);
+                IND = {indexes};
+            end
+        end
     end
     
 end

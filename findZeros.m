@@ -1,8 +1,8 @@
-function indexes = findZeros(d, m, pl)
+function indexes = findZeros(d, m, figurename)
 % Funkcia na vyhladanie postupky nul v EEG datach
 % d = povodne EEG data
 % m = kolko minimalne nul za sebou chceme najst
-% pl = plot true/false
+% figurename = jmeno obrazku, pokud praznde, nekresli se
 %
 % indexes = vrati indexy pozicii, ktorym predchadza (m-1) nul za sebou 
 % pre kazdy channel zvlast
@@ -25,13 +25,16 @@ function indexes = findZeros(d, m, pl)
     [r, c] = find(result == 1);
     indexes = [r, c];
     
-    if pl
-        figure;
+    if ~isempty(figurename) && ~isempty(indexes)
+        fig = figure('Name',[figurename ' 1']);
+        subplot(2,1,1);
         plot(1:channels, sum(result)); 
         xlabel('Channels'); ylabel('Occurences');
+        title(figurename);
 
-        figure;
+        subplot(2,1,2);
         scatter(c, r, 'x');
         xlabel('Channels'); ylabel('Time points');
+        %saveas(fig,['./log/findZeros ' figurename '.png']);
     end
 end
