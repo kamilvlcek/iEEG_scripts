@@ -14,19 +14,22 @@ classdef CHilbertMulti < CHilbert
         function obj = CHilbertMulti()              
         end
         
-        function TestExtract(obj,filenames)
+        function FILES = TestExtract(obj,filenames)
+            FILES = cell(size(filenames,1),2);
              for fileno = 1:size(filenames,1)
                 filename = filenames{fileno,1}; %cell array, zatim to musi byt plna cesta                
                 if exist(filename,'file') 
                     disp(obj.basename(filename)); %zobrazim jmeno souboru s pouze koncem 
                     obj.filenames{fileno} = filename;
                     clear d;
-                    load(filename,'d','P'); %nacte vsechny promenne
+                    load(filename,'d','P','fs'); %nacte vsechny promenne
                     test = ~P.data(:,P.sloupce.zpetnavazba); %index testovych epoch
                     d = d(:,:,test);
-                    disp(['  velikost d (samples x channels x epochs):' num2str(size(d))]);                    
+                    %disp(['  velikost d (samples x channels x epochs):' num2str(size(d))]); 
+                    FILES(fileno,:) = {obj.basename(filename), [ 'd: ' num2str(size(d),'%i ') ', fs: ' num2str(fs)]};
                 else
-                    disp(['soubor neexistuje ' filename]);  
+                    disp(['soubor neexistuje ' filename]);
+                    FILES(fileno,:) = {obj.basename(filename), 'soubor neexistuje'};
                 end
              end
         end
@@ -286,8 +289,10 @@ classdef CHilbertMulti < CHilbert
                     [filename_extract,basefilename_extract] = E.ExtractData([PAC(ipacienti).ch],label);
                     filenames{p,1} = filename_extract;
                     disp(['*** OK: ' pacienti{p} ': chns ' num2str([PAC(ipacienti).ch],'%i ') ', ' basefilename_extract]);
-                end
-                fprintf('\n');   
+                    fprintf('\n'); 
+                else
+                    disp(['*** nenalezen: ' pacienti{p} ]);
+                end                  
             end            
         end
         function filenames = FindExtract(testname,label,filename)
@@ -335,6 +340,10 @@ classdef CHilbertMulti < CHilbert
         function [str]= basename(filename)
             % vraci filename s koncem path pro identifikaci pacienta
             %[path,basename,ext] = fileparts(filename); %takhle to nechci
+            if isempty(filename)
+                str = filename;
+                return;
+            end
             fslash = strfind(filename,'\');
             str = filename(fslash(end-2)+1:end); %dve casti path pred basename
         end
