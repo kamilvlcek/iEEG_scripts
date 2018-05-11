@@ -302,18 +302,23 @@ classdef CPlotsN < handle
             obj.plotEpochData();
         end   
         
-        function PlotITPC(obj, channel, iFrequency, icondition)
+        function fig = PlotITPC(obj, channel, iFrequency, icondition)
         % funkcia pre vykreslenie ITPC pre jeden channel a jednu frekvenciu    
-            if ~exist('icondition', 'var'), icondition = 9; end;
+            if ~exist('icondition', 'var'), icondition = 9; end
+            
             iEp = obj.CorrectEpochs(channel, icondition);
+            
             time = linspace(obj.E.epochtime(1), obj.E.epochtime(2), size(obj.E.fphaseEpochs,1));
             names = {obj.E.CH.H.channels.ass_brainAtlas}; %cast mozgu
             labels = {obj.E.CH.H.channels.neurologyLabel}; %neurology label
             electrodes = {obj.E.CH.H.channels.name}; %nazov elektrody
+            
             itpc = zeros(length(obj.E.samples)); % inicializacia vektoru itpc v dlzke 1 epochy
             for i = 1:obj.E.samples
                 itpc(i) = abs(mean(exp(1i*squeeze(obj.E.fphaseEpochs(i,channel,iFrequency,iEp)))));
             end
+            
+            fig = figure;
             sig = itpc > sqrt((-log(0.01))/length(iEp));
             plot(time,itpc); hold on;
             plot(time(~sig),itpc(~sig),'b.',time(sig),itpc(sig),'r.','markers',10);
@@ -326,6 +331,7 @@ classdef CPlotsN < handle
         
         function fig = PlotITPCall(obj, channel, icondition)
         % funkcia pre vykreslenie mapy ITPC pre jeden channel   
+            if ~exist('icondition', 'var'), icondition = 9; end
             iEp = obj.CorrectEpochs(channel, icondition);
             n_time = obj.E.samples;
             n_freq = length(obj.E.Hf);
@@ -339,7 +345,7 @@ classdef CPlotsN < handle
             names = {obj.E.CH.H.channels.ass_brainAtlas}; %cast mozgu
             labels = {obj.E.CH.H.channels.neurologyLabel}; %neurology label
             electrodes = {obj.E.CH.H.channels.name}; %nazov elektrody
-            fig = figure
+            fig = figure;
             %contourf(linspace(obj.E.epochtime(1), obj.E.epochtime(2),n_time), obj.E.Hf, itpc)
             image(linspace(obj.E.epochtime(1), obj.E.epochtime(2),n_time), obj.E.Hf, itpc, 'CDataMapping', 'scaled')
             set(gca,'YDir','normal')
@@ -354,6 +360,81 @@ classdef CPlotsN < handle
             plot(time(~sig),mean_itpc(~sig),'b.',time(sig),mean_itpc(sig),'r.','markers',10);
             xlabel('Time (s)'); ylabel('Mean ITPC');
             title(sprintf('%s - Channel %d \n %s - %s', electrodes{channel}, channel, labels{channel}, names{channel}));
+        end
+        
+        function fig = PlotITPCallCond(obj, channel, iFq)
+        % funkcia pre vykreslenie mapy ITPC pre jeden channel a vsetky conditions 
+            if ~exist('iFq', 'var'), iFq = 1:length(obj.E.Hf); end
+            fig = figure;
+            names = {obj.E.CH.H.channels.ass_brainAtlas}; %cast mozgu
+            labels = {obj.E.CH.H.channels.neurologyLabel}; %neurology label
+            electrodes = {obj.E.CH.H.channels.name}; %nazov elektrody
+            time = linspace(obj.E.epochtime(1), obj.E.epochtime(2), size(obj.E.fphaseEpochs,1));
+            
+            conditions = [obj.E.PsyData.P.strings.podminka{:,2}];
+            n_time = obj.E.samples;
+            n_freq = length(iFq);
+            ncond = length(conditions);
+            for cond = 1:ncond
+                icondition = conditions(cond);
+                
+                subplot(2,ncond,cond)
+                iEp = obj.CorrectEpochs(channel, icondition);
+                
+                itpc = zeros(n_time, n_freq); % inicializacia matice itpc v dlzke 1 epochy
+                for fq = iFq
+                    for i = 1:n_time
+                        itpc(i, fq) = abs(mean(exp(1i*squeeze(obj.E.fphaseEpochs(i,channel,fq,iEp)))));
+                    end
+                end
+                itpc_permute = obj.ITPCpermute(3000, itpc, squeeze(obj.E.fphaseEpochs(:,channel,iFq,:)));
+                %contourf(linspace(obj.E.epochtime(1), obj.E.epochtime(2),n_time), obj.E.Hf, itpc)
+                image(linspace(obj.E.epochtime(1), obj.E.epochtime(2),n_time), obj.E.Hf(iFq), itpc_permute', 'CDataMapping', 'scaled')
+                title(obj.E.PsyData.P.strings.podminka{cond,1});
+                set(gca,'YDir','normal')
+                xlabel('Time (s)'); ylabel('Frequency (Hz)');
+                caxis([0 1])
+                myColorMap = jet(256);
+                myColorMap(1,:) = 1;
+                colormap(myColorMap);
+                colorbar
+                
+                subplot(2,ncond,cond+ncond)
+                sig = sqrt((-log(0.01))/length(iEp));
+                itpc_sig = itpc;
+                itpc_sig(itpc<sig) = 0;
+                image(linspace(obj.E.epochtime(1), obj.E.epochtime(2),n_time), obj.E.Hf(iFq), itpc_sig', 'CDataMapping', 'scaled')
+                title(obj.E.PsyData.P.strings.podminka{cond,1});
+                set(gca,'YDir','normal')
+                xlabel('Time (s)'); ylabel('Frequency (Hz)');
+                caxis([0 0.6])
+                myColorMap = jet(256);
+                myColorMap(1,:) = 1;
+                colormap(myColorMap);
+                colorbar
+            end
+            mtit(sprintf('%s - Channel %d; %s - %s \n', electrodes{channel}, channel, labels{channel}, names{channel}));
+            
+           
+        end
+        
+        function itpc = ITPCpermute(obj, n_permutes, itpcOrig, eegphase)
+            % itpcOrig (time x fq)
+            % eegphase (time x fq x epoch)
+            eegtemp = zeros(size(eegphase));
+            eegperm = zeros(n_permutes, size(eegphase,1), size(eegphase,2));
+            
+            for permi = 1:n_permutes
+                for epoch = 1:size(eegphase, 3)
+                    cutpoint = randsample(2:size(eegphase,1)-2, 1);
+                    eegtemp(:,:,epoch) = eegphase([cutpoint:end 1:cutpoint-1], :, epoch);
+                end
+                eegperm(permi,:,:) = squeeze(abs(mean(eegtemp, 3)));
+            end
+            % pre kazdy prvok mapy sa spocita z-score cez vsetky permutacie
+            zmap = (itpcOrig-squeeze(mean(eegperm,1))) ./ squeeze(std(eegperm,1));
+            itpc = itpcOrig;
+            itpc(abs(zmap)<norminv(1-0.05))=0;
         end
         
     end
