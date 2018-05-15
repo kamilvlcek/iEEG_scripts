@@ -11,10 +11,10 @@ if ~isfield(cfg,'pouzetest'), cfg.pouzetest = 0; end %jestli chci jen otestovat 
 if ~isfield(cfg,'overwrite'), cfg.overwrite = 0;  end %jestil se maji prepsat puvodni data, nebo ohlasit chyba a pokracovat v dalsim souboru 
 if ~isfield(cfg,'podilcasuodpovedi'), cfg.podilcasuodpovedi = 0; end  %jestli se maji epochy resamplovat na podil casu mezi podnetem a odpovedi
 if ~isfield(cfg,'freqepochs'), cfg.freqepochs = 0; end %jestli se maji uklada frekvencni data od vsech epoch - velka data!
+if ~isfield(cfg,'extractepochs'), cfg.extractepochs = 1; end; %muzu uklada nezepochovana data
 if ~isfield(cfg,'srovnejresp'), cfg.srovnejresp = 0; end %jestli se maji epochy zarovnava podle odpovedi
 if ~isfield(cfg,'suffix'), cfg.suffix = ['Ep' datestr(now,'YYYY-mm')]; end %defaultne automaticka pripona rok-mesic
 if ~isfield(cfg,'pacienti'), cfg.pacienti = {}; end; %muzu analyzovat jen vyber pacientu
-
 
 [ pacienti, setup,frekvence,reference  ] = pacienti_setup_load( testname,cfg.srovnejresp ); %11.1.2018 - 0 = zarovnani podle podnetu, 1=zarovnani podle odpovedi
 if numel(cfg.pacienti)>0
@@ -26,7 +26,8 @@ baseline = setup.baseline;
 suffix = cfg.suffix;  % napriklad 'Ep2018-01' + Resp pokud serazeno podle odpovedi
 if cfg.podilcasuodpovedi == 1, suffix = [suffix 'PCO']; end %pokud, pridam jeste na konec priponu
 if cfg.srovnejresp,  suffix = [suffix 'RES']; end %pokud zarovnavam podle odpovedi, pridavam priponu
-if cfg.freqepochs == 1, suffix = [suffix '_FE']; end %pokud, pridam jeste na konec priponu
+if cfg.freqepochs == 1, suffix = [suffix ' FE']; end %pokud, pridam jeste na konec priponu
+if cfg.extractepochs == 0, suffix = [suffix ' noEp']; end %pokud, pridam jeste na konec priponu
 
 prefix = setup.prefix;
 stat_kats = setup.stat_kats;
@@ -100,7 +101,8 @@ clear E d tabs fs mults header RjEpoch psychopy H ans; %vymazu, kdyby tam byl ne
 pocetcyklu = sum([frekvence.todo]) * sum([reference.todo]) * sum([pacienti.todo]);
 filestodo = pocetcyklu; %pocet souboru k vyhodnoceni, kvuli odhadu casu
 souborystats = zeros(1,3); %statistika souboru - vynechane, ulozene, chybne
-tablelog = cell(pocetcyklu,5); %frekvence, soubor, reference, status, chyba
+tablelog = cell(pocetcyklu+1,5); %frekvence, soubor, reference, status, chyba -  z toho bude vystupni xls tabulka s prehledem vysledku
+tablelog(1,:) = {'freq','folder','ref','result','file'}; %hlavicky xls tabulky
 cyklus = 1; fileno = 1;
 batchtimer = tic;
 for f=1:numel(frekvence)        
@@ -137,7 +139,7 @@ for f=1:numel(frekvence)
                                 disp([ outfilename ' NEULOZENO, preskoceno']); 
                                 fprintf(fileID,[ 'NEULOZENO,preskoceno: ' strrep(outfilename,'\','\\') ' - ' datestr(now) '\n']); 
                                 souborystats(1) = souborystats(1) + 1; %dalsi preskoceny soubor
-                                tablelog(cyklus,:) = {frekvence(f).freqname, pacienti(p).folder, reference(r).name, 'preskoceno','' };
+                                tablelog(cyklus+1,:) = {frekvence(f).freqname, pacienti(p).folder, reference(r).name, 'preskoceno','' };
                                 cyklus = cyklus + 1;
                                 filestodo = filestodo -1; %preskocene soubor nepocitam do celkoveho poctu
                                 continue; %dalsi polozka ve for cyklu     
@@ -197,46 +199,47 @@ for f=1:numel(frekvence)
                                     %pokud podilcasu, zdecimuju zatim jen malo, cele se mi ale nevejde do pameti
                                 %E.Normalize('orig'); %puvodni moje normalizace
                             end
-                            disp('extracting epochs ...');
-                            if ERP
-                                E.ExtractEpochs(psychopy,epochtime,baseline);                                 
-                            else
-                                E.ExtractEpochs(psychopy,epochtime,baseline,cfg.freqepochs);   
-                            end
-                            if exist('RjEpoch','var') %muze byt prazne, pak se nevyrazuji zadne epochy
-                                E.RejectEpochs(RjEpoch); %globalne vyrazene epochy
-                            end
-                            if exist('RjEpochCh','var')
-                                E.RejectEpochs(0,RjEpochCh); %epochy pro kazdy kanal zvlast
-                            end
-                            if cfg.podilcasuodpovedi == 1                            
-                                E.ResampleEpochs(); % 27.11.2017 %resampluju na -1 1s podle casu odpovedi
-                                E.Decimate(4); %ze 256 na 64hz, protoze jsem predtim v PasmoFrekvence decimoval jen 2x
-                            end
-                            %vypocet statistiky
-                            if iscelldeep(stat_kats) %pokud mam nekolik ruznych kontrastu na spocitani
-                                for WpA = 1:numel(stat_kats)
-                                    E.SetStatActive(WpA);
-                                    disp(['pocitam kontrast ' num2str(WpA) ': ' cell2str(stat_kats{WpA}) ]);
-                                    E.ResponseSearch(0.1,stat_kats{WpA},stat_opak);
+                            if cfg.extractepochs 
+                                disp('extracting epochs ...');
+                                if ERP
+                                    E.ExtractEpochs(psychopy,epochtime,baseline);                                 
+                                else
+                                    E.ExtractEpochs(psychopy,epochtime,baseline,cfg.freqepochs);   
                                 end
-                            else  %jen jeden kontrast
-                                E.ResponseSearch(0.1,stat_kats, stat_opak); %statistika s klouzavym oknem 100ms
-                            end                           
-                            disp('saving data ...');
-                            
+                                if exist('RjEpoch','var') %muze byt prazne, pak se nevyrazuji zadne epochy
+                                    E.RejectEpochs(RjEpoch); %globalne vyrazene epochy
+                                end
+                                if exist('RjEpochCh','var')
+                                    E.RejectEpochs(0,RjEpochCh); %epochy pro kazdy kanal zvlast
+                                end
+                                if cfg.podilcasuodpovedi == 1                            
+                                    E.ResampleEpochs(); % 27.11.2017 %resampluju na -1 1s podle casu odpovedi
+                                    E.Decimate(4); %ze 256 na 64hz, protoze jsem predtim v PasmoFrekvence decimoval jen 2x
+                                end
+                                %vypocet statistiky
+                                if iscelldeep(stat_kats) %pokud mam nekolik ruznych kontrastu na spocitani
+                                    for WpA = 1:numel(stat_kats)
+                                        E.SetStatActive(WpA);
+                                        disp(['pocitam kontrast ' num2str(WpA) ': ' cell2str(stat_kats{WpA}) ]);
+                                        E.ResponseSearch(0.1,stat_kats{WpA},stat_opak);
+                                    end
+                                else  %jen jeden kontrast
+                                    E.ResponseSearch(0.1,stat_kats, stat_opak); %statistika s klouzavym oknem 100ms
+                                end  
+                            end
+                            disp('saving data ...');                            
                             E.Save(outfilename);                            
                             disp([ pacienti(p).folder ' OK']); 
                             fprintf(fileID,[ 'OK: ' strrep(outfilename,'\','\\') ' - ' datestr(now) '\n']);
                             souborystats(2) = souborystats(2) + 1; %dalsi ulozeny soubor
-                            tablelog(cyklus,:) = {frekvence(f).freqname, pacienti(p).folder, reference(r).name, 'saved', outfilename };                                
+                            tablelog(cyklus+1,:) = {['''' frekvence(f).freqname], pacienti(p).folder, reference(r).name, 'saved', outfilename };                                
                             clear E d tabs fs mults header RjEpoch psychopy H ans; 
                         catch exception 
                             errorMessage = sprintf('** Error in function %s() at line %d.\nError Message:\n%s', ...
                                 exception.stack(1).name, exception.stack(1).line, exception.message);                            
                             disp(errorMessage);  fprintf(fileID,[errorMessage '\n']);  %#ok<DSPS> %zobrazim hlasku, zaloguju, ale snad to bude pokracovat dal                            
                             souborystats(3) = souborystats(3) + 1; %dalsi chybny soubor
-                            tablelog(cyklus,:) = {frekvence(f).freqname, pacienti(p).folder, reference(r).name, 'error', exception.message }; 
+                            tablelog(cyklus+1,:) = {frekvence(f).freqname, pacienti(p).folder, reference(r).name, 'error', exception.message }; 
                             clear E d tabs fs mults header RjEpoch psychopy H ans; 
                         end    
                         cas = toc(batchtimer);
@@ -267,7 +270,7 @@ function pacienti= filterpac(pacienti,filter)
     for p = 1 : numel(pacienti)
         nalezen = false;
         for f = 1:numel(filter)
-            if strfind(pacienti(p).folder,filter(f))
+            if strfind(pacienti(p).folder,filter{f})
                 nalezen = true; %pacient je uveden ve filtru
                 break;
             end

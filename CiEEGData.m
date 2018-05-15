@@ -151,11 +151,14 @@ classdef CiEEGData < handle
                 disp(['globalne vyrazeno ' num2str(numel(RjEpoch)) ' epoch']); 
             end
             if exist('RjEpochCh','var') 
-                if ~isempty(RjEpochCh) 
+                if ~isempty(RjEpochCh)                 
                     obj.RjEpochCh = RjEpochCh;                                                                         
-                    if strcmp(obj.reference,'Bipolar') && ~isempty(obj.CH.filterMatrix)                        
-                        obj.ChangeReferenceRjEpochCh(obj.CH.filterMatrix); %prepocitam na bipolarni referenci i RjEpochCh
+                    if ~strcmp(obj.reference,'original') && ~isempty(obj.CH.filterMatrix)  %pokud to neni originalni reference                      
+                        obj.ChangeReferenceRjEpochCh(obj.CH.filterMatrix); %prepocitam na jinou referenci i RjEpochCh
                     end
+                    assert( size(obj.RjEpochCh,1)== size(obj.d,2), ['RjEpochCh ma jiny pocet kanalu (' num2str(size(obj.RjEpochCh,1)) ') nez data (' num2str(size(obj.d,2)) ')']);
+                    assert( size(obj.RjEpochCh,2)== size(obj.d,3), ['RjEpochCh ma jiny pocet epoch (' num2str(size(obj.RjEpochCh,2)) ') nez data (' num2str(size(obj.d,3)) ')']);
+                    
                     disp(['+ vyrazeno ' num2str(sum(max(RjEpochCh,[],1))) ' epoch s epi udalostmi podle jednotlivych kanalu']);   
                 else %takhle muzu vyrazene epochy vymazat
                     obj.RjEpochCh = false(obj.channels,obj.epochs); %zadne vyrazene epochy
@@ -318,31 +321,29 @@ classdef CiEEGData < handle
             assert(any(ref=='heb'),'neznama reference, mozne hodnoty: h e b');
             assert(isobject(obj.CH),'Hammer header not loaded');
             
-            H = obj.CH.H; %kopie headeru            
+            selCh_H = obj.CH.H.selCh_H; %kopie protoze se mi to zmeni v nasledujicim prikazu         
             obj.CH.ChangeReference(ref); %zmeni referenci u headeru - 18.1.2018            
-            if ref=='b' %u bipolarni reference se mi meni pocet kanalu                
-                obj.ChangeReferenceRjEpochCh(obj.CH.filterMatrix); %prepocitam na bipolarni referenci i RjEpochCh 
-            end
             % zmena EEG dat v poli d
             if obj.epochs <= 1 %ne epochovana data
-                filtData = obj.d(:,H.selCh_H) * obj.CH.filterMatrix;
+                filtData = obj.d(:,selCh_H) * obj.CH.filterMatrix;
                 assert(size(filtData,1) == size(obj.d,1),'zmenila se delka zaznamu'); %musi zustat stejna delka zaznamu  
                 obj.d=filtData;                
             else %epochovana data
-                dd = zeros(obj.samples*obj.epochs,numel(H.selCh_H));
-                for ch = 1:numel(H.selCh_H) %predelam matici 3D na 2D
+                dd = zeros(obj.samples*obj.epochs,numel(selCh_H));
+                for ch = 1:numel(selCh_H) %predelam matici 3D na 2D
                     dd(:,ch) = reshape(obj.d(:,ch,:),obj.samples*obj.epochs,1);
                 end                
-                filtData = dd(:,H.selCh_H) * obj.CH.filterMatrix;
+                filtData = dd(:,selCh_H) * obj.CH.filterMatrix;
                 assert(size(filtData,1) == size(dd,1),'zmenila se delka zaznamu'); %musi zustat stejna delka zaznamu  
                 obj.d = zeros(obj.samples,size(filtData,2),obj.epochs); %nove pole dat s re-referencovanymi daty
                 for ch=1:size(filtData,2) %vratim puvodni 3D tvar matice
                     obj.d(:,ch,:) = reshape(filtData(:,ch),obj.samples,obj.epochs); % !! tohle strasne dlouho trva - ZRYCHLIT
                 end
+                obj.ChangeReferenceRjEpochCh(obj.CH.filterMatrix); %prepocitam na tuhle  referenci i RjEpochCh
+                %pocet elektrod se meni jejen u bipolarni ref, kdyz jsou nektere kanaly na konci vyrazene
             end
             [obj.samples,obj.channels, obj.epochs] = obj.DSize();
-            if ref=='b', obj.RjCh = []; end %rejectovane kanaly uz byly vyrazeny, ted nejsou zadne
-            obj.GetHHeader(obj.CH.H); %novy header s vyrazenymi kanaly - prepisu puvodni header
+            if ref=='b', obj.RjCh = []; end %rejectovane kanaly uz byly vyrazeny, ted nejsou zadne           
            
             obj.filename = []; %nechci si omylem prepsat puvodni data 
             switch ref
@@ -1662,9 +1663,10 @@ classdef CiEEGData < handle
         function [obj] = ChangeReferenceRjEpochCh(obj,filterMatrix)
             %kod Nada 2017-12-07 - prepocitani RjEpochCh na bipolarni referenci            
             RjEpochCh = obj.RjEpochCh(1:size(filterMatrix,1),:)';  %u zadneho z pacientu jsem nenasel trigger channel uprostred kanalu, vzdy je na konci. To by jinak byl problem            
-            filterMatrix(filterMatrix==-1) = 1;
+            filterMatrix(filterMatrix<0) = 0; %oprava pro bipolarni referenci - chci mit v kazdem slouci je jednu 1
+            filterMatrix(filterMatrix>0) = 1; %pridano kvuli jine = ele a head referenci
             RjEpochCh = RjEpochCh * filterMatrix; 
-            RjEpochCh(RjEpochCh == 2) = 1;
+            RjEpochCh(RjEpochCh >= 2) = 1;
             obj.RjEpochCh = RjEpochCh'; %vyrazeni kazdeho kanalu puvodni reference znamena vyrazeni dvou kanalu bipolarni reference 
         end
         function [katstr, opakstr] = KatOpak2Str(obj,WpA)
