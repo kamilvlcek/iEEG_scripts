@@ -44,6 +44,7 @@ classdef CHilbertMulti < CHilbert
             obj.filenames = {};
             obj.filesimported = 0;
             obj.epochData = {};
+            obj.els = [];
             disp('data objektu smazana');
         end
         function obj = ImportExtract(obj,filenames)
@@ -148,6 +149,11 @@ classdef CHilbertMulti < CHilbert
         function GetD(obj,d)
             %ulozi nova eeg data k predchazejicim - prida je do spolecneho pole obj.d                     
             obj.d = cat(2,obj.d,d); %spojim pres channels - jen data z testovych epoch            
+            if isempty(obj.els)
+                obj.els = size(d,2);
+            else
+                obj.els = [obj.els obj.els(end)+size(d,2)]; %konce elektrod, zde konce pacientu
+            end
             [obj.samples,obj.channels, obj.epochs] = obj.DSize();
         end
         function GetHfreq(obj,Hf,Hfmean,HFreq)
@@ -225,10 +231,11 @@ classdef CHilbertMulti < CHilbert
             %spoji header (kanaly) v puvodnich souborech a tom novem
             if isempty(obj.CH)
                 %GetHHeader@CHilbert(obj,H);  
+                els = obj.els;
                 obj.GetHHeader(H);
+                obj.els = els; %chci jina els,nez nacteno v GetHHeader
                 obj.CH.chgroups = {1:numel(H.channels)};
-                obj.CH.els = numel(H.channels);
-                obj.els = obj.CH.els;
+                obj.CH.els = numel(H.channels);                
             else
                 obj.CH.H.subjName = [obj.CH.H.subjName ',' H.subjName]; %spojim jmena subjektu
                 CHfields = fieldnames(obj.CH.H.channels);
@@ -273,12 +280,14 @@ classdef CHilbertMulti < CHilbert
       
     end
     methods (Static,Access = public)
-        function filenames = ExtractData(PAC,testname,filename,label)
+        function filenames = ExtractData(PAC,testname,filename,label,overwrite)
             %filenames = ExtractData(PAC,testname,filename,label)
             %podle struct vystupu z funkce CBrainPlot.StructFind, jmena testu, a jmena souboru
             %u kazdeho pacienta vytvori extract pro danou strukturu se jmenemm label
             %vrati seznam filenames, ktery se pak da primo pouzit ve funkcich TestExtract a ImportExtract
-           
+            %overwrite urcuje, jestli se maji prepisovat existujici soubory
+            if ~exist('overwrite','var'), overwrite = 0; end %defaultne se nemaji prepisovat existujici soubory
+            
             pacienti = unique({PAC.pacient}); %trik po delsim usili vygooglovany, jak ziskat ze struct jedno pole
             filenames = cell(numel(pacienti),1);
             
@@ -286,7 +295,7 @@ classdef CHilbertMulti < CHilbert
                 ipacienti = strcmp({PAC.pacient}, pacienti{p})==1; %indexy ve strukture PAC pro tohoto pacienta
                 E = pacient_load(pacienti{p},testname,filename);  %pokud spatny testname, zde se vrati chyba
                 if ~isempty(E) %soubor muze neexistovat, chci pokracovat dalsim souborem
-                    [filename_extract,basefilename_extract] = E.ExtractData([PAC(ipacienti).ch],label);
+                    [filename_extract,basefilename_extract] = E.ExtractData([PAC(ipacienti).ch],label,overwrite);
                     filenames{p,1} = filename_extract;
                     disp(['*** OK: ' pacienti{p} ': chns ' num2str([PAC(ipacienti).ch],'%i ') ', ' basefilename_extract]);
                     fprintf('\n'); 

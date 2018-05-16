@@ -576,16 +576,26 @@ classdef CiEEGData < handle
                 %nejdriv samotne kategorie
                 Pmax = zeros(numel(kats),1); %sbiram maxima kategorii kvuli tomu kde posadit konrasty mezi kat
                 for k = 1: numel(kats) % cyklus pres kategorie - rozdil vuci baseline
-                    katdata = obj.CategoryData(cellval(kats,k)); %time x channels x epochs
+                    [katdata,~,RjEpCh] = obj.CategoryData(cellval(kats,k)); %time x channels x epochs
                     iCh = min(obj.Wp(obj.WpActive).WpKatBaseline{k,1}(iintervalyStat(1):iintervalyStat(2),channels),[],1) < 0.05; %kanaly kde je signifikantni rozdil vuci baseline, alespon jednou
-                    data = mean(katdata(iintervalyData(1):iintervalyData(2),iCh,:),3); %time x channels, uz jen vybrane kanaly, prumer pres epochy
-                    [~,sub]= max(abs(data),[],1); %cisla radku pro kazdy kanal, kde je maximalni nebo minimalni hodnota
-                    ind = sub2ind(size(data),sub,1:size(data,2)); %predelam indexovani na absolutni
+                    fiCh = find(iCh); %absolutni cisla kanalu
+                    data = zeros(diff(iintervalyData)+1,sum(iCh)); 
+                    sub = zeros(1,sum(iCh)); 
+                    Wp = obj.Wp(obj.WpActive).WpKatBaseline{k,1}(iintervalyStat(1):iintervalyStat(2),iCh); %statistika jen pro vyber kanalu, kde je neco signif
+                    for ch = 1:sum(iCh) %musim jet po jednotlivych kanalech kvuli RjEpCh
+                        data(:,ch) = mean(katdata(iintervalyData(1):iintervalyData(2),fiCh(ch),~RjEpCh(fiCh(ch),:)),3); %prumer pres cas pro jeden kanal, pro nevyrazene epochy pro tento kanal
+                        fitime = find(Wp(:,ch)<0.05); %indexy vzorku, kde je signif rozdil
+                        [~,subitime] = max(abs(data(fitime,ch))); %tohle vrati jen relativni indexy v ramci fitime
+                        sub(ch) = fitime(subitime); %prevedu na absolutni indexy v ramci data(:,ch)
+                    end
+                    %mean(katdata(iintervalyData(1):iintervalyData(2),iCh,:),3); %time x channels, uz jen vybrane kanaly, prumer pres epochy
+                    %[~,sub]= max(abs(data),[],1); %cisla radku pro kazdy kanal, kde je maximalni nebo minimalni hodnota
+                    ind = sub2ind(size(data),sub,1:size(data,2)); %predelam indexovani na absolutni = ne time x channels, ale 1-n
                     prumery(iCh,j,k) = data(ind); %max nebo min hodnota z kazdeho kanalu                    
                     P = squeeze(prumery(:,j,k));                    
                     Pmax(k) = max(P);
                     if dofig
-                        ploth(k) = plot(P','.-','Color',colorskat{k}); %kreslim tuto kategorii                       
+                        ploth(k) = plot(P','o-','Color',colorskat{k}); %kreslim tuto kategorii                       
                         hold on;
                     end
                     iChKats(1,:) = iChKats(1,:) | iCh; %pridam dalsi kanaly, kde je signif odpoved
@@ -621,7 +631,7 @@ classdef CiEEGData < handle
                     %prumery(iCh & iCh2,j,k+numel(kats)) = p;
                     colorindex = colorkombinace{kombinace(k,2),kombinace(k,1)};
                     if dofig %kreslim rozdily mezi odpovedmi pro kategorie                        
-                        ph = plot(prumery(:,j,k+numel(kats))+yKombinace,'.-','Color',colorskat{colorindex}); %kreslim tuto kombinaci kategorii nahoru                        
+                        ph = plot(prumery(:,j,k+numel(kats))+yKombinace,'o-','Color',colorskat{colorindex}); %kreslim tuto kombinaci kategorii nahoru                        
                         if k>numel(kats), ploth(k) = ph; end %pokud je kombinaci vic nez kategorii, ulozim si handle, budu ho potrebovat na legendu
                     end
                     iChKats(2,:) = iChKats(2,:) | iCh ;  %pridam dalsi kanaly, kde je signif odpoved                    

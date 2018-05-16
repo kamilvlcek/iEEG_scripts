@@ -285,7 +285,9 @@ classdef CHilbert < CiEEGData
                 Hfmean = obj.Hfmean; %#ok<PROPLC,NASGU> 
                 HFreqEpochs = obj.HFreqEpochs; %#ok<PROPLC,NASGU> %time x channel x frequency x epoch
                 yrange = obj.yrange; %#ok<NASGU>
-                save(CHilbert.filenameH(filename),'HFreq','Hf','Hfmean','HFreqEpochs','yrange','-v7.3'); %do druheho souboru data z teto tridy
+                fphase = obj.fphase; %#ok<NASGU,PROPLC> %15.5.2018
+                fphaseEpochs = obj.fphaseEpochs; %#ok<NASGU,PROPLC> %15.5.2018
+                save(CHilbert.filenameH(filename),'HFreq','Hf','Hfmean','HFreqEpochs','yrange','fphase','fphaseEpochs','-v7.3'); %do druheho souboru data z teto tridy
             end
         end
         
@@ -311,52 +313,71 @@ classdef CHilbert < CiEEGData
                 else
                     obj.HFreqEpochs = [];
                 end
+                if ismember('fphase', {vars.name}) %15.5.2018
+                    load(filename,'fphase');      obj.fphase = fphase; %#ok<CPROPLC>
+                else
+                    obj.fphase = [];
+                end
+                if ismember('fphaseEpochs', {vars.name}) %15.5.2018
+                    load(filename,'fphaseEpochs');      obj.fphaseEpochs = fphaseEpochs; %#ok<CPROPLC>
+                else
+                    obj.fphaseEpochs = [];
+                end
             else
                 warning(['soubor s frekvencnimi pasmy neexistuje ' CHilbert.filenameH(filename)]);
             end
             obj.hfilename = filename; 
         end 
         
-        function [filename,basefilename] = ExtractData(obj,chns,label)
+        function [filename,basefilename] = ExtractData(obj,chns,label,overwrite)
             %ExtractData(obj,chns,filename)
             %vytvori data z vyberu elektrod, pro sdruzeni elektrod pres vsechny pacienty. 
             %pole d, tabs, RjEpochCh a header H
             %jen epochovana data, bipolarni reference
+            %overwrite urcuje, jestli se maji prepisovat existujici soubory
+            if ~exist('overwrite','var'), overwrite = 0; end %defaultne se nemaji prepisovat existujici soubory
             assert(obj.epochs > 1,'nejsou epochovana data');
-            %assert(strcmp(obj.reference,'Bipolar'),'neni bipolarni reference');
-            d = obj.d(:,chns,:); %#ok<NASGU> %vsechny casy a epochy, vyber kanalu
-            tabs = obj.tabs; %#ok<NASGU> %to je spolecne pro vsechny kanaly; time x epochs
-            tabs_orig = obj.tabs_orig; %#ok<NASGU> 
-            fs = obj.fs; %#ok<NASGU> 
-            P = obj.PsyData.P;  %psychopy data
-            if isempty(P.pacientid) || numel(P.pacientid)<=1 % u nekterych pacientu je pacientid praznde
-                P.pacientid = obj.CH.PacientTag();
-            end
-            epochtime = obj.epochtime; %#ok<NASGU> %abych vedel kde je podnet
-            baseline = obj.baseline; %#ok<NASGU> 
-            RjEpochCh = obj.RjEpochCh(chns,:); %#ok<NASGU> %kanaly vs epochy
-            epochData = obj.epochData; %#ok<NASGU> %identita jednotlivych epoch. Musi byt stejna pres pacienty
-            DatumCas = obj.DatumCas;
-            DatumCas.Extracted = datestr(now);          
-            H = obj.CH.H;
-            H = rmfield(H,'electrodes'); %smazu nepotrebna pole
-            H = rmfield(H,'selCh_H');
-            H = rmfield(H,'triggerCH');
-            H.channels = H.channels(chns); %vyfiltruju kanaly
-            for ch = 1:numel(H.channels)
-                H.channels(ch).name = [H.subjName ' ' H.channels(ch).name]; %pridam ke jmenu kanalu jmeno subjektu
-            end
-            Hf = obj.Hf; %#ok<PROPLC> 
-            Hfmean = obj.Hfmean;  %#ok<PROPLC> 
-            if isempty(Hfmean), Hfmean = (Hf(1:end-1) + Hf(2:end)) ./ 2; end %#ok<PROPLC,NASGU>             
-            HFreq = obj.HFreq(:,chns,:,:); %#ok<PROPLC,NASGU>  %time x channel x freq (x kategorie)            
-            Wp = obj.Wp;  %#ok<NASGU>  %exportuju statistiku
+            
             [filepath,fname,ext] = CHilbert.matextension(obj.filename);
             podtrzitko = strfind(fname,'_'); %chci zrusit cast za poslednim podtrzitkem
             basefilename = [fname(1:podtrzitko(end)-1) ' ' label '_Extract' ext]; %jmeno bez cesty
             filename =[filepath filesep basefilename]; 
-            save(filename,'d','tabs','tabs_orig','fs','P','epochtime','baseline','RjEpochCh','epochData','DatumCas','H','Hf','Hfmean','HFreq','Wp','-v7.3'); 
-            disp(['extract saved to "' basefilename '"']);
+            if exist(filename','file')~=2 || overwrite 
+                %pokraduju jen pokud extrakt neexistuje nebo se ma prepsat
+                %assert(strcmp(obj.reference,'Bipolar'),'neni bipolarni reference');
+                d = obj.d(:,chns,:); %#ok<NASGU> %vsechny casy a epochy, vyber kanalu
+                tabs = obj.tabs; %#ok<NASGU> %to je spolecne pro vsechny kanaly; time x epochs
+                tabs_orig = obj.tabs_orig; %#ok<NASGU> 
+                fs = obj.fs; %#ok<NASGU> 
+                P = obj.PsyData.P;  %psychopy data
+                if isempty(P.pacientid) || numel(P.pacientid)<=1 % u nekterych pacientu je pacientid praznde
+                    P.pacientid = obj.CH.PacientTag();
+                end
+                epochtime = obj.epochtime; %#ok<NASGU> %abych vedel kde je podnet
+                baseline = obj.baseline; %#ok<NASGU> 
+                RjEpochCh = obj.RjEpochCh(chns,:); %#ok<NASGU> %kanaly vs epochy
+                epochData = obj.epochData; %#ok<NASGU> %identita jednotlivych epoch. Musi byt stejna pres pacienty
+                DatumCas = obj.DatumCas;
+                DatumCas.Extracted = datestr(now);          
+                H = obj.CH.H;
+                H = rmfield(H,'electrodes'); %smazu nepotrebna pole
+                H = rmfield(H,'selCh_H');
+                H = rmfield(H,'triggerCH');
+                H.channels = H.channels(chns); %vyfiltruju kanaly
+                for ch = 1:numel(H.channels)
+                    H.channels(ch).name = [H.subjName ' ' H.channels(ch).name]; %pridam ke jmenu kanalu jmeno subjektu
+                end
+                Hf = obj.Hf; %#ok<PROPLC> 
+                Hfmean = obj.Hfmean;  %#ok<PROPLC> 
+                if isempty(Hfmean), Hfmean = (Hf(1:end-1) + Hf(2:end)) ./ 2; end %#ok<PROPLC,NASGU>             
+                HFreq = obj.HFreq(:,chns,:,:); %#ok<PROPLC,NASGU>  %time x channel x freq (x kategorie)            
+                Wp = obj.Wp;  %#ok<NASGU>  %exportuju statistiku
+                save(filename,'d','tabs','tabs_orig','fs','P','epochtime','baseline','RjEpochCh','epochData','DatumCas','H','Hf','Hfmean','HFreq','Wp','-v7.3'); 
+                disp(['extract saved to "' basefilename '"']);
+            else
+                disp(['extract already exists, skipped: "' basefilename '"']);
+            end
+                
         end
         
         function CB = ExtractBrainPlotData(obj,chns)
