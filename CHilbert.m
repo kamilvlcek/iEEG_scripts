@@ -380,56 +380,57 @@ classdef CHilbert < CiEEGData
                 
         end
         
-        function CB = ExtractBrainPlotData(obj,chns)
-            %vytvori data, pro CBrainPlot.PlotBrain3D
-            CB = struct;            
-            if ~exist('chns','var'), chns = []; end %pokud neni definovane, je prazdne a pak vytvarim jen d            
-            CB.intervals = iff(isempty(chns),[1],[0 1]); %budu mit dve pole hodnoty, vybrane kanaly a vsechny kanaly s vybranymi vyznacenyma
-            CB.katstr = iff(isempty(chns),{'all'},{'selected','all'});
+        function BPD = ExtractBrainPlotData(obj,chns)
+            %vytvori Brain Plot Data, pro CBrainPlot.PlotBrain3D
+            BPD = struct;            
+            if ~exist('chns','var'), chns = []; end %pokud neni definovane, je prazdne a pak vytvarim jen d                     
+          
+            BPD.intervals = iff(isempty(chns),[1],[0 1]); %budu mit dve pole hodnoty, vybrane kanaly a vsechny kanaly s vybranymi vyznacenyma
+            BPD.katstr = iff(isempty(chns),{'all'},{'selected','all'});
             
-            CB.VALS = cell(1,iff(isempty(chns),1,2));
-            CB.NAMES = cell(1,iff(isempty(chns),1,2));                        
-            CB.MNI = cell(1,iff(isempty(chns),1,2));
-            CB.LABELS = cell(1,iff(isempty(chns),1,2)); %sem budu ukladata neurologyLabel od Martina Tomaska  
-            CB.EPI = cell(1,iff(isempty(chns),1,2)); %pridam jeste udaje o epilepticke aktivite, ktera pak muzu pouzit v zobrazeni mozku            
+            BPD.VALS = cell(1,iff(isempty(chns),1,2));
+            BPD.NAMES = cell(1,iff(isempty(chns),1,2));                        
+            BPD.MNI = cell(1,iff(isempty(chns),1,2));
+            BPD.LABELS = cell(1,iff(isempty(chns),1,2)); %sem budu ukladata neurologyLabel od Martina Tomaska  
+            BPD.EPI = cell(1,iff(isempty(chns),1,2)); %pridam jeste udaje o epilepticke aktivite, ktera pak muzu pouzit v zobrazeni mozku            
             
-            CB.NAMES{1}= cell(obj.channels,1);            
-            CB.MNI{1} = struct('MNI_x',{},'MNI_y',{},'MNI_z',{});            
-            CB.VALS{1} = zeros(obj.channels,1); %tam pak doplnim 1 na mista vybranych kanalu         
-            CB.LABELS{1}= cell(obj.channels,1);
-            CB.EPI{1} = struct('seizureOnset',{},'interictalOften',{},'rejected',{});
+            BPD.NAMES{1}= cell(obj.channels,1);            
+            BPD.MNI{1} = struct('MNI_x',{},'MNI_y',{},'MNI_z',{});            
+            BPD.VALS{1} = zeros(obj.channels,1); %tam pak doplnim 1 na mista vybranych kanalu         
+            BPD.LABELS{1}= cell(obj.channels,1);
+            BPD.EPI{1} = struct('seizureOnset',{},'interictalOften',{},'rejected',{});
             if ~isempty(chns)
-                CB.NAMES{2}= cell(numel(chns),1);
-                CB.VALS{2} = ones(numel(chns),1);
-                CB.MNI{2} = struct('MNI_x',{},'MNI_y',{},'MNI_z',{});                        
-                CB.LABELS{2}= cell(numel(chns),1);
-                CB.EPI{2} = struct('seizureOnset',{},'interictalOften',{},'rejected',{});
+                BPD.NAMES{2}= cell(numel(chns),1);
+                BPD.VALS{2} = ones(numel(chns),1);
+                BPD.MNI{2} = struct('MNI_x',{},'MNI_y',{},'MNI_z',{});                        
+                BPD.LABELS{2}= cell(numel(chns),1);
+                BPD.EPI{2} = struct('seizureOnset',{},'interictalOften',{},'rejected',{});
             end
       
             for ch = 1:obj.channels
-                CB.NAMES{1}{ch} = obj.CH.H.channels(ch).name;
-                CB.LABELS{1}{ch} = obj.CH.H.channels(ch).neurologyLabel;
-                CB.MNI{1}(ch).MNI_x = obj.CH.H.channels(ch).MNI_x;
-                CB.MNI{1}(ch).MNI_y = obj.CH.H.channels(ch).MNI_y;
-                CB.MNI{1}(ch).MNI_z = obj.CH.H.channels(ch).MNI_z;
+                BPD.NAMES{1}{ch} = obj.CH.H.channels(ch).name;
+                BPD.LABELS{1}{ch} = obj.CH.H.channels(ch).neurologyLabel;
+                BPD.MNI{1}(ch).MNI_x = obj.CH.H.channels(ch).MNI_x;
+                BPD.MNI{1}(ch).MNI_y = obj.CH.H.channels(ch).MNI_y;
+                BPD.MNI{1}(ch).MNI_z = obj.CH.H.channels(ch).MNI_z;
                 if isfield(obj.CH.H.channels,'seizureOnset')
-                    CB.EPI{1}(ch).seizureOnset = obj.CH.H.channels(ch).seizureOnset;
-                    CB.EPI{1}(ch).interictalOften = obj.CH.H.channels(ch).interictalOften;
-                    CB.EPI{1}(ch).rejected = obj.CH.H.channels(ch).rejected;
+                    BPD.EPI{1}(ch).seizureOnset = obj.CH.H.channels(ch).seizureOnset;
+                    BPD.EPI{1}(ch).interictalOften = obj.CH.H.channels(ch).interictalOften;
+                    BPD.EPI{1}(ch).rejected = obj.CH.H.channels(ch).rejected;
                 end
             end            
                   
             for ch = 1:numel(chns)
-                CB.VALS{1}(chns(ch)) = 1;
-                CB.NAMES{2}{ch} = obj.CH.H.channels(chns(ch)).name;     
-                CB.LABELS{2}{ch} = obj.CH.H.channels(chns(ch)).neurologyLabel; 
-                CB.MNI{2}(ch).MNI_x = obj.CH.H.channels(chns(ch)).MNI_x;
-                CB.MNI{2}(ch).MNI_y = obj.CH.H.channels(chns(ch)).MNI_y;
-                CB.MNI{2}(ch).MNI_z = obj.CH.H.channels(chns(ch)).MNI_z;
+                BPD.VALS{1}(chns(ch)) = 1;
+                BPD.NAMES{2}{ch} = obj.CH.H.channels(chns(ch)).name;     
+                BPD.LABELS{2}{ch} = obj.CH.H.channels(chns(ch)).neurologyLabel; 
+                BPD.MNI{2}(ch).MNI_x = obj.CH.H.channels(chns(ch)).MNI_x;
+                BPD.MNI{2}(ch).MNI_y = obj.CH.H.channels(chns(ch)).MNI_y;
+                BPD.MNI{2}(ch).MNI_z = obj.CH.H.channels(chns(ch)).MNI_z;
                 if isfield(obj.CH.H.channels,'seizureOnset')
-                    CB.EPI{2}(ch).seizureOnset = obj.CH.H.channels(chns(ch)).seizureOnset;
-                    CB.EPI{2}(ch).interictalOften = obj.CH.H.channels(chns(ch)).interictalOften;
-                    CB.EPI{2}(ch).rejected = obj.CH.H.channels(chns(ch)).rejected;
+                    BPD.EPI{2}(ch).seizureOnset = obj.CH.H.channels(chns(ch)).seizureOnset;
+                    BPD.EPI{2}(ch).interictalOften = obj.CH.H.channels(chns(ch)).interictalOften;
+                    BPD.EPI{2}(ch).rejected = obj.CH.H.channels(chns(ch)).rejected;
                 end
             end
         end
