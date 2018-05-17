@@ -19,12 +19,12 @@ classdef  CMorlet < CHilbert
             %   podle figure 1311 z knihy Mike X Cohen 
             %   pouziva data d z parentu a take fs
             %   freq    seznam freqvenci pro ktere se ma delat prumer - lo, .., ..., .., hi
-            if ~exist('channels','var'), channels = 1:obj.channels; end
+            if ~exist('channels','var') || isempty(channels) , channels = 1:obj.channels; end
             %if ~exist('prekryv','var'), prekryv = 0; end %kolik se maji prekryvat sousedni frekvencni pasma, napriklad 0.5
-            if ~exist('decimatefactor','var'), decimatefactor = obj.decimatefactor; end; %volitelny parametr decimatefactor 
-            obj.HFreq = zeros(ceil(obj.samples/decimatefactor),obj.channels,numel(freq)); %inicializace pole - power
-            obj.fphase = zeros(ceil(obj.samples/decimatefactor),obj.channels,numel(freq)); % inicializace pole - faze
-            tic; %zacnu merit cas
+            if ~exist('decimatefactor','var') || isempty(decimatefactor) , decimatefactor = obj.decimatefactor; end; %volitelny parametr decimatefactor 
+            HFreq = zeros(ceil(obj.samples/decimatefactor),obj.channels,numel(freq)); %inicializace pole - power
+            fphase = zeros(ceil(obj.samples/decimatefactor),obj.channels,numel(freq)); % inicializace pole - faze
+            timer = tic; %zacnu merit cas
             fprintf('kanal ze %i: ', numel(channels) );
             
             if freq(1) < 10
@@ -41,8 +41,9 @@ classdef  CMorlet < CHilbert
             
             for ch = channels %jednotlive elektrody                                           
                 fprintf('%i,',ch);
-                eegfft = fft(obj.d(:,ch)',n_conv_pow2); %FFT of eeg data, potrebuju to dat do radku aby stejne jak-o wavelet
-                for fno = 1:numel(freq) %seznam frekvenci                    
+                if sum(obj.d(:,ch))==0, continue; end %pro vyrazene kanaly jsou hodnoty 0 pri jine nez bipol ref. Z tech pak vznikne nan, pri tomhle cyklu, coz vadi dal                                  
+                eegfft = fft(obj.d(:,ch)',n_conv_pow2); %FFT of eeg data, potrebuju to dat do radku aby stejne jak-o wavelet                
+                parfor fno = 1:numel(freq) %seznam frekvenci                    
                     wavelet = fft( sqrt(1/(s(fno)*sqrt(pi))) * exp(1i*2*pi*freq(fno).*time) .* exp(-time.^2./(2*(s(fno)^2))) , n_conv_pow2 );
                     % fft ( (A=frequency band-specific scaling factor) * complex sin * gaussian )
                     
@@ -53,15 +54,19 @@ classdef  CMorlet < CHilbert
                     if decimatefactor > 1
                         fpower = decimate(fpower,decimatefactor); % mensi sampling rate (moving average vubec nepomohl)
                     end
-                    obj.HFreq(:,ch,fno) = fpower; % povodna normalizacia (fpower./mean(fpower)) premiestnena do funkcie CHilbert.Normalize                   
+                    HFreq(:,ch,fno) = (fpower./mean(fpower)); % fpower; povodna normalizacia  premiestnena do funkcie CHilbert.Normalize                   
+                    %normalizace zase docasne vracena, viz poznamky ve funkci normalize
                     %fprintf('%i Hz, ',loF);
-                    fphase = angle(eegconv); %#ok<PROPLC> %faze frekvence 
+                    fphase0 = angle(eegconv); %#ok<PROPLC> %faze frekvence 
                     if decimatefactor > 1
-                        obj.fphase(:,ch,fno) = decimate(fphase,decimatefactor);    %#ok<PROPLC>                        
+                        fphase(:,ch,fno) = decimate(fphase0,decimatefactor);    %#ok<PROPLC>                        
                     end
                 end
                 %fprintf('\n'); %tisk znova na stejnou radku
             end
+            obj.HFreq = HFreq; %#ok<PROPLC>
+            obj.fphase = fphase;%#ok<PROPLC>
+            toc(timer); %ukoncim mereni casu a vypisu,
             obj.d = squeeze(mean(obj.HFreq,3)); %11.5.2016 - prepisu puvodni data prumerem pres frekvence
             obj.fs = obj.fs/decimatefactor;
             obj.tabs = downsample(obj.tabs,decimatefactor);
@@ -72,8 +77,8 @@ classdef  CMorlet < CHilbert
             obj.yrange = [1 1 5 5]; %zmenim rozliseni osy y v grafu
             [obj.samples,obj.channels, obj.epochs] = obj.DSize();
             fprintf('\n'); %ukoncim radku
-            toc; %ukoncim mereni casu a vypisu
-            disp(['vytvoreno ' num2str(numel(obj.Hf)) ' frekvencnich pasem']); 
+            toc(timer); %ukoncim mereni casu a vypisu
+            disp(['vytvoreno ' num2str(numel(obj.Hf)) ' frekvencnich pasem v case ' num2str(toc(timer)) 's']); 
         end
         function PasmoFrekvenceCVUT(obj,freq,channels)
             %   pouzivam VlnkovaTransformacia od Bortela            

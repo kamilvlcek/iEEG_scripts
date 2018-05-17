@@ -10,35 +10,53 @@ classdef CHilbertMulti < CHilbert
         filesimported = 0;
     end
     
-    methods
+    methods (Access = public)  
         function obj = CHilbertMulti()              
         end
-
-        function TestExtract(obj,filenames)
-             for fileno = 1:numel(filenames)
-                filename = filenames{fileno}; %cell array, zatim to musi byt plna cesta                
+        
+        function FILES = TestExtract(obj,filenames)
+            FILES = cell(size(filenames,1),2);
+             for fileno = 1:size(filenames,1)
+                filename = filenames{fileno,1}; %cell array, zatim to musi byt plna cesta                
                 if exist(filename,'file') 
                     disp(obj.basename(filename)); %zobrazim jmeno souboru s pouze koncem 
                     obj.filenames{fileno} = filename;
                     clear d;
-                    load(filename,'d','P'); %nacte vsechny promenne
+                    load(filename,'d','P','fs'); %nacte vsechny promenne
                     test = ~P.data(:,P.sloupce.zpetnavazba); %index testovych epoch
                     d = d(:,:,test);
-                    disp(['  velikost d:' num2str(size(d))]);                    
+                    %disp(['  velikost d (samples x channels x epochs):' num2str(size(d))]); 
+                    FILES(fileno,:) = {obj.basename(filename), [ 'd: ' num2str(size(d),'%i ') ', fs: ' num2str(fs)]};
                 else
-                    disp(['soubor neexistuje ' filename]);  
+                    disp(['soubor neexistuje ' filename]);
+                    FILES(fileno,:) = {obj.basename(filename), 'soubor neexistuje'};
                 end
              end
         end
-%         function Clear()
-%             obj.d = [];
-%             obj.Hf = [];
-%             obj.Hfmean  =[];
-%             obj.HFreq = [];
-%         end
+        function obj = Clear(obj)
+            %smaze data objektu, kvuli volani z ImportExtract, jinak je mozna jednodussi znova objekt vytvorit
+            obj.d = [];
+            obj.tabs = [];
+            obj.Hf = [];
+            obj.Hfmean  =[];
+            obj.HFreq = [];
+            obj.CH = [];
+            obj.filenames = {};
+            obj.filesimported = 0;
+            obj.epochData = {};
+            obj.els = [];
+            disp('data objektu smazana');
+        end
         function obj = ImportExtract(obj,filenames)
-            for fileno = 1:numel(filenames)
-                filename = filenames{fileno}; %cell array, zatim to musi byt plna cesta                
+            if numel(obj.filenames)>0
+                if obj.filesimported == 0 %nejaky soubor naimportovan castecne kvuli chybe - musim smazat
+                    obj.Clear();
+                else
+                    disp(['pridavam data k existujicim souborum: ' num2str(obj.filesimported)]);
+                end
+            end
+            for fileno = 1:size(filenames,1)
+                filename = filenames{fileno,1}; %cell array, zatim to musi byt plna cesta                
                 if exist(filename,'file') 
                     disp(obj.basename(filename)); %zobrazim jmeno souboru s pouze koncem 
                     obj.filenames{fileno} = filename;
@@ -74,7 +92,7 @@ classdef CHilbertMulti < CHilbert
                     %frekvencni data
                     obj.GetHfreq(Hf,Hfmean,HFreq);
                     
-                    obj.GetStat(Wp); %mam funkci, ale statistiku zatim neimportuju
+                    %obj.GetStat(Wp); %mam funkci, ale statistiku zatim neimportuju
                     %jen kopie - zatim nezpracovavam                                                           
                     obj.orig(fileno).DatumCas = DatumCas;
                     obj.orig(fileno).filename = filename;     
@@ -83,6 +101,7 @@ classdef CHilbertMulti < CHilbert
                 end
                 
             end
+            disp(['nacteno souboru: ' num2str(obj.filesimported)]);
         end
         function [d,tabs,RjEpochCh,P]= PrehazejEpochy(obj,d,tabs,RjEpochCh,P,test) 
             %vyradi treningove epochy ze vsech dat 
@@ -130,6 +149,11 @@ classdef CHilbertMulti < CHilbert
         function GetD(obj,d)
             %ulozi nova eeg data k predchazejicim - prida je do spolecneho pole obj.d                     
             obj.d = cat(2,obj.d,d); %spojim pres channels - jen data z testovych epoch            
+            if isempty(obj.els)
+                obj.els = size(d,2);
+            else
+                obj.els = [obj.els obj.els(end)+size(d,2)]; %konce elektrod, zde konce pacientu
+            end
             [obj.samples,obj.channels, obj.epochs] = obj.DSize();
         end
         function GetHfreq(obj,Hf,Hfmean,HFreq)
@@ -207,10 +231,11 @@ classdef CHilbertMulti < CHilbert
             %spoji header (kanaly) v puvodnich souborech a tom novem
             if isempty(obj.CH)
                 %GetHHeader@CHilbert(obj,H);  
+                els = obj.els;
                 obj.GetHHeader(H);
+                obj.els = els; %chci jina els,nez nacteno v GetHHeader
                 obj.CH.chgroups = {1:numel(H.channels)};
-                obj.CH.els = numel(H.channels);
-                obj.els = obj.CH.els;
+                obj.CH.els = numel(H.channels);                
             else
                 obj.CH.H.subjName = [obj.CH.H.subjName ',' H.subjName]; %spojim jmena subjektu
                 CHfields = fieldnames(obj.CH.H.channels);
@@ -249,10 +274,53 @@ classdef CHilbertMulti < CHilbert
                 obj.baseline = baseline;
             end              
         end
-        function obj = GetStat(~) %zatim neimportuju
+        function obj = GetStat(obj) %zatim neimportuju
             obj.Wp = [];
         end
       
+    end
+    methods (Static,Access = public)
+        function filenames = ExtractData(PAC,testname,filename,label,overwrite)
+            %filenames = ExtractData(PAC,testname,filename,label)
+            %podle struct vystupu z funkce CBrainPlot.StructFind, jmena testu, a jmena souboru
+            %u kazdeho pacienta vytvori extract pro danou strukturu se jmenemm label
+            %vrati seznam filenames, ktery se pak da primo pouzit ve funkcich TestExtract a ImportExtract
+            %overwrite urcuje, jestli se maji prepisovat existujici soubory
+            if ~exist('overwrite','var'), overwrite = 0; end %defaultne se nemaji prepisovat existujici soubory
+            
+            pacienti = unique({PAC.pacient}); %trik po delsim usili vygooglovany, jak ziskat ze struct jedno pole
+            filenames = cell(numel(pacienti),1);
+            
+            for p = 1:numel(pacienti)                                
+                ipacienti = strcmp({PAC.pacient}, pacienti{p})==1; %indexy ve strukture PAC pro tohoto pacienta
+                E = pacient_load(pacienti{p},testname,filename);  %pokud spatny testname, zde se vrati chyba
+                if ~isempty(E) %soubor muze neexistovat, chci pokracovat dalsim souborem
+                    [filename_extract,basefilename_extract] = E.ExtractData([PAC(ipacienti).ch],label,overwrite);
+                    filenames{p,1} = filename_extract;
+                    disp(['*** OK: ' pacienti{p} ': chns ' num2str([PAC(ipacienti).ch],'%i ') ', ' basefilename_extract]);
+                    fprintf('\n'); 
+                else
+                    disp(['*** nenalezen: ' pacienti{p} ]);
+                end                  
+            end            
+        end
+        function filenames = FindExtract(testname,label,filename)
+            %filenames = FindExtract(testname,label,filename) 
+            %najde existujici extrakty dat podle label            
+            if ~exist('filename','var') || isempty(filename) , filename = '*'; end %filename nemusim zadat, pak hledam cokoliv s timto label
+            if ~exist('label','var') || isempty(label) , label = '*'; end 
+            [pacienti,setup] = pacienti_setup_load( testname );
+            filenames = cell(0,4); %budu vrace vsechny nalezene udaje, nejen filename, kvuli prehledu
+            for p = 1:numel(pacienti)
+               path = [setup.basedir pacienti(p).folder filesep setup.subfolder filesep];
+               files = dir([path filename ' ' label '_Extract.mat']);
+               for f = 1:numel(files)
+                   files(f).name = [path files(f).name];                   
+               end
+               files_cell = struct2cell(files)';
+               filenames = cat(1,filenames,files_cell(:,1:4)); %prevedu struct na cell array, jen prvni 4 sloupce
+            end
+        end
     end
     methods (Static,Access = private)
         function bloky = GetBlocks(epochData)
@@ -281,6 +349,10 @@ classdef CHilbertMulti < CHilbert
         function [str]= basename(filename)
             % vraci filename s koncem path pro identifikaci pacienta
             %[path,basename,ext] = fileparts(filename); %takhle to nechci
+            if isempty(filename)
+                str = filename;
+                return;
+            end
             fslash = strfind(filename,'\');
             str = filename(fslash(end-2)+1:end); %dve casti path pred basename
         end

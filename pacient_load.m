@@ -22,7 +22,9 @@ for p = 1:numel(pacienti)
     end        
 end
 if ~nalezen
-    error(['pacient nenalezen: ' nick]);    
+    disp(['pacient nenalezen: ' nick]);    
+    E = [];
+    return;
 end
 disp(['loading pacient ' pacienti(p).folder ]);
 

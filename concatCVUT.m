@@ -47,7 +47,7 @@ for j = 1:numel(spojit)
     else
         disp(['rozdil ' num2str((tabs(1)-tabs0(end))*24*3600) ' sekund']);
         if (tabs(1)-tabs0(end))*24*3600 >= 1 %rozdil jedne vteriny je velmi zvlastni, nejspis se soubory nemaji spojit            
-            m=input('Do you want to continue, Y/N [N]:','s');
+            m=input('Do you want to continue, y/n [n]:','s');
             if m~='y',   break; end
         end
         tabs0 = [tabs0; tabs]; %#ok<AGROW>        

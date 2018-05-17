@@ -1,7 +1,7 @@
 function [ setup ] = setup_aedist( alignresponse )
 %SETUP_AEDIST funkce vraci nastaveni vyhodnoceni testu Aedist
 %   Detailed explanation goes here
-if(~exist('alignresponse','var')), alignresponse = 0; end
+if(~exist('alignresponse','var')) || isempty(alignresponse) , alignresponse = 0; end
 setup = {};
 setup.basedir = 'd:\eeg\motol\pacienti\';
 if alignresponse %zarovnani epoch podle odpovedi

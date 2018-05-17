@@ -9,6 +9,7 @@ function [ UU ] = udalosti2( d, fs, tabs, nahoru, mults,kresli, interval, diffse
 %  interval - muzu nepovinne zadat cast souboru k detekci udalosti - obsahuje timestampy
 %  diffsec - nejmensi interval mezi nasledujicimi udalostim v sekundach, default 0.125
 %  threshold - vyska trigerovaciho pulsu, default je 2000
+%  exclude - muzu vyradit nektere udalosti rucne
 
 if ~exist('inverval','var')  || isempty(interval)
     interval = [ tabs(1) tabs(end)];
@@ -26,7 +27,7 @@ if ~exist('threshold','var')  || isempty(threshold)
     threshold = 2000; %hodnota kterou vsechny udalosti prekracuji
 end
 if ~exist('exclude','var') 
-    exclude = []; %hodnota kterou vsechny udalosti prekracuji
+    exclude = []; %muzu vyradit nektere udalosti rucne
 end
 if size(d,2) > 1    
     LPT = size(d,2)-2; %synchronizace byva 2 kanaly pred koncem - pred EKG

@@ -117,7 +117,9 @@ classdef CiEEGData < handle
               
         function obj = GetHHeader(obj,H)
             %nacte header z promenne H - 25.5.2016
-            assert(size(H.channels,2) == size(obj.d,2),['nesouhlasi pocet elektrod (data:' num2str(size(obj.d,2)) ',header:' num2str(size(H.channels,2)) ') - spatny header?']);
+            if isfield(H,'selCh_H'),  H_channels = size(H.selCh_H,2); else, H_channels = 0; end
+            assert(H_channels == size(obj.d,2) || size(H.channels,2)==size(obj.d,2), ...
+                 ['nesouhlasi pocet elektrod (data:' num2str(size(obj.d,2)) ',H_channels:' num2str(H_channels) ', header' num2str(size(H.channels,2)) ') - spatny header?']);
             obj.CH = CHHeader(H); %vypocita i selCh_H
             [~, ~, obj.els] = obj.CH.ChannelGroups();  
             assert(max(obj.els)<=size(obj.d,2),['nesouhlasi pocet elektrod (data:' num2str(size(obj.d,2)) ',header:' num2str(max(obj.els)) ') - spatny header?']);
@@ -149,11 +151,14 @@ classdef CiEEGData < handle
                 disp(['globalne vyrazeno ' num2str(numel(RjEpoch)) ' epoch']); 
             end
             if exist('RjEpochCh','var') 
-                if ~isempty(RjEpochCh) 
+                if ~isempty(RjEpochCh)                 
                     obj.RjEpochCh = RjEpochCh;                                                                         
-                    if strcmp(obj.reference,'Bipolar') && ~isempty(obj.CH.filterMatrix)                        
-                        obj.ChangeReferenceRjEpochCh(obj.CH.filterMatrix); %prepocitam na bipolarni referenci i RjEpochCh
+                    if ~strcmp(obj.reference,'original') && ~isempty(obj.CH.filterMatrix)  %pokud to neni originalni reference                      
+                        obj.ChangeReferenceRjEpochCh(obj.CH.filterMatrix); %prepocitam na jinou referenci i RjEpochCh
                     end
+                    assert( size(obj.RjEpochCh,1)== size(obj.d,2), ['RjEpochCh ma jiny pocet kanalu (' num2str(size(obj.RjEpochCh,1)) ') nez data (' num2str(size(obj.d,2)) ')']);
+                    assert( size(obj.RjEpochCh,2)== size(obj.d,3), ['RjEpochCh ma jiny pocet epoch (' num2str(size(obj.RjEpochCh,2)) ') nez data (' num2str(size(obj.d,3)) ')']);
+                    
                     disp(['+ vyrazeno ' num2str(sum(max(RjEpochCh,[],1))) ' epoch s epi udalostmi podle jednotlivych kanalu']);   
                 else %takhle muzu vyrazene epochy vymazat
                     obj.RjEpochCh = false(obj.channels,obj.epochs); %zadne vyrazene epochy
@@ -162,7 +167,7 @@ classdef CiEEGData < handle
             
         end
         
-        function obj = RjEpochsEpi(obj,NEpi,obrazek)
+        function [BadChannels,obj] = RjEpochsEpi(obj,NEpi,obrazek)
             %vyradi epochy podle poctu epileptickych udalosti - pokud >= NEpi
             %uz vyrazene epochy rucne nemeni - neoznaci jako spravne
             assert(obj.epochs > 1,'nejsou epochovana data');
@@ -180,7 +185,7 @@ classdef CiEEGData < handle
             end
             
             if obrazek &&  isempty(NEpi)
-                obj.PL.EpochsEpi(obj.RjEpochCh,obj.els,obj.CH); %graf Rejected epochs in individual channels
+                BadChannels = obj.PL.EpochsEpi(obj.RjEpochCh,obj.els,obj.CH); %graf Rejected epochs in individual channels
             end            
             
         end
@@ -316,31 +321,29 @@ classdef CiEEGData < handle
             assert(any(ref=='heb'),'neznama reference, mozne hodnoty: h e b');
             assert(isobject(obj.CH),'Hammer header not loaded');
             
-            H = obj.CH.H; %kopie headeru            
+            selCh_H = obj.CH.H.selCh_H; %kopie protoze se mi to zmeni v nasledujicim prikazu         
             obj.CH.ChangeReference(ref); %zmeni referenci u headeru - 18.1.2018            
-            if ref=='b' %u bipolarni reference se mi meni pocet kanalu                
-                obj.ChangeReferenceRjEpochCh(obj.CH.filterMatrix); %prepocitam na bipolarni referenci i RjEpochCh 
-            end
             % zmena EEG dat v poli d
             if obj.epochs <= 1 %ne epochovana data
-                filtData = obj.d(:,H.selCh_H) * obj.CH.filterMatrix;
+                filtData = obj.d(:,selCh_H) * obj.CH.filterMatrix;
                 assert(size(filtData,1) == size(obj.d,1),'zmenila se delka zaznamu'); %musi zustat stejna delka zaznamu  
                 obj.d=filtData;                
             else %epochovana data
-                dd = zeros(obj.samples*obj.epochs,numel(H.selCh_H));
-                for ch = 1:numel(H.selCh_H) %predelam matici 3D na 2D
+                dd = zeros(obj.samples*obj.epochs,numel(selCh_H));
+                for ch = 1:numel(selCh_H) %predelam matici 3D na 2D
                     dd(:,ch) = reshape(obj.d(:,ch,:),obj.samples*obj.epochs,1);
                 end                
-                filtData = dd(:,H.selCh_H) * obj.CH.filterMatrix;
+                filtData = dd(:,selCh_H) * obj.CH.filterMatrix;
                 assert(size(filtData,1) == size(dd,1),'zmenila se delka zaznamu'); %musi zustat stejna delka zaznamu  
                 obj.d = zeros(obj.samples,size(filtData,2),obj.epochs); %nove pole dat s re-referencovanymi daty
                 for ch=1:size(filtData,2) %vratim puvodni 3D tvar matice
                     obj.d(:,ch,:) = reshape(filtData(:,ch),obj.samples,obj.epochs); % !! tohle strasne dlouho trva - ZRYCHLIT
                 end
+                obj.ChangeReferenceRjEpochCh(obj.CH.filterMatrix); %prepocitam na tuhle  referenci i RjEpochCh
+                %pocet elektrod se meni jejen u bipolarni ref, kdyz jsou nektere kanaly na konci vyrazene
             end
             [obj.samples,obj.channels, obj.epochs] = obj.DSize();
-            if ref=='b', obj.RjCh = []; end %rejectovane kanaly uz byly vyrazeny, ted nejsou zadne
-            obj.GetHHeader(obj.CH.H); %novy header s vyrazenymi kanaly - prepisu puvodni header
+            if ref=='b', obj.RjCh = []; end %rejectovane kanaly uz byly vyrazeny, ted nejsou zadne           
            
             obj.filename = []; %nechci si omylem prepsat puvodni data 
             switch ref
@@ -573,16 +576,26 @@ classdef CiEEGData < handle
                 %nejdriv samotne kategorie
                 Pmax = zeros(numel(kats),1); %sbiram maxima kategorii kvuli tomu kde posadit konrasty mezi kat
                 for k = 1: numel(kats) % cyklus pres kategorie - rozdil vuci baseline
-                    katdata = obj.CategoryData(cellval(kats,k)); %time x channels x epochs
+                    [katdata,~,RjEpCh] = obj.CategoryData(cellval(kats,k)); %time x channels x epochs
                     iCh = min(obj.Wp(obj.WpActive).WpKatBaseline{k,1}(iintervalyStat(1):iintervalyStat(2),channels),[],1) < 0.05; %kanaly kde je signifikantni rozdil vuci baseline, alespon jednou
-                    data = mean(katdata(iintervalyData(1):iintervalyData(2),iCh,:),3); %time x channels, uz jen vybrane kanaly, prumer pres epochy
-                    [~,sub]= max(abs(data),[],1); %cisla radku pro kazdy kanal, kde je maximalni nebo minimalni hodnota
-                    ind = sub2ind(size(data),sub,1:size(data,2)); %predelam indexovani na absolutni
+                    fiCh = find(iCh); %absolutni cisla kanalu
+                    data = zeros(diff(iintervalyData)+1,sum(iCh)); 
+                    sub = zeros(1,sum(iCh)); 
+                    Wp = obj.Wp(obj.WpActive).WpKatBaseline{k,1}(iintervalyStat(1):iintervalyStat(2),iCh); %statistika jen pro vyber kanalu, kde je neco signif
+                    for ch = 1:sum(iCh) %musim jet po jednotlivych kanalech kvuli RjEpCh
+                        data(:,ch) = mean(katdata(iintervalyData(1):iintervalyData(2),fiCh(ch),~RjEpCh(fiCh(ch),:)),3); %prumer pres cas pro jeden kanal, pro nevyrazene epochy pro tento kanal
+                        fitime = find(Wp(:,ch)<0.05); %indexy vzorku, kde je signif rozdil
+                        [~,subitime] = max(abs(data(fitime,ch))); %tohle vrati jen relativni indexy v ramci fitime
+                        sub(ch) = fitime(subitime); %prevedu na absolutni indexy v ramci data(:,ch)
+                    end
+                    %mean(katdata(iintervalyData(1):iintervalyData(2),iCh,:),3); %time x channels, uz jen vybrane kanaly, prumer pres epochy
+                    %[~,sub]= max(abs(data),[],1); %cisla radku pro kazdy kanal, kde je maximalni nebo minimalni hodnota
+                    ind = sub2ind(size(data),sub,1:size(data,2)); %predelam indexovani na absolutni = ne time x channels, ale 1-n
                     prumery(iCh,j,k) = data(ind); %max nebo min hodnota z kazdeho kanalu                    
                     P = squeeze(prumery(:,j,k));                    
                     Pmax(k) = max(P);
                     if dofig
-                        ploth(k) = plot(P','.-','Color',colorskat{k}); %kreslim tuto kategorii                       
+                        ploth(k) = plot(P','o-','Color',colorskat{k}); %kreslim tuto kategorii                       
                         hold on;
                     end
                     iChKats(1,:) = iChKats(1,:) | iCh; %pridam dalsi kanaly, kde je signif odpoved
@@ -618,7 +631,7 @@ classdef CiEEGData < handle
                     %prumery(iCh & iCh2,j,k+numel(kats)) = p;
                     colorindex = colorkombinace{kombinace(k,2),kombinace(k,1)};
                     if dofig %kreslim rozdily mezi odpovedmi pro kategorie                        
-                        ph = plot(prumery(:,j,k+numel(kats))+yKombinace,'.-','Color',colorskat{colorindex}); %kreslim tuto kombinaci kategorii nahoru                        
+                        ph = plot(prumery(:,j,k+numel(kats))+yKombinace,'o-','Color',colorskat{colorindex}); %kreslim tuto kombinaci kategorii nahoru                        
                         if k>numel(kats), ploth(k) = ph; end %pokud je kombinaci vic nez kategorii, ulozim si handle, budu ho potrebovat na legendu
                     end
                     iChKats(2,:) = iChKats(2,:) | iCh ;  %pridam dalsi kanaly, kde je signif odpoved                    
@@ -1345,10 +1358,12 @@ classdef CiEEGData < handle
             Wp = obj.Wp;                    %#ok<PROP,NASGU>
             DE = obj.DE;                    %#ok<PROP,NASGU>
             DatumCas = obj.DatumCas;        %#ok<PROP,NASGU>
-            save(filename,'d','tabs','tabs_orig','fs','header','sce','PsyDataP','epochtime','baseline','CH_H','els',...
+            [pathstr,fname,ext] = CiEEGData.matextension(filename);        
+            filename2 = fullfile(pathstr,[fname ext]);
+            save(filename2,'d','tabs','tabs_orig','fs','header','sce','PsyDataP','epochtime','baseline','CH_H','els',...
                     'plotES','RjCh','RjEpoch','RjEpochCh','epochTags','epochLast','reference','epochData','Wp','DE','DatumCas', ...
                     'CH_filterMatrix','-v7.3');  
-            disp(['ulozeno do ' filename]); 
+            disp(['ulozeno do ' filename2]); 
         end
         function obj = Load(obj,filename)
             % nacte veskere promenne tridy ze souboru
@@ -1422,6 +1437,16 @@ classdef CiEEGData < handle
            
             obj.filename = filename;
             disp(['nacten soubor ' filename]); 
+        end
+    end
+    %% staticke metody
+    methods (Static,Access = public)
+        function [pathstr,fname,ext] = matextension(filename)
+            [pathstr,fname,ext] = fileparts(filename);
+            if strcmp(ext,'.mat')==false || numel(ext)<1
+               fname = [fname ext]; %pokud pripona neni mat, pridam ji na konec jmena a vytvorim priponu mat
+               ext = '.mat';
+            end 
         end
     end
     %% privatni metody
@@ -1648,9 +1673,10 @@ classdef CiEEGData < handle
         function [obj] = ChangeReferenceRjEpochCh(obj,filterMatrix)
             %kod Nada 2017-12-07 - prepocitani RjEpochCh na bipolarni referenci            
             RjEpochCh = obj.RjEpochCh(1:size(filterMatrix,1),:)';  %u zadneho z pacientu jsem nenasel trigger channel uprostred kanalu, vzdy je na konci. To by jinak byl problem            
-            filterMatrix(filterMatrix==-1) = 1;
+            filterMatrix(filterMatrix<0) = 0; %oprava pro bipolarni referenci - chci mit v kazdem slouci je jednu 1
+            filterMatrix(filterMatrix>0) = 1; %pridano kvuli jine = ele a head referenci
             RjEpochCh = RjEpochCh * filterMatrix; 
-            RjEpochCh(RjEpochCh == 2) = 1;
+            RjEpochCh(RjEpochCh >= 2) = 1;
             obj.RjEpochCh = RjEpochCh'; %vyrazeni kazdeho kanalu puvodni reference znamena vyrazeni dvou kanalu bipolarni reference 
         end
         function [katstr, opakstr] = KatOpak2Str(obj,WpA)
