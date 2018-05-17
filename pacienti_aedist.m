@@ -122,7 +122,7 @@ p=p+1;
 % neni hammer header - ma hipp body
 pacienti(p).todo = 1;
 pacienti(p).folder = 'p132 Pol VT18';
-pacienti(p).data = 'VT18_2016-12-06_10-53_001_aedist.mat';
+pacienti(p).data = 'VT18_2016-12-06_10-53_001_aedist_512hz.mat';
 pacienti(p).header = 'p132_header.mat';
 pacienti(p).psychopy = 'p132_aedist.mat';
 pacienti(p).rjepoch = 'p132_aedist_rjepochs.mat';
