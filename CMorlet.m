@@ -1,6 +1,6 @@
 classdef  CMorlet < CHilbert
     properties (Access = public)
-        
+        freal; % original filtered data
     end    
     methods (Access = public)
         %% ELEMENTAL FUNCTIONS 
@@ -24,6 +24,7 @@ classdef  CMorlet < CHilbert
             if ~exist('decimatefactor','var') || isempty(decimatefactor) , decimatefactor = obj.decimatefactor; end; %volitelny parametr decimatefactor 
             HFreq = zeros(ceil(obj.samples/decimatefactor),obj.channels,numel(freq)); %inicializace pole - power
             fphase = zeros(ceil(obj.samples/decimatefactor),obj.channels,numel(freq)); % inicializace pole - faze
+            freal = zeros(ceil(obj.samples/decimatefactor),obj.channels,numel(freq)); % inicializace pole - filtrovana puvodni data
             timer = tic; %zacnu merit cas
             fprintf('kanal ze %i: ', numel(channels) );
             
@@ -54,18 +55,24 @@ classdef  CMorlet < CHilbert
                     if decimatefactor > 1
                         fpower = decimate(fpower,decimatefactor); % mensi sampling rate (moving average vubec nepomohl)
                     end
-                    HFreq(:,ch,fno) = (fpower./mean(fpower)); % fpower; povodna normalizacia  premiestnena do funkcie CHilbert.Normalize                   
-                    %normalizace zase docasne vracena, viz poznamky ve funkci normalize
+                    HFreq(:,ch,fno) = fpower; % povodna normalizacia (fpower./mean(fpower)) premiestnena do funkcie CHilbert.Normalize                   
                     %fprintf('%i Hz, ',loF);
                     fphase0 = angle(eegconv); %#ok<PROPLC> %faze frekvence 
-                    if decimatefactor > 1
-                        fphase(:,ch,fno) = decimate(fphase0,decimatefactor);    %#ok<PROPLC>                        
+                    if decimatefactor > 1                   
+                        fphase0 = decimate(fphase0,decimatefactor);    %#ok<PROPLC>                        
                     end
+                    fphase(:,ch,fno) = fphase0;
+                    freal0 = real(eegconv);
+                    if decimatefactor > 1
+                        freal0 = decimate(freal0,decimatefactor);    %#ok<PROPLC>                        
+                    end
+                    freal(:,ch,fno) = freal0;
                 end
                 %fprintf('\n'); %tisk znova na stejnou radku
             end
             obj.HFreq = HFreq; %#ok<PROPLC>
             obj.fphase = fphase;%#ok<PROPLC>
+            obj.freal = freal;
             toc(timer); %ukoncim mereni casu a vypisu,
             obj.d = squeeze(mean(obj.HFreq,3)); %11.5.2016 - prepisu puvodni data prumerem pres frekvence
             obj.fs = obj.fs/decimatefactor;

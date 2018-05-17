@@ -393,7 +393,7 @@ classdef CPlotsN < handle
                 title(obj.E.PsyData.P.strings.podminka{cond,1});
                 set(gca,'YDir','normal')
                 xlabel('Time (s)'); ylabel('Frequency (Hz)');
-                caxis([0 1])
+                caxis([0 0.7])
                 myColorMap = jet(256);
                 myColorMap(1,:) = 1;
                 colormap(myColorMap);
@@ -407,7 +407,7 @@ classdef CPlotsN < handle
                 title(obj.E.PsyData.P.strings.podminka{cond,1});
                 set(gca,'YDir','normal')
                 xlabel('Time (s)'); ylabel('Frequency (Hz)');
-                caxis([0 0.6])
+                caxis([0 0.7])
                 myColorMap = jet(256);
                 myColorMap(1,:) = 1;
                 colormap(myColorMap);
