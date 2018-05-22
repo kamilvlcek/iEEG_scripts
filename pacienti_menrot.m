@@ -191,5 +191,34 @@ pacienti(p).rjepoch = 'menrot_RjEpoch.mat';
 pacienti(p).epievents = 'p160_menrot_epievents.mat'; %2018 
 pacienti(p).rjch = [47]; %#ok<NBRAK>
 
+p=p+1; %kamil 15.5.2018
+pacienti(p).todo = 1; 
+pacienti(p).folder = 'p151 Ber VT31';
+pacienti(p).data = 'VT31_2018-02-26_10-54_001_concat_menrot.mat';
+pacienti(p).header = 'p151_header.mat';
+pacienti(p).psychopy = 'p151_menrot.mat';
+pacienti(p).rjepoch = 'p151_menrot_rjepochs.mat';
+pacienti(p).epievents = 'p151_menrot_epievents.mat'; %2018 
+pacienti(p).rjch = [47]; %#ok<NBRAK>
+
+p=p+1; %kamil 15.5.1.2018
+pacienti(p).todo = 1; 
+pacienti(p).folder = 'p170 Zem VT32';
+pacienti(p).data = 'VT32_2018-03-10_13-39_001_concat_menrot.mat';
+pacienti(p).header = 'p170_header.mat';
+pacienti(p).psychopy = 'p170_menrot.mat';
+pacienti(p).rjepoch = 'p170_menrot_rjepochs.mat';
+pacienti(p).epievents = 'p170_menrot_epievents.mat'; %2018 
+pacienti(p).rjch = [47 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 34 35 36 37 38 39 40 45 46 48 49 50 51 52 53 54 55 56 57 58 59 60 81 82 83 91];
+
+p=p+1; %kamil 15.5.2018
+pacienti(p).todo = 1; 
+pacienti(p).folder = 'p173 Mar VT34';
+pacienti(p).data = 'VT34_2018-04-10_10-19_001_concat_menrot.mat';
+pacienti(p).header = 'p173_header.mat';
+pacienti(p).psychopy = 'p173_menrot.mat';
+pacienti(p).rjepoch = 'p173_menrot_rjepoch.mat';
+pacienti(p).epievents = 'p173_menrot_epievents.mat'; %2018 
+pacienti(p).rjch = [47]; %#ok<NBRAK>
 end
 

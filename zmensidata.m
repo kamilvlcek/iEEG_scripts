@@ -2,18 +2,21 @@ function [fs, delka] = zmensidata(filename,podil,fsforce)
 % ZMENSIDATA funkce na zmenseni vzorkovaci frekvence dat z Motola
 % prevedeno na funkce 30.8.2016
 % vraci vyslednou frekvenci a delku dat
+% filename - pokud chci zpracovat vic souboru, je tam adresar (z \ na konci ) nebo adresar a pak zacatek souboru = maska
 
-if ~exist('fsforce','var')
-    fsforce = [];
-end
+if ~exist('fsforce','var'), fsforce = [];end %vynucna vystupni fs. Na co?
 
 [~,name,ext] = fileparts(filename);
-if isempty(name) && isempty(ext)
+if  isempty(ext)
     %asi se jedna o adresar - zpracuju postupne vsechny soubory
-    adresar = filename;
-    files = dir(fullfile(adresar, '*.mat'));
+    adresar = filename;  
+    if isempty(name) %filename koncil \ a jedna se tedy o adresar          
+        files = dir(fullfile(adresar, '*.mat'));
+    else %filename ma na konci zacatek = masku jmena
+        files = dir([adresar '*.mat']);
+    end
     for f = 1:numel(files)
-        filename = [ adresar files(f).name];
+        filename = [ files(f).folder filesep files(f).name];
         disp(['filename ' num2str(f) '/' num2str(numel(files)) ': ' filename]);
         zmensidata(filename,podil,fsforce);
     end
@@ -23,7 +26,7 @@ else
     %prvni pulka souboru - s celym najednou se spatne pracuje
     load(filename);     
     if exist('mults', 'var')
-        load(filename,'mults'); %pokud existuji, roznasobim to mults
+        load(filename,'mults'); %pokud existuji, roznasobim to mults - decimate pracuje jen s double
         d = bsxfun(@times,double(d), mults); %#ok<NODEF> %rovnou to roznasobim mults
     end
     if exist('fsforce','var') && ~isempty(fsforce)
@@ -54,7 +57,7 @@ else
     disp('second half of d ...');
     load(filename,'d'); %maly soubor, nactu jen d
     if exist('mults', 'var') 
-        d = bsxfun(@times,double(d), mults); %rovnou to roznasobim mults
+        d = bsxfun(@times,double(d), mults); %rovnou to roznasobim mults - decimate pracuje jen s double
     end
     d(1:dpul,:)=[]; %smazu prvni pulku souboru
 

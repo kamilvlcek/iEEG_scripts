@@ -122,13 +122,13 @@ classdef CBrainPlot < handle
                 disp('zadny soubor nenalezen');
             end
         end
-        function obj = ImportData(obj,CB)
+        function obj = ImportData(obj,BPD)
             %vlozi data, ktera jsem vytvoril pomoci CHilbert.ExtractBrainPlotData
-            obj.VALS = CB.VALS;
-            obj.MNI = CB.MNI;
-            obj.NAMES = CB.NAMES;
-            obj.katstr = CB.katstr;
-            obj.intervals = CB.intervals;       
+            obj.VALS = BPD.VALS;
+            obj.MNI = BPD.MNI;
+            obj.NAMES = BPD.NAMES;
+            obj.katstr = BPD.katstr;
+            obj.intervals = BPD.intervals;       
         end
         function PlotBrain3D(obj,kategorie,signum,outputDir) %#ok<INUSD>
             assert(~isempty(obj.VALS),'zadna data VALS');

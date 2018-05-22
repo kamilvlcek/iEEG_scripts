@@ -45,6 +45,8 @@ classdef CHilbertMulti < CHilbert
             obj.filesimported = 0;
             obj.epochData = {};
             obj.els = [];
+            obj.RjEpochCh = [];
+            obj.PsyData = {};
             disp('data objektu smazana');
         end
         function obj = ImportExtract(obj,filenames)
@@ -255,6 +257,7 @@ classdef CHilbertMulti < CHilbert
                     error(['predchozi soubor mel mene poli v H.channels:' num2str(numel(CHfields))]);
                 end
                 
+                obj.CH.H.selCh_H = [obj.CH.H.selCh_H  (1:numel(H.channels))+obj.CH.H.selCh_H(end) ];                
                 obj.CH.chgroups{f} = (1:numel(H.channels)) + obj.CH.els(f-1);
                 obj.CH.els(f) = numel(H.channels)+obj.CH.els(f-1);                
             end
