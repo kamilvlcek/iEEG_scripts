@@ -213,6 +213,16 @@ pacienti(p).rjch = [47];
 
 p=p+1;
 pacienti(p).todo = 1;
+pacienti(p).folder = 'p160 Kor VT28';
+pacienti(p).data = 'VT28_2017-12-11_16-05_001_concat_aedist.mat';
+pacienti(p).header = 'p160_header.mat';
+pacienti(p).psychopy = 'p160_aedist.mat';
+pacienti(p).rjepoch = 'p160_aedist_rjepoch.mat'; %2018
+pacienti(p).epievents = 'p160_aedist_epievents.mat'; %2018
+pacienti(p).rjch = [47]; 
+
+p=p+1;
+pacienti(p).todo = 1;
 pacienti(p).folder = 'p162 Fra VT29';
 pacienti(p).data = 'VT29_2018-01-05_10-21_001_aedist.mat';
 pacienti(p).header = 'p162_header.mat';

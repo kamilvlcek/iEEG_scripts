@@ -191,6 +191,16 @@ pacienti(p).rjepoch = 'menrot_RjEpoch.mat';
 pacienti(p).epievents = 'p160_menrot_epievents.mat'; %2018 
 pacienti(p).rjch = [47]; %#ok<NBRAK>
 
+p=p+1; %kamil 25.5.2018
+pacienti(p).todo = 1; 
+pacienti(p).folder = 'p162 Fra VT29';
+pacienti(p).data = 'VT29_2018-01-09_09-39_001_concat_menrot.mat';
+pacienti(p).header = 'p162_header.mat';
+pacienti(p).psychopy = 'p162_menrot.mat';
+pacienti(p).rjepoch = 'p162_menrot_rjepoch.mat';
+pacienti(p).epievents = 'p162_menrot_epievents.mat'; %2018 
+pacienti(p).rjch = [47  60  61  62  63  64  65  66  71  72  73  74  75  76  77  78  80  81  82  83  84  85  86  87  88  89  91  92  93  94  95  96  97  99 100 101 102 104 105 106 107 108 114 115 116 117 118 119 120]; 
+
 p=p+1; %kamil 15.5.2018
 pacienti(p).todo = 1; 
 pacienti(p).folder = 'p151 Ber VT31';
@@ -201,15 +211,26 @@ pacienti(p).rjepoch = 'p151_menrot_rjepochs.mat';
 pacienti(p).epievents = 'p151_menrot_epievents.mat'; %2018 
 pacienti(p).rjch = [47]; %#ok<NBRAK>
 
+
 p=p+1; %kamil 15.5.1.2018
 pacienti(p).todo = 1; 
 pacienti(p).folder = 'p170 Zem VT32';
-pacienti(p).data = 'VT32_2018-03-10_13-39_001_concat_menrot.mat';
+pacienti(p).data = 'VT32_2018-03-13_10-13_001_concat_menrot.mat';
 pacienti(p).header = 'p170_header.mat';
 pacienti(p).psychopy = 'p170_menrot.mat';
 pacienti(p).rjepoch = 'p170_menrot_rjepochs.mat';
 pacienti(p).epievents = 'p170_menrot_epievents.mat'; %2018 
 pacienti(p).rjch = [47 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 34 35 36 37 38 39 40 45 46 48 49 50 51 52 53 54 55 56 57 58 59 60 81 82 83 91];
+
+p=p+1; %kamil 25.5.2018
+pacienti(p).todo = 1; 
+pacienti(p).folder = 'p099 Hos VT33';
+pacienti(p).data = 'VT33_2018-03-27_10-21_001_500hz_concat_f1Hz_menrot.mat';
+pacienti(p).header = 'p099_64ch_header.mat';
+pacienti(p).psychopy = 'p099_menrot.mat';
+pacienti(p).rjepoch = 'p099_menrot_rjepochs.mat';
+pacienti(p).epievents = 'p099_menrot_epievents.mat'; %2018 
+pacienti(p).rjch = [7  8  9 10 11 12 13 14 16 17 18 20 21 22 23 24 25 26 27 28 29 30 31 32 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 57 58 59 60];
 
 p=p+1; %kamil 15.5.2018
 pacienti(p).todo = 1; 

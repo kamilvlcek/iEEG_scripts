@@ -2,7 +2,8 @@ function [fs, delka] = zmensidata(filename,podil,fsforce)
 % ZMENSIDATA funkce na zmenseni vzorkovaci frekvence dat z Motola
 % prevedeno na funkce 30.8.2016
 % vraci vyslednou frekvenci a delku dat
-% filename - pokud chci zpracovat vic souboru, je tam adresar (z \ na konci ) nebo adresar a pak zacatek souboru = maska
+% filename - pokud chci zpracovat vic souboru, filename je adresar (s \ na konci ) - pak zpracuje vsechny soubory 
+% nebo filename = adresar + zacatek souboru (cele bez \ na konci) = maska - pak zpracuju jen vyber souboru
 
 if ~exist('fsforce','var'), fsforce = [];end %vynucna vystupni fs. Na co?
 
