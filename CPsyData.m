@@ -7,6 +7,7 @@ classdef CPsyData < handle
         P; %psychopy behavioural data
         fhR; %figure handle from PlotResponses
         warning_rt=false; %jestli uz byl warning o reakcnich casech
+        testname; %jmeno testu, ze ktereho jsou data
     end
     
     methods (Access = public)
@@ -17,6 +18,21 @@ classdef CPsyData < handle
             if ~isfield(psy,'pacientid'), obj.P.pacientid = ''; end
             if ~isfield(psy,'eegfile'), obj.P.eegfile = ''; end
             obj.DoplnZpetnavazba();
+            obj.GetTestName(inputname(1))
+        end
+        function GetTestName(obj,testname)  
+            %zjisti jmeno testu, ze ktereho jsou data
+            if strcmp(testname,'aedist') || strcmp(testname,'menrot') || strcmp(testname,'ppa')
+                obj.testname = testname;
+            elseif strcmp(obj.P.strings.podminka{1,1},'cervena')
+                obj.testname = 'aedist';
+            elseif strcmp(obj.P.strings.podminka{1,1},'vy-2D')
+                obj.testname = 'menrot';
+            elseif strcmp(obj.P.strings.podminka{1,1},'Ovoce')
+                obj.testname = 'ppa';
+            else
+                obj.testname = '';
+            end
         end
         function rt = ReactionTime(obj,nokategories)
             %vrati matici vsech reakcnich casu roztridenych do sloupcu podle kategorii podnetu            

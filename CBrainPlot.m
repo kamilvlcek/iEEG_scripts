@@ -129,6 +129,7 @@ classdef CBrainPlot < handle
             obj.NAMES = BPD.NAMES;
             obj.katstr = BPD.katstr;
             obj.intervals = BPD.intervals;       
+            obj.testname = BPD.testname; 
         end
         function PlotBrain3D(obj,kategorie,signum,outputDir) %#ok<INUSD>
             assert(~isempty(obj.VALS),'zadna data VALS');

@@ -1338,8 +1338,10 @@ classdef CiEEGData < handle
             sce = [obj.samples obj.channels obj.epochs]; %#ok<NASGU>
             if isobject(obj.PsyData)
                 PsyDataP = obj.PsyData.P;       %#ok<NASGU>         %ulozim pouze strukturu 
+                testname = obj.PsyData.testname;
             else
                 PsyDataP = []; %#ok<NASGU>
+                testname = '';
             end
             epochtime = obj.epochtime;      %#ok<PROP,NASGU>
             baseline = obj.baseline;        %#ok<PROP,NASGU>
@@ -1360,7 +1362,7 @@ classdef CiEEGData < handle
             DatumCas = obj.DatumCas;        %#ok<PROP,NASGU>
             [pathstr,fname,ext] = CiEEGData.matextension(filename);        
             filename2 = fullfile(pathstr,[fname ext]);
-            save(filename2,'d','tabs','tabs_orig','fs','header','sce','PsyDataP','epochtime','baseline','CH_H','els',...
+            save(filename2,'d','tabs','tabs_orig','fs','header','sce','PsyDataP','testname','epochtime','baseline','CH_H','els',...
                     'plotES','RjCh','RjEpoch','RjEpochCh','epochTags','epochLast','reference','epochData','Wp','DE','DatumCas', ...
                     'CH_filterMatrix','-v7.3');  
             disp(['ulozeno do ' filename2]); 
@@ -1384,6 +1386,12 @@ classdef CiEEGData < handle
                 if ~isempty(PsyDataP), obj.PsyData = CPsyData(PsyDataP); end%  %vytvorim objekt psydata ze struktury
             else
                 load(filename,'PsyData');  obj.PsyData = PsyData ; %#ok<CPROPLC,CPROP,PROP>  %  %drive ulozeny objekt, nez jsem zavedl ukladani struct
+            end
+            if ismember('testname', {vars.name})
+                load(filename,'testname');
+                obj.PsyData.GetTestName(testname); %#ok<CPROPLC> %  %zjisti jmeno testu
+            else
+                obj.PsyData.GetTestName(''); %#ok<CPROPLC> %  %zjisti jmeno testu
             end
             if obj.epochs > 1
                 if ismember('epochData', {vars.name}), load(filename,'epochData');  obj.epochData = epochData;   end  %#ok<CPROPLC,CPROP,PROP> 
