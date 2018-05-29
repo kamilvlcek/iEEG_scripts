@@ -313,6 +313,7 @@ classdef CHilbertMulti < CHilbert
             if ~exist('filename','var') || isempty(filename) , filename = '*'; end %filename nemusim zadat, pak hledam cokoliv s timto label
             if ~exist('label','var') || isempty(label) , label = '*'; end 
             [pacienti,setup] = pacienti_setup_load( testname );
+            filename = strrep(filename,'_CHilb.mat',''); %funkce ExtractData pro zmenu vyzaduje tuhle priponu
             filenames = cell(0,4); %budu vrace vsechny nalezene udaje, nejen filename, kvuli prehledu
             for p = 1:numel(pacienti)
                path = [setup.basedir pacienti(p).folder filesep setup.subfolder filesep];
@@ -322,6 +323,11 @@ classdef CHilbertMulti < CHilbert
                end
                files_cell = struct2cell(files)';
                filenames = cat(1,filenames,files_cell(:,1:4)); %prevedu struct na cell array, jen prvni 4 sloupce
+            end
+            if numel(filenames) > 0
+                disp(['OK: nalezeno ' num2str(size(filenames,1)) ' souboru']);
+            else
+                disp('zadne soubory nenalezeny');
             end
         end
     end

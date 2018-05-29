@@ -200,7 +200,7 @@ classdef CBrainPlot < handle
             %struktura je nazev struktury podle atlas napriklad hippo, label je kratky nazev podle martina, napriklad hi
             if ~exist('label','var'),    label = struktura; end %defaultni test
             if ~exist('testname','var') || isempty(testname), testname = 'aedist'; end %defaultni test
-            if ~exist('reference','var'), reference = []; end %defaultni test
+            if ~exist('reference','var') || isempty(reference), reference = []; end %defaultni test
             if ischar(struktura), struktura = {struktura}; end %prevedu na cell array
             if ischar(label), label = {label}; end %prevedu na cell array
             [ pacienti, setup ] = pacienti_setup_load( testname );
@@ -265,6 +265,7 @@ classdef CBrainPlot < handle
                  end
              end
              PAC = cell2struct(raw(2:end,:),raw(1,:),2)';  %originalni PAC struktura z StructFind ma rozmer 1 x N, takze transponuju z excelu
+             disp( [ basename(xlsfile) ': soubor nacten']);
         end
     end
     
