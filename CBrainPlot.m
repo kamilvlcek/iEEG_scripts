@@ -131,17 +131,27 @@ classdef CBrainPlot < handle
             obj.intervals = BPD.intervals;       
             obj.testname = BPD.testname; 
         end
-        function PlotBrain3D(obj,kategorie,signum,outputDir) %#ok<INUSD>
+        function PlotBrain3D(obj,kategorie,signum,outputDir)
             assert(~isempty(obj.VALS),'zadna data VALS');
+            plotSetup = {};
             if ~exist('kategorie','var') || isempty(kategorie) , kategorie = 1:size(obj.VALS,2); end %muzu chtit jen nektere kategorie
-            if ~exist('outputDir','var'), outputDir = 'd:\eeg\motol\CBrainPlot\'; end; %#ok<NASGU>   
+            if ~exist('outputDir','var')
+                plotSetup.outputDir = 'd:\eeg\motol\CBrainPlot\';    
+            else
+                plotSetup.outputDir = outputDir;
+            end
             if ~exist('signum','var'), signum = 0; end; %defaultni je rozdil kladny i zaporny
             if ~isempty(obj.brainsurface)
                 brainsurface = obj.brainsurface;  %#ok<PROPLC>
+            else
+                brainsurface = []; %#ok<PROPLC>
             end
             hybernovat = 0; %jestli chci po konci skriptu pocitac uspat - ma prednost
             vypnout = 0;  %jestli chci po konci skriptu pocitac vypnout (a nechci ho hybernovat)             
-            figureVisible = 'off';   %nechci zobrazovat obrazek 
+            plotSetup.figureVisible = 'off';   %nechci zobrazovat obrazek 
+            plotSetup.FontSize = 4; 
+            plotSetup.myColorMap = iff(signum ~= 0,parula(128) ,jet(128));    %pokud jednostrane rozdily, chci parula
+            
             tic; %zadnu meric cas
             for interval = 1:size(obj.VALS,1) 
                 for kat = kategorie
@@ -158,32 +168,35 @@ classdef CBrainPlot < handle
 %                     elseif kat==size(obj.VALS,2) %posledni kategorie se vsemi kanaly
 %                         katname = 'AllEl';                    
 %                     end
-                    figureNamePrefix = [ obj.testname '_' mat2str(obj.intervals(interval,:))  '_' katname '_' num2str(signum) '_NOnames'];
-                    if strcmp(figureVisible,'off')
+                    
+                    if strcmp(plotSetup.figureVisible,'off')
                         disp('figures invisible');
                     end
-                    if numel(obj.VALS{interval,kat}(iV)) > 0
-                        disp(figureNamePrefix);
-                        vals_channels = obj.VALS{interval,kat}(iV); 
+                    plotSetup.figureNamePrefix = [ obj.testname '_' mat2str(obj.intervals(interval,:))  '_' katname '_' num2str(signum) '_NOnames'];
+                    if numel(obj.VALS{interval,kat}(iV)) > 0                        
+                        disp(plotSetup.figureNamePrefix);
+                        vals_channels = obj.VALS{interval,kat}(iV); %parametr  main_brainPlot
                         if signum ~= 0
-                            vals_channels = vals_channels*signum; %#ok<NASGU> %u zapornych hodnot prehodim znamenko
+                            vals_channels = vals_channels*signum; %u zapornych hodnot prehodim znamenko
                         end
-                        mni_channels = obj.MNI{interval,kat}(iV);   %#ok<NASGU>                                                                      
-                        names_channels = []; %#ok<NASGU> 
-                        FontSize = 4; %#ok<NASGU>   
-                        myColorMap = iff(signum ~= 0,parula(128) ,jet(128)); %#ok<NASGU>   %pokud jednostrane rozdily, chci parula
+                        mni_channels = obj.MNI{interval,kat}(iV);                                                                         
+                        names_channels = []; 
+                          
+                        
                         %nejdriv vykreslim bez popisku elektrod
-                        main_brainPlot; %volam Jirkuv skript, vsechny ty promenne predtim jsou do nej
+                        brainsurface = main_brainPlot(vals_channels,mni_channels,names_channels,brainsurface,plotSetup);  %#ok<PROPLC>
+                        %volam Jirkuv skript, vsechny ty promenne predtim jsou do nej
                         if isempty(obj.brainsurface)
                             obj.brainsurface = brainsurface; %#ok<PROPLC> %ulozim si ho pro dalsi volani
                         end
                         
                         %a pak jeste s popisy elektrod
-                        figureNamePrefix = [obj.testname '_' mat2str(obj.intervals(interval,:)) '_' katname '_' num2str(signum) '_names'];
-                        disp(figureNamePrefix);
-                        names_channels = obj.NAMES{interval,kat}; %#ok<NASGU>
-                        main_brainPlot;                     else
-                        disp(['zadne hodnoty pro ' figureNamePrefix ' - neukladam ']);
+                        plotSetup.figureNamePrefix = [obj.testname '_' mat2str(obj.intervals(interval,:)) '_' katname '_' num2str(signum) '_names'];
+                        disp(plotSetup.figureNamePrefix);
+                        names_channels = obj.NAMES{interval,kat}; 
+                        brainsurface = main_brainPlot(vals_channels,mni_channels,names_channels,brainsurface,plotSetup);    %#ok<PROPLC>                  
+                    else
+                        disp(['zadne hodnoty pro ' plotSetup.figureNamePrefix ' - neukladam ']);
                     end
                 end
             end
