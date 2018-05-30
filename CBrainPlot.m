@@ -194,7 +194,8 @@ classdef CBrainPlot < handle
                         plotSetup.figureNamePrefix = [obj.testname '_' mat2str(obj.intervals(interval,:)) '_' katname '_' num2str(signum) '_names'];
                         disp(plotSetup.figureNamePrefix);
                         names_channels = obj.NAMES{interval,kat}; 
-                        brainsurface = main_brainPlot(vals_channels,mni_channels,names_channels,brainsurface,plotSetup);    %#ok<PROPLC>                  
+                        brainsurface = main_brainPlot(vals_channels,mni_channels,names_channels,brainsurface,plotSetup);    %#ok<PROPLC>  
+                        
                     else
                         disp(['zadne hodnoty pro ' plotSetup.figureNamePrefix ' - neukladam ']);
                     end
