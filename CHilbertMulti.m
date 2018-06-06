@@ -8,6 +8,7 @@ classdef CHilbertMulti < CHilbert
         blokyprehazej; %matrix s originalnimi cisly bloku a cisly bloku k prehazeni z noveho souboru. Meni se pro kazdy pridany soubor
            %plni se v GetEpochData
         filesimported = 0;
+        subjNames; %jmena subjektu z headeru
     end
     
     methods (Access = public)  
@@ -239,7 +240,7 @@ classdef CHilbertMulti < CHilbert
                 obj.CH.chgroups = {1:numel(H.channels)};
                 obj.CH.els = numel(H.channels);                
             else
-                obj.CH.H.subjName = [obj.CH.H.subjName ',' H.subjName]; %spojim jmena subjektu
+                obj.CH.H.subjName = [obj.CH.H.subjName ',' H.subjName]; %spojim jmena subjektu                
                 CHfields = fieldnames(obj.CH.H.channels);
                 Hfields = fieldnames(H.channels); %nove pridavany header
                 if numel(CHfields) == numel(Hfields)
@@ -261,6 +262,7 @@ classdef CHilbertMulti < CHilbert
                 obj.CH.chgroups{f} = (1:numel(H.channels)) + obj.CH.els(f-1);
                 obj.CH.els(f) = numel(H.channels)+obj.CH.els(f-1);                
             end
+            obj.subjNames{f} = H.subjName;
             obj.orig(f).H = H; %orignalni header ulozim, v kazdem pripade
         end
         function obj = GetEpochTime(obj,epochtime,baseline)
@@ -280,7 +282,12 @@ classdef CHilbertMulti < CHilbert
         function obj = GetStat(obj) %zatim neimportuju
             obj.Wp = [];
         end
-      
+        function obj = SubjectChange(obj,iS)
+            %TODO tuhle funkci budu muset udelat v CiEEGData jako dummy 
+            %a volat ji pri prechodu na jinou elektrodu v PlotResponseCh
+            %nebo ji udelat jako dummy v PsyData a v CiEEGData ji volat vzdy
+            obj.PsyData.SubjectChange(iS);
+        end
     end
     methods (Static,Access = public)
         function filenames = ExtractData(PAC,testname,filename,label,overwrite)

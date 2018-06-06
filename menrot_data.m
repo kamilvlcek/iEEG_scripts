@@ -1,4 +1,4 @@
-function [menrot] = menrot_data(pacientid,U1,U2,tabs)
+function [menrot] = menrot_data(pacientid,U1,U2,tabs,eegfile)
 %AEDIST_DATA vytvori a vraci strukturu s udalostmi experimentu AEdist
 % pacientid - id pacienta, napriklad p85, podle pojmenovani vystupni tabulky AEdistData.php.
 % U1 a U2 vystup z udalosti2() - casy synchropulsu k podnedu a odpovedi
@@ -48,5 +48,10 @@ menrot.strings.podminka = podminka; %kategorie, aby nazev byl stejny jako u PPA
 
 %timestampy zacatku a konce dat z testu
 menrot.interval = [tabs(1) tabs(end)];
+%vypis pro kontrolu intevalu
+disp(['Menrot data od ' datestr(tabs(1),'dd-mmm-yyyy HH:MM:SS.FFF') ' do ' datestr(tabs(end),'dd-mmm-yyyy HH:MM:SS.FFF')]);
+
+menrot.eegfile = eegfile;
+menrot.pacientid = pacientid;
 end
 
