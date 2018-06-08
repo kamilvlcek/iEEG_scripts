@@ -22,7 +22,7 @@ classdef CPsyDataMulti < CPsyData
             if iS <= obj.nS
                 obj.iS = iS;
                 obj.P = obj.Pmulti(iS);
-                %disp(['subject changed to ']);
+                %disp(['subject changed to ' num2str(iS)]);
             end
         end
         function [obj]= GetPsyData(obj,psy)

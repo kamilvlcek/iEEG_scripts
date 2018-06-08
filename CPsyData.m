@@ -20,6 +20,10 @@ classdef CPsyData < handle
             obj.DoplnZpetnavazba();
             obj.testname = obj.GetTestName(inputname(1));
         end
+        function [obj] = SubjectChange(obj,~)
+            %jen prazdna funkce, ale pretezuju ji v CPsyDataMulti, a naplnuju obsahem
+            % v tehle trida mam jen jeden subjekt
+        end
         function [testname2] = GetTestName(obj,testname)  
             %zjisti jmeno testu, ze ktereho jsou data            
             if strcmp(testname,'aedist') || strcmp(testname,'menrot') || strcmp(testname,'ppa')

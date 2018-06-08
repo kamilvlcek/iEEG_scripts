@@ -86,11 +86,11 @@ classdef CHilbertMulti < CHilbert
                     %vyrazene epochy x kanaly
                     obj.RjEpochCh = cat(1,obj.RjEpochCh,RjEpochCh); %spojim pres kanaly, pocet epoch musi by stejny                    
                     
-                    %PsychoPy data
-                    obj.GetPsyData(P,fileno);                    
-                    
                     %Hammer header
                     obj.GetHeader(H,fileno);
+                    
+                    %PsychoPy data
+                    obj.GetPsyData(P,fileno);                                                           
                     
                     %frekvencni data
                     obj.GetHfreq(Hf,Hfmean,HFreq);
@@ -193,14 +193,18 @@ classdef CHilbertMulti < CHilbert
         function obj = GetPsyData(obj,P,fileno)
             %pokud prvni soubor, ulozi P data
             %pokud dalsi soubor v poradi, ulozi P data z noveho souboru do zalohy v obj.ori            
+            if isempty(P.pacientid) %v nekterych starych datech to neni uvedeno
+                P.pacientid =  obj.subjNames{fileno}; %nahradim udajem z headeru, ktery jsem ziskal v GetHeader
+            end
             obj.orig(fileno).P = P; %psychopy data  
             if isempty(obj.PsyData)
-                obj.PsyData = CPsyData(P); %vytvorim objekt CPsyData - z prvniho souboru
-                obj.PsyData.RemoveTraining(); %odstranim treninkove trialy
+                obj.PsyData = CPsyDataMulti(P); %vytvorim objekt CPsyDataMulti - z prvniho souboru                
             else
-                obj.PsyData.P.pacientid = [ obj.PsyData.P.pacientid ',' P.pacientid]; %spojim pacient ID od vice pacientu
+                obj.PsyData.GetPsyData(P); %vlozim nova data pro tento subjekt a aktivuju je
+                %obj.PsyData.P.pacientid = [ obj.PsyData.P.pacientid ',' P.pacientid]; %spojim pacient ID od vice pacientu
                 %ostatni psydata zatim nepouzivam, reakcni uspesnost a rychlost bude u kazdeno jina
-            end
+            end            
+            obj.PsyData.RemoveTraining(); %odstranim treninkove trialy
         end
         function obj = GetEpochData(obj,epochData,fileno,test)
             %porovna poradi bloku v puvodnich souborej a novem souboru
@@ -230,7 +234,7 @@ classdef CHilbertMulti < CHilbert
             end           
             obj.orig(fileno).epochData = epochData; % ulozim original taky                        
         end
-        function obj = GetHeader(obj,H,f)
+        function obj = GetHeader(obj,H,fileno)
             %spoji header (kanaly) v puvodnich souborech a tom novem
             if isempty(obj.CH)
                 %GetHHeader@CHilbert(obj,H);  
@@ -259,11 +263,11 @@ classdef CHilbertMulti < CHilbert
                 end
                 
                 obj.CH.H.selCh_H = [obj.CH.H.selCh_H  (1:numel(H.channels))+obj.CH.H.selCh_H(end) ];                
-                obj.CH.chgroups{f} = (1:numel(H.channels)) + obj.CH.els(f-1);
-                obj.CH.els(f) = numel(H.channels)+obj.CH.els(f-1);                
+                obj.CH.chgroups{fileno} = (1:numel(H.channels)) + obj.CH.els(fileno-1);
+                obj.CH.els(fileno) = numel(H.channels)+obj.CH.els(fileno-1);                
             end
-            obj.subjNames{f} = H.subjName;
-            obj.orig(f).H = H; %orignalni header ulozim, v kazdem pripade
+            obj.subjNames{fileno} = H.subjName;
+            obj.orig(fileno).H = H; %orignalni header ulozim, v kazdem pripade
         end
         function obj = GetEpochTime(obj,epochtime,baseline)
             %epochtime - cas epochy, napriklad -0.2 - 1.2, taky musi byt pro vsechny soubory stejne
@@ -281,13 +285,7 @@ classdef CHilbertMulti < CHilbert
         end
         function obj = GetStat(obj) %zatim neimportuju
             obj.Wp = [];
-        end
-        function obj = SubjectChange(obj,iS)
-            %TODO tuhle funkci budu muset udelat v CiEEGData jako dummy 
-            %a volat ji pri prechodu na jinou elektrodu v PlotResponseCh
-            %nebo ji udelat jako dummy v PsyData a v CiEEGData ji volat vzdy
-            obj.PsyData.SubjectChange(iS);
-        end
+        end        
     end
     methods (Static,Access = public)
         function filenames = ExtractData(PAC,testname,filename,label,overwrite)
