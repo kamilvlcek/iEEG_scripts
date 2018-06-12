@@ -387,25 +387,27 @@ classdef CiEEGData < handle
             % -- pokud jedna hodnota, je to sirka klouzaveho okna - maximalni p z teto delky
             %TODO - moznost spojit kategorie 
             assert(obj.epochs > 1,'only for epoched data');                       
-            if ~exist('method','var'), method = 'wilcox'; end  %defaultni metoda statistiky je wilcox test
+            if ~exist('method','var'), method = {'wilcox'}; end  %defaultni metoda statistiky je wilcox test
+            if numel(method) < 2, method{2} = 'chnall'; end %druha polozka bude urcovat, jestli se ma vyhodnocovat vsechny kanaly, nebo kazdy kanal zvlast
             
-            iEpCh = obj.GetEpochsExclude(); %ziska seznam epoch k vyhodnoceni
+            iEpCh = obj.GetEpochsExclude(); %ziska seznam Chs x Epochs k vyhodnoceni
             iEp = true(obj.epochs,1); %musim predat nejaky parametr, ale uz ho ted nepotrebuju, kvuli iEpCh - 8.6.2018
             EEEGStat = CEEGStat(obj.d,obj.fs);
             WpA = obj.WpActive; %jen zkratka
             %CELKOVA SIGNIFIKANCE VUCI BASELINE - bez ohledu na kategorie
             baseline = [obj.epochtime(1) iff(obj.baseline(2)>obj.epochtime(1),obj.baseline(2),0)]; %zalezi jestli se baselina a epochtime prekryvaj
-            [P,ibaseline,iepochtime,itimewindow] = EEEGStat.WilcoxBaseline(obj.epochtime,baseline,timewindow,iEp,obj.RjEpochCh | ~iEpCh);   %puvodni baseline uz v epose nemam        
+            [Pbaseline,ibaseline,iepochtime,itimewindow] = EEEGStat.WilcoxBaseline(obj.epochtime,baseline,timewindow,iEp,obj.RjEpochCh | ~iEpCh);   %puvodni baseline uz v epose nemam        
                 %11.12.2017 - pocitam signifikanci hned po konci baseline
                 %ibaseline je cast iepochtime pred koncem baseline nebo pred casem 0
             if numel(timewindow) <= 1 %chci maximalni hodnotu p z casoveho okna
-                obj.Wp(WpA).D2 = P; %pole 2D signifikanci si ulozim kvuli kresleni - cas x channels                
+                obj.Wp(WpA).D2 = Pbaseline; %pole 2D signifikanci si ulozim kvuli kresleni - cas x channels                
             else
-                obj.Wp(WpA).D1 = P; %pole 1D signifikanci - jedna hodnota pro kazdy kanal            
+                obj.Wp(WpA).D1 = Pbaseline; %pole 1D signifikanci - jedna hodnota pro kazdy kanal            
             end
             obj.Wp(WpA).Dparams = timewindow; %hodnoty pro zpetnou kontrolu
             obj.Wp(WpA).Dfdr = 1;
-            obj.Wp(WpA).DiEp = iEpCh; %index zpracovanych epoch 
+            obj.Wp(WpA).DiEp = iEp; %index zpracovanych epoch 
+            obj.Wp(WpA).DiEpCh = iEpCh; %index zpracovanych epochCh, pro ruzne kanaly budou ruzna data je u tridy CHilbertMulti 
             obj.Wp(WpA).epochtime = obj.epochtime;
             obj.Wp(WpA).baseline = obj.baseline; %pro zpetnou kontrolu, zaloha parametru
             
@@ -434,7 +436,8 @@ classdef CiEEGData < handle
                     rjepchkat{k,1} = RjEpCh;
                 end
                 %provedu statisticke testy
-                [obj.Wp(WpA).WpKat,obj.Wp(WpA).WpKatBaseline] = EEEGStat.WilcoxCat(kats,responsekat,baselinekat,rjepchkat,itimewindow,method);                
+                if strcmp(method{2},'chnall'), Pbaseline = []; end %pokud chci delat statistiku pres vsechny kanaly, P vuci baseline smazu
+                [obj.Wp(WpA).WpKat,obj.Wp(WpA).WpKatBaseline] = EEEGStat.WilcoxCat(kats,responsekat,baselinekat,rjepchkat,itimewindow,method{1},Pbaseline);                
                 %ulozim parametry
                 if ~isempty(KATNUM) %pokud vyhodnocuju opakovani
                     obj.Wp(WpA).kats = KATNUM;    %puvodni kategorie
