@@ -247,6 +247,7 @@ for f=1:numel(frekvence)
                         fprintf(' %i/%i : cas zatim: %.1f min, zbyvajici cas %.1f min\n',cyklus,pocetcyklu,cas/60,(odhadcelehocasu - cas)/60); %vypisu v kolikatem jsem cyklu a kolik zbyva sekund do konce
                         cyklus = cyklus + 1; %cyklus pres vsechny i preskocene soubory
                         fileno = fileno + 1; %cyklus pres vsechny nepreskocene soubory
+                        xlswrite([logfilename '.xls'],tablelog); %budu to psat znova po kazdem souboru, abych o log neprisel, pokud se program zhrouti
                     end                    
                 end
             end
@@ -254,7 +255,7 @@ for f=1:numel(frekvence)
     end
 end
 
-xlswrite([logfilename '.xls'],tablelog);
+
 stroutput = sprintf('preskoceno: %i, ulozeno: %i, chybnych: %i\n',souborystats(1),souborystats(2),souborystats(3));
 fprintf(stroutput);  fprintf(fileID,stroutput); 
 fclose(fileID);

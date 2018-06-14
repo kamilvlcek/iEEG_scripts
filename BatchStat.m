@@ -4,7 +4,7 @@ function [ ] = BatchStat( testname,filename )
 
 cfg=struct;
 cfg.srovnejresp = 0;
-cfg.hybernovat = 1;
+cfg.hybernovat = 0;
 %cfg.statmethod = 'permut'; 
 cfg.statmethod = 'wilcox';
 

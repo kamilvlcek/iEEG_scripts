@@ -1,8 +1,9 @@
 %% nejdriv normalni analyzu s razenim podle podnetu
 disp(' ++++ ANALYZA 1 - RAZENI PODLE PODNETU ++++');
-pacienti = {'p160'}; 
-cfg = struct('hybernovat',0,'suffix','Ep2018-04');
-cfg.pacienti = pacienti; %kdyz to tam vlozim rovnou, tak se mi udela struct array
+%pacienti = {'p160'}; 
+cfg = struct('hybernovat',1,'suffix','Ep2018-04');
+%cfg.pacienti = pacienti; %kdyz to tam vlozim rovnou, tak se mi udela struct array
+%cfg.overwrite=1; %vyjimecne
 BatchHilbert('aedist',cfg);
 return; %nic dalsiho zatim nechci 
 %% potom analyza s razenim podle odpovedi
