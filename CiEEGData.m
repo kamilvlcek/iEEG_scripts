@@ -388,7 +388,8 @@ classdef CiEEGData < handle
             %TODO - moznost spojit kategorie 
             assert(obj.epochs > 1,'only for epoched data');                       
             if ~exist('method','var'), method = {'wilcox'}; end  %defaultni metoda statistiky je wilcox test
-            if numel(method) < 2, method{2} = 'chnall'; end %druha polozka bude urcovat, jestli se ma vyhodnocovat vsechny kanaly, nebo kazdy kanal zvlast
+            if ~iscell(method), method = {method,'chn1'}; end %predelam retezec na cell
+            if numel(method) < 2, method{2} = 'chn1'; end %druha polozka bude urcovat, jestli se ma vyhodnocovat vsechny kanaly (chnall), nebo kazdy kanal zvlast (chn1)
             
             iEpCh = obj.GetEpochsExclude(); %ziska seznam Chs x Epochs k vyhodnoceni
             iEp = true(obj.epochs,1); %musim predat nejaky parametr, ale uz ho ted nepotrebuju, kvuli iEpCh - 8.6.2018
