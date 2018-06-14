@@ -282,6 +282,36 @@ classdef CBrainPlot < handle
              PAC = cell2struct(raw(2:end,:),raw(1,:),2)';  %originalni PAC struktura z StructFind ma rozmer 1 x N, takze transponuju z excelu
              disp( [ basename(xlsfile) ': soubor nacten']);
         end
+        function MIS = StructFindErr(testname)
+            [ pacienti, setup ] = pacienti_setup_load( testname );
+            load('BrainAtlas_zkratky.mat');
+            MIS = {}; %pacient, ch, zkratka-  z toho bude vystupni xls tabulka s prehledem vysledku            
+            iMIS = 1;
+            for p = 1:numel(pacienti)
+                disp(['* ' pacienti(p).folder ' - ' pacienti(p).header ' *']);
+                hfilename = [setup.basedir pacienti(p).folder '\' pacienti(p).header];                
+                if exist(hfilename,'file')==2
+                    load(hfilename);
+                else
+                    disp(['header ' hfilename ' neexistuje']);
+                    continue; %zkusim dalsiho pacienta, abych vypsal, ktere vsechny headery neexistujou
+                end  
+                for ch = 1:numel(H.channels)
+                    z = strsplit(H.channels(ch).neurologyLabel,{'/','(',')'});
+                    for iz = 1:numel(z)
+                        if isempty(find(~cellfun('isempty',strfind(lower(BrainAtlas_zkratky(:,1)),lower(z{iz}))), 1)) %#ok<NODEF>
+                           MIS(iMIS).pac = pacienti(p).folder; %#ok<AGROW>
+                           MIS(iMIS).ch = ch; %#ok<AGROW>
+                           MIS(iMIS).neurologyLabel = H.channels(ch).neurologyLabel; %#ok<AGROW>
+                           MIS(iMIS).label = z{iz}; %#ok<AGROW>
+                           MIS(iMIS).brainAtlas = H.channels(ch).ass_brainAtlas; %#ok<AGROW>
+                           MIS(iMIS).cytoarchMap = H.channels(ch).ass_cytoarchMap; %#ok<AGROW>
+                           iMIS = iMIS+ 1;
+                        end
+                    end
+                end
+            end
+        end
     end
     
 end
