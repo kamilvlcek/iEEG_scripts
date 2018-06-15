@@ -12,7 +12,8 @@ classdef CBrainPlot < handle
         testname; %jmeno zpracovavaneho testu
         katstr_pacients;
         numelP; %pocty  signif elektrod pro kazdy pacient x interval x kategorie
-        pacients;         
+        pacients;    
+        filename; %jmeno zpracovavanych souboru
     end
     
     methods (Access = public)        
@@ -35,6 +36,7 @@ classdef CBrainPlot < handle
             end
             obj.testname = testname;
             obj.intervals = intervals; 
+            obj.filename = filename;
             elcount = []; %jen inicializace            
             P = {}; M = {}; N = {}; %jen inicializace
             obj.pacients = cell(numel(pacienti),1); 
@@ -132,6 +134,10 @@ classdef CBrainPlot < handle
             obj.testname = BPD.testname; 
         end
         function PlotBrain3D(obj,kategorie,signum,outputDir)
+            %vykresli jpg obrazky jednotlivych kategorii a kontrastu mezi nimi            
+            %TODO do jmena vystupniho jpg pridat i frekvence a referenci, aby se to neprepisovalo
+            %TODO je mozne ty signif vyexportovat a pak je nacist zase do CHilbertMulti?
+            %TODO do vystupni tabulky nejak dostat anatomickou lokalizaci?
             assert(~isempty(obj.VALS),'zadna data VALS');
             plotSetup = {};
             if ~exist('kategorie','var') || isempty(kategorie) , kategorie = 1:size(obj.VALS,2); end %muzu chtit jen nektere kategorie
@@ -151,8 +157,11 @@ classdef CBrainPlot < handle
             plotSetup.figureVisible = 'off';   %nechci zobrazovat obrazek 
             plotSetup.FontSize = 4; 
             plotSetup.myColorMap = iff(signum ~= 0,parula(128) ,jet(128));    %pokud jednostrane rozdily, chci parula
-            
-            tic; %zadnu meric cas
+            tablelog = cell(obj.pocetcykluPlot3D(kategorie,signum)+2,5); % z toho bude vystupni xls tabulka s prehledem vysledku
+            tablelog(1,:) = {datestr(now),obj.filename,'','',''}; %hlavicky xls tabulky
+            tablelog(2,:) = {'interval','kategorie','chname','mni','val'}; %hlavicky xls tabulky
+            iTL = 2; %index v tablelog
+            tic; %zadnu merit cas
             for interval = 1:size(obj.VALS,1) 
                 for kat = kategorie
                     if signum > 0 
@@ -181,7 +190,14 @@ classdef CBrainPlot < handle
                         end
                         mni_channels = obj.MNI{interval,kat}(iV);                                                                         
                         names_channels = []; 
-                          
+                         
+                        if ~strcmp(obj.katstr{kat},'AllEl') %nechci to pro kategorii vsech elektrod
+                            for iV = 1:numel(vals_channels)
+                                tablelog(iV + iTL,:) = { sprintf('[%.1f %.1f]',obj.intervals(interval,:)),obj.katstr{kat}, obj.NAMES{interval,kat}{iV}, ...
+                                    sprintf('[%.1f,%.1f,%.1f]',mni_channels(iV).MNI_x, mni_channels(iV).MNI_y, mni_channels(iV).MNI_z), vals_channels(iV)};
+                            end
+                            iTL = iTL + numel(vals_channels);
+                        end
                         
                         %nejdriv vykreslim bez popisku elektrod
                         brainsurface = main_brainPlot(vals_channels,mni_channels,names_channels,brainsurface,plotSetup);  %#ok<PROPLC>
@@ -193,7 +209,7 @@ classdef CBrainPlot < handle
                         %a pak jeste s popisy elektrod
                         plotSetup.figureNamePrefix = [obj.testname '_' mat2str(obj.intervals(interval,:)) '_' katname '_' num2str(signum) '_names'];
                         disp(plotSetup.figureNamePrefix);
-                        names_channels = obj.NAMES{interval,kat}; 
+                        names_channels = obj.NAMES{interval,kat};                         
                         brainsurface = main_brainPlot(vals_channels,mni_channels,names_channels,brainsurface,plotSetup);    %#ok<PROPLC>  
                         
                     else
@@ -202,6 +218,8 @@ classdef CBrainPlot < handle
                 end
             end
             toc; %ukoncim mereni casu a vypisu
+            logfilename = ['logs\PlotBrain3D_' obj.testname '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') ];
+            xlswrite([plotSetup.outputDir logfilename '.xls'],tablelog); %zapisu do xls tabulky
             if hybernovat
                 system('shutdown -h')  %#ok<UNRCH>
             elseif vypnout            
@@ -308,6 +326,26 @@ classdef CBrainPlot < handle
                            MIS(iMIS).cytoarchMap = H.channels(ch).ass_cytoarchMap; %#ok<AGROW>
                            iMIS = iMIS+ 1;
                         end
+                    end
+                end
+            end
+        end
+    end
+    methods (Access=private)
+        function n = pocetcykluPlot3D(obj,kategorie,signum)
+            %spocita kolik kanalu celkem vykresli PlotBrain3D pro tyto parametry
+            n = 0; 
+            for interval = 1:size(obj.VALS,1)  
+                for kat = kategorie
+                    if ~strcmp(obj.katstr{kat},'AllEl') %nechci to pro kategorii vsech elektrod
+                        if signum > 0 
+                            iV = obj.VALS{interval,kat} > 0; %jen kladne rozdily
+                        elseif signum <0 
+                            iV = obj.VALS{interval,kat} < 0; %jen zaporne rozdily
+                        else
+                            iV = true(size(obj.VALS{interval,kat})); %vsechny rozdily
+                        end
+                        n = n + numel(obj.VALS{interval,kat}(iV));
                     end
                 end
             end

@@ -139,7 +139,7 @@ for f=1:numel(frekvence)
                                 disp([ outfilename ' NEULOZENO, preskoceno']); 
                                 fprintf(fileID,[ 'NEULOZENO,preskoceno: ' strrep(outfilename,'\','\\') ' - ' datestr(now) '\n']); 
                                 souborystats(1) = souborystats(1) + 1; %dalsi preskoceny soubor
-                                tablelog(cyklus+1,:) = {frekvence(f).freqname, pacienti(p).folder, reference(r).name, 'preskoceno','',datestr(now) };
+                                tablelog(cyklus+1,:) = {['''' frekvence(f).freqname], pacienti(p).folder, reference(r).name, 'preskoceno','',datestr(now) };
                                 cyklus = cyklus + 1;
                                 filestodo = filestodo -1; %preskocene soubor nepocitam do celkoveho poctu
                                 continue; %dalsi polozka ve for cyklu     
@@ -239,7 +239,7 @@ for f=1:numel(frekvence)
                                 exception.stack(1).name, exception.stack(1).line, exception.message);                            
                             disp(errorMessage);  fprintf(fileID,[errorMessage '\n']);  %#ok<DSPS> %zobrazim hlasku, zaloguju, ale snad to bude pokracovat dal                            
                             souborystats(3) = souborystats(3) + 1; %dalsi chybny soubor
-                            tablelog(cyklus+1,:) = {frekvence(f).freqname, pacienti(p).folder, reference(r).name, 'error', exception.message , datestr(now)}; 
+                            tablelog(cyklus+1,:) = {['''' frekvence(f).freqname], pacienti(p).folder, reference(r).name, 'error', exception.message , datestr(now)}; 
                             clear E d tabs fs mults header RjEpoch psychopy H ans; 
                         end    
                         cas = toc(batchtimer);
