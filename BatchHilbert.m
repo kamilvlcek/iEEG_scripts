@@ -102,7 +102,7 @@ pocetcyklu = sum([frekvence.todo]) * sum([reference.todo]) * sum([pacienti.todo]
 filestodo = pocetcyklu; %pocet souboru k vyhodnoceni, kvuli odhadu casu
 souborystats = zeros(1,3); %statistika souboru - vynechane, ulozene, chybne
 tablelog = cell(pocetcyklu+1,5); %frekvence, soubor, reference, status, chyba -  z toho bude vystupni xls tabulka s prehledem vysledku
-tablelog(1,:) = {'freq','folder','ref','result','file'}; %hlavicky xls tabulky
+tablelog(1,:) = {'freq','folder','ref','result','file','datetime'}; %hlavicky xls tabulky
 cyklus = 1; fileno = 1;
 batchtimer = tic;
 for f=1:numel(frekvence)        
@@ -139,7 +139,7 @@ for f=1:numel(frekvence)
                                 disp([ outfilename ' NEULOZENO, preskoceno']); 
                                 fprintf(fileID,[ 'NEULOZENO,preskoceno: ' strrep(outfilename,'\','\\') ' - ' datestr(now) '\n']); 
                                 souborystats(1) = souborystats(1) + 1; %dalsi preskoceny soubor
-                                tablelog(cyklus+1,:) = {frekvence(f).freqname, pacienti(p).folder, reference(r).name, 'preskoceno','' };
+                                tablelog(cyklus+1,:) = {frekvence(f).freqname, pacienti(p).folder, reference(r).name, 'preskoceno','',datestr(now) };
                                 cyklus = cyklus + 1;
                                 filestodo = filestodo -1; %preskocene soubor nepocitam do celkoveho poctu
                                 continue; %dalsi polozka ve for cyklu     
@@ -232,14 +232,14 @@ for f=1:numel(frekvence)
                             disp([ pacienti(p).folder ' OK']); 
                             fprintf(fileID,[ 'OK: ' strrep(outfilename,'\','\\') ' - ' datestr(now) '\n']);
                             souborystats(2) = souborystats(2) + 1; %dalsi ulozeny soubor
-                            tablelog(cyklus+1,:) = {['''' frekvence(f).freqname], pacienti(p).folder, reference(r).name, 'saved', outfilename };                                
+                            tablelog(cyklus+1,:) = {['''' frekvence(f).freqname], pacienti(p).folder, reference(r).name, 'saved', outfilename,datestr(now) };                                
                             clear E d tabs fs mults header RjEpoch psychopy H ans; 
                         catch exception 
                             errorMessage = sprintf('** Error in function %s() at line %d.\nError Message:\n%s', ...
                                 exception.stack(1).name, exception.stack(1).line, exception.message);                            
                             disp(errorMessage);  fprintf(fileID,[errorMessage '\n']);  %#ok<DSPS> %zobrazim hlasku, zaloguju, ale snad to bude pokracovat dal                            
                             souborystats(3) = souborystats(3) + 1; %dalsi chybny soubor
-                            tablelog(cyklus+1,:) = {frekvence(f).freqname, pacienti(p).folder, reference(r).name, 'error', exception.message }; 
+                            tablelog(cyklus+1,:) = {frekvence(f).freqname, pacienti(p).folder, reference(r).name, 'error', exception.message , datestr(now)}; 
                             clear E d tabs fs mults header RjEpoch psychopy H ans; 
                         end    
                         cas = toc(batchtimer);
