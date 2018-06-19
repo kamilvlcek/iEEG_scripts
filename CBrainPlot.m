@@ -14,6 +14,8 @@ classdef CBrainPlot < handle
         numelP; %pocty  signif elektrod pro kazdy pacient x interval x kategorie
         pacients;    
         filename; %jmeno zpracovavanych souboru
+        PAC; %struktura stejna jako vraci funkce StructFind, naplni se v IntervalyResp
+        iPAC; %index v poli PAC
     end
     
     methods (Access = public)        
@@ -39,6 +41,7 @@ classdef CBrainPlot < handle
             obj.filename = filename;
             elcount = []; %jen inicializace            
             P = {}; M = {}; N = {}; %jen inicializace
+            obj.PAC = [];
             obj.pacients = cell(numel(pacienti),1); 
             obj.katstr_pacients = []; %musim to smazat, nize testuju, jestil to je prazdne
             obj.numelP = [];  %tam budu ukladat pocty elektrod pro kazdy pacient x interval x kategorie
@@ -54,6 +57,7 @@ classdef CBrainPlot < handle
                     E.SetStatActive(contrast); %nastavi jeden z ulozenych statistickych kontrastu
                     [prumery, MNI,names,~,katstr] = E.IntervalyResp( intervals,[],0);   %#ok<PROPLC> %no figure, funkce z CiEEGData                           
                     obj.pacients{p} = pacienti(p).folder;
+                    obj.GetPAC(prumery,E.CH.H,pacienti(p).folder);
                     clear E;
                     if isempty(obj.katstr_pacients)
                         obj.katstr = [katstr 'AllEl']; %#ok<PROPLC> 
@@ -122,6 +126,29 @@ classdef CBrainPlot < handle
                 end               
             else
                 disp('zadny soubor nenalezen');
+            end
+        end
+        function [obj] = GetPAC(obj,prumery,H,pac_folder)
+            if isempty(obj.PAC)
+                obj.PAC = cell(size(prumery,2),size(prumery,3));
+                obj.iPAC = ones(size(prumery,2),size(prumery,3));
+            end
+            for interval = 1:size(prumery,2)
+                for kat = 1:size(prumery,3)
+                    if obj.iPAC(interval,kat) == 1
+                        obj.PAC{interval,kat} = {};
+                    end                    
+                    index = find(prumery(:,interval,kat)~=0);
+                    for ii = 1:numel(index)                
+                        obj.PAC{interval,kat}(obj.iPAC(interval,kat)).pacient = pac_folder; %#ok<AGROW>
+                        obj.PAC{interval,kat}(obj.iPAC(interval,kat)).ch = index(ii); %#ok<AGROW>
+                        obj.PAC{interval,kat}(obj.iPAC(interval,kat)).name = H.channels(index(ii)).name; %#ok<AGROW>
+                        obj.PAC{interval,kat}(obj.iPAC(interval,kat)).neurologyLabel = H.channels(index(ii)).neurologyLabel; %#ok<AGROW>
+                        obj.PAC{interval,kat}(obj.iPAC(interval,kat)).ass_brainAtlas = H.channels(index(ii)).ass_brainAtlas;%#ok<AGROW>
+                        obj.PAC{interval,kat}(obj.iPAC(interval,kat)).ass_cytoarchMap = H.channels(index(ii)).ass_cytoarchMap; %#ok<AGROW>
+                        obj.iPAC(interval,kat) = obj.iPAC(interval,kat) + 1;
+                    end
+                end
             end
         end
         function obj = ImportData(obj,BPD)
