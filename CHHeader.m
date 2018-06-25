@@ -1,4 +1,4 @@
-classdef CHHeader < handle
+classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
     %CHHEADER Trida na praci s headerem od Jirky Hammera
     %Kamil Vlcek, FGU AVCR, since 2016 04
     

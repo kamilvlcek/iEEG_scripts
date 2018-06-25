@@ -1,4 +1,4 @@
-classdef CPsyData < handle
+classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
     %CPSYDATA Trida na praci s behavioralnimi daty z psychopy
     %   vytvorena pomoci ppa_data.m, aedist_data.m aj
     % Kamil Vlcek, FGU AVCR, since 2016 04

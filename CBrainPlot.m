@@ -1,4 +1,4 @@
-classdef CBrainPlot < handle
+classdef CBrainPlot < matlab.mixin.Copyable
     %CBRAINPLOT Summary of this class goes here
     %   Detailed explanation goes here
     

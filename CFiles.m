@@ -1,4 +1,4 @@
-classdef CFiles < handle
+classdef CFiles < matlab.mixin.Copyable
     %CFILES Summary of this class goes here
     %   Detailed explanation goes here
     

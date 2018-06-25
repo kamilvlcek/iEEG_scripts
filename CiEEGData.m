@@ -1,6 +1,4 @@
-classdef CiEEGData < handle
-    %CEEGDATA Trida na praci s datama ve formatu ISARG od Petra Jezdika
-    %   Kamil Vlcek, FGU AVCR, since 2016 04
+classdef CiEEGData < matlab.mixin.Copyable 
     
     properties (Access = public)
         d; %double matrix: time x channel, muze byt i time x channel x epoch
@@ -1415,13 +1413,13 @@ classdef CiEEGData < handle
             obj.header = header;            %#ok<CPROPLC,CPROP,PROP> 
             obj.samples = sce(1); obj.channels=sce(2); obj.epochs = sce(3); %sumarni promenna sce
             vars = whos('-file',filename);
-            if ismember('PsyDataP', {vars.name})
+            if ismember('PsyDataP', {vars.name}) %ulozena pouze struktura P z PsyData
                 load(filename,'PsyDataP'); 
                 if ~isempty(PsyDataP)
                     obj.PsyData = CPsyData(PsyDataP); %vytvorim objekt psydata ze struktury                    
                 end
             end
-            if ~isprop(obj,'PsyData') && ismember('PsyData', {vars.name}) %pokud jsem nevytvoril objekt v predchozim if
+            if (~isprop(obj,'PsyData') || isempty(obj.PsyData)) && ismember('PsyData', {vars.name}) %pokud jsem nevytvoril objekt v predchozim if
                 load(filename,'PsyData');                 
                 obj.PsyData = PsyData ; %#ok<CPROPLC>  %  %drive ulozeny objekt, nez jsem zavedl ukladani struct nebo CPsyDataMulti                
             end
