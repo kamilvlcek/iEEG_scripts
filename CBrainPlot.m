@@ -48,7 +48,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
             for p = 1:numel(pacienti) % cyklus pacienti
                 if pacienti(p).todo 
                     disp(['***   ' pacienti(p).folder '   ***']);
-                    E = pacient_load(pacienti(p).folder,testname,filename); %nejspis objekt CHilbert, pripadne i jiny
+                    E = pacient_load(pacienti(p).folder,testname,filename,[],[],[],0); %nejspis objekt CHilbert, pripadne i jiny; loadall = 0
                     if isempty(E)
                         disp('no data');
                         pacienti(p).todo = 0; %nechci ho dal zpracovavat

@@ -21,8 +21,9 @@ classdef CHilbert < CiEEGData
             if ~exist('mults','var'),  mults = []; end %nejakou hodnotu dat musim
             if ~exist('d','var') %konstruktor uplne bez parametru - kvuli CHilbertMulti
                 d = []; tabs = []; fs = [];
-            elseif ischar(d) && ~exist('tabs','var') %pokud je prvni parametr retezec, tak ho beru jako nazev souboru, ktery nactu
-                tabs=[]; fs = [];
+            elseif ischar(d) && ~exist('fs','var') %pokud je prvni parametr retezec, tak ho beru jako nazev souboru, ktery nactu
+                fs = []; 
+                if ~exist('tabs','var'), tabs=[]; end
                 % volani Load z CiEEGData mi zavola Load z CHilbert, takze d=filename predelavat nemusim
             end            
             obj@CiEEGData(d,tabs,fs,mults,header); %volani konstruktoru nemuze byt v if bloku 
@@ -292,7 +293,9 @@ classdef CHilbert < CiEEGData
         end
         
         %pokud je treti parametr 1, nenacitaji se data z nadrazene tridy
-        function obj = Load(obj,filename,onlyself)            
+        function obj = Load(obj,filename,loadall,onlyself)
+            %parametr loadall se hodi pro FE data se vsemi ulozenymi epochami, ktere jsou giganticke
+            if ~exist('loadall','var') || isempty(loadall) , loadall = 1; end
             if ~exist('onlyself','var') || onlyself == 0
                 assert(exist(CHilbert.filenameE(filename),'file')==2, ['soubor s daty CHilbert neexistuje:' char(10) CHilbert.filenameE(filename) char(10) 'mozna se jedna o data tridy CiEEGData?']);    
                 Load@CiEEGData(obj,CHilbert.filenameE(filename));  
@@ -308,21 +311,28 @@ classdef CHilbert < CiEEGData
                 else
                     obj.Hfmean = (obj.Hf(1:end-1) + obj.Hf(2:end)) ./ 2;
                 end
-                if ismember('HFreqEpochs', {vars.name}) %7.4.2017
-                    load(filename,'HFreqEpochs');      obj.HFreqEpochs = HFreqEpochs; %#ok<CPROPLC>
-                else
-                    obj.HFreqEpochs = [];
-                end
+                
                 if ismember('fphase', {vars.name}) %15.5.2018
                     load(filename,'fphase');      obj.fphase = fphase; %#ok<CPROPLC>
                 else
                     obj.fphase = [];
                 end
-                if ismember('fphaseEpochs', {vars.name}) %15.5.2018
-                    load(filename,'fphaseEpochs');      obj.fphaseEpochs = fphaseEpochs; %#ok<CPROPLC>
+                if loadall 
+                    if ismember('HFreqEpochs', {vars.name}) %7.4.2017
+                        load(filename,'HFreqEpochs');      obj.HFreqEpochs = HFreqEpochs; %#ok<CPROPLC>
+                    else
+                        obj.HFreqEpochs = [];
+                    end
+                    if ismember('fphaseEpochs', {vars.name}) %15.5.2018
+                        load(filename,'fphaseEpochs');      obj.fphaseEpochs = fphaseEpochs; %#ok<CPROPLC>
+                    else
+                        obj.fphaseEpochs = [];
+                    end
                 else
+                    obj.HFreqEpochs = [];
                     obj.fphaseEpochs = [];
                 end
+                disp(['nacten soubor ' filename]); 
             else
                 warning(['soubor s frekvencnimi pasmy neexistuje ' CHilbert.filenameH(filename)]);
             end

@@ -301,7 +301,7 @@ classdef CHilbertMulti < CHilbert
             
             for p = 1:numel(pacienti)                                
                 ipacienti = strcmp({PAC.pacient}, pacienti{p})==1; %indexy ve strukture PAC pro tohoto pacienta
-                E = pacient_load(pacienti{p},testname,filename);  %pokud spatny testname, zde se vrati chyba
+                E = pacient_load(pacienti{p},testname,filename,[],[],[],0);  %pokud spatny testname, zde se vrati chyba
                 if ~isempty(E) %soubor muze neexistovat, chci pokracovat dalsim souborem
                     [filename_extract,basefilename_extract] = E.ExtractData([PAC(ipacienti).ch],label,overwrite);
                     filenames{p,1} = filename_extract;

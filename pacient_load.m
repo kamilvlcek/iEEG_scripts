@@ -1,7 +1,11 @@
-function [ E ] = pacient_load( nick,testname,filename ,frequencies,classname,channels)
+function [ E ] = pacient_load( nick,testname,filename ,frequencies,classname,channels,loadall)
 %PACIENT_LOAD nacte soubor pacienta, bud ze zdrojvych data (pokud neni udano filename) nebo uz ulozeny soubor
 %   zdrojova data rovnou zpracuje, rozepochuje atd 
 %   E= pacient_load( nick,testname,filename ,frequencies,classname,channels)
+if ~exist('frequencies','var') || isempty(frequencies), frequencies = []; end
+if ~exist('classname','var') || isempty(classname), classname = []; end
+if ~exist('channels','var') || isempty(channels), channels = []; end
+if ~exist('loadall','var') || isempty(loadall), loadall = 1; end
 if strcmp(testname,'aedist')
     pacienti = pacienti_aedist(); %nactu celou strukturu pacientu
     setup = setup_aedist(0); %nactu nastaveni aedist  
@@ -33,9 +37,9 @@ if exist('filename','var') && ~isempty(filename) %pokud filename ~= []
     fullfilename = [setup.basedir pacienti(p).folder '\' setup.subfolder '\' filename];
     if exist(fullfilename,'file')==2
         if strfind(filename,'CHilbert') 
-            E = CHilbert(fullfilename);
+            E = CHilbert(fullfilename,loadall);
         elseif strfind(filename,'CMorlet') 
-            E = CMorlet(fullfilename);
+            E = CMorlet(fullfilename,loadall);
         else
             E = CiEEGData(fullfilename);
         end      

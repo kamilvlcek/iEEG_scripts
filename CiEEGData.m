@@ -42,8 +42,12 @@ classdef CiEEGData < matlab.mixin.Copyable
         function obj = CiEEGData(d,tabs,fs,mults,header)
             %konstruktor, parametry d,tabs,fs[,mults,header]
             if (nargin ~= 0 && ~isempty(d))  %konstruktor uplne bez parametru - kvuli CHilbertMulti                
-            if ischar(d) && (~exist('tabs','var') || isempty(tabs)) %pokud je prvni parametr retezec, tak ho beru jako nazev souboru, ktery nactu                
-                obj.Load(d);
+            if ischar(d) && (~exist('fs','var') || isempty(fs)) %pokud je prvni parametr retezec, tak ho beru jako nazev souboru, ktery nactu                
+                if ~exist('tabs','var') || isempty(tabs)
+                    obj.Load(d);
+                else
+                    obj.Load(d,tabs); %pokud je druhy parametr, ktery je loadall
+                end
             else
                 assert(numel(fs)==1,'fs must be a single number');
                 assert(size(d,1)== size(tabs,1),'d and tabs have to be the same length'); 
@@ -1399,7 +1403,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                     'CH_filterMatrix','-v7.3');  
             disp(['ulozeno do ' filename2]); 
         end
-        function obj = Load(obj,filename)
+        function obj = Load(obj,filename,~,~)
             % nacte veskere promenne tridy ze souboru
             assert(exist(filename,'file')==2, 'soubor s daty neexistuje, nejde o data tridy CHilbert?');
             vars = whos('-file',filename) ;
