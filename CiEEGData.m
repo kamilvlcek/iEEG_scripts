@@ -1,6 +1,4 @@
-classdef CiEEGData < handle
-    %CEEGDATA Trida na praci s datama ve formatu ISARG od Petra Jezdika
-    %   Kamil Vlcek, FGU AVCR, since 2016 04
+classdef CiEEGData < matlab.mixin.Copyable 
     
     properties (Access = public)
         d; %double matrix: time x channel, muze byt i time x channel x epoch
@@ -44,8 +42,12 @@ classdef CiEEGData < handle
         function obj = CiEEGData(d,tabs,fs,mults,header)
             %konstruktor, parametry d,tabs,fs[,mults,header]
             if (nargin ~= 0 && ~isempty(d))  %konstruktor uplne bez parametru - kvuli CHilbertMulti                
-            if ischar(d) && (~exist('tabs','var') || isempty(tabs)) %pokud je prvni parametr retezec, tak ho beru jako nazev souboru, ktery nactu                
-                obj.Load(d);
+            if ischar(d) && (~exist('fs','var') || isempty(fs)) %pokud je prvni parametr retezec, tak ho beru jako nazev souboru, ktery nactu                
+                if ~exist('tabs','var') || isempty(tabs)
+                    obj.Load(d);
+                else
+                    obj.Load(d,tabs); %pokud je druhy parametr, ktery je loadall
+                end
             else
                 assert(numel(fs)==1,'fs must be a single number');
                 assert(size(d,1)== size(tabs,1),'d and tabs have to be the same length'); 
@@ -292,24 +294,33 @@ classdef CiEEGData < handle
             obj.RjEpoch = unique([obj.RjEpoch find(rjepoch)]); %pridam dalsi vyrazene epochy k dosud vyrazenym            
             disp(['resampled ' num2str(obj.epochs) ' epochs to ' num2str(newepochtime) ', rejected new epochs: ' num2str(numel(setdiff(find(rjepoch),obj.RjEpoch)))]);
         end
-        function [d,psy_rt,RjEpCh]= CategoryData(obj, katnum,rt,opak)
+        function [d,psy_rt,RjEpCh]= CategoryData(obj, katnum,rt,opak,ch)
             %vraci eegdata epoch ve kterych podnet byl kategorie/podminky=katnum + reakcni casy - s uz globalne vyrazenymi epochami
             %Pokud rt>0, vraci epochy serazene podle reakcniho casu 
             %pokud opak>0, vraci jen jedno opakovani obrazku - hlavne kvuli PPA test 
             %vraci i epochy k vyrazeni pro kazdy kanal (uz s globalne vyrazenymi epochami)
             %  vyradit rovnou je nemuzu, protoze pocet epoch v d pro kazdy kanal musi by stejny
             assert(obj.epochs > 1,'data not yet epoched'); %vyhodi chybu pokud data nejsou epochovana
+            assert(obj.channels == size(obj.RjEpochCh,1),'RjEpochCh: spatny pocet kanalu');
             if exist('opak','var') && ~isempty(opak)
                 epochyopak = obj.PsyData.GetOpakovani(); %cislo opakovani pro kazdou epochu
                 iOpak = ismember(epochyopak , opak); %epochy jen s timto opakovanim
             else
                 iOpak = true(obj.epochs,1);  %vsechny epochy              
             end
-            iEpochy = [ ismember(cell2mat(obj.epochData(:,2)),katnum) , obj.GetEpochsExclude() , iOpak]; %seznam epoch v ramci kategorie ve sloupci + epochy, ktere nejsou excludovane
+            if ~exist('ch','var') ch = []; end 
+            iEpCh = obj.GetEpochsExclude(); %seznam epoch ktere nejsou vyrazene 
+            iEpochy = [ ismember(cell2mat(obj.epochData(:,2)),katnum) , iOpak]; %seznam epoch v ramci kategorie ve sloupci + epochy, ktere nejsou excludovane
             d = obj.d(:,:,all(iEpochy,2)); %epochy z kategorie, ktere nejsou excludovane = maji ve vsech sloupcich 1
-            RjEpCh = obj.RjEpochCh(:,all(iEpochy,2)); %epochy k vyrazeni u kazdeho kanalu - jen pro zbyvajici epochy
-            [~,psy_rt,~,~] = obj.PsyData.GetResponses();                      
-            psy_rt = psy_rt(all(iEpochy,2)); %reakcni casy jen pro vybrane kategorie a opakovani a nevyrazene
+            RjEpCh = obj.RjEpochCh(:,all(iEpochy,2)) | ~iEpCh(:,all(iEpochy,2)); %epochy k vyrazeni u kazdeho kanalu - jen pro zbyvajici epochy
+            
+            if ~isempty(ch) %reakcni cas pocitam, jen kdyz vim pro jaky kanal - 8.6.2018 kvuli CPsyDataMulti
+                obj.PsyData.SubjectChange(find(obj.els >= ch,1));
+                [~,psy_rt,~,~] = obj.PsyData.GetResponses();                
+                psy_rt = psy_rt(all(iEpochy,2)); %reakcni casy jen pro vybrane kategorie a opakovani a nevyrazene
+            else
+                psy_rt = zeros(size(d,3),1); %nulove reakcni casy
+            end
             
             if exist('rt','var') && rt>0 %chci hodnoty serazene podle reakcniho casu               
                 [psy_rt, isorted] = sort(psy_rt);
@@ -355,13 +366,21 @@ classdef CiEEGData < handle
             disp(['reference zmenena: ' obj.reference]); 
         end
 
-        function [iEp,epochsEx]=GetEpochsExclude(obj)
-            %vraci iEp=index epoch k vyhodnoceni - bez chyb, treningu a rucniho vyrazeni
-            %epochsEx=seznam vsech epoch s 1 u tech k vyrazeni
-            chyby = obj.PsyData.GetErrorTrials();
-            epochsEx = [chyby , zeros(size(chyby,1),1) ]; %pridam dalsi prazdny sloupec
-            epochsEx(obj.RjEpoch,5)=1; %rucne vyrazene epochy podle EEG           
-            iEp = all(epochsEx==0,2); %index epoch k pouziti
+        function [iEpCh]=GetEpochsExclude(obj)
+            %vraci iEpCh (ch x epoch) = index epoch k vyhodnoceni - bez chyb, treningu a rucniho vyrazeni - pro kazdy kanal zvlast            
+            iEpCh = zeros(obj.channels,obj.epochs);            
+            for ch = 1:obj.channels
+                if isa(obj.PsyData,'CPsyDataMulti') || ch==1
+                    obj.PsyData.SubjectChange(find(obj.els >= ch,1));
+                    chyby = obj.PsyData.GetErrorTrials();
+                    epochsEx = [chyby , zeros(size(chyby,1),1) ]; %pridam dalsi prazdny sloupec
+                    epochsEx(obj.RjEpoch,5)=1; %rucne vyrazene epochy podle EEG           
+                    iEpCh(ch,:) = all(epochsEx==0,2)'; %index epoch k pouziti                    
+                else
+                    iEpCh(ch,:) = iEpCh(ch-1,:); %pokud se jedna o CPsyData s jednim subjektem, pro vsechny kanaly to bude stejne
+                end
+            end
+            
         end
             
         function obj = ResponseSearch(obj,timewindow,kats,opakovani,method)
@@ -370,24 +389,28 @@ classdef CiEEGData < handle
             % -- pokud jedna hodnota, je to sirka klouzaveho okna - maximalni p z teto delky
             %TODO - moznost spojit kategorie 
             assert(obj.epochs > 1,'only for epoched data');                       
-            if ~exist('method','var'), method = 'wilcox'; end  %defaultni metoda statistiky je wilcox test
+            if ~exist('method','var'), method = {'wilcox'}; end  %defaultni metoda statistiky je wilcox test
+            if ~iscell(method), method = {method,'chn1'}; end %predelam retezec na cell
+            if numel(method) < 2, method{2} = 'chn1'; end %druha polozka bude urcovat, jestli se ma vyhodnocovat vsechny kanaly (chnall), nebo kazdy kanal zvlast (chn1)
             
-            iEp = obj.GetEpochsExclude(); %ziska seznam epoch k vyhodnoceni
+            iEpCh = obj.GetEpochsExclude(); %ziska seznam Chs x Epochs k vyhodnoceni
+            iEp = true(obj.epochs,1); %musim predat nejaky parametr, ale uz ho ted nepotrebuju, kvuli iEpCh - 8.6.2018
             EEEGStat = CEEGStat(obj.d,obj.fs);
             WpA = obj.WpActive; %jen zkratka
             %CELKOVA SIGNIFIKANCE VUCI BASELINE - bez ohledu na kategorie
             baseline = [obj.epochtime(1) iff(obj.baseline(2)>obj.epochtime(1),obj.baseline(2),0)]; %zalezi jestli se baselina a epochtime prekryvaj
-            [P,ibaseline,iepochtime,itimewindow] = EEEGStat.WilcoxBaseline(obj.epochtime,baseline,timewindow,iEp,obj.RjEpochCh);   %puvodni baseline uz v epose nemam        
+            [Pbaseline,ibaseline,iepochtime,itimewindow] = EEEGStat.WilcoxBaseline(obj.epochtime,baseline,timewindow,iEp,obj.RjEpochCh | ~iEpCh);   %puvodni baseline uz v epose nemam        
                 %11.12.2017 - pocitam signifikanci hned po konci baseline
                 %ibaseline je cast iepochtime pred koncem baseline nebo pred casem 0
             if numel(timewindow) <= 1 %chci maximalni hodnotu p z casoveho okna
-                obj.Wp(WpA).D2 = P; %pole 2D signifikanci si ulozim kvuli kresleni - cas x channels                
+                obj.Wp(WpA).D2 = Pbaseline; %pole 2D signifikanci si ulozim kvuli kresleni - cas x channels                
             else
-                obj.Wp(WpA).D1 = P; %pole 1D signifikanci - jedna hodnota pro kazdy kanal            
+                obj.Wp(WpA).D1 = Pbaseline; %pole 1D signifikanci - jedna hodnota pro kazdy kanal            
             end
             obj.Wp(WpA).Dparams = timewindow; %hodnoty pro zpetnou kontrolu
             obj.Wp(WpA).Dfdr = 1;
             obj.Wp(WpA).DiEp = iEp; %index zpracovanych epoch 
+            obj.Wp(WpA).DiEpCh = iEpCh; %index zpracovanych epochCh, pro ruzne kanaly budou ruzna data je u tridy CHilbertMulti 
             obj.Wp(WpA).epochtime = obj.epochtime;
             obj.Wp(WpA).baseline = obj.baseline; %pro zpetnou kontrolu, zaloha parametru
             
@@ -416,7 +439,8 @@ classdef CiEEGData < handle
                     rjepchkat{k,1} = RjEpCh;
                 end
                 %provedu statisticke testy
-                [obj.Wp(WpA).WpKat,obj.Wp(WpA).WpKatBaseline] = EEEGStat.WilcoxCat(kats,responsekat,baselinekat,rjepchkat,itimewindow,method);                
+                if strcmp(method{2},'chnall'), Pbaseline = []; end %pokud chci delat statistiku pres vsechny kanaly, P vuci baseline smazu
+                [obj.Wp(WpA).WpKat,obj.Wp(WpA).WpKatBaseline] = EEEGStat.WilcoxCat(kats,responsekat,baselinekat,rjepchkat,itimewindow,method{1},Pbaseline);                
                 %ulozim parametry
                 if ~isempty(KATNUM) %pokud vyhodnocuju opakovani
                     obj.Wp(WpA).kats = KATNUM;    %puvodni kategorie
@@ -559,13 +583,13 @@ classdef CiEEGData < handle
             katsnames =  cell(1,numel(kats)+ size(kombinace,1));
             if dofig, figure('Name','IntervalyResp'); end
             ploth = zeros(1,max(numel(kats),size(kombinace,1))); %handles na jednotlive ploty, kvuli legende
-            for j = 1:size(intervaly,1) 
+            for int = 1:size(intervaly,1) 
                 legendstr = cell(1,max(numel(kats),size(kombinace,1)));
-                if dofig, subplot(min(2,size(intervaly,1)),ceil(size(intervaly,1) /2),j);  end %pro kazdy interval jiny subplot
+                if dofig, subplot(min(2,size(intervaly,1)),ceil(size(intervaly,1) /2),int);  end %pro kazdy interval jiny subplot
                 %spocitam prumery celkove i za kazdou kategorii v kazdem casovem intervalu
                 % dve cisla v kazdem sloupci - od do ve vterinach   
-                iintervalyData = min(round((intervaly(j,:)-obj.epochtime(1)).*obj.fs),size(obj.d,1)); % pro data kde je na zacatku baseline             
-                iintervalyStat = min(round(intervaly(j,:).*obj.fs),size(obj.Wp(obj.WpActive).WpKat{1,2},1)); % pro statistiku, kde na zacatku neni baseline              
+                iintervalyData = min(round((intervaly(int,:)-obj.epochtime(1)).*obj.fs),size(obj.d,1)); % pro data kde je na zacatku baseline             
+                iintervalyStat = min(round(intervaly(int,:).*obj.fs),size(obj.Wp(obj.WpActive).WpKat{1,2},1)); % pro statistiku, kde na zacatku neni baseline              
                 %katdata = obj.CategoryData(kats); 
                 %iCh = min(obj.Wp.D2(iintervalyStat(1):iintervalyStat(2),channels),[],1) < 0.05; %kanaly kde je signifikantni rozdil vuci baseline, alesponjednou
                 %prumery(iCh,j,1) = mean(mean(katdata(iintervalyData(1):iintervalyData(2),iCh,:),3),1); %prumer za vsechy epochy a cely casovy interval
@@ -574,74 +598,79 @@ classdef CiEEGData < handle
                 iChKats = false(2,numel(channels));  %dva radky pro rozdily vuci baselina a kategorii vuci sobe                                                                          
                 
                 %nejdriv samotne kategorie
-                Pmax = zeros(numel(kats),1); %sbiram maxima kategorii kvuli tomu kde posadit konrasty mezi kat
-                for k = 1: numel(kats) % cyklus pres kategorie - rozdil vuci baseline
-                    [katdata,~,RjEpCh] = obj.CategoryData(cellval(kats,k)); %time x channels x epochs
-                    iCh = min(obj.Wp(obj.WpActive).WpKatBaseline{k,1}(iintervalyStat(1):iintervalyStat(2),channels),[],1) < 0.05; %kanaly kde je signifikantni rozdil vuci baseline, alespon jednou
+                Pmax = zeros(numel(kats),1); %sbiram maxima kategorii kvuli tomu kde posadit kontrasty mezi kat
+                for kat = 1: numel(kats) % cyklus pres kategorie - rozdil vuci baseline
+                    [katdata,~,RjEpCh] = obj.CategoryData(cellval(kats,kat)); %time x channels x epochs
+                    iCh = min(obj.Wp(obj.WpActive).WpKatBaseline{kat,1}(iintervalyStat(1):iintervalyStat(2),channels),[],1) < 0.05; %kanaly kde je signifikantni rozdil vuci baseline, alespon jednou
                     fiCh = find(iCh); %absolutni cisla kanalu
-                    data = zeros(diff(iintervalyData)+1,sum(iCh)); 
-                    sub = zeros(1,sum(iCh)); 
-                    Wp = obj.Wp(obj.WpActive).WpKatBaseline{k,1}(iintervalyStat(1):iintervalyStat(2),iCh); %statistika jen pro vyber kanalu, kde je neco signif
-                    for ch = 1:sum(iCh) %musim jet po jednotlivych kanalech kvuli RjEpCh
-                        data(:,ch) = mean(katdata(iintervalyData(1):iintervalyData(2),fiCh(ch),~RjEpCh(fiCh(ch),:)),3); %prumer pres cas pro jeden kanal, pro nevyrazene epochy pro tento kanal
+                    data = zeros(diff(iintervalyData)+1,sum(iCh)); % samples x vybrane kanaly 
+                    sub = zeros(1,sum(iCh)); % indexy=cislo samplu maximalnich signif hodnot  
+                    Wp = obj.Wp(obj.WpActive).WpKatBaseline{kat,1}(iintervalyStat(1):iintervalyStat(2),iCh); %statistika jen pro vyber kanalu, kde je neco signif
+                    for ch = 1:sum(iCh) %musim jet po jednotlivych kanalech kvuli RjEpCh, ch je index v ramci je vybranych kanalu se signif rozdilem, takze fiCh
+                        %ted vyberu data jen z nevyrazenych epoch:
+                        data(:,ch) = mean(katdata(iintervalyData(1):iintervalyData(2),fiCh(ch),~RjEpCh(fiCh(ch),:)),3); %prumer pres epochy pro jeden kanal, pro nevyrazene epochy pro tento kanal
                         fitime = find(Wp(:,ch)<0.05); %indexy vzorku, kde je signif rozdil
-                        [~,subitime] = max(abs(data(fitime,ch))); %tohle vrati jen relativni indexy v ramci fitime
+                        %ted vyberu maximalni hodnotu jen ze signifikantnich vzorku - ziskam jeji index v data: 
+                        [~,subitime] = max(abs(data(fitime,ch))); % index maximalni absolutni hodnoty se signif rozdilem - jen relativni indexy v ramci fitime
                         sub(ch) = fitime(subitime); %prevedu na absolutni indexy v ramci data(:,ch)
-                    end
-                    %mean(katdata(iintervalyData(1):iintervalyData(2),iCh,:),3); %time x channels, uz jen vybrane kanaly, prumer pres epochy
-                    %[~,sub]= max(abs(data),[],1); %cisla radku pro kazdy kanal, kde je maximalni nebo minimalni hodnota
+                    end                                      
+                    %ted ziskam ty maximalni hodnoty pro vsechny kanaly:
                     ind = sub2ind(size(data),sub,1:size(data,2)); %predelam indexovani na absolutni = ne time x channels, ale 1-n
-                    prumery(iCh,j,k) = data(ind); %max nebo min hodnota z kazdeho kanalu                    
-                    P = squeeze(prumery(:,j,k));                    
-                    Pmax(k) = max(P);
+                    prumery(iCh,int,kat) = data(ind); %max nebo min hodnota z kazdeho kanalu                    
+                    P = squeeze(prumery(:,int,kat));  %max/min z kazdeho kanalu                  
+                    Pmax(kat) = max(P); %maximum pro kategorii pres vsechny kanaly
                     if dofig
-                        ploth(k) = plot(P','o-','Color',colorskat{k}); %kreslim tuto kategorii                       
+                        ploth(kat) = plot(P','o-','Color',colorskat{kat}); %kreslim tuto kategorii                       
                         hold on;
                     end
                     iChKats(1,:) = iChKats(1,:) | iCh; %pridam dalsi kanaly, kde je signif odpoved
                     
-                    if iscell(kats(k)) %mame tu vic kategorii proti vice - na jedne strane kontrastu
-                        kknames = cell(1,numel(kats{k})); %jmena individualnich kategorii na jedne strane kontrastu
-                        for kk = 1: numel(kats{k})
-                            kknames{kk}=katstr{kats{k}(kk)+1}; %katnum jsou od 0, katstr indexovany od 1
+                    if iscell(kats(kat)) %mame tu vic kategorii proti vice - na jedne strane kontrastu
+                        kknames = cell(1,numel(kats{kat})); %jmena individualnich kategorii na jedne strane kontrastu
+                        for kk = 1: numel(kats{kat})
+                            kknames{kk}=katstr{kats{kat}(kk)+1}; %katnum jsou od 0, katstr indexovany od 1
                         end
-                        katsnames{k} = strjoin(kknames,'+'); %vice kategorii
+                        katsnames{kat} = strjoin(kknames,'+'); %vice kategorii
                     else
-                        katsnames{k} = katstr{katnum==kats(k)}; %jde to udelat najednou bez for cyklu?
+                        katsnames{kat} = katstr{katnum==kats(kat)}; %jde to udelat najednou bez for cyklu?
                     end
-                    legendstr{k}=katsnames{k}; %pridam jmeno kategorie na zacatek [legendstr{k}]
+                    legendstr{kat}=katsnames{kat}; %pridam jmeno kategorie na zacatek [legendstr{k}]
                 end                
                 
                 yKombinace = ceil(max(Pmax)+0.5);
-                for k = 1:size(kombinace,1) %cyklus pres vsechny kombinace kategorii
-                    katdata1 = obj.CategoryData(cellval(kats,kombinace(k,1))); %time x channels x epochs 
-                    katdata2 = obj.CategoryData(cellval(kats,kombinace(k,2)));                     
-                    prumery1 = mean(katdata1(iintervalyData(1):iintervalyData(2),:,:),3); %prumer pres epochy a pak pres cas - kategorie 1
-                    prumery2 = mean(katdata2(iintervalyData(1):iintervalyData(2),:,:),3); %prumer pres epochy a pak pres cas - kategorie 2
-                    iCh = min(obj.Wp(obj.WpActive).WpKat{kombinace(k,2),kombinace(k,1)}(iintervalyStat(1):iintervalyStat(2),channels),[],1) < 0.05; %kanaly, kde je signifikantni rozdil mezi kategoriemi, alespon jednou
-                    %iCh2 = prumery1>0 | prumery2>0; %chci jen kladne odpovedi
-                    for ch = 1:size(iCh,2) 
-                        if iCh(ch) %jestli v tomhle kanalu signif rozdil %&& mean(prumery1(:,ch))>0 && mean(prumery2(:,ch))>0, a obe odpovedi jsou prumerne kladne
-                            p = prumery1(:,ch) - prumery2(:,ch);  %rozdil mezi kategoriemi pro jeden kanal pro vsechny vzorky                            
-                            iMax = find( p==max(abs(p)) | p==-max(abs(p))); %index maximalni absolutni hodnoty
-                            prumery(ch,j,k+numel(kats))=p(iMax); %#ok<FNDSB>
-                        end
+                for kat = 1:size(kombinace,1) %cyklus pres vsechny kombinace kategorii
+                    [katdata1, ~, RjEpCh1] = obj.CategoryData(cellval(kats,kombinace(kat,1))); %time x channels x epochs 
+                    [katdata2, ~, RjEpCh2] = obj.CategoryData(cellval(kats,kombinace(kat,2))); %druha vyssi kategorie, ktera se bude odecitat od te prvni
+                    iCh = min(obj.Wp(obj.WpActive).WpKat{kombinace(kat,2),kombinace(kat,1)}(iintervalyStat(1):iintervalyStat(2),channels),[],1) < 0.05; %kanaly, kde je signifikantni rozdil mezi kategoriemi, alespon jednou
+                    fiCh = find(iCh); %absolutni cisla kanalu
+                    data = zeros(diff(iintervalyData)+1,sum(iCh)); % samples x vybrane kanaly - tam budu ukladat rozdily mezi kategoriemi
+                    sub = zeros(1,sum(iCh)); % indexy=cislo samplu maximalnich signif hodnot  
+                    Wp = obj.Wp(obj.WpActive).WpKat{kombinace(kat,2),kombinace(kat,1)}(iintervalyStat(1):iintervalyStat(2),iCh); %statistika jen pro vyber kanalu, kde je signif rozdil
+                    for ch=1:sum(iCh)
+                        %ted vyberu data z nevyrazenych epoch a vypocitam rozdil
+                        data(:,ch) = mean(katdata1(iintervalyData(1):iintervalyData(2),fiCh(ch),~RjEpCh1(fiCh(ch),:)),3) - mean(katdata2(iintervalyData(1):iintervalyData(2),fiCh(ch),~RjEpCh2(fiCh(ch),:)),3);
+                        fitime = find(Wp(:,ch)<0.05); %indexy vzorku, kde je signif rozdil
+                        %ted vyberu maximalni hodnotu jen ze signifikantnich vzorku - ziskam jeji index v data: 
+                        [~,subitime] = max(abs(data(fitime,ch))); % index maximalni absolutni hodnoty se signif rozdilem - jen relativni indexy v ramci fitime
+                        sub(ch) = fitime(subitime); %prevedu na absolutni indexy v ramci data(:,ch)
                     end
-                    %p2 = max(p(iCh2),[],1);
-                    %prumery(iCh & iCh2,j,k+numel(kats)) = p;
-                    colorindex = colorkombinace{kombinace(k,2),kombinace(k,1)};
+                    %ted ziskam ty maximalni hodnoty pro vsechny kanaly:
+                    ind = sub2ind(size(data),sub,1:size(data,2)); %predelam indexovani na absolutni = ne time x channels, ale 1-n
+                    prumery(iCh,int,kat+numel(kats)) = data(ind); %max nebo min hodnota z kazdeho kanalu
+                    P = squeeze(prumery(:,int,kat+numel(kats)));  %max/min z kazdeho kanalu    
+                                
+                    colorindex = colorkombinace{kombinace(kat,2),kombinace(kat,1)};
                     if dofig %kreslim rozdily mezi odpovedmi pro kategorie                        
-                        ph = plot(prumery(:,j,k+numel(kats))+yKombinace,'o-','Color',colorskat{colorindex}); %kreslim tuto kombinaci kategorii nahoru                        
-                        if k>numel(kats), ploth(k) = ph; end %pokud je kombinaci vic nez kategorii, ulozim si handle, budu ho potrebovat na legendu
+                        ph = plot(P'+yKombinace,'o-','Color',colorskat{colorindex}); %kreslim tuto kombinaci kategorii nahoru                        
+                        if kat>numel(kats), ploth(kat) = ph; end %pokud je kombinaci vic nez kategorii, ulozim si handle, budu ho potrebovat na legendu
                     end
                     iChKats(2,:) = iChKats(2,:) | iCh ;  %pridam dalsi kanaly, kde je signif odpoved                    
-                    legendstr{colorindex}=[legendstr{colorindex} ';' katsnames{kombinace(k,1)} ' x ' katsnames{kombinace(k,2)} ];
-                    katsnames{k+numel(kats)} = [katsnames{kombinace(k,1)} ' x ' katsnames{kombinace(k,2)} ];
+                    legendstr{colorindex}=[legendstr{colorindex} ';' katsnames{kombinace(kat,1)} ' x ' katsnames{kombinace(kat,2)} ];
+                    katsnames{kat+numel(kats)} = [katsnames{kombinace(kat,1)} ' x ' katsnames{kombinace(kat,2)} ];
                 end  
                 
-                if dofig              
-                    legend(ploth,legendstr,'Location','best'); %samo to nejak umisti legendu co nejlepe, temi handely dam legendu jen nekam
-                    title(['interval: ' mat2str(intervaly(j,:))]);
+                if dofig                                  
+                    title(['interval: ' mat2str(intervaly(int,:))]);
                     xlim([-1 numel(channels)+1]);
                     %vykreslim jmena u signifikatnich kanalu
                     for ch = 1:numel(channels)                        
@@ -657,6 +686,7 @@ classdef CiEEGData < handle
                     end
                     text(0,yKombinace*1.1,'kontrasty mezi kat');
                     text(0,0.1,'kat vuci baseline');
+                    legend(ploth,legendstr,'Location','best'); %samo to nejak umisti legendu co nejlepe, temi handely dam legendu jen nekam
                 end                
                
             end 
@@ -737,9 +767,9 @@ classdef CiEEGData < handle
             for k=1:numel(kategories)
                 katnum = kategories(k);
                 subplot(1,numel(kategories),k);
-                [dkat,rt] = obj.CategoryData(katnum,sortrt);
-                E = 1:size(dkat,3); %cisla epoch - kazdou kategorii muze byt jine                
-                D = squeeze(dkat(:,ch,:)); %cas x epochs
+                [katdata,psy_rt] = obj.CategoryData(katnum,sortrt,[],ch);
+                E = 1:size(katdata,3); %cisla epoch - kazdou kategorii muze byt jine                
+                D = squeeze(katdata(:,ch,:)); %cas x epochs
                 if imgsc
                     imagesc(T,E,D'); %barevny colormap epoch
                 else
@@ -750,11 +780,11 @@ classdef CiEEGData < handle
                 xlabel('Time [s]');                
                 title(obj.PsyData.CategoryName(katnum));
                 hold on; 
-                if(max(rt)>0) %pokud jsou nejake reakcni casy, u PPA testu nejsou
+                if(max(psy_rt)>0) %pokud jsou nejake reakcni casy, u PPA testu nejsou
                     if numel(obj.epochtime)<3 || obj.epochtime(3)==0
-                        plot(rt,E,'-k','LineWidth',1); %cara reakcnich casu, nebo podnetu, pokud zarovnano podle reakce      
+                        plot(psy_rt,E,'-k','LineWidth',1); %cara reakcnich casu, nebo podnetu, pokud zarovnano podle reakce      
                     else
-                        plot(-rt,E,'-k','LineWidth',1); %cara reakcnich casu, nebo podnetu, pokud zarovnano podle reakce      
+                        plot(-psy_rt,E,'-k','LineWidth',1); %cara reakcnich casu, nebo podnetu, pokud zarovnano podle reakce      
                     end
                 end                
                 if imgsc
@@ -1056,7 +1086,7 @@ classdef CiEEGData < handle
             %TODO - popisky vic vlevo u zarovnani podle odpovedi
             %TODO vypsat i '( - )' jako neurology label
             %TODO trosku vetsi fonty - i co naseho corelu se bude hodit
-            %TODO - vodorovne cary odpovidajici odpovedim z psychopy
+            obj.PsyData.SubjectChange(find(obj.els >= ch,1)); %to je tu jen kvuli CHilbertMulti a tedy CPsyDataMulti
             rt = obj.PsyData.ReactionTime(); %reakcni casy podle kategorii, ve sloupcich
             
             %ZACINAM VYKRESLOVAT - NEJDRIV MEAN VSECH KATEGORII
@@ -1337,9 +1367,17 @@ classdef CiEEGData < handle
             header = obj.header;            %#ok<PROP,NASGU>
             sce = [obj.samples obj.channels obj.epochs]; %#ok<NASGU>
             if isobject(obj.PsyData)
-                PsyDataP = obj.PsyData.P;       %#ok<NASGU>         %ulozim pouze strukturu 
+                if isa(obj.PsyData,'CPsyDataMulti')
+                    PsyData = obj.PsyData; %#ok<NASGU> %v tomhle pripade budu ukladat cely objekt
+                    PsyDataP = []; testname = ''; %#ok<NASGU>
+                else
+                    PsyDataP = obj.PsyData.P;       %#ok<NASGU>         %ulozim pouze strukturu P
+                    testname = obj.PsyData.testname; %#ok<NASGU>
+                    PsyData = [];%#ok<NASGU>
+                end
             else
                 PsyDataP = []; %#ok<NASGU>
+                testname = ''; %#ok<NASGU>
             end
             epochtime = obj.epochtime;      %#ok<PROP,NASGU>
             baseline = obj.baseline;        %#ok<PROP,NASGU>
@@ -1360,12 +1398,12 @@ classdef CiEEGData < handle
             DatumCas = obj.DatumCas;        %#ok<PROP,NASGU>
             [pathstr,fname,ext] = CiEEGData.matextension(filename);        
             filename2 = fullfile(pathstr,[fname ext]);
-            save(filename2,'d','tabs','tabs_orig','fs','header','sce','PsyDataP','epochtime','baseline','CH_H','els',...
+            save(filename2,'d','tabs','tabs_orig','fs','header','sce','PsyDataP','PsyData','testname','epochtime','baseline','CH_H','els',...
                     'plotES','RjCh','RjEpoch','RjEpochCh','epochTags','epochLast','reference','epochData','Wp','DE','DatumCas', ...
                     'CH_filterMatrix','-v7.3');  
             disp(['ulozeno do ' filename2]); 
         end
-        function obj = Load(obj,filename)
+        function obj = Load(obj,filename,~,~)
             % nacte veskere promenne tridy ze souboru
             assert(exist(filename,'file')==2, 'soubor s daty neexistuje, nejde o data tridy CHilbert?');
             vars = whos('-file',filename) ;
@@ -1379,11 +1417,21 @@ classdef CiEEGData < handle
             obj.header = header;            %#ok<CPROPLC,CPROP,PROP> 
             obj.samples = sce(1); obj.channels=sce(2); obj.epochs = sce(3); %sumarni promenna sce
             vars = whos('-file',filename);
-            if ismember('PsyDataP', {vars.name})
+            if ismember('PsyDataP', {vars.name}) %ulozena pouze struktura P z PsyData
                 load(filename,'PsyDataP'); 
-                if ~isempty(PsyDataP), obj.PsyData = CPsyData(PsyDataP); end%  %vytvorim objekt psydata ze struktury
+                if ~isempty(PsyDataP)
+                    obj.PsyData = CPsyData(PsyDataP); %vytvorim objekt psydata ze struktury                    
+                end
+            end
+            if (~isprop(obj,'PsyData') || isempty(obj.PsyData)) && ismember('PsyData', {vars.name}) %pokud jsem nevytvoril objekt v predchozim if
+                load(filename,'PsyData');                 
+                obj.PsyData = PsyData ; %#ok<CPROPLC>  %  %drive ulozeny objekt, nez jsem zavedl ukladani struct nebo CPsyDataMulti                
+            end
+            if ismember('testname', {vars.name})
+                load(filename,'testname');
+                obj.PsyData.GetTestName(testname); %#ok<CPROPLC> %  %zjisti jmeno testu
             else
-                load(filename,'PsyData');  obj.PsyData = PsyData ; %#ok<CPROPLC,CPROP,PROP>  %  %drive ulozeny objekt, nez jsem zavedl ukladani struct
+                obj.PsyData.GetTestName(''); %#ok<CPROPLC> %  %zjisti jmeno testu
             end
             if obj.epochs > 1
                 if ismember('epochData', {vars.name}), load(filename,'epochData');  obj.epochData = epochData;   end  %#ok<CPROPLC,CPROP,PROP> 

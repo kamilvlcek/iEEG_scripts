@@ -1,4 +1,4 @@
-function [aedist] = aedist_data(pacientid,U1,U2,tabs)
+function [aedist] = aedist_data(pacientid,U1,U2,tabs,eegfile)
 %AEDIST_DATA vytvori a vraci strukturu s udalostmi experimentu AEdist
 % pacientid - id pacienta, napriklad p85, podle pojmenovani vystupni tabulky AEdistData.php.
 % U1 a U2 vystup z udalosti2() - casy synchropulsu k podnedu a odpovedi
@@ -42,5 +42,9 @@ aedist.strings.podminka = podminka; %kategorie, aby nazev byl stejny jako u PPA
 
 %timestampy zacatku a konce dat z testu
 aedist.interval = [tabs(1) tabs(end)];
+disp(['Aedist data od ' datestr(tabs(1),'dd-mmm-yyyy HH:MM:SS.FFF') ' do ' datestr(tabs(end),'dd-mmm-yyyy HH:MM:SS.FFF')]);
+
+aedist.eegfile = eegfile;
+aedist.pacientid = pacientid; %6.6.2018 - proc jsem to tam probuh nemel driv?
 end
 

@@ -1,4 +1,4 @@
-classdef CEpiEvents < handle
+classdef CEpiEvents < matlab.mixin.Copyable
     %CEPIEVENTS Trida na praci s epileptickymi eventy detekovanymi detektorem ISARG
     %Kamil Vlcek, FGU AVCR, since 2016 09   
     

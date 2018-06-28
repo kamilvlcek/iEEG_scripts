@@ -8,6 +8,7 @@ classdef CHilbertMulti < CHilbert
         blokyprehazej; %matrix s originalnimi cisly bloku a cisly bloku k prehazeni z noveho souboru. Meni se pro kazdy pridany soubor
            %plni se v GetEpochData
         filesimported = 0;
+        subjNames; %jmena subjektu z headeru
     end
     
     methods (Access = public)  
@@ -85,11 +86,11 @@ classdef CHilbertMulti < CHilbert
                     %vyrazene epochy x kanaly
                     obj.RjEpochCh = cat(1,obj.RjEpochCh,RjEpochCh); %spojim pres kanaly, pocet epoch musi by stejny                    
                     
-                    %PsychoPy data
-                    obj.GetPsyData(P,fileno);                    
-                    
                     %Hammer header
                     obj.GetHeader(H,fileno);
+                    
+                    %PsychoPy data
+                    obj.GetPsyData(P,fileno);                                                           
                     
                     %frekvencni data
                     obj.GetHfreq(Hf,Hfmean,HFreq);
@@ -192,14 +193,18 @@ classdef CHilbertMulti < CHilbert
         function obj = GetPsyData(obj,P,fileno)
             %pokud prvni soubor, ulozi P data
             %pokud dalsi soubor v poradi, ulozi P data z noveho souboru do zalohy v obj.ori            
+            if isempty(P.pacientid) %v nekterych starych datech to neni uvedeno
+                P.pacientid =  obj.subjNames{fileno}; %nahradim udajem z headeru, ktery jsem ziskal v GetHeader
+            end
             obj.orig(fileno).P = P; %psychopy data  
             if isempty(obj.PsyData)
-                obj.PsyData = CPsyData(P); %vytvorim objekt CPsyData - z prvniho souboru
-                obj.PsyData.RemoveTraining(); %odstranim treninkove trialy
+                obj.PsyData = CPsyDataMulti(P); %vytvorim objekt CPsyDataMulti - z prvniho souboru                
             else
-                obj.PsyData.P.pacientid = [ obj.PsyData.P.pacientid ',' P.pacientid]; %spojim pacient ID od vice pacientu
+                obj.PsyData.GetPsyData(P); %vlozim nova data pro tento subjekt a aktivuju je
+                %obj.PsyData.P.pacientid = [ obj.PsyData.P.pacientid ',' P.pacientid]; %spojim pacient ID od vice pacientu
                 %ostatni psydata zatim nepouzivam, reakcni uspesnost a rychlost bude u kazdeno jina
-            end
+            end            
+            obj.PsyData.RemoveTraining(); %odstranim treninkove trialy
         end
         function obj = GetEpochData(obj,epochData,fileno,test)
             %porovna poradi bloku v puvodnich souborej a novem souboru
@@ -229,7 +234,7 @@ classdef CHilbertMulti < CHilbert
             end           
             obj.orig(fileno).epochData = epochData; % ulozim original taky                        
         end
-        function obj = GetHeader(obj,H,f)
+        function obj = GetHeader(obj,H,fileno)
             %spoji header (kanaly) v puvodnich souborech a tom novem
             if isempty(obj.CH)
                 %GetHHeader@CHilbert(obj,H);  
@@ -239,7 +244,7 @@ classdef CHilbertMulti < CHilbert
                 obj.CH.chgroups = {1:numel(H.channels)};
                 obj.CH.els = numel(H.channels);                
             else
-                obj.CH.H.subjName = [obj.CH.H.subjName ',' H.subjName]; %spojim jmena subjektu
+                obj.CH.H.subjName = [obj.CH.H.subjName ',' H.subjName]; %spojim jmena subjektu                
                 CHfields = fieldnames(obj.CH.H.channels);
                 Hfields = fieldnames(H.channels); %nove pridavany header
                 if numel(CHfields) == numel(Hfields)
@@ -258,10 +263,11 @@ classdef CHilbertMulti < CHilbert
                 end
                 
                 obj.CH.H.selCh_H = [obj.CH.H.selCh_H  (1:numel(H.channels))+obj.CH.H.selCh_H(end) ];                
-                obj.CH.chgroups{f} = (1:numel(H.channels)) + obj.CH.els(f-1);
-                obj.CH.els(f) = numel(H.channels)+obj.CH.els(f-1);                
+                obj.CH.chgroups{fileno} = (1:numel(H.channels)) + obj.CH.els(fileno-1);
+                obj.CH.els(fileno) = numel(H.channels)+obj.CH.els(fileno-1);                
             end
-            obj.orig(f).H = H; %orignalni header ulozim, v kazdem pripade
+            obj.subjNames{fileno} = H.subjName;
+            obj.orig(fileno).H = H; %orignalni header ulozim, v kazdem pripade
         end
         function obj = GetEpochTime(obj,epochtime,baseline)
             %epochtime - cas epochy, napriklad -0.2 - 1.2, taky musi byt pro vsechny soubory stejne
@@ -279,8 +285,7 @@ classdef CHilbertMulti < CHilbert
         end
         function obj = GetStat(obj) %zatim neimportuju
             obj.Wp = [];
-        end
-      
+        end        
     end
     methods (Static,Access = public)
         function filenames = ExtractData(PAC,testname,filename,label,overwrite)
@@ -296,7 +301,7 @@ classdef CHilbertMulti < CHilbert
             
             for p = 1:numel(pacienti)                                
                 ipacienti = strcmp({PAC.pacient}, pacienti{p})==1; %indexy ve strukture PAC pro tohoto pacienta
-                E = pacient_load(pacienti{p},testname,filename);  %pokud spatny testname, zde se vrati chyba
+                E = pacient_load(pacienti{p},testname,filename,[],[],[],0);  %pokud spatny testname, zde se vrati chyba
                 if ~isempty(E) %soubor muze neexistovat, chci pokracovat dalsim souborem
                     [filename_extract,basefilename_extract] = E.ExtractData([PAC(ipacienti).ch],label,overwrite);
                     filenames{p,1} = filename_extract;
@@ -313,6 +318,7 @@ classdef CHilbertMulti < CHilbert
             if ~exist('filename','var') || isempty(filename) , filename = '*'; end %filename nemusim zadat, pak hledam cokoliv s timto label
             if ~exist('label','var') || isempty(label) , label = '*'; end 
             [pacienti,setup] = pacienti_setup_load( testname );
+            filename = strrep(filename,'_CHilb.mat',''); %funkce ExtractData pro zmenu vyzaduje tuhle priponu
             filenames = cell(0,4); %budu vrace vsechny nalezene udaje, nejen filename, kvuli prehledu
             for p = 1:numel(pacienti)
                path = [setup.basedir pacienti(p).folder filesep setup.subfolder filesep];
@@ -322,6 +328,11 @@ classdef CHilbertMulti < CHilbert
                end
                files_cell = struct2cell(files)';
                filenames = cat(1,filenames,files_cell(:,1:4)); %prevedu struct na cell array, jen prvni 4 sloupce
+            end
+            if numel(filenames) > 0
+                disp(['OK: nalezeno ' num2str(size(filenames,1)) ' souboru']);
+            else
+                disp('zadne soubory nenalezeny');
             end
         end
     end

@@ -33,8 +33,13 @@ end
 pauzyvdatech = kontrolacasu(tabs(iStart:iKonec),fs);
 if numel(pauzyvdatech) > 0
     disp('chyby datech mezi zacatkem a koncem');
-    m=input('Do you want to continue, Y/N [N]:','s');
-    if m~='y',  return; end    
+    m=input('Do you want to continue, y/n [n]:','s');
+    if m~='y'  
+        return; 
+    else
+        iP = pauzyvdatech<iKonec & pauzyvdatech>=iStart;
+        delka = delka - round(sum((tabs(pauzyvdatech(iP)+1)-tabs(pauzyvdatech(iP)))*24*3600));
+    end    
 end
 
 figure('Name','Synchronizace');
@@ -95,6 +100,9 @@ x = start;
     tsSTART = tabs(iSTART); %timestamp zacatku
     disp( ['zacatek: ' num2str(x) 's, timestamp: ' datestr(tsSTART,'dd-mmm-yyyy HH:MM:SS.FFF') ', iSTART: ' num2str(iSTART)]);
     iEND = konec*fs; %index konce v poli d a tabs
+    if(numel(pauzyvdatech))>0
+        iEND = iEND - floor(sum( (tabs(pauzyvdatech(iP)+1)-tabs(pauzyvdatech(iP)))*24*3600*fs) );
+    end
     tsEND = tabs(iEND); %timestamp konce
     disp( ['konec: ' num2str(konec) 's, timestamp: ' datestr(tsEND,'dd-mmm-yyyy HH:MM:SS.FFF') ', iEND: ' num2str(iEND)]);
    %keyboard; %zastavi a muzu se divat na promenne, pokracuju pomoci return
@@ -103,8 +111,7 @@ x = start;
 end
 
 function [dlouhe] = kontrolacasu(tabs,fs)
-tabsdiff = tabs(2:end)-tabs(1:end-1);   %rozdily timestampu
-tabsdiff = tabsdiff*24*3600*1000;       %rozdily v ms
+tabsdiff = diff(tabs)*24*3600*1000;       %rozdily timestampu v ms
 dlouhe = find(tabsdiff> (1/fs*1000*2)); %najit rozdily v casech vetsi nez dvojnasobek vzorkovaci frekvence
 if numel(dlouhe)  > 0
     disp(['pauzy v datech: ' num2str(numel(dlouhe))]);

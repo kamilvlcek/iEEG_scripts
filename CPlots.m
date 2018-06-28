@@ -1,4 +1,4 @@
-classdef CPlots < handle
+classdef CPlots < matlab.mixin.Copyable
     %CPLOTS Summary of this class goes here
     %   Detailed explanation goes here
     

@@ -7,10 +7,11 @@ classdef  CMorlet < CHilbert
         function obj = CMorlet(d,tabs,fs,mults,header)
             if ~exist('header','var'), header = []; end %nejakou hodnotu dat musim
             if ~exist('mults','var'),  mults = []; end %nejakou hodnotu dat musim
-            if ischar(d) && ~exist('tabs','var') %pokud je prvni parametr retezec, tak ho beru jako nazev souboru, ktery nactu
-                tabs=[]; fs = [];
+           if ischar(d) && ~exist('fs','var') %pokud je prvni parametr retezec, tak ho beru jako nazev souboru, ktery nactu
+                fs = []; 
+                if ~exist('tabs','var'), tabs=[]; end
                 % volani Load z CiEEGData mi zavola Load z CHilbert, takze d=filename predelavat nemusim
-            end
+            end 
             obj@CHilbert(d,tabs,fs,mults,header); %volani konstruktoru nemuze byt v if bloku 
             disp('vytvoren objekt CMorlet');             
         end

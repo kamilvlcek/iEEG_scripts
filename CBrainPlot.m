@@ -1,4 +1,4 @@
-classdef CBrainPlot < handle
+classdef CBrainPlot < matlab.mixin.Copyable
     %CBRAINPLOT Summary of this class goes here
     %   Detailed explanation goes here
     
@@ -12,7 +12,10 @@ classdef CBrainPlot < handle
         testname; %jmeno zpracovavaneho testu
         katstr_pacients;
         numelP; %pocty  signif elektrod pro kazdy pacient x interval x kategorie
-        pacients;         
+        pacients;    
+        filename; %jmeno zpracovavanych souboru
+        PAC; %struktura stejna jako vraci funkce StructFind, naplni se v IntervalyResp
+        iPAC; %index v poli PAC
     end
     
     methods (Access = public)        
@@ -35,15 +38,17 @@ classdef CBrainPlot < handle
             end
             obj.testname = testname;
             obj.intervals = intervals; 
+            obj.filename = filename;
             elcount = []; %jen inicializace            
             P = {}; M = {}; N = {}; %jen inicializace
+            obj.PAC = [];
             obj.pacients = cell(numel(pacienti),1); 
             obj.katstr_pacients = []; %musim to smazat, nize testuju, jestil to je prazdne
             obj.numelP = [];  %tam budu ukladat pocty elektrod pro kazdy pacient x interval x kategorie
             for p = 1:numel(pacienti) % cyklus pacienti
                 if pacienti(p).todo 
                     disp(['***   ' pacienti(p).folder '   ***']);
-                    E = pacient_load(pacienti(p).folder,testname,filename); %nejspis objekt CHilbert, pripadne i jiny
+                    E = pacient_load(pacienti(p).folder,testname,filename,[],[],[],0); %nejspis objekt CHilbert, pripadne i jiny; loadall = 0
                     if isempty(E)
                         disp('no data');
                         pacienti(p).todo = 0; %nechci ho dal zpracovavat
@@ -52,6 +57,7 @@ classdef CBrainPlot < handle
                     E.SetStatActive(contrast); %nastavi jeden z ulozenych statistickych kontrastu
                     [prumery, MNI,names,~,katstr] = E.IntervalyResp( intervals,[],0);   %#ok<PROPLC> %no figure, funkce z CiEEGData                           
                     obj.pacients{p} = pacienti(p).folder;
+                    obj.GetPAC(prumery,E.CH.H,pacienti(p).folder);
                     clear E;
                     if isempty(obj.katstr_pacients)
                         obj.katstr = [katstr 'AllEl']; %#ok<PROPLC> 
@@ -122,6 +128,29 @@ classdef CBrainPlot < handle
                 disp('zadny soubor nenalezen');
             end
         end
+        function [obj] = GetPAC(obj,prumery,H,pac_folder)
+            if isempty(obj.PAC)
+                obj.PAC = cell(size(prumery,2),size(prumery,3));
+                obj.iPAC = ones(size(prumery,2),size(prumery,3));
+            end
+            for interval = 1:size(prumery,2)
+                for kat = 1:size(prumery,3)
+                    if obj.iPAC(interval,kat) == 1
+                        obj.PAC{interval,kat} = {};
+                    end                    
+                    index = find(prumery(:,interval,kat)~=0);
+                    for ii = 1:numel(index)                
+                        obj.PAC{interval,kat}(obj.iPAC(interval,kat)).pacient = pac_folder; %#ok<AGROW>
+                        obj.PAC{interval,kat}(obj.iPAC(interval,kat)).ch = index(ii); %#ok<AGROW>
+                        obj.PAC{interval,kat}(obj.iPAC(interval,kat)).name = H.channels(index(ii)).name; %#ok<AGROW>
+                        obj.PAC{interval,kat}(obj.iPAC(interval,kat)).neurologyLabel = H.channels(index(ii)).neurologyLabel; %#ok<AGROW>
+                        obj.PAC{interval,kat}(obj.iPAC(interval,kat)).ass_brainAtlas = H.channels(index(ii)).ass_brainAtlas;%#ok<AGROW>
+                        obj.PAC{interval,kat}(obj.iPAC(interval,kat)).ass_cytoarchMap = H.channels(index(ii)).ass_cytoarchMap; %#ok<AGROW>
+                        obj.iPAC(interval,kat) = obj.iPAC(interval,kat) + 1;
+                    end
+                end
+            end
+        end
         function obj = ImportData(obj,BPD)
             %vlozi data, ktera jsem vytvoril pomoci CHilbert.ExtractBrainPlotData
             obj.VALS = BPD.VALS;
@@ -129,19 +158,37 @@ classdef CBrainPlot < handle
             obj.NAMES = BPD.NAMES;
             obj.katstr = BPD.katstr;
             obj.intervals = BPD.intervals;       
+            obj.testname = BPD.testname; 
         end
-        function PlotBrain3D(obj,kategorie,signum,outputDir) %#ok<INUSD>
+        function PlotBrain3D(obj,kategorie,signum,outputDir)
+            %vykresli jpg obrazky jednotlivych kategorii a kontrastu mezi nimi            
+            %TODO do jmena vystupniho jpg pridat i frekvence a referenci, aby se to neprepisovalo
+            %TODO je mozne ty signif vyexportovat a pak je nacist zase do CHilbertMulti?
+            %TODO do vystupni tabulky nejak dostat anatomickou lokalizaci?
             assert(~isempty(obj.VALS),'zadna data VALS');
+            plotSetup = {};
             if ~exist('kategorie','var') || isempty(kategorie) , kategorie = 1:size(obj.VALS,2); end %muzu chtit jen nektere kategorie
-            if ~exist('outputDir','var'), outputDir = 'd:\eeg\motol\CBrainPlot\'; end; %#ok<NASGU>   
+            if ~exist('outputDir','var')
+                plotSetup.outputDir = 'd:\eeg\motol\CBrainPlot\';    
+            else
+                plotSetup.outputDir = outputDir;
+            end
             if ~exist('signum','var'), signum = 0; end; %defaultni je rozdil kladny i zaporny
             if ~isempty(obj.brainsurface)
                 brainsurface = obj.brainsurface;  %#ok<PROPLC>
+            else
+                brainsurface = []; %#ok<PROPLC>
             end
             hybernovat = 0; %jestli chci po konci skriptu pocitac uspat - ma prednost
             vypnout = 0;  %jestli chci po konci skriptu pocitac vypnout (a nechci ho hybernovat)             
-            figureVisible = 'off';   %nechci zobrazovat obrazek 
-            tic; %zadnu meric cas
+            plotSetup.figureVisible = 'off';   %nechci zobrazovat obrazek 
+            plotSetup.FontSize = 4; 
+            plotSetup.myColorMap = iff(signum ~= 0,parula(128) ,jet(128));    %pokud jednostrane rozdily, chci parula
+            tablelog = cell(obj.pocetcykluPlot3D(kategorie,signum)+2,5); % z toho bude vystupni xls tabulka s prehledem vysledku
+            tablelog(1,:) = {datestr(now),obj.filename,'','',''}; %hlavicky xls tabulky
+            tablelog(2,:) = {'interval','kategorie','chname','mni','val'}; %hlavicky xls tabulky
+            iTL = 2; %index v tablelog
+            tic; %zadnu merit cas
             for interval = 1:size(obj.VALS,1) 
                 for kat = kategorie
                     if signum > 0 
@@ -157,36 +204,49 @@ classdef CBrainPlot < handle
 %                     elseif kat==size(obj.VALS,2) %posledni kategorie se vsemi kanaly
 %                         katname = 'AllEl';                    
 %                     end
-                    figureNamePrefix = [ obj.testname '_' mat2str(obj.intervals(interval,:))  '_' katname '_' num2str(signum) '_NOnames'];
-                    if strcmp(figureVisible,'off')
+                    
+                    if strcmp(plotSetup.figureVisible,'off')
                         disp('figures invisible');
                     end
-                    if numel(obj.VALS{interval,kat}(iV)) > 0
-                        disp(figureNamePrefix);
-                        vals_channels = obj.VALS{interval,kat}(iV); 
+                    plotSetup.figureNamePrefix = [ obj.testname '_' mat2str(obj.intervals(interval,:))  '_' katname '_' num2str(signum) '_NOnames'];
+                    if numel(obj.VALS{interval,kat}(iV)) > 0                        
+                        disp(plotSetup.figureNamePrefix);
+                        vals_channels = obj.VALS{interval,kat}(iV); %parametr  main_brainPlot
                         if signum ~= 0
-                            vals_channels = vals_channels*signum; %#ok<NASGU> %u zapornych hodnot prehodim znamenko
+                            vals_channels = vals_channels*signum; %u zapornych hodnot prehodim znamenko
                         end
-                        mni_channels = obj.MNI{interval,kat}(iV);   %#ok<NASGU>                                                                      
-                        names_channels = []; %#ok<NASGU> 
-                        FontSize = 4; %#ok<NASGU>   
-                        myColorMap = iff(signum ~= 0,parula(128) ,jet(128)); %#ok<NASGU>   %pokud jednostrane rozdily, chci parula
+                        mni_channels = obj.MNI{interval,kat}(iV);                                                                         
+                        names_channels = []; 
+                         
+                        if ~strcmp(obj.katstr{kat},'AllEl') %nechci to pro kategorii vsech elektrod
+                            for iV = 1:numel(vals_channels)
+                                tablelog(iV + iTL,:) = { sprintf('[%.1f %.1f]',obj.intervals(interval,:)),obj.katstr{kat}, obj.NAMES{interval,kat}{iV}, ...
+                                    sprintf('[%.1f,%.1f,%.1f]',mni_channels(iV).MNI_x, mni_channels(iV).MNI_y, mni_channels(iV).MNI_z), vals_channels(iV)};
+                            end
+                            iTL = iTL + numel(vals_channels);
+                        end
+                        
                         %nejdriv vykreslim bez popisku elektrod
-                        main_brainPlot; %volam Jirkuv skript, vsechny ty promenne predtim jsou do nej
+                        brainsurface = main_brainPlot(vals_channels,mni_channels,names_channels,brainsurface,plotSetup);  %#ok<PROPLC>
+                        %volam Jirkuv skript, vsechny ty promenne predtim jsou do nej
                         if isempty(obj.brainsurface)
                             obj.brainsurface = brainsurface; %#ok<PROPLC> %ulozim si ho pro dalsi volani
                         end
                         
                         %a pak jeste s popisy elektrod
-                        figureNamePrefix = [obj.testname '_' mat2str(obj.intervals(interval,:)) '_' katname '_' num2str(signum) '_names'];
-                        disp(figureNamePrefix);
-                        names_channels = obj.NAMES{interval,kat}; %#ok<NASGU>
-                        main_brainPlot;                     else
-                        disp(['zadne hodnoty pro ' figureNamePrefix ' - neukladam ']);
+                        plotSetup.figureNamePrefix = [obj.testname '_' mat2str(obj.intervals(interval,:)) '_' katname '_' num2str(signum) '_names'];
+                        disp(plotSetup.figureNamePrefix);
+                        names_channels = obj.NAMES{interval,kat};                         
+                        brainsurface = main_brainPlot(vals_channels,mni_channels,names_channels,brainsurface,plotSetup);    %#ok<PROPLC>  
+                        
+                    else
+                        disp(['zadne hodnoty pro ' plotSetup.figureNamePrefix ' - neukladam ']);
                     end
                 end
             end
             toc; %ukoncim mereni casu a vypisu
+            logfilename = ['logs\PlotBrain3D_' obj.testname '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') ];
+            xlswrite([plotSetup.outputDir logfilename '.xls'],tablelog); %zapisu do xls tabulky
             if hybernovat
                 system('shutdown -h')  %#ok<UNRCH>
             elseif vypnout            
@@ -200,7 +260,7 @@ classdef CBrainPlot < handle
             %struktura je nazev struktury podle atlas napriklad hippo, label je kratky nazev podle martina, napriklad hi
             if ~exist('label','var'),    label = struktura; end %defaultni test
             if ~exist('testname','var') || isempty(testname), testname = 'aedist'; end %defaultni test
-            if ~exist('reference','var'), reference = []; end %defaultni test
+            if ~exist('reference','var') || isempty(reference), reference = []; end %defaultni test
             if ischar(struktura), struktura = {struktura}; end %prevedu na cell array
             if ischar(label), label = {label}; end %prevedu na cell array
             [ pacienti, setup ] = pacienti_setup_load( testname );
@@ -265,6 +325,57 @@ classdef CBrainPlot < handle
                  end
              end
              PAC = cell2struct(raw(2:end,:),raw(1,:),2)';  %originalni PAC struktura z StructFind ma rozmer 1 x N, takze transponuju z excelu
+             disp( [ basename(xlsfile) ': soubor nacten']);
+        end
+        function MIS = StructFindErr(testname)
+            [ pacienti, setup ] = pacienti_setup_load( testname );
+            load('BrainAtlas_zkratky.mat');
+            MIS = {}; %pacient, ch, zkratka-  z toho bude vystupni xls tabulka s prehledem vysledku            
+            iMIS = 1;
+            for p = 1:numel(pacienti)
+                disp(['* ' pacienti(p).folder ' - ' pacienti(p).header ' *']);
+                hfilename = [setup.basedir pacienti(p).folder '\' pacienti(p).header];                
+                if exist(hfilename,'file')==2
+                    load(hfilename);
+                else
+                    disp(['header ' hfilename ' neexistuje']);
+                    continue; %zkusim dalsiho pacienta, abych vypsal, ktere vsechny headery neexistujou
+                end  
+                for ch = 1:numel(H.channels)
+                    z = strsplit(H.channels(ch).neurologyLabel,{'/','(',')'});
+                    for iz = 1:numel(z)
+                        if isempty(find(~cellfun('isempty',strfind(lower(BrainAtlas_zkratky(:,1)),lower(z{iz}))), 1)) %#ok<NODEF>
+                           MIS(iMIS).pac = pacienti(p).folder; %#ok<AGROW>
+                           MIS(iMIS).ch = ch; %#ok<AGROW>
+                           MIS(iMIS).neurologyLabel = H.channels(ch).neurologyLabel; %#ok<AGROW>
+                           MIS(iMIS).label = z{iz}; %#ok<AGROW>
+                           MIS(iMIS).brainAtlas = H.channels(ch).ass_brainAtlas; %#ok<AGROW>
+                           MIS(iMIS).cytoarchMap = H.channels(ch).ass_cytoarchMap; %#ok<AGROW>
+                           iMIS = iMIS+ 1;
+                        end
+                    end
+                end
+            end
+        end
+    end
+    methods (Access=private)
+        function n = pocetcykluPlot3D(obj,kategorie,signum)
+            %spocita kolik kanalu celkem vykresli PlotBrain3D pro tyto parametry
+            n = 0; 
+            for interval = 1:size(obj.VALS,1)  
+                for kat = kategorie
+                    if ~strcmp(obj.katstr{kat},'AllEl') %nechci to pro kategorii vsech elektrod
+                        if signum > 0 
+                            iV = obj.VALS{interval,kat} > 0; %jen kladne rozdily
+                        elseif signum <0 
+                            iV = obj.VALS{interval,kat} < 0; %jen zaporne rozdily
+                        else
+                            iV = true(size(obj.VALS{interval,kat})); %vsechny rozdily
+                        end
+                        n = n + numel(obj.VALS{interval,kat}(iV));
+                    end
+                end
+            end
         end
     end
     

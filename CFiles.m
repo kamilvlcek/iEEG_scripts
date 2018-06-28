@@ -1,4 +1,4 @@
-classdef CFiles < handle
+classdef CFiles < matlab.mixin.Copyable
     %CFILES Summary of this class goes here
     %   Detailed explanation goes here
     
@@ -9,6 +9,7 @@ classdef CFiles < handle
     methods (Access = public)  
         function filenames = FindFiles(obj,testname, mask)
             %najde vsechny CHilb soubory pro konkretni test, a udela xls tabulku s parametry ve sloupcich
+            %maska muze vypadat napriklad *epievents*
             if ~exist('mask','var') || isempty(mask) , mask = '*'; end 
             [pacienti,setup] = pacienti_setup_load( testname );           
             filenames = cell(0,14); %budu vrace vsechny nalezene udaje, nejen filename, kvuli prehledu

@@ -1,4 +1,4 @@
-classdef CPsyData < handle
+classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
     %CPSYDATA Trida na praci s behavioralnimi daty z psychopy
     %   vytvorena pomoci ppa_data.m, aedist_data.m aj
     % Kamil Vlcek, FGU AVCR, since 2016 04
@@ -7,6 +7,7 @@ classdef CPsyData < handle
         P; %psychopy behavioural data
         fhR; %figure handle from PlotResponses
         warning_rt=false; %jestli uz byl warning o reakcnich casech
+        testname; %jmeno testu, ze ktereho jsou data
     end
     
     methods (Access = public)
@@ -17,6 +18,25 @@ classdef CPsyData < handle
             if ~isfield(psy,'pacientid'), obj.P.pacientid = ''; end
             if ~isfield(psy,'eegfile'), obj.P.eegfile = ''; end
             obj.DoplnZpetnavazba();
+            obj.testname = obj.GetTestName(inputname(1));
+        end
+        function [obj] = SubjectChange(obj,~)
+            %jen prazdna funkce, ale pretezuju ji v CPsyDataMulti, a naplnuju obsahem
+            % v tehle trida mam jen jeden subjekt
+        end
+        function [testname2] = GetTestName(obj,testname)  
+            %zjisti jmeno testu, ze ktereho jsou data            
+            if strcmp(testname,'aedist') || strcmp(testname,'menrot') || strcmp(testname,'ppa')
+                testname2 = testname;
+            elseif strcmp(obj.P.strings.podminka{1,1},'cervena')
+                testname2 = 'aedist';
+            elseif strcmp(obj.P.strings.podminka{1,1},'vy-2D')
+                testname2 = 'menrot';
+            elseif strcmp(obj.P.strings.podminka{1,1},'Ovoce')
+                testname2 = 'ppa';
+            else
+                testname2 = '';
+            end
         end
         function rt = ReactionTime(obj,nokategories)
             %vrati matici vsech reakcnich casu roztridenych do sloupcu podle kategorii podnetu            
@@ -152,11 +172,11 @@ classdef CPsyData < handle
             %nakresli graf rychlosti vsech odpovedi a bloku, vcetne chyb a uspesnosti za blok
             S = obj.P.sloupce;
             test = obj.P.data(:,:); %vyberu vsechny trialy
-            if isempty(obj.fhR)
-                obj.fhR = figure('Name','Responses');
-            else
+            if isfield(obj,'fh') && ishandle(obj.fhR) 
                 figure(obj.fhR); %pokud uz graf existuje, nebudu tvorit znova
                 clf; %smazu aktualni figure
+            else                
+                obj.fhR = figure('Name','Responses');
             end
             plot(test(:,S.rt),'-o');
             hold on;
