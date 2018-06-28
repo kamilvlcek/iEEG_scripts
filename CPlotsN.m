@@ -12,7 +12,7 @@ classdef CPlotsN < handle
         
         function obj = CPlotsN(E, HOrigData)
             obj.E = E;
-            if ~exist('HOrigData', 'var')
+            if ~exist('HOrigData', 'var') || isempty(HOrigData)
                 obj.HOrigData = downsample(E.d,E.decimatefactor);
             else
                 obj.HOrigData = HOrigData;
@@ -318,6 +318,8 @@ classdef CPlotsN < handle
         
         function [itpc, itpc_p, itpc_pmean] = CalculateITPC(obj, channels)
             % itpc = ch x condition x time x fq
+            % itpc_p ch x condition x time x fq - p values
+            % itpc_pmean ch x condition x time - p values z mean itpc pres frekvence
             if ~exist('channels', 'var') 
                 channels = 1:obj.E.channels; 
             end
@@ -343,6 +345,7 @@ classdef CPlotsN < handle
         end
         
         function [ditpc, ditpc_p, ditpc_pmean] = CalculateITPCdiffs(obj, channels, diffs)
+            %stejne jako CalculateITPC ale pro rozdil 
             if ~exist('channels', 'var') 
                 channels = 1:obj.E.channels; 
             end
@@ -647,8 +650,8 @@ classdef CPlotsN < handle
             %vrati indexy vsetkych spravnych epoch pre dany channel a condition
             %napr. aedist condition 0=cervena, 1=vy, 2=znacka, 9=all
             
-            [iEp,~] = obj.E.GetEpochsExclude();
-            iEp = find(iEp); %indexy nenulovych prvkov na vyradenie
+            iEp = obj.E.GetEpochsExclude();
+            iEp = find(squeeze(iEp(channel,:))); %indexy nenulovych prvkov na vyradenie
             if icondition ~= 9 %ak chceme len jednu konkretnu condition
                 iEp = intersect(iEp,find(obj.E.PsyData.P.data(:,obj.E.PsyData.P.sloupce.kategorie) == icondition));
             end

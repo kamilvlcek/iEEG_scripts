@@ -178,7 +178,20 @@ classdef CHilbert < CiEEGData
                  obj.HFreq = Hfreq2;
             end
         end
-        
+        function GetITPC(obj)
+            assert(obj.epochs > 1, 'data musi byt epochovana');
+            PN = CPlotsN(obj);
+            [itpc, itpc_p, itpc_pmean] = PN.CalculateITPC();
+            % d = time x channel x epoch
+            itpc = permute(itpc,[3 1 4 2]); %time x channel x freq x epoch
+            obj.HFreq = itpc; 
+            obj.d = squeeze(mean(itpc,3)); %prumer pres frekvence            
+            obj.PsyData.Cond2Epochs();            
+            obj.RejectEpochs([],[]);
+            obj.RjEpoch = [];
+            obj.epochs = size(itpc,4); 
+            %TODO - import stat
+        end
         function obj = Decimate(obj,podil,rtrim)
             %zmensi frekvencni data na nizsi vzorkovaci frekvenci
             if ~exist('rtrim','var') || isempty(rtrim), rtrim = []; end 

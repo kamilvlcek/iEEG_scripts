@@ -313,7 +313,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             %pokud opak>0, vraci jen jedno opakovani obrazku - hlavne kvuli PPA test 
             %vraci i epochy k vyrazeni pro kazdy kanal (uz s globalne vyrazenymi epochami)
             %  vyradit rovnou je nemuzu, protoze pocet epoch v d pro kazdy kanal musi by stejny
-            assert(obj.epochs > 1,'data not yet epoched'); %vyhodi chybu pokud data nejsou epochovana
+            assert(obj.epochs > 1,'data not yet epoched'); %vyhodi chybu pokud data nejsou epochovana            
             assert(obj.channels == size(obj.RjEpochCh,1),'RjEpochCh: spatny pocet kanalu');
             if exist('opak','var') && ~isempty(opak)
                 epochyopak = obj.PsyData.GetOpakovani(); %cislo opakovani pro kazdou epochu
@@ -324,8 +324,10 @@ classdef CiEEGData < matlab.mixin.Copyable
             if ~exist('ch','var') ch = []; end 
             iEpCh = obj.GetEpochsExclude(); %seznam epoch ktere nejsou vyrazene 
             iEpochy = [ ismember(cell2mat(obj.epochData(:,2)),katnum) , iOpak]; %seznam epoch v ramci kategorie ve sloupci + epochy, ktere nejsou excludovane
-            d = obj.d(:,:,all(iEpochy,2)); %epochy z kategorie, ktere nejsou excludovane = maji ve vsech sloupcich 1
+            d = obj.d(:,:,all(iEpochy,2)); %epochy z kategorie, ktere nejsou excludovane = maji ve vsech sloupcich 1            
             RjEpCh = obj.RjEpochCh(:,all(iEpochy,2)) | ~iEpCh(:,all(iEpochy,2)); %epochy k vyrazeni u kazdeho kanalu - jen pro zbyvajici epochy
+            
+            
             
             if ~isempty(ch) %reakcni cas pocitam, jen kdyz vim pro jaky kanal - 8.6.2018 kvuli CPsyDataMulti
                 obj.PsyData.SubjectChange(find(obj.els >= ch,1));
@@ -384,9 +386,9 @@ classdef CiEEGData < matlab.mixin.Copyable
             iEpCh = zeros(obj.channels,obj.epochs);            
             for ch = 1:obj.channels
                 if isa(obj.PsyData,'CPsyDataMulti') || ch==1                    
-                    PsyData = obj.PsyData.copy(); %nechci menit puvodni tridu
-                    PsyData.SubjectChange(find(obj.els >= ch,1));
-                    chyby = PsyData.GetErrorTrials();
+                    PsyData = obj.PsyData.copy(); %#ok<PROP> %nechci menit puvodni tridu
+                    PsyData.SubjectChange(find(obj.els >= ch,1)); %#ok<PROP>
+                    chyby = PsyData.GetErrorTrials(); %#ok<PROP>
                     epochsEx = [chyby , zeros(size(chyby,1),1) ]; %pridam dalsi prazdny sloupec
                     epochsEx(obj.RjEpoch,5)=1; %rucne vyrazene epochy podle EEG           
                     iEpCh(ch,:) = all(epochsEx==0,2)'; %index epoch k pouziti                 
