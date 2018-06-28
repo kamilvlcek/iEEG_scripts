@@ -213,17 +213,17 @@ classdef CBrainPlot < matlab.mixin.Copyable
                     if strcmp(plotSetup.figureVisible,'off')
                         disp('figures invisible');
                     end
-                    plotSetup.figureNamePrefix = [ obj.testname '_' mat2str(obj.intervals(interval,:))  '_' katname '_' num2str(signum) ...
+                    figureNameNames = [ obj.testname '_' mat2str(obj.intervals(interval,:))  '_' katname '_' num2str(signum) ...
+                            '_' num2str(obj.Hf(1)) '-' num2str(obj.Hf(end)) '_' obj.reference '_names'];
+                    figureNameNoNames = [ obj.testname '_' mat2str(obj.intervals(interval,:))  '_' katname '_' num2str(signum) ...
                             '_' num2str(obj.Hf(1)) '-' num2str(obj.Hf(end)) '_' obj.reference '_NOnames'];
-                    if numel(obj.VALS{interval,kat}(iV)) > 0 && (isempty(dir([ plotSetup.outputDir '3D_model\' plotSetup.figureNamePrefix '*'])) || overwrite==1 )
-                        disp(plotSetup.figureNamePrefix);
+                    if numel(obj.VALS{interval,kat}(iV)) > 0
                         
                         vals_channels = obj.VALS{interval,kat}(iV); %parametr  main_brainPlot
                         if signum ~= 0
                             vals_channels = vals_channels*signum; %u zapornych hodnot prehodim znamenko
                         end
-                        mni_channels = obj.MNI{interval,kat}(iV);                                                                         
-                        names_channels = []; 
+                        mni_channels = obj.MNI{interval,kat}(iV);                                                                                                 
                          
                         if ~strcmp(obj.katstr{kat},'AllEl') %nechci to pro kategorii vsech elektrod
                             for iV = 1:numel(vals_channels)
@@ -234,22 +234,33 @@ classdef CBrainPlot < matlab.mixin.Copyable
                         end
                         
                         %nejdriv vykreslim bez popisku elektrod
-                        brainsurface = main_brainPlot(vals_channels,mni_channels,names_channels,brainsurface,plotSetup);  %#ok<PROPLC>
-                        %volam Jirkuv skript, vsechny ty promenne predtim jsou do nej
-                        if isempty(obj.brainsurface)
-                            obj.brainsurface = brainsurface; %#ok<PROPLC> %ulozim si ho pro dalsi volani
+                        if isempty(dir([ plotSetup.outputDir '3D_model\' figureNameNoNames '*'])) || overwrite==1 
+                            plotSetup.figureNamePrefix = figureNameNoNames;
+                            disp(plotSetup.figureNamePrefix);
+                            names_channels = []; 
+                            brainsurface = main_brainPlot(vals_channels,mni_channels,names_channels,brainsurface,plotSetup);  %#ok<PROPLC>
+                            %volam Jirkuv skript, vsechny ty promenne predtim jsou do nej
+                            if isempty(obj.brainsurface)
+                                obj.brainsurface = brainsurface; %#ok<PROPLC> %ulozim si ho pro dalsi volani
+                            end
+                        else
+                            disp(['soubor uz existuje ' figureNameNoNames ' - neprepisuju ']);
                         end
                         
                         %a pak jeste s popisy elektrod                        
-                        plotSetup.figureNamePrefix = [ obj.testname '_' mat2str(obj.intervals(interval,:))  '_' katname '_' num2str(signum) ...
-                            '_' num2str(obj.Hf(1)) '-' num2str(obj.Hf(end)) '_' obj.reference '_names'];
-                        disp(plotSetup.figureNamePrefix);
-                        names_channels = obj.NAMES{interval,kat};                         
-                        brainsurface = main_brainPlot(vals_channels,mni_channels,names_channels,brainsurface,plotSetup);    %#ok<PROPLC>  
-                    elseif  numel(obj.VALS{interval,kat}(iV)) == 0  
-                        disp(['zadne hodnoty pro ' plotSetup.figureNamePrefix ' - neukladam ']);
-                    else
-                        disp(['soubor uz existuje ' plotSetup.figureNamePrefix ' - neprepisuju ']);
+                        if isempty(dir([ plotSetup.outputDir '3D_model\' figureNameNames '*'])) || overwrite==1 
+                            plotSetup.figureNamePrefix = figureNameNames;
+                            disp(plotSetup.figureNamePrefix);
+                            names_channels = obj.NAMES{interval,kat};                         
+                            brainsurface = main_brainPlot(vals_channels,mni_channels,names_channels,brainsurface,plotSetup);    %#ok<PROPLC>  
+                            if isempty(obj.brainsurface)
+                                obj.brainsurface = brainsurface; %#ok<PROPLC> %ulozim si ho pro dalsi volani
+                            end
+                        else
+                            disp(['soubor uz existuje ' figureNameNames ' - neprepisuju ']);
+                        end
+                    else  
+                        disp(['zadne hodnoty pro ' plotSetup.figureNamePrefix ' - neukladam ']);                                         
                     end
                 end
             end

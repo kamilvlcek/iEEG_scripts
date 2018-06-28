@@ -17,7 +17,7 @@ for kontrast = 1:numel(kontrasts) %cyklus jen na vypocet celkoveho poctu cyklu p
 end
 
 overwrite_extracts = 1; %jestli se maji prepisovat extrakty pro kazdeho pacienta
-overwrite_brainplots = 1;
+overwrite_brainplots = 0;
 overwriteCM = 0; %jestli se maji prepisovat soubory CHilbertMulti
 cyklus = 1;
 pocetextracts = 1;
