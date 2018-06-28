@@ -13,6 +13,7 @@ classdef CHilbert < CiEEGData
         hfilename; %jmeno souboru CHilbert  
         plotF = struct; %udaje o stavu plotu PlotResponseFreq
         fphase; %faze vsech zpracovavanych frekvenci - premiestnene z CMorlet pre vykreslenie a porovnanie faz z MW a Hilberta do buducna        
+        frealEpochs; % epochovane filtrovane eeg
     end
     methods (Access = public)
         %% ELEMENTAL FUNCTIONS 
@@ -68,8 +69,7 @@ classdef CHilbert < CiEEGData
                     hiF = freq1(fno)-0.1 +prekryv*(freq1(fno)-freq(fno));  %napr 50 - 59.9
                     hh = CHilbert.hilbertJirka(d,loF,hiF,fs); %cista hilbertova obalka, tohle i skript hodne zrychli
                     hh = decimate(hh,decimatefactor); % mensi sampling rate                    
-                    HFreq(:,ch,fno) = (hh./mean(hh));  %#ok<PROPLC> % %hh; povodna normalizacia (hh./mean(hh)) premiestnena do funkcie Normalize
-                    %normalizace zase docasne vracena, viz poznamky ve funkci normalize
+                    HFreq(:,ch,fno) = hh;  %#ok<PROPLC> povodna normalizacia (hh./mean(hh)) premiestnena do funkcie Normalize
                     %fprintf('%i Hz, ',loF);
                 end
                 %fprintf('\n'); %tisk znova na stejnou radku
@@ -93,7 +93,6 @@ classdef CHilbert < CiEEGData
         function obj = Normalize(obj, type, channels)
          %function for different normalization methods
          %to be used after PasmoFrekvence
-         %TODO 2018-04-20 - tohle se neda pouzivat, protoze se nenormalizuje d - a to se ma normalizovat pro kazde f pasmo zvlast
          %TODO musi se osetrit, kdyz je prumer 0
             if ~exist('channels','var'), channels = 1:obj.channels; end
             switch type
@@ -144,9 +143,11 @@ classdef CHilbert < CiEEGData
                  if freqepochs
                      obj.HFreqEpochs = zeros(iepochtime(2)-iepochtime(1),size(obj.HFreq,2),size(obj.HFreq,3),obj.epochs); % time x channel x frequency x epoch
                      obj.fphaseEpochs = zeros(iepochtime(2)-iepochtime(1),size(obj.HFreq,2),size(obj.HFreq,3),obj.epochs); % time x channel x frequency x epoch
+                     obj.frealEpochs = zeros(iepochtime(2)-iepochtime(1),size(obj.HFreq,2),size(obj.HFreq,3),obj.epochs); % time x channel x frequency x epoch
                  else
                      obj.HFreqEpochs = [];
                      obj.fphaseEpochs = [];
+                     obj.frealEpochs = [];
                  end
                  %cyklus po kategoriich ne po epochach
                  for katnum = kategorie' %potrebuji to v radcich
@@ -162,6 +163,11 @@ classdef CHilbert < CiEEGData
                                 if isprop(obj,'fphase') && ~isempty(obj.fphase)
                                     obj.fphaseEpochs(:,ch,:,epoch) = obj.fphase(izacatek + iepochtime(1) : izacatek + iepochtime(2)-1, ch, :);
                                 end
+                                
+                                if isprop(obj,'freal') && ~isempty(obj.freal)
+                                    obj.frealEpochs(:,ch,:,epoch) = obj.freal(izacatek + iepochtime(1) : izacatek + iepochtime(2)-1, ch, :);
+                                end
+
                             end
                             Hfreq2(:,ch,:,katnum+1) = Hfreq2(:,ch,:,katnum+1) + epoch_data; %soucet power pro kategorii, pres prislusne epochy
                             %tady se mi to mozna odecetlo blbe? KOntrola
@@ -288,7 +294,8 @@ classdef CHilbert < CiEEGData
                 yrange = obj.yrange; %#ok<NASGU>
                 fphase = obj.fphase; %#ok<NASGU,PROPLC> %15.5.2018
                 fphaseEpochs = obj.fphaseEpochs; %#ok<NASGU,PROPLC> %15.5.2018
-                save(CHilbert.filenameH(filename),'HFreq','Hf','Hfmean','HFreqEpochs','yrange','fphase','fphaseEpochs','-v7.3'); %do druheho souboru data z teto tridy
+                frealEpochs = obj.frealEpochs;  %#ok<NASGU,PROPLC> %30.5.2018
+                save(CHilbert.filenameH(filename),'HFreq','Hf','Hfmean','HFreqEpochs','frealEpochs','yrange','fphase','fphaseEpochs','-v7.3'); %do druheho souboru data z teto tridy
             end
         end
         
@@ -327,6 +334,11 @@ classdef CHilbert < CiEEGData
                         load(filename,'fphaseEpochs');      obj.fphaseEpochs = fphaseEpochs; %#ok<CPROPLC>
                     else
                         obj.fphaseEpochs = [];
+                end
+                if ismember('frealEpochs', {vars.name}) %15.5.2018
+                    load(filename,'frealEpochs');      obj.frealEpochs = frealEpochs; %#ok<CPROPLC>
+                else
+                    obj.frealEpochs = [];
                     end
                 else
                     obj.HFreqEpochs = [];
