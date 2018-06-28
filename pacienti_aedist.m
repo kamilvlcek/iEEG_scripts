@@ -5,7 +5,7 @@ function [ pacienti ] = pacienti_aedist()
 
 pacienti = struct;
 p = 1;
-pacienti(p).todo = 1;
+pacienti(p).todo = 0; %docasne ho nechci do analyzy, protoza ma jiny pocet epoch a nesedi do CHIlbertMulti
 pacienti(p).folder = 'p073 Pech VT6';
 pacienti(p).data = 'VT6_INV Test Vlcek1_X_aedist.mat'; %'VT6_INV Test Vlcek1_X_aedist.mat';
 pacienti(p).header = 'p73_headerX.mat'; % p73_header.mat je ten nejnovejsi od Jirky - 26.5.2017 'p73_header_kamil.mat';
@@ -255,7 +255,7 @@ pacienti(p).rjch = [47 84];
 p=p+1;
 pacienti(p).todo = 1;
 pacienti(p).folder = 'p099 Hos VT33';
-pacienti(p).data = 'VT33_2018-03-23_10-33_001_aedist.mat';
+pacienti(p).data = 'VT33_2018-03-23_10-33_001_aedist_512hz.mat';
 pacienti(p).header = 'p099_header.mat';
 pacienti(p).psychopy = 'p099_aedist.mat';
 pacienti(p).rjepoch = 'p099_aedist_rjepoch.mat'; %2018-05
