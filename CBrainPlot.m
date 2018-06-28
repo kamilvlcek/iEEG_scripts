@@ -64,7 +64,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
                     obj.Hf = E.Hf;
                     clear E;
                     if isempty(obj.katstr_pacients)
-                        obj.katstr = [katstr 'AllEl']; %#ok<PROPLC> 
+                        obj.katstr = [katstr 'AllEl']; %#ok<PROPLC> %katstr se ziskava z IntervalyResp
                         obj.katstr_pacients = cell(numel(pacienti),numel(katstr)); %#ok<PROPLC>
                         obj.numelP = zeros(numel(pacienti),size(intervals,1),numel(katstr)+1); %#ok<PROPLC> %tam budu ukladat pocty elektrod pro kazdy interval a pacienta
                         elcount = zeros(size(prumery,2),size(prumery,3)+1); %pocet elektrod pro kazdy casovy interval a kategorii - interval x kategorie
@@ -166,7 +166,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
             obj.reference = BPD.reference;
             obj.Hf = BPD.Hf;
         end
-        function PlotBrain3D(obj,kategorie,signum,outputDir)
+        function PlotBrain3D(obj,kategorie,signum,outputDir,overwrite)
             %vykresli jpg obrazky jednotlivych kategorii a kontrastu mezi nimi            
             %TODO do jmena vystupniho jpg pridat i frekvence a referenci, aby se to neprepisovalo
             %TODO je mozne ty signif vyexportovat a pak je nacist zase do CHilbertMulti?
@@ -174,12 +174,14 @@ classdef CBrainPlot < matlab.mixin.Copyable
             assert(~isempty(obj.VALS),'zadna data VALS');
             plotSetup = {};
             if ~exist('kategorie','var') || isempty(kategorie) , kategorie = 1:size(obj.VALS,2); end %muzu chtit jen nektere kategorie
-            if ~exist('outputDir','var')
+            if ~exist('signum','var') || isempty(signum), signum = 0; end; %defaultni je rozdil kladny i zaporny
+            if ~exist('outputDir','var') || isempty(outputDir)
                 plotSetup.outputDir = 'd:\eeg\motol\CBrainPlot\';    
             else
                 plotSetup.outputDir = outputDir;
-            end
-            if ~exist('signum','var'), signum = 0; end; %defaultni je rozdil kladny i zaporny
+            end            
+            if ~exist('overwrite','var'), overwrite = 1; end; %defaultne se vystupni soubory prepisuji
+            
             if ~isempty(obj.brainsurface)
                 brainsurface = obj.brainsurface;  %#ok<PROPLC>
             else
@@ -203,21 +205,19 @@ classdef CBrainPlot < matlab.mixin.Copyable
                         iV = obj.VALS{interval,kat} < 0; %jen zaporne rozdily
                     else
                         iV = true(size(obj.VALS{interval,kat})); %vsechny rozdily
-                    end
-                    
-%                     if kat <= numel(obj.katstr) %pokud puvodni kategorie z intervalyResp
+                    end                    
+%                
                     katname = obj.katstr{kat};
-%                     elseif kat==size(obj.VALS,2) %posledni kategorie se vsemi kanaly
-%                         katname = 'AllEl';                    
-%                     end
+                    plotSetup.circle_size = iff(strcmp(katname,'all') || strcmp(katname,'AllEl'),28,56); %mensi kulicka pokud vsechny elektrody                
                     
                     if strcmp(plotSetup.figureVisible,'off')
                         disp('figures invisible');
                     end
                     plotSetup.figureNamePrefix = [ obj.testname '_' mat2str(obj.intervals(interval,:))  '_' katname '_' num2str(signum) ...
                             '_' num2str(obj.Hf(1)) '-' num2str(obj.Hf(end)) '_' obj.reference '_NOnames'];
-                    if numel(obj.VALS{interval,kat}(iV)) > 0                        
+                    if numel(obj.VALS{interval,kat}(iV)) > 0 && (isempty(dir([ plotSetup.outputDir '3D_model\' plotSetup.figureNamePrefix '*'])) || overwrite==1 )
                         disp(plotSetup.figureNamePrefix);
+                        
                         vals_channels = obj.VALS{interval,kat}(iV); %parametr  main_brainPlot
                         if signum ~= 0
                             vals_channels = vals_channels*signum; %u zapornych hodnot prehodim znamenko
@@ -240,14 +240,16 @@ classdef CBrainPlot < matlab.mixin.Copyable
                             obj.brainsurface = brainsurface; %#ok<PROPLC> %ulozim si ho pro dalsi volani
                         end
                         
-                        %a pak jeste s popisy elektrod
-                        plotSetup.figureNamePrefix = [obj.testname '_' mat2str(obj.intervals(interval,:)) '_' katname '_' num2str(signum) '_names'];
+                        %a pak jeste s popisy elektrod                        
+                        plotSetup.figureNamePrefix = [ obj.testname '_' mat2str(obj.intervals(interval,:))  '_' katname '_' num2str(signum) ...
+                            '_' num2str(obj.Hf(1)) '-' num2str(obj.Hf(end)) '_' obj.reference '_names'];
                         disp(plotSetup.figureNamePrefix);
                         names_channels = obj.NAMES{interval,kat};                         
                         brainsurface = main_brainPlot(vals_channels,mni_channels,names_channels,brainsurface,plotSetup);    %#ok<PROPLC>  
-                        
-                    else
+                    elseif  numel(obj.VALS{interval,kat}(iV)) == 0  
                         disp(['zadne hodnoty pro ' plotSetup.figureNamePrefix ' - neukladam ']);
+                    else
+                        disp(['soubor uz existuje ' plotSetup.figureNamePrefix ' - neprepisuju ']);
                     end
                 end
             end

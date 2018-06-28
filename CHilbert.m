@@ -382,7 +382,8 @@ classdef CHilbert < CiEEGData
                 if isempty(Hfmean), Hfmean = (Hf(1:end-1) + Hf(2:end)) ./ 2; end %#ok<PROPLC,NASGU>             
                 HFreq = obj.HFreq(:,chns,:,:); %#ok<PROPLC,NASGU>  %time x channel x freq (x kategorie)            
                 Wp = obj.Wp;  %#ok<NASGU>  %exportuju statistiku
-                save(filename,'d','tabs','tabs_orig','fs','P','epochtime','baseline','RjEpochCh','epochData','DatumCas','H','Hf','Hfmean','HFreq','Wp','-v7.3'); 
+                reference = obj.reference; %#ok<NASGU>  %exportuju referenci
+                save(filename,'d','tabs','tabs_orig','fs','P','epochtime','baseline','RjEpochCh','epochData','DatumCas','H','Hf','Hfmean','HFreq','Wp','reference','-v7.3'); 
                 disp(['extract saved to "' basefilename '"']);
             else
                 disp(['extract already exists, skipped: "' basefilename '"']);

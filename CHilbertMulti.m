@@ -59,7 +59,7 @@ classdef CHilbertMulti < CHilbert
                     disp(['pridavam data k existujicim souborum: ' num2str(obj.filesimported)]);
                 end
             end
-            if exist('var','label'), obj.label = label; end             
+            if exist('label','var'), obj.label = label; end             
             for fileno = 1:size(filenames,1)
                 filename = filenames{fileno,1}; %cell array, zatim to musi byt plna cesta                
                 if exist(filename,'file') 

@@ -668,7 +668,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                     end
                     iChKats(2,:) = iChKats(2,:) | iCh ;  %pridam dalsi kanaly, kde je signif odpoved                    
                     legendstr{colorindex}=[legendstr{colorindex} ';' katsnames{kombinace(kat,1)} ' x ' katsnames{kombinace(kat,2)} ];
-                    katsnames{kat+numel(kats)} = [katsnames{kombinace(kat,1)} ' x ' katsnames{kombinace(kat,2)} ];
+                    katsnames{kat+numel(kats)} = [katsnames{kombinace(kat,1)} 'X' katsnames{kombinace(kat,2)} ];
                 end  
                 
                 if dofig                                  
