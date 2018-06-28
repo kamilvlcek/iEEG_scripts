@@ -16,6 +16,8 @@ classdef CBrainPlot < matlab.mixin.Copyable
         filename; %jmeno zpracovavanych souboru
         PAC; %struktura stejna jako vraci funkce StructFind, naplni se v IntervalyResp
         iPAC; %index v poli PAC
+        reference; %reference
+        Hf; %seznam frekvencnich pasem
     end
     
     methods (Access = public)        
@@ -58,6 +60,8 @@ classdef CBrainPlot < matlab.mixin.Copyable
                     [prumery, MNI,names,~,katstr] = E.IntervalyResp( intervals,[],0);   %#ok<PROPLC> %no figure, funkce z CiEEGData                           
                     obj.pacients{p} = pacienti(p).folder;
                     obj.GetPAC(prumery,E.CH.H,pacienti(p).folder);
+                    obj.reference = E.reference;
+                    obj.Hf = E.Hf;
                     clear E;
                     if isempty(obj.katstr_pacients)
                         obj.katstr = [katstr 'AllEl']; %#ok<PROPLC> 
@@ -158,7 +162,9 @@ classdef CBrainPlot < matlab.mixin.Copyable
             obj.NAMES = BPD.NAMES;
             obj.katstr = BPD.katstr;
             obj.intervals = BPD.intervals;       
-            obj.testname = BPD.testname; 
+            obj.testname = BPD.testname;
+            obj.reference = BPD.reference;
+            obj.Hf = BPD.Hf;
         end
         function PlotBrain3D(obj,kategorie,signum,outputDir)
             %vykresli jpg obrazky jednotlivych kategorii a kontrastu mezi nimi            
@@ -208,7 +214,8 @@ classdef CBrainPlot < matlab.mixin.Copyable
                     if strcmp(plotSetup.figureVisible,'off')
                         disp('figures invisible');
                     end
-                    plotSetup.figureNamePrefix = [ obj.testname '_' mat2str(obj.intervals(interval,:))  '_' katname '_' num2str(signum) '_NOnames'];
+                    plotSetup.figureNamePrefix = [ obj.testname '_' mat2str(obj.intervals(interval,:))  '_' katname '_' num2str(signum) ...
+                            '_' num2str(obj.Hf(1)) '-' num2str(obj.Hf(end)) '_' obj.reference '_NOnames'];
                     if numel(obj.VALS{interval,kat}(iV)) > 0                        
                         disp(plotSetup.figureNamePrefix);
                         vals_channels = obj.VALS{interval,kat}(iV); %parametr  main_brainPlot

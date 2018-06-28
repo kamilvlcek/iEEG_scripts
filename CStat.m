@@ -71,7 +71,7 @@ classdef CStat
                 end                
                 pulsirka = ceil(oknosirka/2); %ktery sloupec se povazuje za pulku okna - tam se hodnota ulozi
                 W2 = zeros(size(W,1),size(W,2)); %musim udelat kopii, jinak si prepisuju hodnoty ze kterych pak pocitam
-                for sloupec = 1:size(W,2); 
+                for sloupec = 1:size(W,2) 
                     iW = max([1 sloupec-pulsirka+1]) : min([size(W,2) sloupec-pulsirka+oknosirka]); 
                     switch funkce
                         case 'min'

@@ -51,15 +51,16 @@ for f = 1:numel(files)
                         cat(2,repmat({files{f},f,kategorie{kat,2},kat},numel(filenames_extract),1),filenames_extract);
                     pocetextracts = pocetextracts + numel(filenames_extract);                
 
-                    CM.ImportExtract(filenames_extract);
+                    CM.ImportExtract(filenames_extract,kategorie{kat,2});
                     CM.ResponseSearch(0.1,stat);  
 
                     CM.Save(outfilename);
-
+                    
                     msg = [ ' --- ' files{f} ': ' kategorie{kat,2} ' OK '  datestr(now)];
                     disp(msg); fprintf(fileID,[ msg '\n']);            
                     tablelog(cyklus+1,:) = { files{f}, num2str(f), kategorie{kat,2}, 'saved', outfilename,datestr(now) }; 
                 end
+              
             catch exception 
                 errorMessage = sprintf('** Error in function %s() at line %d.\nError Message:\n%s', ...
                     exception.stack(1).name, exception.stack(1).line, exception.message);                            

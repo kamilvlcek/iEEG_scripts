@@ -85,10 +85,10 @@ classdef CEEGStat
                         disp('neznama metoda statistiky');
                         Wr = [];
                     end
-                    if numel(itimewindow)==0 ||  true
-                        WpKat{k,j} = Wr;  %tohle chci vzdy - klouzave okno pouzivam jen v signifikanci vuci baseline
+                    if numel(itimewindow)==0 
+                        WpKat{k,j} = Wr;  % pokud nechci pouzit klouzave okno
                     else
-                        WpKat{k,j} = CStat.Klouzaveokno(Wr,itimewindow(1),'max',1);
+                        WpKat{k,j} = CStat.Klouzaveokno(Wr,itimewindow(1),'max',1); %pri nove signifikanci jen pro jeden kanal chci zase pouzivat klouzave okno
                     end
                 end
             end

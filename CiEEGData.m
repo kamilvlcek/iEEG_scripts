@@ -370,12 +370,14 @@ classdef CiEEGData < matlab.mixin.Copyable
             %vraci iEpCh (ch x epoch) = index epoch k vyhodnoceni - bez chyb, treningu a rucniho vyrazeni - pro kazdy kanal zvlast            
             iEpCh = zeros(obj.channels,obj.epochs);            
             for ch = 1:obj.channels
-                if isa(obj.PsyData,'CPsyDataMulti') || ch==1
-                    obj.PsyData.SubjectChange(find(obj.els >= ch,1));
-                    chyby = obj.PsyData.GetErrorTrials();
+                if isa(obj.PsyData,'CPsyDataMulti') || ch==1                    
+                    PsyData = obj.PsyData.copy(); %nechci menit puvodni tridu
+                    PsyData.SubjectChange(find(obj.els >= ch,1));
+                    chyby = PsyData.GetErrorTrials();
                     epochsEx = [chyby , zeros(size(chyby,1),1) ]; %pridam dalsi prazdny sloupec
                     epochsEx(obj.RjEpoch,5)=1; %rucne vyrazene epochy podle EEG           
-                    iEpCh(ch,:) = all(epochsEx==0,2)'; %index epoch k pouziti                    
+                    iEpCh(ch,:) = all(epochsEx==0,2)'; %index epoch k pouziti                 
+                    
                 else
                     iEpCh(ch,:) = iEpCh(ch-1,:); %pokud se jedna o CPsyData s jednim subjektem, pro vsechny kanaly to bude stejne
                 end

@@ -9,6 +9,7 @@ classdef CHilbertMulti < CHilbert
            %plni se v GetEpochData
         filesimported = 0;
         subjNames; %jmena subjektu z headeru
+        label; %ze kterych extraktu byl vytvoren
     end
     
     methods (Access = public)  
@@ -50,7 +51,7 @@ classdef CHilbertMulti < CHilbert
             obj.PsyData = {};
             disp('data objektu smazana');
         end
-        function obj = ImportExtract(obj,filenames)
+        function obj = ImportExtract(obj,filenames,label)
             if numel(obj.filenames)>0
                 if obj.filesimported == 0 %nejaky soubor naimportovan castecne kvuli chybe - musim smazat
                     obj.Clear();
@@ -58,6 +59,7 @@ classdef CHilbertMulti < CHilbert
                     disp(['pridavam data k existujicim souborum: ' num2str(obj.filesimported)]);
                 end
             end
+            if exist('var','label'), obj.label = label; end             
             for fileno = 1:size(filenames,1)
                 filename = filenames{fileno,1}; %cell array, zatim to musi byt plna cesta                
                 if exist(filename,'file') 
@@ -94,6 +96,7 @@ classdef CHilbertMulti < CHilbert
                     
                     %frekvencni data
                     obj.GetHfreq(Hf,Hfmean,HFreq);
+                    obj.GetRef(reference); 
                     
                     %obj.GetStat(Wp); %mam funkci, ale statistiku zatim neimportuju
                     %jen kopie - zatim nezpracovavam                                                           
@@ -173,6 +176,13 @@ classdef CHilbertMulti < CHilbert
                 obj.HFreq = HFreq;%time x channel x freq (x kategorie)
             else
                 obj.HFreq = cat(2,obj.HFreq,HFreq);
+            end
+        end
+        function GetRef(obj,reference)
+            if isempty(obj.reference)
+                obj.reference = reference; %jen prvni soubor
+            else
+                assert(isequal(obj.reference,reference),'reference musi byt stejna');
             end
         end
         function obj = GetTabs(obj,tabs,tabs_orig,f)

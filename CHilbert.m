@@ -396,8 +396,11 @@ classdef CHilbert < CiEEGData
             if ~exist('chns','var'), chns = []; end %pokud neni definovane, je prazdne a pak vytvarim jen data pro vsechny elektrody                     
           
             BPD.intervals = [0 1]; %budu mit dve pole hodnoty, vybrane kanaly a vsechny kanaly s vybranymi vyznacenyma
-            BPD.katstr = iff(isempty(chns),{'all','vals'},{'all','selected'}); %v druhem poli jsou bud hodnoty vsech, nebo jen vybrane kanaly
+            label = iff(isprop(obj,'label'), obj.label, 'vals'); %v pripade ze se jedna o CHilbertMulti, muze byt definovane label podle jmena extraktu
+            BPD.katstr = iff(isempty(chns),{'all',label},{'all','selected'}); %v druhem poli jsou bud hodnoty vsech, nebo jen vybrane kanaly
             BPD.testname = obj.PsyData.testname; %jmeno testu, aedist, menrot nebo ppa
+            BPD.reference = obj.reference; %reference
+            BPD.Hf = obj.Hf;%seznam frekvencnich pasem
             %jen definice velikosti
             BPD.NAMES = cell(1,2);                        
             BPD.MNI = cell(1,2);
