@@ -9,6 +9,7 @@ classdef CPlotsN < handle
     end
     
     methods (Access = public)
+        
         function obj = CPlotsN(E, HOrigData)
             obj.E = E;
             if ~exist('HOrigData', 'var')
@@ -18,37 +19,50 @@ classdef CPlotsN < handle
             end
         end
         
-        function PlotFrequencies(obj, psy, channels, frequencies, limits, timeDelay, plotGroup)
-            % plots powers and phases of transformed eeg signal for :
+        function PlotUnepoched(obj, type, psy, channels, frequencies, limits, timeDelay, startTime, plotGroup)
+            % Plots powers and phases of transformed eeg signal for :
             %   * all selected frequencies for one channel
-            %   * or one frequency for all channels
-            assert(isa(psy,'struct'),'Prvy parameter musi byt struktura s datami z psychopy');
+            %   * or one frequency for all channels if called from PlotElectrodeGroup
+            % INPUT:
+            % type          - 0 = power, 1 = original filtered data
+            % psy           - psy structure, aka aedist for stimuli and response time
+            % channels      - if called directly, only one channel
+            % frequencies   - frequencies to plot (not indexes)
+            % limits        - y axis limits, default [0,1000]
+            % timeDelay     - how many seconds display on the screen - default 10
+            % startTime     - second to start from
+            % plotGroup     - only if called from PlotElectrodeGroup, default false
+            
+            obj.plotData.type = type;
+            
+            assert(isa(psy,'struct'),'Prvy parameter musi byt struktura s datami z psychopy'); % kvoli response time
             obj.E.PsyData = CPsyData(psy); 
             
-            obj.plotData.iChannels = channels;
+            obj.plotData.iChannels = channels; % pri priamom volani len jeden kanal!
             
             if ~exist('frequencies','var') || isempty(frequencies); obj.plotData.iFreqs = 1:numel(obj.E.Hf); % ak sme nevybrali frekvencie, zobrazia sa vsetky
-                else [~,obj.plotData.iFreqs] = intersect(obj.E.Hf,frequencies); end % indexy vybranych frekvencii
+                else [~,obj.plotData.iFreqs] = intersect(obj.E.Hf,frequencies); end % vypocitam indexy vybranych frekvencii
                 
-            if ~exist('limits','var') || isempty(limits); limits = [0,1000]; end % set y axis limits
+            if ~exist('limits','var') || isempty(limits); limits = [0,1000]; end % set default y axis limits
             obj.plotData.ylimits = limits;
             
-            if ~exist('timeDelay','var'); timeDelay = 10; end % seconds visible on the screen
+            if ~exist('timeDelay','var'); timeDelay = 10; end % number of seconds visible on the screen
             obj.plotData.timeDelay = timeDelay*obj.E.fs;
+            
+            if ~exist('startTime','var'); startTime = 0; end 
+                obj.plotData.iTime = startTime; % initiate time index - second to start from
             
             obj.plotData.f = figure('Name','All Frequencies','Position', [20, 100, 1000, 600]); % init the figure
             set(obj.plotData.f, 'KeyPressFcn', @obj.MovePlotFreqs); % set key press function
             
             if ~exist('plotGroup','var'); obj.plotData.plotGroup = false; else obj.plotData.plotGroup = plotGroup; end
-            
-            obj.plotData.iTime = 0; % initiate time index
      
             if ~isfield(obj.plotData,'plotGroup'); obj.plotData.plotGroup = false; end 
             obj.plotData.stimuli = (obj.E.PsyData.P.data(:,obj.E.PsyData.P.sloupce.ts_podnet) - obj.E.tabs(1))*24*3600;
             obj.plotData.responses = (obj.E.PsyData.P.data(:,obj.E.PsyData.P.sloupce.ts_odpoved) - obj.E.tabs(1))*24*3600;
             obj.plotData.colors = {'black','green','red','blue'};
             
-            obj.plotFreqData();
+            obj.plotUnepochedData();
         end
                 
         function PlotElectrodeGroup(obj, iGroup, psy, frequency, limits, timeDelay)
@@ -302,7 +316,64 @@ classdef CPlotsN < handle
             obj.plotEpochData();
         end   
         
-        function fig = PlotITPC(obj, channel, iFrequency, icondition)
+        function [itpc, itpc_p, itpc_pmean] = CalculateITPC(obj, channels)
+            % itpc = ch x condition x time x fq
+            if ~exist('channels', 'var') 
+                channels = 1:obj.E.channels; 
+            end
+            conditions = [obj.E.PsyData.P.strings.podminka{:,2}];
+            n_fq = length(obj.E.Hf);
+            itpc = zeros(length(channels),length(conditions),obj.E.samples, n_fq);
+            itpc_p = zeros(length(channels),length(conditions),obj.E.samples, n_fq); % p-value vsetkych frekvencii
+            itpc_pmean = zeros(length(channels),length(conditions),obj.E.samples); % p-value priemeru cez vsetky frekvencie
+            
+            for channel = channels
+                %display(['Channel ' num2str(channel)]);
+                for cond = 1:length(conditions)
+                    icondition = conditions(cond);
+                    iEp = obj.CorrectEpochs(channel, icondition);
+                    for fq = 1:n_fq
+                        itpc(channel, cond, :, fq) = abs(mean(exp(1i*squeeze(obj.E.fphaseEpochs(:,channel,fq,iEp))),2));
+                        itpc_p(channel, cond, :, fq) = exp(-length(iEp) * squeeze(itpc(channel, cond,:,fq)).^2);
+                    end
+                   itpc_pmean(channel, cond, :) = exp(-length(iEp) * mean(squeeze(itpc(channel, cond,:,:)),2).^2);
+
+                end
+            end
+        end
+        
+        function [ditpc, ditpc_p, ditpc_pmean] = CalculateITPCdiffs(obj, channels, diffs)
+            if ~exist('channels', 'var') 
+                channels = 1:obj.E.channels; 
+            end
+            if ~exist('diffs', 'var') 
+                diffs = [[0 1]; [0 2]; [1 2]]; 
+            end
+            
+            n_fq = length(obj.E.Hf);
+            ditpc = zeros(length(channels),length(diffs),obj.E.samples, n_fq);
+            ditpc_p = zeros(length(channels),length(diffs),obj.E.samples, n_fq); % p-value vsetkych frekvencii
+            ditpc_pmean = zeros(length(channels),length(diffs),obj.E.samples); % p-value priemeru cez vsetky frekvencie
+            
+            [itpc, ~, ~] = obj.CalculateITPC(channels);
+            
+            for channel = channels
+                %display(['Channel ' num2str(channel)]);
+                for diff = 1:size(diffs, 1)
+                    cond1 = diffs(diff,1);
+                    cond2 = diffs(diff,2);
+                    ditpc(channel, diff, :, :) = squeeze(itpc(channel, cond1+1, :, :) - itpc(channel, cond2+1, :, :)); % time x freq
+
+                    n1 = length(obj.CorrectEpochs(channel, cond1));
+                    n2 = length(obj.CorrectEpochs(channel, cond2));
+                    
+                    ditpc_p(channel, diff, :, :) = 2*normpdf(abs(atanh(squeeze(ditpc(channel, diff, :, :)))/sqrt((1/(n1-3))+(1/(n2-3)))));
+                    ditpc_pmean(channel, diff, :) = 2*normpdf(abs(atanh(mean(squeeze(ditpc(channel, diff, :, :)),2))/sqrt((1/(n1-3))+(1/(n2-3)))));
+                end
+            end
+        end
+        
+        function fig = PlotOneITPCsig(obj, channel, iFrequency, icondition)
         % funkcia pre vykreslenie ITPC pre jeden channel a jednu frekvenciu    
             if ~exist('icondition', 'var'), icondition = 9; end
             
@@ -329,7 +400,7 @@ classdef CPlotsN < handle
             plot(itpc(sig(i)),'r')
         end
         
-        function fig = PlotITPCall(obj, channel, icondition)
+        function fig = PlotOneITPCimgSig(obj, channel, icondition)
         % funkcia pre vykreslenie mapy ITPC pre jeden channel   
             if ~exist('icondition', 'var'), icondition = 9; end
             iEp = obj.CorrectEpochs(channel, icondition);
@@ -362,10 +433,143 @@ classdef CPlotsN < handle
             title(sprintf('%s - Channel %d \n %s - %s', electrodes{channel}, channel, labels{channel}, names{channel}));
         end
         
-        function fig = PlotITPCallCond(obj, channel, iFq)
-        % funkcia pre vykreslenie mapy ITPC pre jeden channel a vsetky conditions 
-            if ~exist('iFq', 'var'), iFq = 1:length(obj.E.Hf); end
+        % modro zlte plots synchronizacie fazy image
+        function fig = PlotITPCallEpochs(obj, channel)
             fig = figure;
+            time = linspace(obj.E.epochtime(1), obj.E.epochtime(2), size(obj.E.fphaseEpochs,1));
+            for iFq = 1:10%length(obj.E.Hf)
+                subplot(2,5,iFq)%ceil(length(obj.E.Hf)/2),iFq);
+                %itpc = sortrows(squeeze(obj.E.frealEpochs(:,channel,iFq,:))', length(time)/2+10);
+                epochsByCond = sortrows([[obj.E.epochData{:,2}]' (1:length(obj.E.epochData))'],1);
+                phases = squeeze(obj.E.frealEpochs(:,channel,iFq*2-1,:))';
+                image(phases(epochsByCond(:,2),:), 'XData', time);
+                hold on;
+                set(gca,'YDir','normal')
+                xlabel('Time (s)'); ylabel('Epoch');
+                title([num2str(obj.E.Hf(iFq*2-1)), ' Hz']);
+            end
+            mtit(sprintf('Channel %d \n', channel));
+            hold off;
+        end
+        
+        function fig = PlotITPCsig(obj, ch, diffs, sig)
+            % itpc (ch, cond, time, fq)
+            % itpc_p (ch, cond, time)
+            
+            names = {obj.E.CH.H.channels.ass_brainAtlas}; %cast mozgu
+            labels = {obj.E.CH.H.channels.neurologyLabel}; %neurology label
+            electrodes = {obj.E.CH.H.channels.name}; %nazov elektrody
+            time = linspace(obj.E.epochtime(1), obj.E.epochtime(2), size(obj.E.fphaseEpochs,1));
+            
+            fig = figure; colormap(jet)
+            [itpc, ~, p] = obj.CalculateITPC(ch);
+            [ditpc, ~, dp] = obj.CalculateITPCdiffs(ch, diffs);
+            
+            conditions = [obj.E.PsyData.P.strings.podminka{:,2}];
+            numCond = length(conditions);
+            for cond = 1:numCond
+                % subplot individual conditions
+                subplot(2,numCond, cond);
+                if ~sig
+                    imagesc(time, obj.E.Hf, squeeze(itpc(ch, cond, :, :))');
+                    xlabel('Time (s)'); ylabel('Frequency (Hz)'); colorbar;
+                    set(gca,'YDir','normal'); caxis([0 0.7]);
+                    title([obj.E.PsyData.P.strings.podminka{cond,1}]);
+                    hold on;
+                else
+                    plot(time, mean(squeeze(itpc(ch, cond, :, :)),2), 'g');
+                    hold on;
+                    plot(time,squeeze(p(ch, cond, :)));
+                    ylim([0 1]);
+                    xlabel('Time (s)'); ylabel('ITPC p-value');
+                    title([obj.E.PsyData.P.strings.podminka{cond,1} '(' num2str(length(obj.CorrectEpochs(ch, obj.E.PsyData.P.strings.podminka{cond,2}))) ')']);
+                    hold on;
+                    plot(time, 0.01*ones(size(time)),'r');
+                    hold on;
+                end
+            end
+            
+            for diff = 1:size(diffs, 1)
+                subplot(2, numCond, diff + numCond);
+                if ~sig
+                    imagesc(time, obj.E.Hf, abs(squeeze(ditpc(ch, diff, :, :)))');
+                    xlabel('Time (s)'); ylabel('Frequency (Hz)'); colorbar;
+                    set(gca,'YDir','normal'); caxis([0 0.3]);
+                    title([obj.E.PsyData.P.strings.podminka{diffs(diff,1)+1,1} '-' obj.E.PsyData.P.strings.podminka{diffs(diff,2)+1,1}]);
+                    hold on;
+                else
+                   
+                    plot(time,abs(mean(squeeze(ditpc(ch, diff, :, :)),2)), 'g'); hold on;
+                    plot(time,squeeze(dp(ch, diff, :))); ylim([0 1]);
+                    xlabel('Time (s)'); ylabel('ITPC p-value');
+                    title([obj.E.PsyData.P.strings.podminka{diffs(diff,1)+1,1} '-' obj.E.PsyData.P.strings.podminka{diffs(diff,2)+1,1}]);
+                    hold on;
+                    plot(time, 0.01*ones(size(time)),'r');
+                    hold on;
+                end
+            end
+            mtit(sprintf('%s - Channel %d; %s - %s \n', electrodes{ch}, ch, labels{ch}, names{ch}));
+            
+        end
+        
+        function PlotITPCbaselineDiff(obj, itpc, diffs, ch)
+%              
+%             names = {obj.E.CH.H.channels.ass_brainAtlas}; %cast mozgu
+%             labels = {obj.E.CH.H.channels.neurologyLabel}; %neurology label
+%             electrodes = {obj.E.CH.H.channels.name}; %nazov elektrody
+%             time = linspace(obj.E.epochtime(1), obj.E.epochtime(2), size(obj.E.fphaseEpochs,1));
+%             
+%             for channel = ch%1:obj.E.channels
+%                 figure;
+%                 for diff = 1:size(diffs,1)
+%                     subplot(1,size(diffs,1), diff);
+%                     cond1 = diffs(diff,1);
+%                     cond2 = diffs(diff,2);
+%                     imagesc(time,obj.E.Hf,abs(squeeze(itpc(channel,cond1,:,:)-itpc(channel,cond2,:,:)))');  
+%                     set(gca,'YDir','normal'); 
+%                     xlabel('Time (s)'); ylabel('Frequency (Hz)');
+%                     caxis([0 0.3]);
+%                     title([obj.E.PsyData.P.strings.podminka{cond1,1} '-' obj.E.PsyData.P.strings.podminka{cond2,1}]);
+%                     colorbar
+%                 end
+%                 mtit(sprintf('%s - Channel %d; %s - %s \n', electrodes{channel}, channel, labels{channel}, names{channel}));
+%                 
+%             end
+        end
+        
+        function fig = PlotITPCallEpochsFiltered(obj, channel, iFq)
+            fig = figure;
+            time = linspace(obj.E.epochtime(1), obj.E.epochtime(2), size(obj.E.fphaseEpochs,1));
+            conditions = [obj.E.PsyData.P.strings.podminka{:,2}];
+            ncond = length(conditions);
+            
+            for cond = 1:ncond
+                subplot(2,ncond,cond);
+                icondition = conditions(cond);
+                iEp = obj.CorrectEpochs(channel, icondition);
+                plot(time,squeeze(obj.E.frealEpochs(:,channel,iFq,iEp)), 'LineWidth',0.0001);
+                title(obj.E.PsyData.P.strings.podminka{cond,1});
+                hold on;
+                
+                
+                subplot(2,ncond,cond+ncond);
+                phases = squeeze(obj.E.frealEpochs(:,channel,iFq,iEp))';
+                image(phases, 'XData', time);
+                hold on;
+                set(gca,'YDir','normal')
+                xlabel('Time (s)'); ylabel('Epoch');
+            end
+            hold off;
+            xlabel('Time (s)');
+            mtit(sprintf('Channel %d , %0.1f Hz \n', channel, obj.E.Hf(iFq)));
+        end
+        
+        function fig = PlotITPCallCond(obj, channel)
+        % funkcia pre vykreslenie mapy ITPC pre jeden channel a vsetky conditions 
+        
+            iFq = 1:length(obj.E.Hf);
+            
+            fig = figure();
             names = {obj.E.CH.H.channels.ass_brainAtlas}; %cast mozgu
             labels = {obj.E.CH.H.channels.neurologyLabel}; %neurology label
             electrodes = {obj.E.CH.H.channels.name}; %nazov elektrody
@@ -378,43 +582,52 @@ classdef CPlotsN < handle
             for cond = 1:ncond
                 icondition = conditions(cond);
                 
-                subplot(2,ncond,cond)
+%                 subplot(1,ncond,cond)
                 iEp = obj.CorrectEpochs(channel, icondition);
                 
                 itpc = zeros(n_time, n_freq); % inicializacia matice itpc v dlzke 1 epochy
+
                 for fq = iFq
-                    for i = 1:n_time
-                        itpc(i, fq) = abs(mean(exp(1i*squeeze(obj.E.fphaseEpochs(i,channel,fq,iEp)))));
-                    end
+                    itpc(:, fq) = abs(mean(exp(1i*squeeze(obj.E.fphaseEpochs(:,channel,fq,iEp))),2));
                 end
-                itpc_permute = obj.ITPCpermute(3000, itpc, squeeze(obj.E.fphaseEpochs(:,channel,iFq,:)));
-                %contourf(linspace(obj.E.epochtime(1), obj.E.epochtime(2),n_time), obj.E.Hf, itpc)
-                image(linspace(obj.E.epochtime(1), obj.E.epochtime(2),n_time), obj.E.Hf(iFq), itpc_permute', 'CDataMapping', 'scaled')
+                % permutacna statistika trva dlho
+%                 itpc_permute = obj.ITPCpermute(3000, itpc, squeeze(obj.E.fphaseEpochs(:,channel,iFq,:)));
+%                 %contourf(linspace(obj.E.epochtime(1), obj.E.epochtime(2),n_time), obj.E.Hf, itpc)
+%                 image(linspace(obj.E.epochtime(1), obj.E.epochtime(2),n_time), obj.E.Hf(iFq), itpc_permute', 'CDataMapping', 'scaled')
+%                 title(obj.E.PsyData.P.strings.podminka{cond,1});
+%                 set(gca,'YDir','normal')
+%                 xlabel('Time (s)'); ylabel('Frequency (Hz)');
+%                 caxis([0 0.7])
+%                 myColorMap = jet(256);
+%                 myColorMap(1,:) = 1;
+%                 colormap(myColorMap);
+%                 colorbar
+
+                subplot(2,ncond,cond)
+                image(linspace(obj.E.epochtime(1), obj.E.epochtime(2),n_time), obj.E.Hf(iFq), itpc', 'CDataMapping', 'scaled')
                 title(obj.E.PsyData.P.strings.podminka{cond,1});
                 set(gca,'YDir','normal')
                 xlabel('Time (s)'); ylabel('Frequency (Hz)');
-                caxis([0 0.7])
+                caxis([0 1])
                 myColorMap = jet(256);
-                myColorMap(1,:) = 1;
                 colormap(myColorMap);
-                colorbar
                 
                 subplot(2,ncond,cond+ncond)
-                sig = sqrt((-log(0.01))/length(iEp));
+                sig = sqrt((-log(0.001))/length(iEp));
                 itpc_sig = itpc;
                 itpc_sig(itpc<sig) = 0;
                 image(linspace(obj.E.epochtime(1), obj.E.epochtime(2),n_time), obj.E.Hf(iFq), itpc_sig', 'CDataMapping', 'scaled')
                 title(obj.E.PsyData.P.strings.podminka{cond,1});
                 set(gca,'YDir','normal')
                 xlabel('Time (s)'); ylabel('Frequency (Hz)');
-                caxis([0 0.7])
+                caxis([0 1])
                 myColorMap = jet(256);
                 myColorMap(1,:) = 1;
                 colormap(myColorMap);
-                colorbar
+                
             end
             mtit(sprintf('%s - Channel %d; %s - %s \n', electrodes{channel}, channel, labels{channel}, names{channel}));
-            
+            %colorbar
            
         end
         
@@ -435,6 +648,7 @@ classdef CPlotsN < handle
             zmap = (itpcOrig-squeeze(mean(eegperm,1))) ./ squeeze(std(eegperm,1));
             itpc = itpcOrig;
             itpc(abs(zmap)<norminv(1-0.05))=0;
+            
         end
         
     end
@@ -443,7 +657,7 @@ classdef CPlotsN < handle
     methods (Access = private)
         
         function obj = MovePlotFreqs(obj,~,eventDat)
-            %zpracovava stlaceni klavesy pro graf PlotFrequencies
+            %zpracovava stlaceni klavesy pro graf PlotUnepoched
             switch eventDat.Key
                 case 'rightarrow' % +1 time window
                     obj.plotData.iTime = obj.plotData.iTime + 1; %min([obj.plotData.iTime + 1, size(obj.HFreqEpochs,4)]);
@@ -452,41 +666,60 @@ classdef CPlotsN < handle
                 otherwise  
                    display(['key pressed: ' eventDat.Key]); %vypise stlacenou klavesu
             end
-            obj.plotFreqData();
+            obj.plotUnepochedData();
         end
        
-        function plotFreqData(obj)
-            % plot all unepoched transformed data
+        function plotUnepochedData(obj)
+            % Plot all unepoched transformed data - power/original transformed signal and phase
             % one subplot = one frequency
-            % called from PlotFrequencies()
+            % called from PlotUnepoched()
             
             time = (obj.plotData.iTime*obj.E.fs+1):(obj.plotData.iTime*obj.E.fs+obj.plotData.timeDelay); % moving time window
             x = time./obj.E.fs; % current x axis in seconds
             % determine number of subplots based on selected channels or frequencies
             if obj.plotData.plotGroup; numSubplot = length(obj.plotData.iChannels); % plot electrode channels 
-            else numSubplot = length(obj.plotData.iFreqs)+1; end                     % plot frequencies + original eeg data
+            else numSubplot = length(obj.plotData.iFreqs)+2; end                     % plot frequencies + original eeg data
 
-            for i = 1:numSubplot 
-                %%%%%%%%%%%%%%%%%%% POWER %%%%%%%%%%%%%%%%%%% 
+            for i = 1:numSubplot-1
                 
-                if ~obj.plotData.plotGroup && i > numSubplot-1 % if plotting frequencies, display also original signal on the bottom
-                    subplot(numSubplot,2,[i*2-1,i*2])
+                %%%%%%%%%%%%%%%%%%% ORIGINAL EEG DATA %%%%%%%%%%%%%%%%%%%
+                if ~obj.plotData.plotGroup && i > numSubplot-2 % if plotting frequencies, display also original signal on the bottom
                     y = obj.HOrigData(time,obj.plotData.iChannels); % original eeg values
+                    % LEFT
+                    subplot(numSubplot,2,[i*2-1, i*2+1]);
+                    plot(x, y, 'Color', 'black'); hold on;
+                    xlim([x(1) x(end)]); % set x axis limits
+                    ylim([-80,80]); % set y axis limits
+                    % RIGHT
+                    subplot(numSubplot,2,[i*2, i*2+2]);
                     plot(x, y, 'Color', 'black'); hold on;
                     xlim([x(1) x(end)]); % set x axis limits
                     ylim([-80,80]); % set y axis limits
                 else
+                    %%%%%%%%%%%%%%%%%%% POWER or ORIGINAL FILTERED data %%%%%%%%%%%%%%%%%%%
                     subplot(numSubplot,2,i*2-1)
-                    if obj.plotData.plotGroup; % data to be subplotted (given channel or frequency)
-                        y = squeeze(obj.E.HFreq(time,obj.plotData.iChannels(i),obj.plotData.iFreqs)); % channel power values
+                    if obj.plotData.plotGroup % data to be subplotted (given channel or frequency)
+                        if obj.plotData.type %%%%%%%%%%%% ORIGINAL FILTERED DATA
+                            y = squeeze(obj.E.freal(time,obj.plotData.iChannels(i),obj.plotData.iFreqs)); % channel original filtered values
+                        else %%%%%%%%%%%%%%%%%%%%%%%%%%%% POWER DATA
+                            y = squeeze(obj.E.HFreq(time,obj.plotData.iChannels(i),obj.plotData.iFreqs)); % channel power values
+                        end
                         names = {obj.E.CH.H.channels.ass_brainAtlas}; %cast mozgu
                         labels = {obj.E.CH.H.channels.neurologyLabel}; %neurology label
                     else
-                        y = squeeze(obj.E.HFreq(time,obj.plotData.iChannels,obj.plotData.iFreqs(i))); % frequency power values
+                        if obj.plotData.type %%%%%%%%%%%% ORIGINAL FILTERED DATA
+                            y = squeeze(obj.E.freal(time,obj.plotData.iChannels,obj.plotData.iFreqs(i))); % frequency original filtered values
+                        else %%%%%%%%%%%%%%%%%%%%%%%%%%%% POWER DATA
+                            y = squeeze(obj.E.HFreq(time,obj.plotData.iChannels,obj.plotData.iFreqs(i))); % channel power values
+                        end
+                        
                     end
-                    neg = y<0; % negative frequency power values
-                    plot(x(~neg),y(~neg),'b.',x(neg),y(neg),'r.','markers',4); hold on; % plots positive values with blue, negative with red
-
+                    if ~obj.plotData.type
+                        neg = y<0; % negative frequency power values
+                        plot(x(~neg),y(~neg),'b.',x(neg),y(neg),'r.','markers',4); hold on; % plots positive values with blue, negative with red
+                    else
+                        plot(x,y,'b');
+                    end
                     xlim([x(1) x(end)]); % set x axis limits
                     ylim(obj.plotData.ylimits); % set y axis limits
 

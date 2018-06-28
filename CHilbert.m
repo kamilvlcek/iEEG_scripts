@@ -293,7 +293,8 @@ classdef CHilbert < CiEEGData
                 yrange = obj.yrange; %#ok<NASGU>
                 fphase = obj.fphase; %#ok<NASGU,PROPLC> %15.5.2018
                 fphaseEpochs = obj.fphaseEpochs; %#ok<NASGU,PROPLC> %15.5.2018
-                save(CHilbert.filenameH(filename),'HFreq','Hf','Hfmean','HFreqEpochs','yrange','fphase','fphaseEpochs','-v7.3'); %do druheho souboru data z teto tridy
+                frealEpochs = obj.frealEpochs;  %#ok<NASGU,PROPLC> %30.5.2018
+                save(CHilbert.filenameH(filename),'HFreq','Hf','Hfmean','HFreqEpochs','frealEpochs','yrange','fphase','fphaseEpochs','-v7.3'); %do druheho souboru data z teto tridy
             end
         end
         
@@ -328,6 +329,11 @@ classdef CHilbert < CiEEGData
                     load(filename,'fphaseEpochs');      obj.fphaseEpochs = fphaseEpochs; %#ok<CPROPLC>
                 else
                     obj.fphaseEpochs = [];
+                end
+                if ismember('frealEpochs', {vars.name}) %15.5.2018
+                    load(filename,'frealEpochs');      obj.frealEpochs = frealEpochs; %#ok<CPROPLC>
+                else
+                    obj.frealEpochs = [];
                 end
             else
                 warning(['soubor s frekvencnimi pasmy neexistuje ' CHilbert.filenameH(filename)]);
