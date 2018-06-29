@@ -192,6 +192,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
             plotSetup.figureVisible = 'off';   %nechci zobrazovat obrazek 
             plotSetup.FontSize = 4; 
             plotSetup.myColorMap = iff(signum ~= 0,parula(128) ,jet(128));    %pokud jednostrane rozdily, chci parula
+            plotSetup.customColor = true; % custom colormap oddeli negativne a pozitivne hodnoty - 29.6.2018
             tablelog = cell(obj.pocetcykluPlot3D(kategorie,signum)+2,5); % z toho bude vystupni xls tabulka s prehledem vysledku
             tablelog(1,:) = {datestr(now),obj.filename,'','',''}; %hlavicky xls tabulky
             tablelog(2,:) = {'interval','kategorie','chname','mni','val'}; %hlavicky xls tabulky
