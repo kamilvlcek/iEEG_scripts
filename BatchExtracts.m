@@ -1,10 +1,12 @@
-files = {   'AEdist CHilbert 50-150 -0.5-1.2 refBipo Ep2018-04_CHilb.mat',...
-            'AEdist CMorlet 1-10M -0.5-1.2 refBipo Ep2018-06 FE_CHilb.mat',...
-            'AEdist CMorlet 4-8M -0.5-1.2 refBipo Ep2018-06 FE_CHilb.mat',...
-            'AEdist CMorlet 1-4M -0.5-1.2 refBipo Ep2018-06 FE_CHilb.mat'};       
- 
-%kategorie = {4,  'EgoXControl';5,  'AlloXControl';6,  'AlloXEgo'};  %jmena kategorii (nazvy extraktu) a jejich cisla v CB.PAC
-testname = 'aedist';
+function [ ] = BatchExtracts( testname,files )
+
+% files = {   'AEdist CHilbert 50-150 -0.5-1.2 refBipo Ep2018-04_CHilb.mat',...
+%             'AEdist CMorlet 1-10M -0.5-1.2 refBipo Ep2018-06 FE_CHilb.mat',...
+%             'AEdist CMorlet 4-8M -0.5-1.2 refBipo Ep2018-06 FE_CHilb.mat',...
+%             'AEdist CMorlet 1-4M -0.5-1.2 refBipo Ep2018-06 FE_CHilb.mat'};       
+% 
+% testname = 'aedist';
+
 [ pacienti, setup  ] = pacienti_setup_load( testname );
 kontrasts = 1:numel(setup.stat_kats); %statisticky kontrast
 
@@ -16,17 +18,17 @@ for kontrast = 1:numel(kontrasts) %cyklus jen na vypocet celkoveho poctu cyklu p
     pocetcyklu = pocetcyklu + numel(files) * size(kombinace_kat,1) ;
 end
 
-overwrite_extracts = 1; %jestli se maji prepisovat extrakty pro kazdeho pacienta
+overwrite_extracts = 0; %jestli se maji prepisovat extrakty pro kazdeho pacienta
 overwrite_brainplots = 0;
-overwriteCM = 0; %jestli se maji prepisovat soubory CHilbertMulti
+overwriteCM = 1; %jestli se maji prepisovat soubory CHilbertMulti
 cyklus = 1;
 pocetextracts = 1;
 
 %log soubory
 
 %1. seznam vsech extraktu
-logfilename = ['logs\BatchExtract_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') '.log'];
-FFFilenames_logname = ['logs\BatchExtractFilenames_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') '.xls'];
+logfilename = ['logs\BatchExtract_' testname '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') '.log'];
+FFFilenames_logname = ['logs\BatchExtractFilenames_' testname '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') '.xls'];
 FFFilenames_XLS = cell(1+pocetcyklu*numel(pacienti),5); 
 FFFilenames_XLS(1,:)={'file','fileno','kat','katno','extract'};
 %2. soubor na logovani prubehu
@@ -60,12 +62,13 @@ for f = 1:numel(files) %cyklus pres vsechny soubory
                         disp(msg); fprintf(fileID,[ msg '\n']);  
 
                         %vytvorim extrakty podle tabulky PAC, pro vsechny pacienty a pro tuto kategorii
-                        filenames_extract = CM.ExtractData(CB.PAC{1,kategorie(kat)},'aedist',files{f},katstr,overwrite_extracts);
+                        filenames_extract = CM.ExtractData(CB.PAC{1,kategorie(kat)},testname,files{f},katstr,overwrite_extracts);
 
                         FFFilenames_XLS(pocetextracts:pocetextracts+numel(filenames_extract)-1,:) = ...
                             cat(2,repmat({files{f},f,katstr,kat},numel(filenames_extract),1),filenames_extract);
                         pocetextracts = pocetextracts + numel(filenames_extract);                
-
+                        
+                        %FILES = CM.TestExtract(filenames_extract);
                         CM.ImportExtract(filenames_extract,katstr);
                         CM.ResponseSearch(0.1,stat);  
 
