@@ -109,6 +109,10 @@ classdef CHilbertMulti < CHilbert
             end
             disp(['nacteno souboru: ' num2str(obj.filesimported)]);
         end
+        function obj = SetLabel(obj,label)
+            %kdyz chci pridat label jeste po tom, co jsem udelal ImportExtract
+            obj.label = label;
+        end
         function [d,tabs,RjEpochCh,P]= PrehazejEpochy(obj,d,tabs,RjEpochCh,P,test) 
             %vyradi treningove epochy ze vsech dat 
             %pokud je potreba, prehazi epochy podle blokyprehazej

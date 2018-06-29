@@ -689,6 +689,8 @@ classdef CiEEGData < matlab.mixin.Copyable
                     text(0,yKombinace*1.1,'kontrasty mezi kat');
                     text(0,0.1,'kat vuci baseline');
                     legend(ploth,legendstr,'Location','best'); %samo to nejak umisti legendu co nejlepe, temi handely dam legendu jen nekam
+                    line([0 numel(channels)],[yKombinace yKombinace],'Color','yellow'); %cara rozsilu kategorii
+                    line([0 numel(channels)],[0 0],'Color',[.8 .8 .8]); %cara rozsilu kategorii
                 end                
                
             end 
@@ -1260,6 +1262,9 @@ classdef CiEEGData < matlab.mixin.Copyable
             else
                 text(-0.1,ymax*.85,['no epiinfo']);
             end
+            if sum(obj.plotRCh.selCh==ch)>0
+                text(-0.18,ymax*.95,'*', 'FontSize', 24,'Color','red');
+            end
             methodhandle = @obj.hybejPlotCh;
             set(obj.plotRCh.fh,'KeyPressFcn',methodhandle);          
         end        
@@ -1387,6 +1392,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             CH_filterMatrix = obj.CH.filterMatrix; %#ok<NASGU>  
             els = obj.els;                  %#ok<PROP,NASGU>
             plotES = obj.plotES;            %#ok<PROP,NASGU>
+            plotRCh = rmfield(obj.plotRCh,'fh');           %#ok<PROP,NASGU> %ukladam kvuli selected channels, bez file handelu
             %plotH = obj.plotH;              %#ok<PROP,NASGU> %plotH je blbost ukladat, vytvori se novy, jen to brani vice grafum - 14.6.2016
             RjCh = obj.RjCh;                %#ok<PROP,NASGU>
             RjEpoch = obj.RjEpoch;          %#ok<PROP,NASGU>
@@ -1401,7 +1407,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             [pathstr,fname,ext] = CiEEGData.matextension(filename);        
             filename2 = fullfile(pathstr,[fname ext]);
             save(filename2,'d','tabs','tabs_orig','fs','header','sce','PsyDataP','PsyData','testname','epochtime','baseline','CH_H','els',...
-                    'plotES','RjCh','RjEpoch','RjEpochCh','epochTags','epochLast','reference','epochData','Wp','DE','DatumCas', ...
+                    'plotES','plotRCh','RjCh','RjEpoch','RjEpochCh','epochTags','epochLast','reference','epochData','Wp','DE','DatumCas', ...
                     'CH_filterMatrix','-v7.3');  
             disp(['ulozeno do ' filename2]); 
         end
@@ -1478,6 +1484,9 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
             obj.els = els;                  %#ok<CPROPLC,CPROP,PROP> 
             obj.plotES = plotES;            %#ok<CPROPLC,CPROP,PROP> 
+            if ismember('plotRCh', {vars.name}) %nastaveni grafu PlotResponseCh
+                load(filename,'plotRCh'); obj.plotRCh = plotRCh;          %#ok<CPROPLC,CPROP,PROP> 
+            end
             %obj.plotH = plotH;             %#ok<CPROPLC,CPROP,PROP> 
             obj.RjCh = RjCh;                %#ok<CPROPLC,CPROP,PROP>     
             obj.RjEpoch = RjEpoch;          %#ok<CPROPLC,CPROP,PROP> 
@@ -1636,6 +1645,15 @@ classdef CiEEGData < matlab.mixin.Copyable
                    if isa(obj,'CHilbert'), obj.PlotResponseFreq(obj.plotRCh.ch,obj.Wp(obj.WpActive).kats); end %vykreslim vsechna frekvencni pasma
                    obj.PlotEpochs(obj.plotRCh.ch,obj.Wp(obj.WpActive).kats); %vykreslim prumery freq u vsech epoch
                    figure(obj.plotRCh.fh); %dam puvodni obrazek dopredu
+               case {'add' ,  'equal'}     % + oznaceni kanalu
+                   obj.SelChannel(obj.plotRCh.ch);
+                   obj.PlotResponseCh( obj.plotRCh.ch); %prekreslim grafy
+               case {'numpad6'}     % + oznaceni kanalu                   
+                   chn2 = obj.plotRCh.selCh( find(obj.plotRCh.selCh>obj.plotRCh.ch,1) );
+                   obj.PlotResponseCh( iff(isempty(chn2),obj.plotRCh.ch,chn2) ); %prekreslim grafy
+               case {'numpad4'}     % + oznaceni kanalu
+                   chn2 = obj.plotRCh.selCh( find(obj.plotRCh.selCh<obj.plotRCh.ch,1,'last') );
+                   obj.PlotResponseCh( iff(isempty(chn2),obj.plotRCh.ch,chn2) ); %prekreslim grafy
                otherwise
                    disp(['You just pressed: ' eventDat.Key]);
            end
@@ -1683,6 +1701,15 @@ classdef CiEEGData < matlab.mixin.Copyable
            else
                 obj.epochTags = [obj.epochTags  obj.plotES(2)]; %pridam hodnotu s                
            end  
+        end
+        function obj = SelChannel(obj,ch)
+            if ~isfield(obj.plotRCh,'selCh')
+                obj.plotRCh.selCh = ch; %prvni vybrany kanal
+            elseif sum(obj.plotRCh.selCh==ch)>0 
+                obj.plotRCh.selCh(obj.plotRCh.selCh==ch) = []; %vymazu kanal z vyberu
+            else
+                obj.plotRCh.selCh = sort([obj.plotRCh.selCh ch]); %pridam kanal k vyberu                
+            end
         end
         function epochs = PlottedEpochs(obj)
             %vraci pocet zobrazenych celych epoch 
