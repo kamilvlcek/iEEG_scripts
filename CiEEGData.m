@@ -197,6 +197,17 @@ classdef CiEEGData < matlab.mixin.Copyable
             RjEpoch = obj.RjEpoch;
             RjEpochCh = obj.RjEpochCh;                      
         end
+        function [selCh] = GetSelCh(obj)
+            %vraci cisla kanalu vybranych v grafu plotResponseCh, naprikla pro CBrainPLot
+            if isprop(obj, 'plotRCh') && isfield(obj.plotRCh,'selCh')
+                 selCh = obj.plotRCh.selCh;    %ukladam kvuli selected channels, bez file handelu            
+            else
+                 selCh = [];
+            end
+        end
+        function obj = SetSelCh(obj,selCh)
+            obj.plotRCh.selCh = selCh;
+        end
         function obj = ExtractEpochs(obj, psy,epochtime,baseline)
             % psy je struct dat z psychopy, 
             % epochtime je array urcujici delku epochy v sec pred a po podnetu/odpovedi: [pred pod podnet=0/odpoved=1]
@@ -565,7 +576,32 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
             [obj.samples,obj.channels, obj.epochs] = obj.DSize();
         end
-        
+        function [katsnames,kombinace,kats] = GetKatsNames(obj)
+            %vraci nazvy kategorii ve statistice v aktivnim kontrastu a jejich kombinaci, do intervalyResp aj
+           if numel(obj.Wp) >= obj.WpActive
+               kats = obj.Wp(obj.WpActive).kats; 
+               [katnum, katstr] = obj.PsyData.Categories();
+               kombinace = combinator(length(kats),2,'p'); %permutace bez opakovani z poctu kategorii
+               kombinace = kombinace(kombinace(:,1)>kombinace(:,2),:); %vyberu jen perumtace, kde prvni cislo je vetsi nez druhe   
+               katsnames =  cell(1,numel(kats)+ size(kombinace,1));
+               for kat = 1: numel(kats)
+                    if iscell(kats(kat)) %mame tu vic kategorii proti vice - na jedne strane kontrastu
+                        kknames = cell(1,numel(kats{kat})); %jmena individualnich kategorii na jedne strane kontrastu
+                        for kk = 1: numel(kats{kat})
+                            kknames{kk}=katstr{kats{kat}(kk)+1}; %katnum jsou od 0, katstr indexovany od 1
+                        end
+                        katsnames{kat} = strjoin(kknames,'+'); %vice kategorii
+                    else
+                        katsnames{kat} = katstr{katnum==kats(kat)}; %jde to udelat najednou bez for cyklu?
+                    end
+               end
+               for kat = 1:size(kombinace,1) %cyklus pres vsechny kombinace kategorii
+                   katsnames{kat+numel(kats)} = [katsnames{kombinace(kat,1)} 'X' katsnames{kombinace(kat,2)} ];
+               end
+           else
+               disp(['neni vypocitana statistika']);
+           end
+        end
         function [prumery, MNI,names,intervaly,katsnames] = IntervalyResp(obj, intervaly,channels,dofig)
             %vypocita hodnoty v jednotlivych intervalech casu pro jednotlive kategorie i pro celkovy prumer       
             %vykresli graf pro kazdy interval do spolecneho plotu
@@ -575,14 +611,11 @@ classdef CiEEGData < matlab.mixin.Copyable
             if ~exist('intervaly','var') || isempty(intervaly), intervaly = [0.1 obj.epochtime(2)]; end %defaultni epocha je cely interval
             if ~exist('channels','var') || isempty(channels) , channels = 1:obj.channels; end
             if ~exist('dofig','var'), dofig = 1; end %defaultne delam obrazek
-            kats = obj.Wp(obj.WpActive).kats; 
-            [katnum, katstr] = obj.PsyData.Categories();            
+            [katsnames,kombinace,kats] = obj.GetKatsNames();                                
 
-            %spocitam dynamicky permutace vsech kategorii, pro ktere mam spocitanou statistiku           
-            kombinace = combinator(length(kats),2,'p'); %permutace bez opakovani z poctu kategorii
-            kombinace = kombinace(kombinace(:,1)>kombinace(:,2),:); %vyberu jen perumtace, kde prvni cislo je vetsi nez druhe            
+            %spocitam dynamicky permutace vsech kategorii, pro ktere mam spocitanou statistiku                       
             prumery = zeros(numel(channels),size(intervaly,1),numel(kats)+size(kombinace,1));   % channels x intervaly x kategorie - celkova data a jednotlive kategorie            
-            katsnames =  cell(1,numel(kats)+ size(kombinace,1));
+           
             if dofig, figure('Name','IntervalyResp'); end
             ploth = zeros(1,max(numel(kats),size(kombinace,1))); %handles na jednotlive ploty, kvuli legende
             for int = 1:size(intervaly,1) 
@@ -625,17 +658,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                         ploth(kat) = plot(P','o-','Color',colorskat{kat}); %kreslim tuto kategorii                       
                         hold on;
                     end
-                    iChKats(1,:) = iChKats(1,:) | iCh; %pridam dalsi kanaly, kde je signif odpoved
-                    
-                    if iscell(kats(kat)) %mame tu vic kategorii proti vice - na jedne strane kontrastu
-                        kknames = cell(1,numel(kats{kat})); %jmena individualnich kategorii na jedne strane kontrastu
-                        for kk = 1: numel(kats{kat})
-                            kknames{kk}=katstr{kats{kat}(kk)+1}; %katnum jsou od 0, katstr indexovany od 1
-                        end
-                        katsnames{kat} = strjoin(kknames,'+'); %vice kategorii
-                    else
-                        katsnames{kat} = katstr{katnum==kats(kat)}; %jde to udelat najednou bez for cyklu?
-                    end
+                    iChKats(1,:) = iChKats(1,:) | iCh; %pridam dalsi kanaly, kde je signif odpoved                                        
                     legendstr{kat}=katsnames{kat}; %pridam jmeno kategorie na zacatek [legendstr{k}]
                 end                
                 
@@ -667,8 +690,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                         if kat>numel(kats), ploth(kat) = ph; end %pokud je kombinaci vic nez kategorii, ulozim si handle, budu ho potrebovat na legendu
                     end
                     iChKats(2,:) = iChKats(2,:) | iCh ;  %pridam dalsi kanaly, kde je signif odpoved                    
-                    legendstr{colorindex}=[legendstr{colorindex} ';' katsnames{kombinace(kat,1)} ' x ' katsnames{kombinace(kat,2)} ];
-                    katsnames{kat+numel(kats)} = [katsnames{kombinace(kat,1)} 'X' katsnames{kombinace(kat,2)} ];
+                    legendstr{colorindex}=[legendstr{colorindex} ';' katsnames{kombinace(kat,1)} ' X ' katsnames{kombinace(kat,2)} ];                    
                 end  
                 
                 if dofig                                  
@@ -1392,8 +1414,8 @@ classdef CiEEGData < matlab.mixin.Copyable
             CH_filterMatrix = obj.CH.filterMatrix; %#ok<NASGU>  
             els = obj.els;                  %#ok<PROP,NASGU>
             plotES = obj.plotES;            %#ok<PROP,NASGU>
-            plotRCh = rmfield(obj.plotRCh,'fh');           %#ok<PROP,NASGU> %ukladam kvuli selected channels, bez file handelu
-            %plotH = obj.plotH;              %#ok<PROP,NASGU> %plotH je blbost ukladat, vytvori se novy, jen to brani vice grafum - 14.6.2016
+            selCh = obj.GetSelCh();      %#ok<NASGU>
+            %plotH = obj.plotH;             %#ok<PROP,NASGU> %plotH je blbost ukladat, vytvori se novy, jen to brani vice grafum - 14.6.2016
             RjCh = obj.RjCh;                %#ok<PROP,NASGU>
             RjEpoch = obj.RjEpoch;          %#ok<PROP,NASGU>
             RjEpochCh = obj.RjEpochCh;      %#ok<PROP,NASGU>
@@ -1404,10 +1426,11 @@ classdef CiEEGData < matlab.mixin.Copyable
             Wp = obj.Wp;                    %#ok<PROP,NASGU>
             DE = obj.DE;                    %#ok<PROP,NASGU>
             DatumCas = obj.DatumCas;        %#ok<PROP,NASGU>
+            if isa(obj,'CHilbertMulti'), label = obj.label; else label = []; end %#ok<NASGU>
             [pathstr,fname,ext] = CiEEGData.matextension(filename);        
             filename2 = fullfile(pathstr,[fname ext]);
             save(filename2,'d','tabs','tabs_orig','fs','header','sce','PsyDataP','PsyData','testname','epochtime','baseline','CH_H','els',...
-                    'plotES','plotRCh','RjCh','RjEpoch','RjEpochCh','epochTags','epochLast','reference','epochData','Wp','DE','DatumCas', ...
+                    'plotES','selCh','RjCh','RjEpoch','RjEpochCh','epochTags','epochLast','reference','epochData','Wp','DE','DatumCas', 'label', ...
                     'CH_filterMatrix','-v7.3');  
             disp(['ulozeno do ' filename2]); 
         end
@@ -1484,17 +1507,17 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
             obj.els = els;                  %#ok<CPROPLC,CPROP,PROP> 
             obj.plotES = plotES;            %#ok<CPROPLC,CPROP,PROP> 
-            if ismember('plotRCh', {vars.name}) %nastaveni grafu PlotResponseCh
-                load(filename,'plotRCh'); obj.plotRCh = plotRCh;          %#ok<CPROPLC,CPROP,PROP> 
+            if ismember('selCh', {vars.name}) %nastaveni grafu PlotResponseCh
+                load(filename,'selCh'); obj.plotRCh.selCh = selCh;          %#ok<CPROPLC,CPROP,PROP> 
             end
             %obj.plotH = plotH;             %#ok<CPROPLC,CPROP,PROP> 
             obj.RjCh = RjCh;                %#ok<CPROPLC,CPROP,PROP>     
             obj.RjEpoch = RjEpoch;          %#ok<CPROPLC,CPROP,PROP> 
             if exist('epochTags','var'),  obj.epochTags = epochTags;   else obj.epochTags = []; end         %#ok<CPROPLC,CPROP,PROP>     
             if exist('epochLast','var'),  obj.epochLast = epochLast;   else obj.epochLast = []; end         %#ok<CPROPLC,CPROP,PROP> 
-            if exist('reference','var'),  obj.reference = reference;   else obj.reference = 'original'; end  %#ok<CPROPLC,CPROP,PROP>  %14.6.2016
-           
+            if exist('reference','var'),  obj.reference = reference;   else obj.reference = 'original'; end  %#ok<CPROPLC,CPROP,PROP>  %14.6.2016            
             obj.filename = filename;
+            if isa(obj,'CHilbertMulti'), load(filename,'label'); obj.label = label; end %#ok<NASGU>
             disp(['nacten soubor ' filename]); 
         end
     end

@@ -18,6 +18,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
         iPAC; %index v poli PAC
         reference; %reference
         Hf; %seznam frekvencnich pasem
+        selCh; %vyber kanalu, ktere zobrazit
     end
     
     methods (Access = public)        
@@ -165,6 +166,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
             obj.testname = BPD.testname;
             obj.reference = BPD.reference;
             obj.Hf = BPD.Hf;
+            obj.selCh = BPD.selCh; %vyber kanalu z CHilbertMulti aj
         end
         function PlotBrain3D(obj,kategorie,signum,outputDir,overwrite)
             %vykresli jpg obrazky jednotlivych kategorii a kontrastu mezi nimi            
@@ -204,6 +206,8 @@ classdef CBrainPlot < matlab.mixin.Copyable
                         iV = obj.VALS{interval,kat} > 0; %jen kladne rozdily
                     elseif signum <0 
                         iV = obj.VALS{interval,kat} < 0; %jen zaporne rozdily
+                    elseif ~isempty(obj.selCh{interval,kat})
+                        iV = ismember(obj.VALS{interval,kat},obj.selCh{interval,kat}); %vyber kanalu k zobrazeni, napriklad z CHilbertMulti
                     else
                         iV = true(size(obj.VALS{interval,kat})); %vsechny rozdily
                     end                    

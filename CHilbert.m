@@ -414,6 +414,7 @@ classdef CHilbert < CiEEGData
             BPD.testname = obj.PsyData.testname; %jmeno testu, aedist, menrot nebo ppa
             BPD.reference = obj.reference; %reference
             BPD.Hf = obj.Hf;%seznam frekvencnich pasem
+            BPD.selCh = cell(1,2); 
             %jen definice velikosti
             BPD.NAMES = cell(1,2);                        
             BPD.MNI = cell(1,2);
@@ -439,8 +440,9 @@ classdef CHilbert < CiEEGData
                     BPD.EPI{1}(ch).seizureOnset = obj.CH.H.channels(ch).seizureOnset;
                     BPD.EPI{1}(ch).interictalOften = obj.CH.H.channels(ch).interictalOften;
                     BPD.EPI{1}(ch).rejected = obj.CH.H.channels(ch).rejected;
-                end
+                end                
             end
+            BPD.selCh{1} = 1:obj.channels;
             
             %hodnoty pro vybrane kanaly
             BPD.NAMES{2}= cell(iff(isempty(chns),obj.channels,numel(chns)),1);
@@ -448,7 +450,7 @@ classdef CHilbert < CiEEGData
             BPD.VALS{2} = ones(iff(isempty(chns),obj.channels,numel(chns)),1);                
             BPD.LABELS{2}= cell(iff(isempty(chns),obj.channels,numel(chns)),1);
             BPD.EPI{2} = struct('seizureOnset',{},'interictalOften',{},'rejected',{});                      
-                  
+            BPD.selCh{2} = obj.GetSelCh();      
             if isempty(chns)
                 prumery = obj.IntervalyResp([],[],0);
                 prumery = squeeze(mean(prumery(:,1,1:numel(obj.Wp(obj.WpActive).kats)),3)); %prumer pres kategorie
