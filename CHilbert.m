@@ -249,7 +249,15 @@ classdef CHilbert < CiEEGData
                 subplot(1,numel(kategories),k);
                 T = obj.epochtime(1):0.1:obj.epochtime(2);
                 F =  obj.Hfmean;
-                D = squeeze(obj.HFreq(:,ch,:,kategories(k)+1));
+                if iscell(kategories(k))                    
+                    dd = zeros(size(obj.HFreq,1),size(obj.HFreq,3),numel(kategories{k}));
+                    for ikat = 1:numel(kategories{k})
+                        dd(:,:,ikat) = squeeze(obj.HFreq(:,ch,:,kategories{k}(ikat)+1));
+                    end
+                    D = mean(dd,3);
+                else
+                    D = squeeze(obj.HFreq(:,ch,:,kategories(k)+1));
+                end
                 imagesc(T,F, D');
                 maxy = max([maxy max(max( D ))]);
                 miny = min([miny min(min( D ))]);                
@@ -263,11 +271,18 @@ classdef CHilbert < CiEEGData
             end
             for k = 1:numel(kategories)
                 subplot(1,numel(kategories),k);
-                caxis([miny,maxy]);
-                title( obj.PsyData.CategoryName(kategories(k)));
-                if k == 1, ylabel(['channel ' num2str(ch) ' - freq [Hz]']); end
+                caxis([miny,maxy]);               
+                title( obj.PsyData.CategoryName(cellval(kategories,k)));
+                if k == 1
+                    ylabel(['channel ' num2str(ch) ' - freq [Hz]']); 
+                    if isprop(obj,'plotRCh') && isfield(obj.plotRCh,'selCh') && sum(obj.plotRCh.selCh==ch)>0
+                        text(0,obj.Hf(1),'*', 'FontSize', 24,'Color','red');
+                    end
+                end
+                
                 if k == numel(kategories), colorbar('Position',[0.92 0.1 0.02 0.82]); end
             end
+            
             
             methodhandle = @obj.hybejPlotF;
             set(obj.plotF.fh,'KeyPressFcn',methodhandle);             
@@ -553,9 +568,17 @@ classdef CHilbert < CiEEGData
                 case 'delete' %Del na numericke klavesnici
                    obj.plotF.ylim = [];
                    obj.PlotResponseFreq( obj.plotEp.ch); %prekreslim grafy
+                case {'add' ,  'equal','s'}     % + oznaceni kanalu
+                   obj.SelChannel(obj.plotF.ch);
+                   obj.PlotResponseFreq( obj.plotF.ch); %prekreslim grafy
+                case {'numpad6','d'}     % + oznaceni kanalu                   
+                   chn2 = obj.plotRCh.selCh( find(obj.plotRCh.selCh>obj.plotF.ch,1) );
+                   obj.PlotResponseFreq( iff(isempty(chn2),obj.plotF.ch,chn2) ); %prekreslim grafy
+               case {'numpad4','a'}     % + oznaceni kanalu
+                   chn2 = obj.plotRCh.selCh( find(obj.plotRCh.selCh<obj.plotF.ch,1,'last') );
+                   obj.PlotResponseFreq( iff(isempty(chn2),obj.plotF.ch,chn2) ); %prekreslim grafy
            end
-        end
-        
-    end
+        end       
+     end
 end
 
