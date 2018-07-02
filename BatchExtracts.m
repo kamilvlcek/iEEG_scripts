@@ -83,9 +83,8 @@ for f = 1:numel(files) %cyklus pres vsechny soubory
                     CBo.ImportData(BPD); %naimportuje data z CHilbertMulti
                     CBo.PlotBrain3D([],[],[],overwrite_brainplots); %vykresli obrazek mozku
                 catch exception 
-                    errorMessage = sprintf('** Error in function %s() at line %d.\nError Message:\n%s', ...
-                        exception.stack(1).name, exception.stack(1).line, exception.message);                            
-                    disp(errorMessage);  fprintf(fileID,[errorMessage '\n']);  %#ok<DSPS> %zobrazim hlasku, zaloguju, ale snad to bude pokracovat dal                                        
+                    errorMessage = exceptionLog(exception);                            
+                    disp(errorMessage);  fprintf(fileID,[errorMessage '\n']);   %zobrazim hlasku, zaloguju, ale snad to bude pokracovat dal                                        
                     tablelog(cyklus+1,:) = { files{f}, num2str(f), katstr, 'error', exception.message , datestr(now)}; 
                     clear CM; 
                 end 
@@ -94,9 +93,8 @@ for f = 1:numel(files) %cyklus pres vsechny soubory
                 xlswrite(FFFilenames_logname,FFFilenames_XLS); %budu to psat znova po kazdem souboru, abych o log neprisel, pokud se program zhrouti
             end
         catch exception
-            errorMessage = sprintf('** Error in function %s() at line %d.\nError Message:\n%s', ...
-                    exception.stack(1).name, exception.stack(1).line, exception.message);                            
-            disp(errorMessage);  fprintf(fileID,[errorMessage '\n']);  %#ok<DSPS> %zobrazim hlasku, zaloguju, ale snad to bude pokracovat dal                                        
+            errorMessage = exceptionLog(exception);                          
+            disp(errorMessage);  fprintf(fileID,[errorMessage '\n']);   %zobrazim hlasku, zaloguju, ale snad to bude pokracovat dal                                        
             tablelog(cyklus+1,:) = { files{f}, num2str(f), 'no kat', 'error', exception.message , datestr(now)}; 
             clear CB;        
             cyklus = cyklus + 1;
