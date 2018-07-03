@@ -229,11 +229,12 @@ classdef CBrainPlot < matlab.mixin.Copyable
                             vals_channels = vals_channels*signum; %u zapornych hodnot prehodim znamenko
                         end
                         mni_channels = obj.MNI{interval,kat}(iV);                                                                                                 
-                         
+                        names_channels = obj.NAMES{interval,kat}(iV);
+                        
                         if ~strcmp(obj.katstr{kat},'AllEl') %nechci to pro kategorii vsech elektrod
-                            for iV = 1:numel(vals_channels)
-                                tablelog(iV + iTL,:) = { sprintf('[%.1f %.1f]',obj.intervals(interval,:)),obj.katstr{kat}, obj.NAMES{interval,kat}{iV}, ...
-                                    sprintf('[%.1f,%.1f,%.1f]',mni_channels(iV).MNI_x, mni_channels(iV).MNI_y, mni_channels(iV).MNI_z), vals_channels(iV)};
+                            for iVal = 1:numel(vals_channels)
+                                tablelog(iVal + iTL,:) = { sprintf('[%.1f %.1f]',obj.intervals(interval,:)),obj.katstr{kat}, obj.NAMES{interval,kat}{iVal}, ...
+                                    sprintf('[%.1f,%.1f,%.1f]',mni_channels(iVal).MNI_x, mni_channels(iVal).MNI_y, mni_channels(iVal).MNI_z), vals_channels(iVal)};
                             end
                             iTL = iTL + numel(vals_channels);
                         end
@@ -241,9 +242,8 @@ classdef CBrainPlot < matlab.mixin.Copyable
                         %nejdriv vykreslim bez popisku elektrod
                         if isempty(dir([ plotSetup.outputDir '3D_model\' figureNameNoNames '*'])) || overwrite==1 
                             plotSetup.figureNamePrefix = figureNameNoNames;
-                            disp(plotSetup.figureNamePrefix);
-                            names_channels = []; 
-                            brainsurface = main_brainPlot(vals_channels,mni_channels,names_channels,brainsurface,plotSetup);  %#ok<PROPLC>
+                            disp(plotSetup.figureNamePrefix);                            
+                            brainsurface = main_brainPlot(vals_channels,mni_channels,[],brainsurface,plotSetup);  %#ok<PROPLC>
                             %volam Jirkuv skript, vsechny ty promenne predtim jsou do nej
                             if isempty(obj.brainsurface)
                                 obj.brainsurface = brainsurface; %#ok<PROPLC> %ulozim si ho pro dalsi volani
@@ -255,8 +255,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
                         %a pak jeste s popisy elektrod                        
                         if isempty(dir([ plotSetup.outputDir '3D_model\' figureNameNames '*'])) || overwrite==1 
                             plotSetup.figureNamePrefix = figureNameNames;
-                            disp(plotSetup.figureNamePrefix);
-                            names_channels = obj.NAMES{interval,kat};                         
+                            disp(plotSetup.figureNamePrefix);                                                     
                             brainsurface = main_brainPlot(vals_channels,mni_channels,names_channels,brainsurface,plotSetup);    %#ok<PROPLC>  
                             if isempty(obj.brainsurface)
                                 obj.brainsurface = brainsurface; %#ok<PROPLC> %ulozim si ho pro dalsi volani

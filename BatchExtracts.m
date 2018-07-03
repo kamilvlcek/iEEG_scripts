@@ -21,14 +21,17 @@ end
 overwrite_extracts = 0; %jestli se maji prepisovat extrakty pro kazdeho pacienta
 overwrite_brainplots = 1;
 overwriteCM = 0; %jestli se maji prepisovat soubory CHilbertMulti
-doIntervalyResp = 1; %jestli se maji hledaty signif soubory pres vsechny pacienty pomoci CN.IntervalyResp, pokud ne, potrebuju uz mit hotove CHilbertMulti soubory
+doIntervalyResp = 0; %jestli se maji hledaty signif soubory pres vsechny pacienty pomoci CN.IntervalyResp, pokud ne, potrebuju uz mit hotove CHilbertMulti soubory
 cyklus = 1;
 pocetextracts = 1;
-dirCM = 'd:\eeg\motol\CHilbertMulti\Menrot\';
+%dirCM = 'd:\eeg\motol\CHilbertMulti\Menrot\'; %musi koncit \
 %fileCS = 'd:\eeg\motol\CHilbertMulti\Menrot\CSelCh_Menrot.mat';
+dirCM = 'd:\eeg\motol\CHilbertMulti\Aedist\'; %musi koncit \
+fileCS = 'd:\eeg\motol\CHilbertMulti\Aedist\CSelCh_AEdist.mat';
 brainplots_onlyselch = 1; %generovat CBrainPlot3D jedine ze souboru, kde jsou selected channels
-%log soubory
+plotallchns = 0; %jestli generovat obrazky mozku i se vsema kanalama (bez ohledu na signifikanci)
 
+%LOG SOUBORY
 %1. seznam vsech extraktu
 logfilename = ['logs\BatchExtract_' testname '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') '.log'];
 FFFilenames_logname = ['logs\BatchExtractFilenames_' testname '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') '.xls'];
@@ -105,9 +108,9 @@ for f = 1:numel(files) %cyklus pres vsechny soubory
                     end
                     if ~brainplots_onlyselch || ~isempty(selCh) %pokud negenerovat jen pro selch, nebo pokud nejsou prazne selch
                         CBo = CBrainPlot; %brainplot na generovani obrazku mozku
-                        BPD = CM.ExtractBrainPlotData(); %vytvori data pro import do CBrainPlot
+                        BPD = CM.ExtractBrainPlotData([],kategorie(kat)); %vytvori data pro import do CBrainPlot
                         CBo.ImportData(BPD); %naimportuje data z CHilbertMulti
-                        CBo.PlotBrain3D([],[],[],overwrite_brainplots); %vykresli obrazek mozku
+                        CBo.PlotBrain3D(iff(plotallchns,[1 2],2),[],[],overwrite_brainplots); %vykresli obrazek mozku
                     end
                 catch exception 
                     errorMessage = exceptionLog(exception);                            

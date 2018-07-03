@@ -418,10 +418,11 @@ classdef CHilbert < CiEEGData
                 
         end
         
-        function BPD = ExtractBrainPlotData(obj,chns)
+        function BPD = ExtractBrainPlotData(obj,chns,kategorie)
             %vytvori Brain Plot Data, pro CBrainPlot.PlotBrain3D
             BPD = struct;            
             if ~exist('chns','var'), chns = []; end %pokud neni definovane, je prazdne a pak vytvarim jen data pro vsechny elektrody                     
+            if ~exist('kategorie','var'), kategorie = []; end %kategorie ze ktere chci ziskat hodnoty - odpovida kategoriim z IntervalyResp a pak v CBrainPLot
           
             BPD.intervals = [0 1]; %budu mit dve pole hodnoty, vybrane kanaly a vsechny kanaly s vybranymi vyznacenyma
             label = iff(isprop(obj,'label'), obj.label, 'vals'); %v pripade ze se jedna o CHilbertMulti, muze byt definovane label podle jmena extraktu
@@ -468,7 +469,10 @@ classdef CHilbert < CiEEGData
             BPD.selCh{2} = obj.GetSelCh();      
             if isempty(chns)
                 prumery = obj.IntervalyResp([],[],0);
-                prumery = squeeze(mean(prumery(:,1,1:numel(obj.Wp(obj.WpActive).kats)),3)); %prumer pres kategorie
+                if isempty(kategorie)
+                    kategorie = 1:size(prumery,3);
+                end
+                prumery = squeeze(mean(prumery(:,1,kategorie),3)); %prumer pres kategorie
             else
                 prumery = ones(numel(chns),1); % vsechno jednicky
             end    

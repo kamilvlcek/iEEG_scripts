@@ -18,7 +18,7 @@ classdef CSelCh < matlab.mixin.Copyable
             end
         end
         function obj = SetSelCh(obj,selCh,filename,chnames, katstr,freq)            
-            %ulozi vyber kanalu            
+            %ulozi vyber kanalu do teto tridy            
             if ~exist('chnames','var'), chnames = []; end
             if ~exist('katstr','var'), katstr = []; end
             if ~exist('freq','var'), freq = []; end
@@ -55,7 +55,8 @@ classdef CSelCh < matlab.mixin.Copyable
             end
         end
         function selCh = GetSelCh(obj,filename)
-            if isa(filename,'CiEEGData')
+            %ziska vyber kanalu z teto tridy
+            if isa(filename,'CiEEGData') %pokud predam jako parametr tridu, ulozi data primo do ni
                  E = filename;
                  s = find(~cellfun(@isempty,strfind(obj.selCh(:,1),E.filename)),1); %najdu pouze prvni vyhovujici soubor 
                  if ~isempty(s)
@@ -67,6 +68,10 @@ classdef CSelCh < matlab.mixin.Copyable
                         end
                      end
                      E.plotRCh.selCh = selCh; %vlozim cisla kanalu do objektu, tam kam patri
+                     if isempty(E.label) && ~isempty(obj.selCh{s,3})
+                         E.label = obj.selCh{s,3}; %pokud je v objektu prazne label a tato trida ho obsahuje, vyplnim ho taky
+                         disp(['nastaveno label: ' E.label]);
+                     end
                      disp('ulozeno do vlastnosti tridy');
                  else
                      selCh = [];
