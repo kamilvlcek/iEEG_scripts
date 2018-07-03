@@ -181,16 +181,29 @@ classdef CHilbert < CiEEGData
         function GetITPC(obj)
             assert(obj.epochs > 1, 'data musi byt epochovana');
             PN = CPlotsN(obj);
-            [itpc, itpc_p, itpc_pmean] = PN.CalculateITPC();
+            [itpc, ~, itpc_pmean] = PN.CalculateITPC();
             % d = time x channel x epoch
             itpc = permute(itpc,[3 1 4 2]); %time x channel x freq x epoch
-            obj.HFreq = itpc; 
-            obj.d = squeeze(mean(itpc,3)); %prumer pres frekvence            
+            obj.HFreq = movmean(itpc,5,1); 
+            obj.d = movmean(squeeze(mean(itpc,3)),5,1); %prumer pres frekvence            
             obj.PsyData.Cond2Epochs();            
             obj.RejectEpochs([],[]);
             obj.RjEpoch = [];
             obj.epochs = size(itpc,4); 
-            %TODO - import stat
+            katnum = obj.PsyData.Categories();
+            epochData2 = cell(numel(katnum),3);
+            for k = 1:numel(katnum)
+               ikat = find([obj.epochData{:,2}]==katnum(k),1);
+               epochData2(k,:) = obj.epochData(ikat,:);
+            end
+            obj.epochData = epochData2;
+            %smazu statistiku, aby nebyla na obrazcich
+            for w = 1:numel(obj.Wp(obj.WpActive).WpKat)                
+                obj.Wp(obj.WpActive).WpKat{w} = ones(size(obj.Wp(obj.WpActive).WpKat{w}));
+            end
+            for w = 1:numel(obj.Wp(obj.WpActive).WpKatBaseline)     
+                obj.Wp(obj.WpActive).WpKatBaseline{w} = ones(size(obj.Wp(obj.WpActive).WpKatBaseline{w}));
+            end
         end
         function obj = Decimate(obj,podil,rtrim)
             %zmensi frekvencni data na nizsi vzorkovaci frekvenci

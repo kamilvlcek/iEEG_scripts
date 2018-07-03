@@ -484,9 +484,9 @@ classdef CiEEGData < matlab.mixin.Copyable
             obj.WpActive = WpActive;
             
         end
-        function Categories(obj)
+        function katnum = Categories(obj)
             %funkce ktera jen vypise kategorie
-            obj.PsyData.Categories(1);
+            [katnum] = obj.PsyData.Categories(1);
         end
         function Fourier(obj,channels,freq,epochs,method)
            % perform FFT and plot, freq should be max and min to plot
