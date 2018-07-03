@@ -47,6 +47,7 @@ setup = eval(['setup_' testname]); %nactu nastaveni
 kontrast = 1; %3=PT vs Ego 2=vy vs znacka 1=vsechno proti vsemu
 stat = setup.stat_kats{kontrast}; %resp setup.stat_kats{1} {2} nebo {3} pro menrot 
 CM.ResponseSearch(0.1,stat);
+%CM.SetLabel( TODO tady potrebujuu nastavit jmeno konrastu do label, abych ho pak mel v nazvu obrazku
 
 %% 2.5 vyslednou sumarni tridu si ulozim, podobne jako kdyz ukladam data tridy CHilbert
 CM.Save(['d:\eeg\motol\pacienti\0sumarne\CM ' testname ' ' label ' ' frekvence ' ' reference ' ' datum ' ' epochtime ' ' datumEP]);
