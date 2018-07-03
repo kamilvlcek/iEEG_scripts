@@ -1,4 +1,4 @@
-function [ ] = BatchExtracts( testname,files )
+function [ ] = BatchExtracts( testname,files,kontrasts )
 
 % files = {   'AEdist CHilbert 50-150 -0.5-1.2 refBipo Ep2018-04_CHilb.mat',...
 %             'AEdist CMorlet 1-10M -0.5-1.2 refBipo Ep2018-06 FE_CHilb.mat',...
@@ -8,7 +8,7 @@ function [ ] = BatchExtracts( testname,files )
 % testname = 'aedist';
 
 [ pacienti, setup  ] = pacienti_setup_load( testname );
-kontrasts = 1:numel(setup.stat_kats); %statisticky kontrast
+if ~exist('kontrasts','var'), kontrasts = 1:numel(setup.stat_kats); end %statisticky kontrast, pokud nezadam zvnejsku, udelam vsechny
 
 pocetcyklu = 0;
 for kontrast = 1:numel(kontrasts) %cyklus jen na vypocet celkoveho poctu cyklu pres vsechny kontrasty ve statistice
@@ -19,11 +19,14 @@ for kontrast = 1:numel(kontrasts) %cyklus jen na vypocet celkoveho poctu cyklu p
 end
 
 overwrite_extracts = 0; %jestli se maji prepisovat extrakty pro kazdeho pacienta
-overwrite_brainplots = 0;
-overwriteCM = 1; %jestli se maji prepisovat soubory CHilbertMulti
+overwrite_brainplots = 1;
+overwriteCM = 0; %jestli se maji prepisovat soubory CHilbertMulti
+doIntervalyResp = 1; %jestli se maji hledaty signif soubory pres vsechny pacienty pomoci CN.IntervalyResp, pokud ne, potrebuju uz mit hotove CHilbertMulti soubory
 cyklus = 1;
 pocetextracts = 1;
-
+dirCM = 'd:\eeg\motol\CHilbertMulti\Menrot\';
+%fileCS = 'd:\eeg\motol\CHilbertMulti\Menrot\CSelCh_Menrot.mat';
+brainplots_onlyselch = 1; %generovat CBrainPlot3D jedine ze souboru, kde jsou selected channels
 %log soubory
 
 %1. seznam vsech extraktu
@@ -34,31 +37,44 @@ FFFilenames_XLS(1,:)={'file','fileno','kat','katno','extract'};
 %2. soubor na logovani prubehu
 [fileID,~] = fopen(logfilename,'wt'); 
 %3. tabulka vyslednych CHilbertMulti souboru
-tablelog = cell(pocetcyklu+1,6); %frekvence, soubor, reference, status, chyba -  z toho bude vystupni xls tabulka s prehledem vysledku
-tablelog(1,:) = {'file','fileno','kategorie','result','file','datetime'}; %hlavicky xls tabulky
+tablelog = cell(pocetcyklu+1,7); 
+tablelog(1,:) = {'file','fileno','kategorie','stat','result','file','datetime'}; %hlavicky xls tabulky
+if exist('fileCS','var') && exist(fileCS,'file')==2
+    CS = CSelCh(fileCS);
+end
 
 for f = 1:numel(files) %cyklus pres vsechny soubory
     for kontrast = 1:numel(kontrasts) %cyklus pres vsechny kontrasty
-        stat = setup.stat_kats{kontrast};    
+        stat = setup.stat_kats{kontrasts(kontrast)};      %#ok<NASGU>
         try
-            msg = [' --- ' files{f} ': IntervalyResp *********** '];
-            disp(msg); fprintf(fileID,[ msg '\n']);
+            if doIntervalyResp
+                msg = [' --- ' files{f} ': IntervalyResp *********** ']; %#ok<UNRCH>
+                disp(msg); fprintf(fileID,[ msg '\n']);
 
-            CB = CBrainPlot;     %brainplot na ziskani signif odpovedi
-            CB.IntervalyResp(testname,[0.1 1],files{f},kontrast); %ziskam signif rozdily pro kategorie a mezi kategoriemi pro vsechny pacienty       
-            kategorie = find(~cellfun('isempty',strfind(CB.katstr,'X'))); %strfind je jenom case sensitivni
+                CB = CBrainPlot;     %#ok<USENS> %brainplot na ziskani signif odpovedi
+                CB.IntervalyResp(testname,[0.1 1],files{f},kontrasts(kontrast)); %ziskam signif rozdily pro kategorie a mezi kategoriemi pro vsechny pacienty       
+                kategorie = find(~cellfun('isempty',strfind(CB.katstr,'X'))); %strfind je jenom case sensitivni
+                katsnames = CB.katstr;
+            else
+                msg = [' --- ' files{f} ': Load *********** '];
+                disp(msg); fprintf(fileID,[ msg '\n']);
+                E = pacient_load(pacienti(2).folder,testname,files{f},[],[],[],0); %nejspis objekt CHilbert, pripadne i jiny; loadall = 0
+                E.SetStatActive(kontrasts(kontrast));
+                katsnames = E.GetKatsNames();
+                kategorie = find(~cellfun('isempty',strfind(katsnames,'X'))); %strfind je jenom case sensitivni
+            end
             for kat = 1:numel(kategorie)
-                katstr = CB.katstr{kategorie(kat)}; %jmeno kombinace kategorii z CB, naprikad znackaXvy
+                katstr = katsnames{kategorie(kat)}; %jmeno kombinace kategorii z CB, naprikad znackaXvy
                 try
-                    outfilename = ['d:\eeg\motol\pacienti\0sumarne\CM ' katstr ' ' files{f}]; %jmeno souboru CHilbertMulti
+                    outfilename = [dirCM 'CM ' katstr ' ' files{f}]; %jmeno souboru CHilbertMulti
                     CM = CHilbertMulti;
                     if exist(outfilename,'file')==2 && overwriteCM == 0
-                        msg = [ ' --- ' strrep(outfilename,'\','\\') ' NEULOZENO, preskoceno '  datestr(now)];
+                        msg = [ ' --- ' strrep(outfilename,'\','\\') ' nacteno '  datestr(now)];
                         disp(msg); fprintf(fileID,[ msg '\n']);                     
-                        tablelog(cyklus+1,:) = { files{f}, num2str(f), katstr, 'preskoceno', outfilename,datestr(now) };                     
-                        CM.Load(outfilename);
-                    else
-                        msg = [ ' --- ' strrep(outfilename,'\','\\') ' zpracovavam '  datestr(now)];
+                        tablelog(cyklus+1,:) = { files{f}, num2str(f), katstr,cell2str(stat), 'nacteno', outfilename,datestr(now) };                     
+                        CM.Load(outfilename);                        
+                    elseif doIntervalyResp
+                        msg = [ ' --- ' strrep(outfilename,'\','\\') ' zpracovavam '  datestr(now)]; %#ok<UNRCH>
                         disp(msg); fprintf(fileID,[ msg '\n']);  
 
                         %vytvorim extrakty podle tabulky PAC, pro vsechny pacienty a pro tuto kategorii
@@ -76,12 +92,23 @@ for f = 1:numel(files) %cyklus pres vsechny soubory
 
                         msg = [ ' --- ' files{f} ': ' katstr ' OK '  datestr(now)];
                         disp(msg); fprintf(fileID,[ msg '\n']);            
-                        tablelog(cyklus+1,:) = { files{f}, num2str(f), katstr, 'saved', outfilename,datestr(now) }; 
+                        tablelog(cyklus+1,:) = { files{f}, num2str(f), katstr,cell2str(stat), 'saved', outfilename,datestr(now) }; 
+                    else
+                        msg = [ ' --- ' strrep(outfilename,'\','\\') ' nevytvoreno, nenacteno '  datestr(now)];
+                        disp(msg); fprintf(fileID,[ msg '\n']);   
+                        tablelog(cyklus+1,:) = { files{f}, num2str(f), katstr,cell2str(stat), 'nothing to do', outfilename,datestr(now) }; 
                     end
-                    CBo = CBrainPlot; %brainplot na generovani obrazku mozku
-                    BPD = CM.ExtractBrainPlotData(); %vytvori data pro import do CBrainPlot
-                    CBo.ImportData(BPD); %naimportuje data z CHilbertMulti
-                    CBo.PlotBrain3D([],[],[],overwrite_brainplots); %vykresli obrazek mozku
+                    if exist('CS','var')                        
+                        selCh = CS.GetSelCh(CM); %pokud se tam nazev souboru najde, vlozi se selected channels, jinak ne
+                    else
+                        selCh = [];
+                    end
+                    if ~brainplots_onlyselch || ~isempty(selCh) %pokud negenerovat jen pro selch, nebo pokud nejsou prazne selch
+                        CBo = CBrainPlot; %brainplot na generovani obrazku mozku
+                        BPD = CM.ExtractBrainPlotData(); %vytvori data pro import do CBrainPlot
+                        CBo.ImportData(BPD); %naimportuje data z CHilbertMulti
+                        CBo.PlotBrain3D([],[],[],overwrite_brainplots); %vykresli obrazek mozku
+                    end
                 catch exception 
                     errorMessage = exceptionLog(exception);                            
                     disp(errorMessage);  fprintf(fileID,[errorMessage '\n']);   %zobrazim hlasku, zaloguju, ale snad to bude pokracovat dal                                        

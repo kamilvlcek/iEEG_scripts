@@ -69,6 +69,7 @@ classdef CSelCh < matlab.mixin.Copyable
                      E.plotRCh.selCh = selCh; %vlozim cisla kanalu do objektu, tam kam patri
                      disp('ulozeno do vlastnosti tridy');
                  else
+                     selCh = [];
                      disp('soubor nenalezen v obj.selCh');
                  end                     
             else

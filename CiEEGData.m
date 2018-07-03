@@ -805,7 +805,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 end
                 maxy = max([maxy max(max( D ))]);
                 miny = min([miny min(min( D ))]);                
-                xlabel('Time [s]');                
+                xlabel('Time [s]');                 
                 title(obj.PsyData.CategoryName(katnum));
                 hold on; 
                 if(max(psy_rt)>0) %pokud jsou nejake reakcni casy, u PPA testu nejsou
@@ -1519,7 +1519,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             if exist('epochLast','var'),  obj.epochLast = epochLast;   else obj.epochLast = []; end         %#ok<CPROPLC,CPROP,PROP> 
             if exist('reference','var'),  obj.reference = reference;   else obj.reference = 'original'; end  %#ok<CPROPLC,CPROP,PROP>  %14.6.2016            
             obj.filename = filename;
-            if isa(obj,'CHilbertMulti') && exist('label','var'), load(filename,'label'); obj.label = label; end %#ok<NASGU>
+            if isa(obj,'CHilbertMulti') && ismember('label', {vars.name}), load(filename,'label'); obj.label = label; end %#ok<NASGU>
             disp(['nacten soubor ' filename]); 
         end
     end

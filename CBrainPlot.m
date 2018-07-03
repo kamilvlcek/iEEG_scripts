@@ -207,7 +207,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
                     elseif signum <0 
                         iV = obj.VALS{interval,kat} < 0; %jen zaporne rozdily
                     elseif ~isempty(obj.selCh{interval,kat})
-                        iV = ismember(obj.VALS{interval,kat},obj.selCh{interval,kat}); %vyber kanalu k zobrazeni, napriklad z CHilbertMulti
+                        iV = ismember(1:numel(obj.VALS{interval,kat}),obj.selCh{interval,kat}); %vyber kanalu k zobrazeni, napriklad z CHilbertMulti
                     else
                         iV = true(size(obj.VALS{interval,kat})); %vsechny rozdily
                     end                    
