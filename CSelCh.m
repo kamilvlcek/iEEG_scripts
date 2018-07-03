@@ -90,9 +90,11 @@ classdef CSelCh < matlab.mixin.Copyable
         function Save(obj,filename)
             if ~exist('filename','var') 
                 filename = obj.filename;
+            else
+                obj.filename = filename;
             end
             selCh = obj.selCh; %#ok<NASGU,PROPLC>
-            n = obj.n;      %#ok<NASGU,PROPLC>      
+            n = obj.n;      %#ok<NASGU,PROPLC>                  
             save(filename,'selCh','n','filename','-v7.3');  
             disp(['ulozeno do ' filename]); 
         end
