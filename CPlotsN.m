@@ -469,7 +469,6 @@ classdef CPlotsN < handle
                 title(obj.E.PsyData.P.strings.podminka{cond,1});
                 hold on;
                 
-                
                 subplot(2,ncond,cond+ncond);
                 phases = squeeze(obj.E.frealEpochs(:,channel,iFq,iEp))';
                 image(phases, 'XData', time);
@@ -647,8 +646,8 @@ classdef CPlotsN < handle
             %vrati indexy vsetkych spravnych epoch pre dany channel a condition
             %napr. aedist condition 0=cervena, 1=vy, 2=znacka, 9=all
             
-            [iEp,~] = obj.E.GetEpochsExclude();
-            iEp = find(iEp); %indexy nenulovych prvkov na vyradenie
+            iEp = obj.E.GetEpochsExclude();
+            iEp = find(squeeze(iEp(channel,:))); %indexy nenulovych prvkov na vyradenie
             if icondition ~= 9 %ak chceme len jednu konkretnu condition
                 iEp = intersect(iEp,find(obj.E.PsyData.P.data(:,obj.E.PsyData.P.sloupce.kategorie) == icondition));
             end
