@@ -66,9 +66,8 @@ for f = 1:numel(filenames) %muzu zpracovavat vic souboru za sebou
                 msg = sprintf(' cas zatim: %.1f min',cas/60); %celkovy cas v minutach
                 disp(msg); fprintf(fileID,[msg '\n']); %#ok<DSPS>
             catch exception 
-                errorMessage = sprintf('** Error in function %s() at line %d.\nError Message:\n%s', ...
-                    exception.stack(1).name, exception.stack(1).line, exception.message);                            
-                disp(errorMessage);  fprintf(fileID,[errorMessage '\n']);  %#ok<DSPS> %zobrazim hlasku, zaloguju, ale snad to bude pokracovat dal                            
+                errorMessage = exceptionLog(exception);
+                disp(errorMessage);  fprintf(fileID,[errorMessage '\n']);   %zobrazim hlasku, zaloguju, ale snad to bude pokracovat dal                            
                 clear E ans; 
             end  
         end

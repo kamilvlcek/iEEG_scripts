@@ -178,7 +178,33 @@ classdef CHilbert < CiEEGData
                  obj.HFreq = Hfreq2;
             end
         end
-        
+        function GetITPC(obj)
+            assert(obj.epochs > 1, 'data musi byt epochovana');
+            PN = CPlotsN(obj);
+            [itpc, ~, itpc_pmean] = PN.CalculateITPC();
+            % d = time x channel x epoch
+            itpc = permute(itpc,[3 1 4 2]); %time x channel x freq x epoch
+            obj.HFreq = movmean(itpc,5,1); 
+            obj.d = movmean(squeeze(mean(itpc,3)),5,1); %prumer pres frekvence            
+            obj.PsyData.Cond2Epochs();            
+            obj.RejectEpochs([],[]);
+            obj.RjEpoch = [];
+            obj.epochs = size(itpc,4); 
+            katnum = obj.PsyData.Categories();
+            epochData2 = cell(numel(katnum),3);
+            for k = 1:numel(katnum)
+               ikat = find([obj.epochData{:,2}]==katnum(k),1);
+               epochData2(k,:) = obj.epochData(ikat,:);
+            end
+            obj.epochData = epochData2;
+            %smazu statistiku, aby nebyla na obrazcich
+            for w = 1:numel(obj.Wp(obj.WpActive).WpKat)                
+                obj.Wp(obj.WpActive).WpKat{w} = ones(size(obj.Wp(obj.WpActive).WpKat{w}));
+            end
+            for w = 1:numel(obj.Wp(obj.WpActive).WpKatBaseline)     
+                obj.Wp(obj.WpActive).WpKatBaseline{w} = ones(size(obj.Wp(obj.WpActive).WpKatBaseline{w}));
+            end
+        end
         function obj = Decimate(obj,podil,rtrim)
             %zmensi frekvencni data na nizsi vzorkovaci frekvenci
             if ~exist('rtrim','var') || isempty(rtrim), rtrim = []; end 
@@ -249,7 +275,15 @@ classdef CHilbert < CiEEGData
                 subplot(1,numel(kategories),k);
                 T = obj.epochtime(1):0.1:obj.epochtime(2);
                 F =  obj.Hfmean;
-                D = squeeze(obj.HFreq(:,ch,:,kategories(k)+1));
+                if iscell(kategories(k))                    
+                    dd = zeros(size(obj.HFreq,1),size(obj.HFreq,3),numel(kategories{k}));
+                    for ikat = 1:numel(kategories{k})
+                        dd(:,:,ikat) = squeeze(obj.HFreq(:,ch,:,kategories{k}(ikat)+1));
+                    end
+                    D = mean(dd,3);
+                else
+                    D = squeeze(obj.HFreq(:,ch,:,kategories(k)+1));
+                end
                 imagesc(T,F, D');
                 maxy = max([maxy max(max( D ))]);
                 miny = min([miny min(min( D ))]);                
@@ -263,11 +297,18 @@ classdef CHilbert < CiEEGData
             end
             for k = 1:numel(kategories)
                 subplot(1,numel(kategories),k);
-                caxis([miny,maxy]);
-                title( obj.PsyData.CategoryName(kategories(k)));
-                if k == 1, ylabel(['channel ' num2str(ch) ' - freq [Hz]']); end
+                caxis([miny,maxy]);               
+                title( obj.PsyData.CategoryName(cellval(kategories,k)));
+                if k == 1
+                    ylabel(['channel ' num2str(ch) ' - freq [Hz]']); 
+                    if isprop(obj,'plotRCh') && isfield(obj.plotRCh,'selCh') && sum(obj.plotRCh.selCh==ch)>0
+                        text(0,obj.Hf(1),'*', 'FontSize', 24,'Color','red');
+                    end
+                end
+                
                 if k == numel(kategories), colorbar('Position',[0.92 0.1 0.02 0.82]); end
             end
+            
             
             methodhandle = @obj.hybejPlotF;
             set(obj.plotF.fh,'KeyPressFcn',methodhandle);             
@@ -403,10 +444,11 @@ classdef CHilbert < CiEEGData
                 
         end
         
-        function BPD = ExtractBrainPlotData(obj,chns)
+        function BPD = ExtractBrainPlotData(obj,chns,kategorie)
             %vytvori Brain Plot Data, pro CBrainPlot.PlotBrain3D
             BPD = struct;            
             if ~exist('chns','var'), chns = []; end %pokud neni definovane, je prazdne a pak vytvarim jen data pro vsechny elektrody                     
+            if ~exist('kategorie','var'), kategorie = []; end %kategorie ze ktere chci ziskat hodnoty - odpovida kategoriim z IntervalyResp a pak v CBrainPLot
           
             BPD.intervals = [0 1]; %budu mit dve pole hodnoty, vybrane kanaly a vsechny kanaly s vybranymi vyznacenyma
             label = iff(isprop(obj,'label'), obj.label, 'vals'); %v pripade ze se jedna o CHilbertMulti, muze byt definovane label podle jmena extraktu
@@ -414,6 +456,7 @@ classdef CHilbert < CiEEGData
             BPD.testname = obj.PsyData.testname; %jmeno testu, aedist, menrot nebo ppa
             BPD.reference = obj.reference; %reference
             BPD.Hf = obj.Hf;%seznam frekvencnich pasem
+            BPD.selCh = cell(1,2); 
             %jen definice velikosti
             BPD.NAMES = cell(1,2);                        
             BPD.MNI = cell(1,2);
@@ -439,8 +482,9 @@ classdef CHilbert < CiEEGData
                     BPD.EPI{1}(ch).seizureOnset = obj.CH.H.channels(ch).seizureOnset;
                     BPD.EPI{1}(ch).interictalOften = obj.CH.H.channels(ch).interictalOften;
                     BPD.EPI{1}(ch).rejected = obj.CH.H.channels(ch).rejected;
-                end
+                end                
             end
+            BPD.selCh{1} = 1:obj.channels;
             
             %hodnoty pro vybrane kanaly
             BPD.NAMES{2}= cell(iff(isempty(chns),obj.channels,numel(chns)),1);
@@ -448,10 +492,13 @@ classdef CHilbert < CiEEGData
             BPD.VALS{2} = ones(iff(isempty(chns),obj.channels,numel(chns)),1);                
             BPD.LABELS{2}= cell(iff(isempty(chns),obj.channels,numel(chns)),1);
             BPD.EPI{2} = struct('seizureOnset',{},'interictalOften',{},'rejected',{});                      
-                  
+            BPD.selCh{2} = obj.GetSelCh();      
             if isempty(chns)
                 prumery = obj.IntervalyResp([],[],0);
-                prumery = squeeze(mean(prumery(:,1,1:numel(obj.Wp(obj.WpActive).kats)),3)); %prumer pres kategorie
+                if isempty(kategorie)
+                    kategorie = 1:size(prumery,3);
+                end
+                prumery = squeeze(mean(prumery(:,1,kategorie),3)); %prumer pres kategorie
             else
                 prumery = ones(numel(chns),1); % vsechno jednicky
             end    
@@ -551,9 +598,17 @@ classdef CHilbert < CiEEGData
                 case 'delete' %Del na numericke klavesnici
                    obj.plotF.ylim = [];
                    obj.PlotResponseFreq( obj.plotEp.ch); %prekreslim grafy
+                case {'add' ,  'equal','s'}     % + oznaceni kanalu
+                   obj.SelChannel(obj.plotF.ch);
+                   obj.PlotResponseFreq( obj.plotF.ch); %prekreslim grafy
+                case {'numpad6','d'}     % + oznaceni kanalu                   
+                   chn2 = obj.plotRCh.selCh( find(obj.plotRCh.selCh>obj.plotF.ch,1) );
+                   obj.PlotResponseFreq( iff(isempty(chn2),obj.plotF.ch,chn2) ); %prekreslim grafy
+               case {'numpad4','a'}     % + oznaceni kanalu
+                   chn2 = obj.plotRCh.selCh( find(obj.plotRCh.selCh<obj.plotF.ch,1,'last') );
+                   obj.PlotResponseFreq( iff(isempty(chn2),obj.plotF.ch,chn2) ); %prekreslim grafy
            end
-        end
-        
-    end
+        end       
+     end
 end
 

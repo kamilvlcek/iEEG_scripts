@@ -18,6 +18,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
         iPAC; %index v poli PAC
         reference; %reference
         Hf; %seznam frekvencnich pasem
+        selCh; %vyber kanalu, ktere zobrazit
     end
     
     methods (Access = public)        
@@ -98,7 +99,8 @@ classdef CBrainPlot < matlab.mixin.Copyable
             %ted z P M a N rozdelenych po pacientech udelam souhrnna data
             obj.VALS = cell(size(elcount)); %souhrnne prumery - interval * kategorie
             obj.MNI = cell(size(elcount)); 
-            obj.NAMES = cell(size(elcount));       
+            obj.NAMES = cell(size(elcount)); 
+            obj.selCh = cell(size(elcount));  %prazdny vyber elektrod           
             if sum([pacienti.todo])>0 
                 for interval = 1:size(prumery,2) 
                     for kat = 1:size(prumery,3)+1                   
@@ -165,6 +167,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
             obj.testname = BPD.testname;
             obj.reference = BPD.reference;
             obj.Hf = BPD.Hf;
+            obj.selCh = BPD.selCh; %vyber kanalu z CHilbertMulti aj
         end
         function PlotBrain3D(obj,kategorie,signum,outputDir,overwrite)
             %vykresli jpg obrazky jednotlivych kategorii a kontrastu mezi nimi            
@@ -192,7 +195,14 @@ classdef CBrainPlot < matlab.mixin.Copyable
             plotSetup.figureVisible = 'off';   %nechci zobrazovat obrazek 
             plotSetup.FontSize = 4; 
             plotSetup.myColorMap = iff(signum ~= 0,parula(128) ,jet(128));    %pokud jednostrane rozdily, chci parula
-            plotSetup.customColor = true; % custom colormap oddeli negativne a pozitivne hodnoty - 29.6.2018
+            %barevna skala od Nadi
+            plotSetup.customColors.customColor = true; % custom colormap oddeli negativne a pozitivne hodnoty - 29.6.2018
+            plotSetup.customColors.flip = 0; %pokud chci prehodit barvy
+            plotSetup.customColors.darkneg = [50 145 0]; %tmave zelena
+            plotSetup.customColors.lightneg = [212 255 171];
+            plotSetup.customColors.lightpos = [246 203 203];
+            plotSetup.customColors.darkpos = [162 2 2]; %tmave cervena
+
             tablelog = cell(obj.pocetcykluPlot3D(kategorie,signum)+2,5); % z toho bude vystupni xls tabulka s prehledem vysledku
             tablelog(1,:) = {datestr(now),obj.filename,'','',''}; %hlavicky xls tabulky
             tablelog(2,:) = {'interval','kategorie','chname','mni','val'}; %hlavicky xls tabulky
@@ -204,6 +214,8 @@ classdef CBrainPlot < matlab.mixin.Copyable
                         iV = obj.VALS{interval,kat} > 0; %jen kladne rozdily
                     elseif signum <0 
                         iV = obj.VALS{interval,kat} < 0; %jen zaporne rozdily
+                    elseif ~isempty(obj.selCh{interval,kat})
+                        iV = ismember(1:numel(obj.VALS{interval,kat}),obj.selCh{interval,kat}); %vyber kanalu k zobrazeni, napriklad z CHilbertMulti
                     else
                         iV = true(size(obj.VALS{interval,kat})); %vsechny rozdily
                     end                    
@@ -225,11 +237,12 @@ classdef CBrainPlot < matlab.mixin.Copyable
                             vals_channels = vals_channels*signum; %u zapornych hodnot prehodim znamenko
                         end
                         mni_channels = obj.MNI{interval,kat}(iV);                                                                                                 
-                         
+                        names_channels = obj.NAMES{interval,kat}(iV);
+                        
                         if ~strcmp(obj.katstr{kat},'AllEl') %nechci to pro kategorii vsech elektrod
-                            for iV = 1:numel(vals_channels)
-                                tablelog(iV + iTL,:) = { sprintf('[%.1f %.1f]',obj.intervals(interval,:)),obj.katstr{kat}, obj.NAMES{interval,kat}{iV}, ...
-                                    sprintf('[%.1f,%.1f,%.1f]',mni_channels(iV).MNI_x, mni_channels(iV).MNI_y, mni_channels(iV).MNI_z), vals_channels(iV)};
+                            for iVal = 1:numel(vals_channels)
+                                tablelog(iVal + iTL,:) = { sprintf('[%.1f %.1f]',obj.intervals(interval,:)),obj.katstr{kat}, obj.NAMES{interval,kat}{iVal}, ...
+                                    sprintf('[%.1f,%.1f,%.1f]',mni_channels(iVal).MNI_x, mni_channels(iVal).MNI_y, mni_channels(iVal).MNI_z), vals_channels(iVal)};
                             end
                             iTL = iTL + numel(vals_channels);
                         end
@@ -237,9 +250,8 @@ classdef CBrainPlot < matlab.mixin.Copyable
                         %nejdriv vykreslim bez popisku elektrod
                         if isempty(dir([ plotSetup.outputDir '3D_model\' figureNameNoNames '*'])) || overwrite==1 
                             plotSetup.figureNamePrefix = figureNameNoNames;
-                            disp(plotSetup.figureNamePrefix);
-                            names_channels = []; 
-                            brainsurface = main_brainPlot(vals_channels,mni_channels,names_channels,brainsurface,plotSetup);  %#ok<PROPLC>
+                            disp(plotSetup.figureNamePrefix);                            
+                            brainsurface = main_brainPlot(vals_channels,mni_channels,[],brainsurface,plotSetup);  %#ok<PROPLC>
                             %volam Jirkuv skript, vsechny ty promenne predtim jsou do nej
                             if isempty(obj.brainsurface)
                                 obj.brainsurface = brainsurface; %#ok<PROPLC> %ulozim si ho pro dalsi volani
@@ -251,8 +263,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
                         %a pak jeste s popisy elektrod                        
                         if isempty(dir([ plotSetup.outputDir '3D_model\' figureNameNames '*'])) || overwrite==1 
                             plotSetup.figureNamePrefix = figureNameNames;
-                            disp(plotSetup.figureNamePrefix);
-                            names_channels = obj.NAMES{interval,kat};                         
+                            disp(plotSetup.figureNamePrefix);                                                     
                             brainsurface = main_brainPlot(vals_channels,mni_channels,names_channels,brainsurface,plotSetup);    %#ok<PROPLC>  
                             if isempty(obj.brainsurface)
                                 obj.brainsurface = brainsurface; %#ok<PROPLC> %ulozim si ho pro dalsi volani

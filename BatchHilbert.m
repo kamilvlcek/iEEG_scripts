@@ -197,7 +197,7 @@ for f=1:numel(frekvence)
                                 end                                
                                 E.PasmoFrekvence(frekvence(f).freq,[],prekryv,iff(cfg.podilcasuodpovedi,2,[])); 
                                     %pokud podilcasu, zdecimuju zatim jen malo, cele se mi ale nevejde do pameti
-                                %E.Normalize('orig'); %puvodni moje normalizace
+                                E.Normalize('orig'); %puvodni moje normalizace
                             end
                             if cfg.extractepochs 
                                 disp('extracting epochs ...');
@@ -235,8 +235,7 @@ for f=1:numel(frekvence)
                             tablelog(cyklus+1,:) = {['''' frekvence(f).freqname], pacienti(p).folder, num2str(p), reference(r).name, 'saved', outfilename,datestr(now) };                                
                             clear E d tabs fs mults header RjEpoch psychopy H ans; 
                         catch exception 
-                            errorMessage = sprintf('** Error in function %s() at line %d.\nError Message:\n%s', ...
-                                exception.stack(1).name, exception.stack(1).line, exception.message);                            
+                            errorMessage = exceptionLog(exception);                         
                             disp(errorMessage);  fprintf(fileID,[errorMessage '\n']);  %#ok<DSPS> %zobrazim hlasku, zaloguju, ale snad to bude pokracovat dal                            
                             souborystats(3) = souborystats(3) + 1; %dalsi chybny soubor
                             tablelog(cyklus+1,:) = {['''' frekvence(f).freqname], pacienti(p).folder, num2str(p), reference(r).name, 'error', exception.message , datestr(now)}; 

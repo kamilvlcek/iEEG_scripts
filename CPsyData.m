@@ -167,6 +167,16 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 opak = zeros(size(obj.P.data,1),1); %opakovani 0
             end
         end
+        function obj = Cond2Epochs(obj)
+            %predela conditions na epochy, kvuli ITPC
+            katnum = obj.Categories();
+            data2 = zeros(numel(katnum),size(obj.P.data,2));
+            for k = 1:numel(katnum)
+                idata = obj.P.data(:,obj.P.sloupce.kategorie)==katnum(k) & obj.P.data(:,obj.P.sloupce.zpetnavazba)==0 ;
+                data2(k,:) = [0 0 1 mean(obj.P.data(idata,4)) 0 0 katnum(k) min(obj.P.data(idata,8)) min(obj.P.data(idata,9))];
+            end
+            obj.P.data = data2;
+        end
         %% PLOT FUNCTIONS
         function [obj, chyby] = PlotResponses(obj)
             %nakresli graf rychlosti vsech odpovedi a bloku, vcetne chyb a uspesnosti za blok
