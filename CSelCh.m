@@ -64,7 +64,11 @@ classdef CSelCh < matlab.mixin.Copyable
                      selChNames = obj.selCh{s,5};
                      for ich = 1:numel(selCh)
                         if ~isempty(obj.selCh{s,5})
-                            assert(strcmp(selChNames{ich},E.CH.H.channels(selCh(ich)).name),['channel ' num2str(selCh(ich)) ' nesedi s popisem: ' selChNames{ich} ' vs.' E.CH.H.channels(selCh(ich)).name]);                                                        
+                            if ~strcmp(selChNames{ich},E.CH.H.channels(selCh(ich)).name)
+                                warning(['channel ' num2str(selCh(ich)) ' nesedi s popisem: ' selChNames{ich} ' vs.' E.CH.H.channels(selCh(ich)).name]);     
+                                selCh = [];
+                                break;
+                            end
                         end
                      end
                      E.plotRCh.selCh = selCh; %vlozim cisla kanalu do objektu, tam kam patri

@@ -99,7 +99,8 @@ classdef CBrainPlot < matlab.mixin.Copyable
             %ted z P M a N rozdelenych po pacientech udelam souhrnna data
             obj.VALS = cell(size(elcount)); %souhrnne prumery - interval * kategorie
             obj.MNI = cell(size(elcount)); 
-            obj.NAMES = cell(size(elcount));       
+            obj.NAMES = cell(size(elcount)); 
+            obj.selCh = cell(size(elcount));  %prazdny vyber elektrod           
             if sum([pacienti.todo])>0 
                 for interval = 1:size(prumery,2) 
                     for kat = 1:size(prumery,3)+1                   
