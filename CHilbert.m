@@ -181,8 +181,18 @@ classdef CHilbert < CiEEGData
         function GetITPC(obj)
             assert(obj.epochs > 1, 'data musi byt epochovana');
             PN = CPlotsN(obj);
-            [itpc, ~, itpc_pmean] = PN.CalculateITPC();
+            fprintf('CalculateITPC ... ');
+            [itpc, ~, itpc_pmean] = PN.CalculateITPC(); %TODO nada pridat parametr kats, ktery umozni i cell array
             % d = time x channel x epoch
+            % itpc_pmean = ch x condition x time - p values z mean itpc pres frekvence
+            
+            kats_perm = combinator(numel(obj.Wp(obj.WpActive).kats),2,'c');  %kombinace bez opakovani           
+            fprintf('CalculateITPCdiffs ... ');
+            diffs = obj.Wp(obj.WpActive).kats(kats_perm); 
+            [~, ditpc_p, ditpc_pmean] = PN.CalculateITPCdiffs([],diffs,itpc); %TODO nada - diffs muze byt i cell array
+            % ditpc_pmean = ch x diffs x time - p values z mean ditpc pres frekvence
+            % ditpc_p - TODO z toho spocitat pres frekvence nejvyssi signifikanci a tu ulozit. 
+            
             itpc = permute(itpc,[3 1 4 2]); %time x channel x freq x epoch
             obj.HFreq = movmean(itpc,5,1); 
             obj.d = movmean(squeeze(mean(itpc,3)),5,1); %prumer pres frekvence            
@@ -198,12 +208,26 @@ classdef CHilbert < CiEEGData
             end
             obj.epochData = epochData2;
             %smazu statistiku, aby nebyla na obrazcich
-            for w = 1:numel(obj.Wp(obj.WpActive).WpKat)                
-                obj.Wp(obj.WpActive).WpKat{w} = ones(size(obj.Wp(obj.WpActive).WpKat{w}));
+            EEEGStat = CEEGStat(obj.d,obj.fs);
+            baseline = EEEGStat.Baseline(obj.epochtime,obj.baseline);
+            ibaseline = round(baseline.*obj.fs);       
+            iepochtime = round(obj.epochtime(1:2).*obj.fs);     
+            
+            for k = 1:numel(obj.Wp(obj.WpActive).kats)
+                stat = itpc_pmean(:,obj.Wp(obj.WpActive).kats(k)+1,abs(iepochtime(1)-ibaseline(2))+1 : end ); %vsechny hodnoty po konci baseline  
+                obj.Wp(obj.WpActive).WpKatBaseline{k,1} = permute(squeeze(stat),[2 1]); %chci mit rozmer time x ch
+                %TODO pridat FDR korekci
+                %pridat korekci na podminky, nebo jinou kterou navrhuje Cohen? Korekce pro cas neni potreba, pocita se to podle hladiny, ktera je zavisla na poctu epoch. 
+                
+                %obj.Wp(obj.WpActive).WpKatBaseline{w} = ones(size(obj.Wp(obj.WpActive).WpKatBaseline{w}));
+            end            
+            
+            for d = 1:size(diffs,1)
+                stat = ditpc_pmean(:,d,abs(iepochtime(1)-ibaseline(2))+1 : end);
+                obj.Wp(obj.WpActive).WpKat{diffs(d,1)+1,diffs(d,2)+1} = permute(squeeze(stat),[2 1]);  %chci mit rozmer time x ch 
+                %obj.Wp(obj.WpActive).WpKat{w} = ones(size(obj.Wp(obj.WpActive).WpKat{w}));                              
             end
-            for w = 1:numel(obj.Wp(obj.WpActive).WpKatBaseline)     
-                obj.Wp(obj.WpActive).WpKatBaseline{w} = ones(size(obj.Wp(obj.WpActive).WpKatBaseline{w}));
-            end
+            fprintf('done\n');
         end
         function obj = Decimate(obj,podil,rtrim)
             %zmensi frekvencni data na nizsi vzorkovaci frekvenci

@@ -336,7 +336,7 @@ classdef CPlotsN < handle
                     iEp = obj.CorrectEpochs(channel, icondition);
                     for fq = 1:n_fq
                         itpc(channel, cond, :, fq) = abs(mean(exp(1i*squeeze(obj.E.fphaseEpochs(:,channel,fq,iEp))),2));
-                        itpc_p(channel, cond, :, fq) = exp(-length(iEp) * squeeze(itpc(channel, cond,:,fq)).^2);
+                        itpc_p(channel, cond, :, fq) = exp(-length(iEp) * squeeze(itpc(channel, cond,:,fq)).^2); %hladina siginifikance je zavisla na poctu epoch
                     end
                    itpc_pmean(channel, cond, :) = exp(-length(iEp) * mean(squeeze(itpc(channel, cond,:,:)),2).^2);
 
@@ -344,22 +344,22 @@ classdef CPlotsN < handle
             end
         end
         
-        function [ditpc, ditpc_p, ditpc_pmean] = CalculateITPCdiffs(obj, channels, diffs)
+        function [ditpc, ditpc_p, ditpc_pmean] = CalculateITPCdiffs(obj, channels, diffs,itpc)
             %stejne jako CalculateITPC ale pro rozdil 
-            if ~exist('channels', 'var') 
+            if ~exist('channels', 'var') || isempty(channels)
                 channels = 1:obj.E.channels; 
             end
-            if ~exist('diffs', 'var') 
+            if ~exist('diffs', 'var')  || isempty(diffs)
                 diffs = [[0 1]; [0 2]; [1 2]]; 
             end
-            
+            if ~exist('itpc','var') %muzu dat jako dalsi parametr uz spocitane itpc
+                [itpc, ~, ~] = obj.CalculateITPC(channels);
+            end
             n_fq = length(obj.E.Hf);
             ditpc = zeros(length(channels),length(diffs),obj.E.samples, n_fq);
             ditpc_p = zeros(length(channels),length(diffs),obj.E.samples, n_fq); % p-value vsetkych frekvencii
-            ditpc_pmean = zeros(length(channels),length(diffs),obj.E.samples); % p-value priemeru cez vsetky frekvencie
-            
-            [itpc, ~, ~] = obj.CalculateITPC(channels);
-            
+            ditpc_pmean = zeros(length(channels),length(diffs),obj.E.samples); % p-value priemeru cez vsetky frekvencie           
+                        
             for channel = channels
                 %display(['Channel ' num2str(channel)]);
                 for diff = 1:size(diffs, 1)

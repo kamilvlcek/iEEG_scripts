@@ -94,6 +94,10 @@ classdef CEEGStat
             end
             
         end
+        function baseline0 = Baseline(epochtime,baseline)
+            %baseline0 je cast epochtime pred koncem baseline nebo pred casem 0
+            baseline0 = [epochtime(1) iff(baseline(2)>epochtime(1),baseline(2),0)]; %zalezi jestli se baselina a epochtime prekryvaj
+        end
     end
     
 end

@@ -415,7 +415,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             EEEGStat = CEEGStat(obj.d,obj.fs);
             WpA = obj.WpActive; %jen zkratka
             %CELKOVA SIGNIFIKANCE VUCI BASELINE - bez ohledu na kategorie
-            baseline = [obj.epochtime(1) iff(obj.baseline(2)>obj.epochtime(1),obj.baseline(2),0)]; %zalezi jestli se baselina a epochtime prekryvaj
+            baseline = EEGStat.Baseline(obj.epochtime,obj.baseline);
             [Pbaseline,ibaseline,iepochtime,itimewindow] = EEEGStat.WilcoxBaseline(obj.epochtime,baseline,timewindow,iEp,obj.RjEpochCh | ~iEpCh);   %puvodni baseline uz v epose nemam        
                 %11.12.2017 - pocitam signifikanci hned po konci baseline
                 %ibaseline je cast iepochtime pred koncem baseline nebo pred casem 0
@@ -1201,7 +1201,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                             end
                             %nejdriv p < 0.05                            
                             iWp = obj.Wp(WpA).WpKat{k,l}(:,ch)  <= 0.05; 
-                            plot(Tr(iWp),ones(1,sum(iWp))*y, '.','Color',color); %                        
+                            plot(Tr(iWp),ones(1,sum(iWp))*y, '*','Color',color); %                        
                             iWpfirst = find(iWp,1,'first');                        
                             if(numel(iWpfirst)>0)                                
                                 text(-0.05+Tr(1),y,[ num2str(round(Tr(iWpfirst)*1000)) 'ms']);  %cas zacatku signifikance 
@@ -1249,7 +1249,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                             line([Tr(1) Tr(end)],[y y]+(ymax-ymin)*0.03 ,'Color',[0.5 0.5 0.5]);
                                 %kazde jmeno kategorie jinou barvou
                             if pvalue %pokud chci zobrazovat hodnotu p value jako krivku
-                               plot(Tr,obj.Wp(WpA).WpKatBaseline{k,1}(:,ch), '.','Color',colorskat{1,k}); %teckovana cara oznacuje signifikanci kategorie vuci baseline
+                               plot(Tr,obj.Wp(WpA).WpKatBaseline{k,1}(:,ch), '-.','Color',colorskat{1,k}); %teckovana cara oznacuje signifikanci kategorie vuci baseline
                             end
                     end
                     %cara reakcnich casu pro tuhle kategorii
@@ -1814,6 +1814,17 @@ classdef CiEEGData < matlab.mixin.Copyable
                 obj.plotRCh.selCh = sort([obj.plotRCh.selCh ch]); %pridam kanal k vyberu                
             end
         end
+        
+        function cpObj = copyElement(obj)
+            % Override copyElement method: to copy also property objects
+            % Make a shallow copy of all properties
+            cpObj = copyElement@matlab.mixin.Copyable(obj);
+            % Make a deep copy of the copyable classes
+            cpObj.PsyData = copy(obj.PsyData);
+            cpObj.CH = copy(obj.CH);
+            cpObj.DE = copy(obj.DE);
+            cpObj.PL = copy(obj.PL);
+      end
     end
     
 end
