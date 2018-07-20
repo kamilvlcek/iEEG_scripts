@@ -316,7 +316,7 @@ classdef CPlotsN < handle
             obj.plotEpochData();
         end   
         
-        function [itpc, itpc_p, itpc_pmean, n_epoch] = CalculateITPC(obj, channels, conditions)
+        function [itpc, itpc_p, itpc_pmean, n_epoch] = CalculateITPC(obj, conditions, channels)
             % itpc = ch x condition x time x fq
             % itpc_p ch x condition x time x fq - p values
             % itpc_pmean ch x condition x time - p values z mean itpc pres frekvence
@@ -352,7 +352,7 @@ classdef CPlotsN < handle
             end
         end
         
-        function [ditpc, ditpc_p, ditpc_pmean] = CalculateITPCdiffs(obj, channels, diffs,itpc)
+        function [ditpc, ditpc_p, ditpc_pmean] = CalculateITPCdiffs(obj, diffs,itpc, channels) %#ok<INUSL>
             %stejne jako CalculateITPC ale pro rozdil 
             if ~exist('channels', 'var') || isempty(channels)
                 channels = 1:obj.E.channels; 
@@ -361,7 +361,7 @@ classdef CPlotsN < handle
                 diffs = [[0 1]; [0 2]; [1 2]]; 
             end
             if ~exist('itpc','var') %muzu dat jako dalsi parametr uz spocitane itpc
-                [itpc, ~, ~] = obj.CalculateITPC(channels);
+                [itpc, ~, ~] = obj.CalculateITPC(channels); %#ok<ASGLU>
             end
             n_fq = length(obj.E.Hf);
             ditpc = zeros(obj.E.channels,length(diffs),obj.E.samples, n_fq);
@@ -386,7 +386,7 @@ classdef CPlotsN < handle
         end
         
         
-        function [citpc, citpc_p, citpc_pmean] = CalculateITPCcontrasts(obj, channels, contrasts, itpc, n)
+        function [citpc, citpc_p, citpc_pmean,combinations] = CalculateITPCcontrasts(obj, contrasts, itpc, n, channels)
             %{ 
              contrasts is either an array or cell array
              [0 1 2] or {2 [1 2] [2 1 0]} etc.
