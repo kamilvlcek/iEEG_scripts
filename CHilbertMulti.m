@@ -299,7 +299,31 @@ classdef CHilbertMulti < CHilbert
         end
         function obj = GetStat(obj) %zatim neimportuju
             obj.Wp = [];
-        end        
+        end
+        function PAC = GetPAC(obj,filename)
+            %vytvori strukturu, ktera se pak da nacist do CM.ExtractData pro vytvoreni stejnych extraktu z jineho souboru
+            %filename je jmeno souboru, ze ktereho je tento CM soubor, napriklad 'Menrot CHilbert 50-150 -1.0-1.5 refBipo Ep2018-01_CHilb.mat'
+            PAC = {}; iPAC = 1;
+            previousNick = '';
+            for ch = 1:numel(obj.CH.H.channels)                
+                nick = obj.CH.H.channels(ch).name(1: find(obj.CH.H.channels(ch).name==' ')-1);
+                if numel(nick)==3
+                    nick = ['p0' nick(2:3)];
+                end
+                if ~strcmp(nick,previousNick) %musim nacist pacienta, E ji jine
+                    E = pacient_load(nick,obj.PsyData.testname,filename);
+                    previousNick = nick;
+                end
+                nick_ch = find([E.CH.H.channels.numberOnAmplifier]==obj.CH.H.channels(ch).numberOnAmplifier); % podle numberOnAmplifier vyhledam cislo kanalu
+                PAC(iPAC).pacient = nick; %#ok<AGROW>
+                PAC(iPAC).ch = nick_ch; %#ok<AGROW>
+                PAC(iPAC).name = E.CH.H.channels(nick_ch).name; %#ok<AGROW>
+                PAC(iPAC).neurologyLabel = E.CH.H.channels(nick_ch).neurologyLabel; %#ok<AGROW>
+                PAC(iPAC).ass_brainAtlas = E.CH.H.channels(nick_ch).ass_brainAtlas;%#ok<AGROW>
+                PAC(iPAC).ass_cytoarchMap = E.CH.H.channels(nick_ch).ass_cytoarchMap; %#ok<AGROW>
+                iPAC = iPAC + 1;                
+            end
+        end
     end
     methods (Static,Access = public)
         function filenames = ExtractData(PAC,testname,filename,label,overwrite)

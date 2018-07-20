@@ -412,11 +412,11 @@ classdef CiEEGData < matlab.mixin.Copyable
             
             iEpCh = obj.GetEpochsExclude(); %ziska seznam Chs x Epochs k vyhodnoceni
             iEp = true(obj.epochs,1); %musim predat nejaky parametr, ale uz ho ted nepotrebuju, kvuli iEpCh - 8.6.2018
-            EEEGStat = CEEGStat(obj.d,obj.fs);
+            EEGStat = CEEGStat(obj.d,obj.fs);
             WpA = obj.WpActive; %jen zkratka
             %CELKOVA SIGNIFIKANCE VUCI BASELINE - bez ohledu na kategorie
             baseline = EEGStat.Baseline(obj.epochtime,obj.baseline);
-            [Pbaseline,ibaseline,iepochtime,itimewindow] = EEEGStat.WilcoxBaseline(obj.epochtime,baseline,timewindow,iEp,obj.RjEpochCh | ~iEpCh);   %puvodni baseline uz v epose nemam        
+            [Pbaseline,ibaseline,iepochtime,itimewindow] = EEGStat.WilcoxBaseline(obj.epochtime,baseline,timewindow,iEp,obj.RjEpochCh | ~iEpCh);   %puvodni baseline uz v epose nemam        
                 %11.12.2017 - pocitam signifikanci hned po konci baseline
                 %ibaseline je cast iepochtime pred koncem baseline nebo pred casem 0
             if numel(timewindow) <= 1 %chci maximalni hodnotu p z casoveho okna
@@ -457,7 +457,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 end
                 %provedu statisticke testy
                 if strcmp(method{2},'chnall'), Pbaseline = []; end %pokud chci delat statistiku pres vsechny kanaly, P vuci baseline smazu
-                [obj.Wp(WpA).WpKat,obj.Wp(WpA).WpKatBaseline] = EEEGStat.WilcoxCat(kats,responsekat,baselinekat,rjepchkat,itimewindow,method{1},Pbaseline);                
+                [obj.Wp(WpA).WpKat,obj.Wp(WpA).WpKatBaseline] = EEGStat.WilcoxCat(kats,responsekat,baselinekat,rjepchkat,itimewindow,method{1},Pbaseline);                
                 %ulozim parametry
                 if ~isempty(KATNUM) %pokud vyhodnocuju opakovani
                     obj.Wp(WpA).kats = KATNUM;    %puvodni kategorie

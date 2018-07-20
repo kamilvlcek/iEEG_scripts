@@ -96,7 +96,7 @@ classdef CHilbert < CiEEGData
          %TODO musi se osetrit, kdyz je prumer 0
             if ~exist('channels','var'), channels = 1:obj.channels; end
             switch type
-                 case 'orig' %(fpower./mean(fpower)) - povodna normalizacia
+                case 'orig' %(fpower./mean(fpower)) - povodna normalizacia
                     for ch = channels
                         for f = 1:size(obj.HFreq,3)
                             obj.HFreq(:,ch,f) = obj.HFreq(:,ch,f)./mean(obj.HFreq(:,ch,f)); 
@@ -115,12 +115,13 @@ classdef CHilbert < CiEEGData
                         end
                     end
                 case 'log' %log = 1/fpower
-                for ch = channels
-                    for f = 1:size(obj.HFreq,3)
-                        obj.HFreq(:,ch,f) = (obj.HFreq(:,ch,f)-mean(obj.HFreq(:,ch,f)))./std(obj.HFreq(:,ch,f));
+                    for ch = channels
+                        for f = 1:size(obj.HFreq,3)
+                            obj.HFreq(:,ch,f) = (obj.HFreq(:,ch,f)-mean(obj.HFreq(:,ch,f)))./std(obj.HFreq(:,ch,f));
+                        end
                     end
-                end
                 otherwise
+                    error('neznamy typ normalizace');
             end
             obj.d = squeeze(mean(obj.HFreq,3));
         
@@ -621,7 +622,7 @@ classdef CHilbert < CiEEGData
                    obj.PlotResponseFreq( obj.plotF.ch); %prekreslim grafy
                 case 'delete' %Del na numericke klavesnici
                    obj.plotF.ylim = [];
-                   obj.PlotResponseFreq( obj.plotEp.ch); %prekreslim grafy
+                   obj.PlotResponseFreq( obj.plotF.ch); %prekreslim grafy
                 case {'add' ,  'equal','s'}     % + oznaceni kanalu
                    obj.SelChannel(obj.plotF.ch);
                    obj.PlotResponseFreq( obj.plotF.ch); %prekreslim grafy
