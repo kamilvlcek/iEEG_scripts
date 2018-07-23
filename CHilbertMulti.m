@@ -10,10 +10,14 @@ classdef CHilbertMulti < CHilbert
         filesimported = 0;
         subjNames; %jmena subjektu z headeru
         label; %ze kterych extraktu byl vytvoren
+        mfilename; %jmeno souboru CHilbertMulti
     end
     
     methods (Access = public)  
-        function obj = CHilbertMulti()              
+        function obj = CHilbertMulti(filename)              
+            if exist('filename','var')
+                obj.Load(filename);
+            end
         end
         
         function FILES = TestExtract(obj,filenames)
@@ -22,7 +26,7 @@ classdef CHilbertMulti < CHilbert
                 filename = filenames{fileno,1}; %cell array, zatim to musi byt plna cesta                
                 if exist(filename,'file') 
                     disp(obj.basename(filename)); %zobrazim jmeno souboru s pouze koncem 
-                    obj.filenames{fileno} = filename;
+                    obj.filenames{fileno,1} = filename;
                     clear d;
                     load(filename,'d','P','fs'); %nacte vsechny promenne
                     test = ~P.data(:,P.sloupce.zpetnavazba); %index testovych epoch
@@ -43,12 +47,28 @@ classdef CHilbertMulti < CHilbert
             obj.Hfmean  =[];
             obj.HFreq = [];
             obj.CH = [];
-            obj.filenames = {};
-            obj.filesimported = 0;
+            obj.PsyData = {};
             obj.epochData = {};
             obj.els = [];
             obj.RjEpochCh = [];
-            obj.PsyData = {};
+            obj.mults = {};
+            obj.epochtime = {};
+            obj.baseline = {};
+            
+            obj.filenames = {};
+            obj.filesimported = 0;         
+            obj.orig = {};
+            obj.blokyprehazej = {};
+            obj.subjNames = {};
+            obj.label = {};
+            obj.mfilename = {};            
+            
+            obj.plotF = {};
+            obj.plotRCh = {};
+            obj.plotEp = {};
+            obj.reference = {};
+            obj.yrange = {};
+            obj.DatumCas = {};
             disp('data objektu smazana');
         end
         function obj = ImportExtract(obj,filenames,label)
@@ -64,7 +84,7 @@ classdef CHilbertMulti < CHilbert
                 filename = filenames{fileno,1}; %cell array, zatim to musi byt plna cesta                
                 if exist(filename,'file') 
                     disp(obj.basename(filename)); %zobrazim jmeno souboru s pouze koncem 
-                    obj.filenames{fileno} = filename;
+                    obj.filenames{fileno,1} = filename;
                     load(filename); %nacte vsechny promenne
                     if ~exist('baseline','var'), baseline = [epochtime(1) 0]; end %fake baseline, pokud nebyla ulozena
                     test = ~P.data(:,P.sloupce.zpetnavazba); %index testovych epoch
@@ -189,7 +209,7 @@ classdef CHilbertMulti < CHilbert
                 assert(isequal(obj.reference,reference),'reference musi byt stejna');
             end
         end
-        function obj = GetTabs(obj,tabs,tabs_orig,f)
+        function obj = GetTabs(obj,tabs) %,tabs_orig,f
             %spoji tabs z predchozich a noveho souboru
             if isempty(obj.tabs) %budu pouzivat tabs z prvniho souboru
                 for ep = 1 : size(tabs,2) %pres vsechny epochy
@@ -201,8 +221,9 @@ classdef CHilbertMulti < CHilbert
                 end
                 obj.tabs = tabs;                        
             end
-            obj.orig(f).tabs = tabs;   %ale pro kazdy soubor ulozim originalni tabs a tabs_orig                     
-            obj.orig(f).tabs_orig = tabs_orig; 
+            %ale pro kazdy soubor ulozim originalni tabs a tabs_orig   - zrusil jsem, soubory jsou hrozne velky, asi to nebudu potreboval, kdyz tak vygeneruju znova - 23.7.2018
+            %obj.orig(f).tabs = tabs;                     
+            %obj.orig(f).tabs_orig = tabs_orig; 
         end
         function obj = GetPsyData(obj,P,fileno)
             %pokud prvni soubor, ulozi P data
@@ -280,7 +301,7 @@ classdef CHilbertMulti < CHilbert
                 obj.CH.chgroups{fileno} = (1:numel(H.channels)) + obj.CH.els(fileno-1);
                 obj.CH.els(fileno) = numel(H.channels)+obj.CH.els(fileno-1);                
             end
-            obj.subjNames{fileno} = H.subjName;
+            obj.subjNames{fileno,1} = H.subjName;
             obj.orig(fileno).H = H; %orignalni header ulozim, v kazdem pripade
         end
         function obj = GetEpochTime(obj,epochtime,baseline)
@@ -324,6 +345,53 @@ classdef CHilbertMulti < CHilbert
                 iPAC = iPAC + 1;                
             end
         end
+        %% SAVE AND LOAD FILE
+        %dve funkce na ulozeni a nacteni dat tridy
+        %uklada se vcetne dat parenta CHilbert a pres nej taky CiEEGData        
+        function obj = Save(obj,filename)
+            if ~exist('filename','var')
+                filename = obj.mfilename;
+                assert( ~isempty(filename), 'no filename given or saved before');
+            else
+                obj.mfilename = filename;
+            end            
+            Save@CHilbert(obj,CHilbert.filenameH(filename));  %ulozim do prvniho souboru data z nadrazene tridy          
+            if ~isempty(obj.filenames)                
+                filenames = obj.filenames;   %#ok<PROPLC,NASGU>
+                orig = obj.orig;         %#ok<PROPLC,NASGU> 
+                blokyprehazej = obj.blokyprehazej; %#ok<PROPLC,NASGU> 
+                filesimported = obj.filesimported; %#ok<PROPLC,NASGU> %time x channel x frequency x epoch
+                subjNames = obj.subjNames; %#ok<PROPLC,NASGU> 
+                label = obj.label; %#ok<NASGU,PROPLC> 
+                mfilename = obj.mfilename; %#ok<NASGU,PROPLC>              
+                save(CHilbertMulti.filenameM(filename),'filenames','orig','blokyprehazej','filesimported','subjNames','label','mfilename','-v7.3'); %do druheho souboru data z teto tridy
+            end
+        end
+         %pokud je druhy parametr 1, nenacitaji se data z parenta
+        function obj = Load(obj,filename,onlyself)
+            %parametr loadall se hodi pro FE data se vsemi ulozenymi epochami, ktere jsou giganticke
+            
+            if ~exist('onlyself','var') || onlyself == 0
+                assert(exist(CHilbert.filenameH(filename),'file')==2, ['soubor s daty CHilbert neexistuje:' char(10) CHilbert.filenameE(filename) char(10) 'mozna se jedna o data tridy CiEEGData?']);    
+                Load@CHilbert(obj,CHilbert.filenameH(filename));  
+            end
+            if exist(CHilbertMulti.filenameM(filename),'file')                
+                load(CHilbertMulti.filenameM(filename),'orig','filenames','blokyprehazej','filesimported','subjNames','label','mfilename');
+                obj.orig = orig;        %#ok<CPROPLC>
+                obj.filenames = filenames;               %#ok<CPROPLC>                 
+                obj.blokyprehazej = blokyprehazej; %#ok<CPROPLC> 
+                obj.filesimported = filesimported; %#ok<CPROPLC> 
+                obj.subjNames = subjNames; %#ok<CPROPLC> 
+                obj.label = label; %#ok<CPROPLC> 
+                obj.mfilename = mfilename;      %#ok<CPROPLC>            
+                %vars = whos('-file',filename);               
+                
+                disp(['nacten soubor ' CHilbertMulti.filenameM(filename)]); 
+            else
+                warning(['soubor CHilbertMulti neexistuje ' CHilbert.filenameH(filename)]);
+            end
+            obj.hfilename = filename; 
+        end 
     end
     methods (Static,Access = public)
         function filenames = ExtractData(PAC,testname,filename,label,overwrite)
@@ -372,6 +440,14 @@ classdef CHilbertMulti < CHilbert
             else
                 disp('zadne soubory nenalezeny');
             end
+        end        
+        function filename2 = filenameM(filename)
+            %vraci jmeno souboru s daty tridy CHilbertMulti
+           filename=strrep(filename,'_CHilb',''); %odstranim pripony vytvorene pri save
+           filename=strrep(filename,'_CiEEG','');
+           filename=strrep(filename,'_CHMult','');
+           [pathstr,fname,ext] = CiEEGData.matextension(filename);         
+           filename2 = fullfile(pathstr,[fname '_CHMult' ext]);
         end
     end
     methods (Static,Access = private)
