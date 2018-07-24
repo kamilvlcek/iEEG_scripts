@@ -1,7 +1,7 @@
 %% nejdriv normalni analyzu s razenim podle podnetu
 disp(' ++++ ANALYZA 1 - RAZENI PODLE PODNETU ++++');
 %pacienti = {'p099'}; 
-cfg = struct('hybernovat',0,'suffix','Ep2018-04'); %'Ep2018-04', 'Ep2018-06'
+cfg = struct('hybernovat',0,'suffix','Ep2018-07'); %'Ep2018-04', 'Ep2018-06'
 %cfg.pacienti = pacienti; %kdyz to tam vlozim rovnou, tak se mi udela struct array
 %cfg.overwrite=1; %vyjimecne
 %cfg.freqepochs=1; %vyjimecne

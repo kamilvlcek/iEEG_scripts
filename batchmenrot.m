@@ -3,7 +3,7 @@ disp(' ++++ ANALYZA 1 - RAZENI PODLE PODNETU ++++');
 %pacienti = {'p082'}; 
 cfg = struct('hybernovat',0,'suffix','Ep2018-01');
 %cfg.pacienti = pacienti; %kdyz to tam vlozim rovnou, tak se mi udela struct array
-%cfg.overwrite=1; %vyjimecne
+cfg.overwrite=1; %vyjimecne
 BatchHilbert('menrot',cfg);
 return; %nic dalsiho zatim nechci 
 %% potom analyza s razenim podle odpovedi
