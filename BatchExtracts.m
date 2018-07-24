@@ -22,13 +22,16 @@ overwrite_extracts = 1; %jestli se maji prepisovat extrakty pro kazdeho pacienta
 overwrite_brainplots = 1;
 overwriteCM = 1; %jestli se maji prepisovat soubory CHilbertMulti
 doIntervalyResp = 1; %jestli se maji hledaty signif soubory pres vsechny pacienty pomoci CN.IntervalyResp, pokud ne, potrebuju uz mit hotove CHilbertMulti soubory
-cyklus = 1;
-pocetextracts = 1;
-%dirCM = 'd:\eeg\motol\CHilbertMulti\Menrot\'; %musi koncit \
-%fileCS = 'd:\eeg\motol\CHilbertMulti\Menrot\CSelCh_Menrot.mat';
-dirCM = 'd:\eeg\motol\CHilbertMulti\Aedist\'; %musi koncit \
-fileCS = 'd:\eeg\motol\CHilbertMulti\Aedist\CSelCh_AEdist.mat';
-brainplots_onlyselch = 1; %generovat CBrainPlot3D jedine ze souboru, kde jsou selected channels
+if strcmp(testname,'menrot')
+    dirCM = 'd:\eeg\motol\CHilbertMulti\Menrot\'; %musi koncit \
+    fileCS = 'd:\eeg\motol\CHilbertMulti\Menrot\CSelCh_Menrot.mat';
+elseif strcmp(testname,'aedist')
+    dirCM = 'd:\eeg\motol\CHilbertMulti\Aedist\'; %musi koncit \
+    fileCS = 'd:\eeg\motol\CHilbertMulti\Aedist\CSelCh_AEdist.mat';
+else
+    error('neznamy typ testu');
+end
+brainplots_onlyselch = 0; %generovat CBrainPlot3D jedine ze souboru, kde jsou selected channels
 plotallchns = 0; %jestli generovat obrazky mozku i se vsema kanalama (bez ohledu na signifikanci)
 
 %LOG SOUBORY
@@ -45,6 +48,8 @@ tablelog(1,:) = {'file','fileno','kategorie','stat','result','file','datetime'};
 if exist('fileCS','var') && exist(fileCS,'file')==2
     CS = CSelCh(fileCS);
 end
+cyklus = 1;
+pocetextracts = 1;
 
 for f = 1:numel(files) %cyklus pres vsechny soubory
     for kontrast = 1:numel(kontrasts) %cyklus pres vsechny kontrasty

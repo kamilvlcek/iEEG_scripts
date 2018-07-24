@@ -442,7 +442,7 @@ classdef CHilbert < CiEEGData
             [filepath,fname,ext] = CHilbert.matextension(obj.filename);
             podtrzitko = strfind(fname,'_'); %chci zrusit cast za poslednim podtrzitkem
             basefilename = [fname(1:podtrzitko(end)-1) ' ' label '_Extract' ext]; %jmeno bez cesty
-            filename =[filepath filesep basefilename]; 
+            filename =[filepath filesep 'Extracts' filesep basefilename]; %podadresar pro extrakty
             if exist(filename','file')~=2 || overwrite 
                 %pokraduju jen pokud extrakt neexistuje nebo se ma prepsat
                 %assert(strcmp(obj.reference,'Bipolar'),'neni bipolarni reference');
