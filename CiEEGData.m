@@ -606,7 +606,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                disp(['neni vypocitana statistika']);
            end
         end
-        function [prumery, MNI,names,intervaly,katsnames] = IntervalyResp(obj, intervaly,channels,dofig)
+        function [prumery, MNI,names,intervaly,katsnames,neurologyLabels] = IntervalyResp(obj, intervaly,channels,dofig)
             %vypocita hodnoty v jednotlivych intervalech casu pro jednotlive kategorie i pro celkovy prumer       
             %vykresli graf pro kazdy interval do spolecneho plotu
             %vraci prumery [channels x intervaly x kategorie] a MNI(channels)           
@@ -721,7 +721,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                
             end 
             MNI = obj.CH.GetMNI(channels);
-            names = obj.CH.GetChNames(channels);
+            [names,neurologyLabels] = obj.CH.GetChNames(channels);            
             assert(numel(MNI)==size(prumery,1),'MNI a prumery maji jiny pocet kanalu');
         end
         %% PLOT FUNCTIONS

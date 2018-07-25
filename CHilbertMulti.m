@@ -98,7 +98,7 @@ classdef CHilbertMulti < CHilbert
                     obj.GetD(d); %ulozi nova data d, pripadne prehazi epochy
                     
                     %tabs a tabs_orig
-                    obj.GetTabs(tabs,tabs_orig,fileno);                    
+                    obj.GetTabs(tabs); %,tabs_orig,fileno                   
                     
                     %fs - vzorkovaci prekvence - musi byt pro vsechny soubory stejna
                     if ~isempty(obj.fs), assert(obj.fs == fs,'fs musi byt stejne');  else, obj.fs = fs; end

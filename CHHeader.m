@@ -164,13 +164,15 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 end
             end
         end
-        function [names]=GetChNames(obj,channels)
+        function [names,neurologyLabels]=GetChNames(obj,channels)
             %vrati jmena vsech kanalu jako cell array
             if ~exist('channels','var'), channels = 1:size(obj.H.channels,2); end
             names = cell(numel(channels),1);
+            neurologyLabels = cell(numel(channels),1);
             for ch = 1: numel(channels)
                 if strcmpi(obj.H.channels(ch).signalType,'SEEG')
                     names{ch}=obj.H.channels(ch).name;
+                    neurologyLabels{ch}=obj.H.channels(ch).neurologyLabel;
                 end
             end
         end

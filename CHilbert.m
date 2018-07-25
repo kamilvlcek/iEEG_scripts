@@ -442,7 +442,10 @@ classdef CHilbert < CiEEGData
             [filepath,fname,ext] = CHilbert.matextension(obj.filename);
             podtrzitko = strfind(fname,'_'); %chci zrusit cast za poslednim podtrzitkem
             basefilename = [fname(1:podtrzitko(end)-1) ' ' label '_Extract' ext]; %jmeno bez cesty
-            filename =[filepath filesep 'Extracts' filesep basefilename]; %podadresar pro extrakty
+            extracts_path = [filepath filesep 'Extracts']; %podadresar pro extrakty dat
+            if exist(extracts_path,'dir') ~= 7, mkdir(extracts_path);   end
+            filename =[extracts_path filesep basefilename]; %podadresar pro extrakty
+            
             if exist(filename','file')~=2 || overwrite 
                 %pokraduju jen pokud extrakt neexistuje nebo se ma prepsat
                 %assert(strcmp(obj.reference,'Bipolar'),'neni bipolarni reference');
@@ -499,20 +502,20 @@ classdef CHilbert < CiEEGData
             BPD.NAMES = cell(1,2);                        
             BPD.MNI = cell(1,2);
             BPD.VALS = cell(1,2);
-            BPD.LABELS = cell(1,2); %sem budu ukladata neurologyLabel od Martina Tomaska  
+            BPD.NLABELS = cell(1,2); %sem budu ukladata neurologyLabel od Martina Tomaska  
             BPD.EPI = cell(1,2); %pridam jeste udaje o epilepticke aktivite, ktera pak muzu pouzit v zobrazeni mozku            
             
             %nejdriv udaje pro vsechny elektrody
             BPD.NAMES{1}= cell(obj.channels,1);            
             BPD.MNI{1} = struct('MNI_x',{},'MNI_y',{},'MNI_z',{});            
             BPD.VALS{1} = zeros(obj.channels,1); %tam pak doplnim 1 na mista vybranych kanalu         
-            BPD.LABELS{1}= cell(obj.channels,1);
+            BPD.NLABELS{1}= cell(obj.channels,1);
             BPD.EPI{1} = struct('seizureOnset',{},'interictalOften',{},'rejected',{});
             
             %hodnoty provsechy kanaly
             for ch = 1:obj.channels
                 BPD.NAMES{1}{ch} = obj.CH.H.channels(ch).name;
-                BPD.LABELS{1}{ch} = obj.CH.H.channels(ch).neurologyLabel;
+                BPD.NLABELS{1}{ch} = obj.CH.H.channels(ch).neurologyLabel;
                 BPD.MNI{1}(ch).MNI_x = obj.CH.H.channels(ch).MNI_x;
                 BPD.MNI{1}(ch).MNI_y = obj.CH.H.channels(ch).MNI_y;
                 BPD.MNI{1}(ch).MNI_z = obj.CH.H.channels(ch).MNI_z;
@@ -528,7 +531,7 @@ classdef CHilbert < CiEEGData
             BPD.NAMES{2}= cell(iff(isempty(chns),obj.channels,numel(chns)),1);
             BPD.MNI{2} = struct('MNI_x',{},'MNI_y',{},'MNI_z',{});                        
             BPD.VALS{2} = ones(iff(isempty(chns),obj.channels,numel(chns)),1);                
-            BPD.LABELS{2}= cell(iff(isempty(chns),obj.channels,numel(chns)),1);
+            BPD.NLABELS{2}= cell(iff(isempty(chns),obj.channels,numel(chns)),1);
             BPD.EPI{2} = struct('seizureOnset',{},'interictalOften',{},'rejected',{});                      
             BPD.selCh{2} = obj.GetSelCh();      
             if isempty(chns)
@@ -546,7 +549,7 @@ classdef CHilbert < CiEEGData
                 BPD.VALS{1}(channels(ch)) = 1;
                 BPD.VALS{2}(channels(ch)) = prumery(channels(ch));
                 BPD.NAMES{2}{ch} = obj.CH.H.channels(channels(ch)).name;     
-                BPD.LABELS{2}{ch} = obj.CH.H.channels(channels(ch)).neurologyLabel; 
+                BPD.NLABELS{2}{ch} = obj.CH.H.channels(channels(ch)).neurologyLabel; 
                 BPD.MNI{2}(ch).MNI_x = obj.CH.H.channels(channels(ch)).MNI_x;
                 BPD.MNI{2}(ch).MNI_y = obj.CH.H.channels(channels(ch)).MNI_y;
                 BPD.MNI{2}(ch).MNI_z = obj.CH.H.channels(channels(ch)).MNI_z;

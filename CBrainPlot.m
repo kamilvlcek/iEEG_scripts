@@ -6,6 +6,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
         VALS; %souhrnne prumery elektrod pres vsechny pacienty - cell(intervaly x kategorie)
         MNI;  %souhrnna MNI data pres vsechny pacienty - cell(intervaly x kategorie)
         NAMES; %souhrnna jmena elektrod pres vsechny pacienty - cell(intervaly x kategorie)
+        NLabels; %jmena neurologyLabels z Headeru
         intervals; % intervaly z funkce IntervalyResp
         katstr; %jmena kategorii
         brainsurface; %ulozeny isosurface z main_brainPlot
@@ -58,11 +59,13 @@ classdef CBrainPlot < matlab.mixin.Copyable
                         continue;
                     end
                     E.SetStatActive(contrast); %nastavi jeden z ulozenych statistickych kontrastu
-                    [prumery, MNI,names,~,katstr] = E.IntervalyResp( intervals,[],0);   %#ok<PROPLC> %no figure, funkce z CiEEGData                           
+                    [prumery, MNI,names,~,katstr,neurologyLabels] = E.IntervalyResp( intervals,[],0);   %#ok<PROPLC> %no figure, funkce z CiEEGData                           
                     obj.pacients{p} = pacienti(p).folder;
                     obj.GetPAC(prumery,E.CH.H,pacienti(p).folder);
                     obj.reference = E.reference;
-                    obj.Hf = E.Hf;
+                    if isprop(E,'Hf')
+                        obj.Hf = E.Hf;
+                    end
                     clear E;
                     if isempty(obj.katstr_pacients)
                         obj.katstr = [katstr 'AllEl']; %#ok<PROPLC> %katstr se ziskava z IntervalyResp
@@ -72,6 +75,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
                         P = cell([numel(pacienti),size(prumery,2),size(prumery,3)+1]); % souhrnne prumery pro vsechny pacienty: pacient*interval*kategorie
                         M = cell([numel(pacienti),size(prumery,2),size(prumery,3)+1]); % souhrnne MNI koordinaty pro vsechny pacienty
                         N = cell([numel(pacienti),size(prumery,2),size(prumery,3)+1]); % souhrnne names pro vsechny pacienty
+                        NL = cell([numel(pacienti),size(prumery,2),size(prumery,3)+1]); % souhrnne neurologyLabels
                             %+1 je pro obrazek vsech elektrod i tech bez odpovedi
                     end
                     obj.katstr_pacients(p,:) = katstr; %#ok<PROPLC> %jsou kategorie u vsech pacientu ve stejnem poradi?
@@ -81,14 +85,16 @@ classdef CBrainPlot < matlab.mixin.Copyable
                                 ip = prumery(:,interval, kat) ~= 0; % chci i zaporny rozdil ; aby tam neco bylo 
                                 P{p,interval,kat}=prumery(ip,interval, kat); %#ok<AGROW>
                                 M{p,interval,kat}=MNI(ip); %#ok<AGROW,PROPLC>>
-                                N{p,interval,kat}= strcat(cellstr(repmat([pacienti(p).folder(1:4) '_'],sum(ip),1)),names(ip)); %#ok<AGROW>
+                                N{p,interval,kat} = strcat(cellstr(repmat([pacienti(p).folder(1:4) '_'],sum(ip),1)),names(ip)); %#ok<AGROW>
+                                NL{p,interval,kat}= strcat(cellstr(repmat([pacienti(p).folder(1:4) '_'],sum(ip),1)),neurologyLabels(ip)); %#ok<AGROW>
                                 elcount(interval,kat) = elcount(interval,kat) + sum(ip); %#ok<AGROW>
                                 obj.numelP(p,interval,kat)=sum(ip);
                             else %kategorie jakoby navic pro vykresleni jen pozice elekrod
                                 channels = size(prumery,1);
                                 P{p,interval,kat}=zeros(channels,1); %#ok<AGROW> % 0 pro kazdy kanal - vsechny stejnou barvou
                                 M{p,interval,kat}=MNI; %#ok<AGROW,PROPLC>>
-                                N{p,interval,kat}= strcat(cellstr(repmat([pacienti(p).folder(1:4) '_'],channels,1)),names); %#ok<AGROW>
+                                N{p,interval,kat} = strcat(cellstr(repmat([pacienti(p).folder(1:4) '_'],channels,1)),names); %#ok<AGROW>
+                                NL{p,interval,kat}= strcat(cellstr(repmat([pacienti(p).folder(1:4) '_'],channels,1)),neurologyLabels); %#ok<AGROW>
                                 elcount(interval,kat) = elcount(interval,kat) + channels; %#ok<AGROW>                                
                                 obj.numelP(p,interval,kat)=channels;
                             end
@@ -100,20 +106,23 @@ classdef CBrainPlot < matlab.mixin.Copyable
             obj.VALS = cell(size(elcount)); %souhrnne prumery - interval * kategorie
             obj.MNI = cell(size(elcount)); 
             obj.NAMES = cell(size(elcount)); 
+            obj.NLabels = cell(size(elcount)); 
             obj.selCh = cell(size(elcount));  %prazdny vyber elektrod           
             if sum([pacienti.todo])>0 
                 for interval = 1:size(prumery,2) 
                     for kat = 1:size(prumery,3)+1                   
                           obj.VALS{interval,kat} = zeros(elcount(interval,kat),1);
                           obj.MNI{interval,kat} = struct('MNI_x',{},'MNI_y',{},'MNI_z',{});
-                          obj.NAMES{interval,kat} = cell(elcount(interval,kat),1);
+                          obj.NAMES{interval,kat}   = cell(elcount(interval,kat),1);
+                          obj.NLabels{interval,kat} = cell(elcount(interval,kat),1);
                           iVALS = 1;
                           for p = 1:numel(pacienti) 
                               if pacienti(p).todo
                                   n = numel(P{p,interval,kat});
                                   obj.VALS{interval,kat} (iVALS:iVALS+n-1)=P{p,interval,kat};
                                   obj.MNI{interval,kat}  (iVALS:iVALS+n-1)=M{p,interval,kat};
-                                  obj.NAMES{interval,kat}(iVALS:iVALS+n-1)=N{p,interval,kat};
+                                  obj.NAMES{interval,kat}(iVALS:iVALS+n-1)  =N{p,interval,kat};
+                                  obj.NLabels{interval,kat}(iVALS:iVALS+n-1)=NL{p,interval,kat};
                                   iVALS = iVALS + n;
                               end
                           end
@@ -162,6 +171,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
             obj.VALS = BPD.VALS;
             obj.MNI = BPD.MNI;
             obj.NAMES = BPD.NAMES;
+            obj.NLabels = BPD.NLABELS;
             obj.katstr = BPD.katstr;
             obj.intervals = BPD.intervals;       
             obj.testname = BPD.testname;
@@ -203,9 +213,9 @@ classdef CBrainPlot < matlab.mixin.Copyable
             plotSetup.customColors.lightpos = [246 203 203];
             plotSetup.customColors.darkpos = [162 2 2]; %tmave cervena
 
-            tablelog = cell(obj.pocetcykluPlot3D(kategorie,signum)+2,5); % z toho bude vystupni xls tabulka s prehledem vysledku
-            tablelog(1,:) = {datestr(now),obj.filename,'','',''}; %hlavicky xls tabulky
-            tablelog(2,:) = {'interval','kategorie','chname','mni','val'}; %hlavicky xls tabulky
+            tablelog = cell(obj.pocetcykluPlot3D(kategorie,signum)+2,6); % z toho bude vystupni xls tabulka s prehledem vysledku
+            tablelog(1,:) = {datestr(now),obj.filename,'','','',''}; %hlavicky xls tabulky
+            tablelog(2,:) = {'interval','kategorie','chname','neurologyLabel','mni','val'}; %hlavicky xls tabulky
             iTL = 2; %index v tablelog
             tic; %zadnu merit cas
             for interval = 1:size(obj.VALS,1) 
@@ -226,9 +236,9 @@ classdef CBrainPlot < matlab.mixin.Copyable
                     if strcmp(plotSetup.figureVisible,'off')
                         disp('figures invisible');
                     end
-                    figureNameNames = [ obj.testname '_' mat2str(obj.intervals(interval,:))  '_' katname '_' num2str(signum) ...
+                    figureNameNames = [ obj.testname '_' num2str(obj.intervals(interval,:),'%i-%is')  '_' katname '_' num2str(signum) ...
                             '_' num2str(obj.Hf(1)) '-' num2str(obj.Hf(end)) '_' obj.reference '_names'];
-                    figureNameNoNames = [ obj.testname '_' mat2str(obj.intervals(interval,:))  '_' katname '_' num2str(signum) ...
+                    figureNameNoNames = [ obj.testname '_' num2str(obj.intervals(interval,:),'%i-%is')  '_' katname '_' num2str(signum) ...
                             '_' num2str(obj.Hf(1)) '-' num2str(obj.Hf(end)) '_' obj.reference '_NOnames'];
                     if numel(obj.VALS{interval,kat}(iV)) > 0
                         
@@ -237,11 +247,11 @@ classdef CBrainPlot < matlab.mixin.Copyable
                             vals_channels = vals_channels*signum; %u zapornych hodnot prehodim znamenko
                         end
                         mni_channels = obj.MNI{interval,kat}(iV);                                                                                                 
-                        names_channels = obj.NAMES{interval,kat}(iV);
+                        names_channels = obj.NAMES{interval,kat}(iV);                        
                         
                         if ~strcmp(obj.katstr{kat},'AllEl') %nechci to pro kategorii vsech elektrod
                             for iVal = 1:numel(vals_channels)
-                                tablelog(iVal + iTL,:) = { sprintf('[%.1f %.1f]',obj.intervals(interval,:)),obj.katstr{kat}, obj.NAMES{interval,kat}{iVal}, ...
+                                tablelog(iVal + iTL,:) = { sprintf('[%.1f %.1f]',obj.intervals(interval,:)),obj.katstr{kat}, obj.NAMES{interval,kat}{iVal}, obj.NLabels{interval,kat}{iVal}, ...
                                     sprintf('[%.1f,%.1f,%.1f]',mni_channels(iVal).MNI_x, mni_channels(iVal).MNI_y, mni_channels(iVal).MNI_z), vals_channels(iVal)};
                             end
                             iTL = iTL + numel(vals_channels);
@@ -277,7 +287,8 @@ classdef CBrainPlot < matlab.mixin.Copyable
                 end
             end
             toc; %ukoncim mereni casu a vypisu
-            logfilename = ['logs\PlotBrain3D_' obj.testname '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') ];
+            logfilename = ['logs\PlotBrain3D_' figureNameNames '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') ];
+            
             xlswrite([plotSetup.outputDir logfilename '.xls'],tablelog); %zapisu do xls tabulky
             if hybernovat
                 system('shutdown -h')  %#ok<UNRCH>
