@@ -4,7 +4,7 @@ function [ppa] = ppa_data(pacientid,U1,U2,tabs,eegfile)
 % U1 a U2 vystup z udalosti2() - casy synchropulsu k podnedu a odpovedi
 % eegfile je nazev puvodniho souboru s eeg daty
 
-dir = 'd:\prace\homolka\epileptici EEG\vysledky\PPalokalizer\';
+dir = Constants.ppa_psychopydata_dir;
 %tabulka odpovedi pacienta
 data = load([dir pacientid '_ppa.txt']);
 if size(U1,1) ~= size(data,1) || size(U2,1) ~= size(data,1)

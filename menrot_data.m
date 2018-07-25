@@ -3,7 +3,7 @@ function [menrot] = menrot_data(pacientid,U1,U2,tabs,eegfile)
 % pacientid - id pacienta, napriklad p85, podle pojmenovani vystupni tabulky AEdistData.php.
 % U1 a U2 vystup z udalosti2() - casy synchropulsu k podnedu a odpovedi
 
-dir = 'd:\prace\homolka\epileptici EEG\vysledky\menrot\';
+dir = Constants.menrot_psychopydata_dir;
 %tabulka odpovedi pacienta
 data = load([dir pacientid '_menrot.txt']);
 

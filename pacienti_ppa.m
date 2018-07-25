@@ -116,7 +116,7 @@ pacienti(p).rjch = [47]; %#ok<NB%#ok<MSNU> RAK>
 p=p+1;
 pacienti(p).todo = 1;
 pacienti(p).folder = 'p132 Pol VT18'; %'VT18';
-pacienti(p).data = 'VT18_2016-12-07_16-20_001_ppa.mat';
+pacienti(p).data = 'VT18_2016-12-07_16-20_001_ppa_512hz.mat';
 pacienti(p).header = 'p132_header.mat';% lisi se
 pacienti(p).psychopy = 'p132_ppa.mat';
 pacienti(p).rjepoch = 'ppa_RjEpoch.mat';
@@ -146,12 +146,22 @@ pacienti(p).rjch = [47]; %#ok<NBRAK>
 p=p+1;
 pacienti(p).todo = 1;
 pacienti(p).folder = 'p138 Ven VT21'; %'VT21';
-pacienti(p).data = 'VT21_2017-02-28_09-35_001_500hz_concat_ppa.mat';
+pacienti(p).data = 'VT21_2017-02-28_09-35_001_500hz_concat_ppa.mat'; %wifi data
 pacienti(p).header = 'p138_header.mat'; %'P83_64ch_header.mat'
 pacienti(p).psychopy = 'p138_ppa.mat';
 pacienti(p).rjepoch = 'ppa_RjEpoch.mat';
 pacienti(p).epievents = 'p138_ppa_epievents.mat'; %2017 
-pacienti(p).rjch = []; %jen 46 kanalu
+pacienti(p).rjch = []; %
+
+p=p+1;
+pacienti(p).todo = 1;
+pacienti(p).folder = 'p155 Svi VT27'; %'VT21';
+pacienti(p).data = 'VT27_2017-11-22_08-36_001_concat_ppa.matt';
+pacienti(p).header = 'p155_header.mat'; %'P83_64ch_header.mat'
+pacienti(p).psychopy = 'p155_ppa.mat';
+pacienti(p).rjepoch = 'p155_ppa_rjepoch.mat';
+pacienti(p).epievents = 'p155_ppa_epievents.mat'; %2017 
+pacienti(p).rjch = [47]; %
 
 end
 
