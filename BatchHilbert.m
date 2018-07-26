@@ -1,4 +1,4 @@
-function BatchHilbert(testname,cfg)
+function filenames = BatchHilbert(testname,cfg)
 %BATCHHILBERT prevedeno do funkce pro opakovane volani ve skriptu - 30.1.2018
 % cfg je konfigurace 
 %15.9.2016 - AlloEgo zarovnani podle odpovedi
@@ -39,6 +39,7 @@ logfilename = ['logs\BatchHilbert_' setup.prefix '_' datestr(now, 'yyyy-mm-dd_HH
 assert(fileID>=0,['nemohu otevrit soubor pro zapis: ' logfilename ]);
 setuptext = setup2text(setup,cfg);
 fprintf(fileID,setuptext); %ulozi setup do log souboru
+filenames = cell(0,0); %tam si budu ukladat jmena vystupnich souboru, abych je mohl primo pouzit v BatchExtracts
 
 %OVERENI - nejdriv overim, jestli existuje vsechno co potrebuju nacist 
 chybasoubor = false;
@@ -233,6 +234,7 @@ for f=1:numel(frekvence)
                             fprintf(fileID,[ 'OK: ' strrep(outfilename,'\','\\') ' - ' datestr(now) '\n']);
                             souborystats(2) = souborystats(2) + 1; %dalsi ulozeny soubor
                             tablelog(cyklus+1,:) = {['''' frekvence(f).freqname], pacienti(p).folder, num2str(p), reference(r).name, 'saved', outfilename,datestr(now) };                                
+                            if isempty(find(~cellfun('isempty',strfind(filenames,basename(outfilename))))), filenames{end+1,1} = basename(outfilename); end %#ok<AGROW,EFIND>
                             clear E d tabs fs mults header RjEpoch psychopy H ans; 
                         catch exception 
                             errorMessage = exceptionLog(exception);                         

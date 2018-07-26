@@ -623,6 +623,7 @@ classdef CHilbert < CiEEGData
                    obj.PlotResponseFreq( max( [obj.plotF.ch - 10 , 1]));
                case 'space' %zobrazi i prumerne krivky
                    obj.PlotResponseCh(obj.plotF.ch);
+                   obj.PlotEpochs(obj.plotRCh.ch,obj.Wp(obj.WpActive).kats); %vykreslim prumery freq u vsech epoch
                    figure(obj.plotF.fh); %dam puvodni obrazek dopredu
                case {'multiply','8'} %hvezdicka na numericke klavesnici
                    %dialog na vlozeni minima a maxima osy y

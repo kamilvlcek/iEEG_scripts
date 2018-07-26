@@ -237,9 +237,9 @@ classdef CBrainPlot < matlab.mixin.Copyable
                         disp('figures invisible');
                     end
                     figureNameNames = [ obj.testname '_' num2str(obj.intervals(interval,:),'%i-%is')  '_' katname '_' num2str(signum) ...
-                            '_' num2str(obj.Hf(1)) '-' num2str(obj.Hf(end)) '_' obj.reference '_names'];
+                            '_' num2str(obj.Hf([1 end]),'%i-%iHz') '_' obj.reference '_names'];
                     figureNameNoNames = [ obj.testname '_' num2str(obj.intervals(interval,:),'%i-%is')  '_' katname '_' num2str(signum) ...
-                            '_' num2str(obj.Hf(1)) '-' num2str(obj.Hf(end)) '_' obj.reference '_NOnames'];
+                            '_' num2str(obj.Hf([1 end]),'%i-%iHz') '_' obj.reference '_NOnames'];
                     if numel(obj.VALS{interval,kat}(iV)) > 0
                         
                         vals_channels = obj.VALS{interval,kat}(iV); %parametr  main_brainPlot

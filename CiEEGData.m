@@ -207,7 +207,11 @@ classdef CiEEGData < matlab.mixin.Copyable
         end
         function obj = SetSelCh(obj,selCh)
             %nastaveni vsechny vybrane kanaly najednou
-            obj.plotRCh.selCh = selCh;
+            if selCh(end) >=999 %kdy zadam 999 nebo vyssi cislo, tak se vyberou vsechny kanaly
+                obj.plotRCh.selCh = 1:obj.channels;
+            else
+                obj.plotRCh.selCh = selCh;
+            end
         end
         
         function obj = ExtractEpochs(obj, psy,epochtime,baseline)
@@ -1269,7 +1273,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             end 
             
            
-            title(['channel ' num2str(ch) ' - ' obj.PacientID()], 'Interpreter', 'none'); % v titulu obrazku bude i pacientID napriklad p132-VT18
+            title(['channel ' num2str(ch) '/' num2str(obj.channels) ' - ' obj.PacientID()], 'Interpreter', 'none'); % v titulu obrazku bude i pacientID napriklad p132-VT18
             text(-0.1,ymax*.95,[ obj.CH.H.channels(1,ch).name ' : ' obj.CH.H.channels(1,ch).neurologyLabel ',' obj.CH.H.channels(1,ch).ass_brainAtlas]);
             if  isfield(obj.CH.H.channels,'MNI_x') %vypisu MNI souradnice
                 text(-0.1,ymax*.90,[ 'MNI:' num2str(obj.CH.H.channels(1,ch).MNI_x) ',' num2str(obj.CH.H.channels(1,ch).MNI_y ) ',' num2str(obj.CH.H.channels(1,ch).MNI_z)]);
@@ -1675,12 +1679,12 @@ classdef CiEEGData < matlab.mixin.Copyable
                case {'add' ,  'equal','s'}     % + oznaceni kanalu
                    obj.SelChannel(obj.plotRCh.ch);
                    obj.PlotResponseCh( obj.plotRCh.ch); %prekreslim grafy
-               case {'numpad6','d'}     % + oznaceni kanalu   
+               case {'numpad6','d'}     % skok na dalsi oznaceny kanal   
                    if isfield(obj.plotRCh,'selCh')
                         chn2 = obj.plotRCh.selCh( find(obj.plotRCh.selCh>obj.plotRCh.ch,1) );
                         obj.PlotResponseCh( iff(isempty(chn2),obj.plotRCh.ch,chn2) ); %prekreslim grafy                        
                    end                   
-               case {'numpad4','a'}     % + oznaceni kanalu
+               case {'numpad4','a'}     % skok na predchozi oznaceny kanal
                    if isfield(obj.plotRCh,'selCh')
                        chn2 = obj.plotRCh.selCh( find(obj.plotRCh.selCh<obj.plotRCh.ch,1,'last') );
                        obj.PlotResponseCh( iff(isempty(chn2),obj.plotRCh.ch,chn2) ); %prekreslim grafy
