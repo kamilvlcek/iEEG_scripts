@@ -1647,14 +1647,18 @@ classdef CiEEGData < matlab.mixin.Copyable
         function obj = hybejPlotCh(obj,~,eventDat)  
            %reaguje na udalosti v grafu PlotResponseCh
            switch eventDat.Key
-               case 'rightarrow' 
+               case {'rightarrow','c'} %dalsi kanal
                    obj.PlotResponseCh( min( [obj.plotRCh.ch + 1 , obj.channels]));
-               case 'pagedown' 
+               case 'pagedown' %skok o 10 kanalu dopred
                    obj.PlotResponseCh( min( [obj.plotRCh.ch + 10 , obj.channels]));
-               case 'leftarrow'
+               case {'leftarrow','z'} %predchozi kanal
                    obj.PlotResponseCh( max( [obj.plotRCh.ch - 1 , 1]));
-               case 'pageup'
+               case 'pageup' %skok 10 kanalu dozadu
                    obj.PlotResponseCh( max( [obj.plotRCh.ch - 10 , 1]));
+               case 'home' %skok na prvni kanal
+                   obj.PlotResponseCh( 1);
+               case 'end' %skok na posledni kanal
+                   obj.PlotResponseCh( obj.channels);
                case {'multiply','8'} %hvezdicka na numericke klavesnici, nebo hvezdicka nad osmickou
                    %dialog na vlozeni minima a maxima osy y
                    answ = inputdlg('Enter ymax and min:','Yaxis limits', [1 50],{num2str(obj.plotRCh.ylim)});
@@ -1669,10 +1673,10 @@ classdef CiEEGData < matlab.mixin.Copyable
                        end
                    end
                    obj.PlotResponseCh( obj.plotRCh.ch); %prekreslim grafy
-               case {'divide','slash'} %lomeno na numericke klavesnici
+               case {'divide','slash'} %lomeno na numericke klavesnici - automaticke meritko na ose y
                    obj.plotRCh.ylim = obj.plotRCh.range; %spocitalo se pri volani PlotResponseCh
                    obj.PlotResponseCh( obj.plotRCh.ch); %prekreslim grafy
-               case 'space' %zobrazi i prumerne krivky
+               case 'space' %zobrazi i prumerne krivky - vsechny epochy a vsechny frekvence
                    if isa(obj,'CHilbert'), obj.PlotResponseFreq(obj.plotRCh.ch,obj.Wp(obj.WpActive).kats); end %vykreslim vsechna frekvencni pasma
                    obj.PlotEpochs(obj.plotRCh.ch,obj.Wp(obj.WpActive).kats); %vykreslim prumery freq u vsech epoch
                    figure(obj.plotRCh.fh); %dam puvodni obrazek dopredu
@@ -1689,6 +1693,14 @@ classdef CiEEGData < matlab.mixin.Copyable
                        chn2 = obj.plotRCh.selCh( find(obj.plotRCh.selCh<obj.plotRCh.ch,1,'last') );
                        obj.PlotResponseCh( iff(isempty(chn2),obj.plotRCh.ch,chn2) ); %prekreslim grafy
                    end
+               case {'numpad9','e'}     % skok na dalsi kanal s nejakou signifikanci
+                   chsignif = obj.ChannelsSignif();
+                   chn2 = chsignif(find(chsignif>obj.plotRCh.ch,1)); %nasledujici signif kanaly
+                   obj.PlotResponseCh( iff(isempty(chn2),obj.plotRCh.ch,chn2) ); %prekreslim grafy  
+               case {'numpad7','q'}     % skok na predchozi kanal s nejakou signifikanci
+                   chsignif = obj.ChannelsSignif(); %seznam  kanalu s nejakou signifikanci
+                   chn2 = chsignif(find(chsignif<obj.plotRCh.ch,1,'last')); %nasledujici signif kanaly
+                   obj.PlotResponseCh( iff(isempty(chn2),obj.plotRCh.ch,chn2) ); %prekreslim grafy  
                otherwise
                    disp(['You just pressed: ' eventDat.Key]);
            end
@@ -1805,6 +1817,18 @@ classdef CiEEGData < matlab.mixin.Copyable
             else
                 katstr = 'no';
             end
+        end
+        function chsignif = ChannelsSignif(obj)
+           %vrati seznam kanalu s nejakou signifikanci z WpKatBaseline nebo WpKat
+           chsignif = []; %seznam kanalu se signifikanci
+           for kat = 1:numel(obj.Wp.kats)
+               chsignif = sort(unique([chsignif find(min(obj.Wp.WpKatBaseline{kat,1},[],1)<0.05) ]));                       
+           end
+           for kat1 = 1:numel(obj.Wp.kats)
+               for kat2 = kat:numel(obj.Wp.kats)
+                   chsignif = sort(unique([chsignif find(min(obj.Wp.WpKat{kat1,kat2},[],1)<0.05) ]));                                 
+               end               
+           end
         end
     end
     methods  (Access = protected)
