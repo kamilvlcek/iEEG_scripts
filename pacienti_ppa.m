@@ -163,5 +163,54 @@ pacienti(p).rjepoch = 'p155_ppa_rjepoch.mat';
 pacienti(p).epievents = 'p155_ppa_epievents.mat'; %2017 
 pacienti(p).rjch = [47]; %
 
+pacienti(p).todo = 1;
+pacienti(p).folder = 'p160 VT31';
+pacienti(p).data = 'VT28_2017-12-11_16-05_001_concat_ppa.mat';
+pacienti(p).header = 'p160_header.mat';
+pacienti(p).psychopy = 'p160_ppa.mat';
+pacienti(p).rjepoch = 'p160_ppa_rjepoch.mat';
+pacienti(p).epievents = 'p160_ppa_epievents.mat'; 
+pacienti(p).rjch = [47,5,79,105, 106, 107, 122];
+
+p=p+1;
+pacienti(p).todo = 1;
+pacienti(p).folder = 'p151 Ber VT31';
+pacienti(p).data = 'VT31_2018-02-26_10-54_001_concat_ppa.mat';
+pacienti(p).header = 'p151_header.mat';
+pacienti(p).psychopy = 'p151_ppa.mat';
+pacienti(p).rjepoch = 'p151_ppa_rjepoch.mat';
+pacienti(p).epievents = 'p151_ppa_epievents.mat'; 
+pacienti(p).rjch = [47]; 
+
+p=p+1;
+pacienti(p).todo = 1;
+pacienti(p).folder = 'p162 Fra VT29';
+pacienti(p).data = 'VT29_2018-01-09_10-04_001_ppa.mat';
+pacienti(p).header = 'p162_header.mat';
+pacienti(p).psychopy = 'p162_ppa.mat';
+pacienti(p).rjepoch = 'p162_ppa_rjepoch.mat';
+pacienti(p).epievents = 'p162_ppa_epievents.mat'; 
+pacienti(p).rjch = [47;72;73;74;75;80;81;82;83;84;85;86;87;91;92;93;94;95;96;104;105;106;107;108;114;115;116;117;118]; 
+
+p=p+1;
+pacienti(p).todo = 1;
+pacienti(p).folder = 'p170 Zem VT32';
+pacienti(p).data = 'VT32_2018-03-13_10-13_001_concat_ppa.mat';
+pacienti(p).header = 'p170_headerX.mat';
+pacienti(p).psychopy = 'p170_ppa.mat';
+pacienti(p).rjepoch = 'p170_ppa_rjepoch.mat';
+pacienti(p).epievents = 'p170_ppa_epievents.mat'; 
+pacienti(p).rjch = [1;2;9;10;14;15;16;18;23;24;25;26;27;28;31;34;35;36;37;38;39;40;45;46;47;48;49;50;51;53;54;55;56;82]; 
+
+p=p+1;
+pacienti(p).todo = 1;
+pacienti(p).folder = 'p173 Mar VT34';
+pacienti(p).data = 'VT34_2018-04-09_10-39_001_concat_ppa.mat';
+pacienti(p).header = 'p173_header.mat';
+pacienti(p).psychopy = 'p173_ppa.mat';
+pacienti(p).rjepoch = 'p173_ppa_rjepoch.mat';
+pacienti(p).epievents = 'p173_ppa_epievents.mat'; 
+pacienti(p).rjch = [47]; 
+
 end
 
