@@ -385,8 +385,7 @@ classdef CPlotsN < handle
             end
         end
         
-        
-        function [citpc, citpc_p, citpc_pmean,combinations] = CalculateITPCcontrasts(obj, contrasts, itpc, n, channels)
+        function [citpc, citpc_p, citpc_pmean, citpc_min, combinations] = CalculateITPCcontrasts(obj, contrasts, itpc, n, channels)
             %{ 
              contrasts is either an array or cell array
              [0 1 2] or {2 [1 2] [2 1 0]} etc.
@@ -401,7 +400,7 @@ classdef CPlotsN < handle
                 contrasts = [obj.E.PsyData.P.strings.podminka{:,2}];
             end
             if ~exist('itpc','var') || ~exist('n','var')
-                [itpc, ~, ~, n] = obj.CalculateITPC(channels, contrasts); 
+                [itpc, ~, ~, n] = obj.CalculateITPC(contrasts, channels); 
             end
             
             contrasts_num = length(contrasts);
@@ -411,10 +410,13 @@ classdef CPlotsN < handle
             citpc = nan(obj.E.channels,contrasts_num,contrasts_num,obj.E.samples, length(obj.E.Hf));
             citpc_p = nan(obj.E.channels,contrasts_num,contrasts_num,obj.E.samples, length(obj.E.Hf)); % p-value vsetkych frekvencii
             citpc_pmean = nan(obj.E.channels,contrasts_num,contrasts_num,obj.E.samples); % p-value priemeru cez vsetky frekvencie
-            
+            citpc_min.pval = nan(obj.E.channels,contrasts_num,contrasts_num,obj.E.samples);
+            citpc_min.val = nan(obj.E.channels,contrasts_num,contrasts_num,obj.E.samples);
+            citpc_min.iFq = nan(obj.E.channels,contrasts_num,contrasts_num);
+                        
             for channel = channels
                 %display(['Channel ' num2str(channel)]);
-                for comb = 1:length(combinations)
+                for comb = 1:size(combinations,1)
                                         
                     cond1 = combinations(comb,1); % index of the first element in the contrast
                     cond2 = combinations(comb,2); % index of the second element in the contrast
@@ -422,14 +424,74 @@ classdef CPlotsN < handle
                     
                     citpc_p(channel, cond1, cond2, :, :) = 2*normpdf(abs(atanh(squeeze(citpc(channel, cond1, cond2, :, :)))/sqrt((1/(n(cond1)-3))+(1/(n(cond2)-3)))));
                     citpc_pmean(channel, cond1, cond2, :) = 2*normpdf(abs(atanh(mean(squeeze(citpc(channel, cond1, cond2, :, :)),2))/sqrt((1/(n(cond1)-3))+(1/(n(cond2)-3)))));
-               
+                    
+                    [~,i] = min(mean(squeeze(citpc_p(channel,cond1, cond2,:,:)),1));
+                    
+                    citpc_min.pval(channel, cond1, cond2, :) = citpc_p(channel, cond1, cond2, :, i);
+                    citpc_min.val(channel, cond1, cond2, :) = citpc(channel, cond1, cond2, :, i);
+                    citpc_min.iFq(channel, cond1, cond2) = i;
                 end
             end
             
         end
         
+        function fig = PlotITPCcontrasts(obj, contrasts)
+            [itpc, ~, ~, n_epoch] = obj.CalculateITPC(contrasts);
+            [citpc, citpc_p, citpc_pmean,combinations] = obj.CalculateITPCcontrasts(contrasts);
+            obj.plotData.ch = 1;
+            obj.plotData.citpc = citpc;
+            obj.plotData.itpc = itpc;
+            obj.plotData.citpc_p = citpc_p;
+            obj.plotData.contrasts = contrasts;
+            obj.plotData.f = figure();
+            set(obj.plotData.f, 'KeyPressFcn', @obj.MovePlotITPC); % set key press function
+            obj.plotData.names = {obj.E.CH.H.channels.ass_brainAtlas}; %cast mozgu
+            obj.plotData.labels = {obj.E.CH.H.channels.neurologyLabel}; %neurology label
+            obj.plotData.electrodes = {obj.E.CH.H.channels.name}; %nazov elektrody
+            obj.PlotITPCcontrastsOneCh();
+        end
         
-        
+        function PlotITPCcontrastsOneCh(obj)
+            
+            
+            time = linspace(obj.E.epochtime(1), obj.E.epochtime(2), size(obj.E.fphaseEpochs,1));
+            colormap jet;
+            subplot(2,2,1); 
+            imagesc(time,obj.E.Hf,squeeze(obj.plotData.itpc(obj.plotData.ch,1,:,:))'); 
+            xlabel('Time (s)'); ylabel('Frequency (Hz)'); colorbar;
+            set(gca,'YDir','normal'); title(obj.plotData.contrasts{1});
+            
+            subplot(2,2,2);
+            imagesc(time,obj.E.Hf,squeeze(obj.plotData.itpc(obj.plotData.ch,2,:,:))');
+            xlabel('Time (s)'); ylabel('Frequency (Hz)'); colorbar;
+            set(gca,'YDir','normal'); title(num2str(obj.plotData.contrasts{2}));
+            
+            subplot(2,2,3);
+            imagesc(time,obj.E.Hf,squeeze(obj.plotData.citpc(obj.plotData.ch,1,2,:,:))');
+            xlabel('Time (s)'); ylabel('Frequency (Hz)'); colorbar;
+            set(gca,'YDir','normal'); title([num2str(obj.plotData.contrasts{1}) ' vs. ' num2str(obj.plotData.contrasts{2})]);
+
+            subplot(2,2,4)
+            pval = squeeze(obj.plotData.citpc_p(obj.plotData.ch,1,2,:,:))';
+            pval(pval>=0.10) = 0;
+            imagesc(time,obj.E.Hf,pval);
+
+            caxis([0 1]);
+            myColorMap = jet(256);
+            myColorMap(1,:) = 1;
+            colormap(myColorMap);
+            xlabel('Time (s)'); ylabel('Frequency (Hz)'); colorbar;
+            set(gca,'YDir','normal'); title('P-value of the difference');
+            
+            mtit(sprintf('%s - Channel %d; %s - %s \n', obj.plotData.electrodes{obj.plotData.ch}, obj.plotData.ch, obj.plotData.labels{obj.plotData.ch}, obj.plotData.names{obj.plotData.ch}));
+            %mtit(['Channel ' num2str(obj.plotData.ch)]);
+            %set(obj.plotData.f,'units','points','position',[100,100,800,450]);
+           % saveas(obj.plotData.f, fullfile(['D:\eeg\motol\ITPC PPA 1-10Hz\',obj.E.CH.H.subjName], ['ch', num2str(obj.plotData.ch), 'itpc']), 'png');
+%             close(obj.plotData.f);
+
+        end
+            
+            
         function fig = PlotITPCsig(obj, ch, sig, diffs)
             % itpc (ch, cond, time, fq)
             % itpc_p (ch, cond, time)
@@ -574,6 +636,19 @@ classdef CPlotsN < handle
                    display(['key pressed: ' eventDat.Key]); %vypise stlacenou klavesu
             end
             obj.plotUnepochedData();
+        end
+        
+        function obj = MovePlotITPC(obj,~,eventDat)
+            %zpracovava stlaceni klavesy pro graf PlotUnepoched
+            switch eventDat.Key
+                case 'rightarrow' % +1 time window
+                    obj.plotData.ch = obj.plotData.ch + 1; %min([obj.plotData.iTime + 1, size(obj.HFreqEpochs,4)]);
+                case 'leftarrow'  % -1 time window
+                    obj.plotData.ch = max([obj.plotData.ch - 1, 0]);%max([obj.plotData.iEpoch - 1, 1]);
+                otherwise  
+                   display(['key pressed: ' eventDat.Key]); %vypise stlacenou klavesu
+            end
+            obj.PlotITPCcontrastsOneCh();
         end
        
         function plotUnepochedData(obj)
