@@ -28,6 +28,9 @@ if strcmp(testname,'menrot')
 elseif strcmp(testname,'aedist')
     dirCM = 'd:\eeg\motol\CHilbertMulti\Aedist\'; %musi koncit \
     fileCS = 'd:\eeg\motol\CHilbertMulti\Aedist\CSelCh_AEdist.mat';
+elseif strcmp(testname,'aedist')
+    dirCM = 'd:\eeg\motol\CHilbertMulti\PPA\'; %musi koncit \
+    fileCS = 'd:\eeg\motol\CHilbertMulti\PPA\CSelCh_AEdist.mat';
 else
     error('neznamy typ testu');
 end

@@ -1848,10 +1848,10 @@ classdef CiEEGData < matlab.mixin.Copyable
             % Make a shallow copy of all properties
             cpObj = copyElement@matlab.mixin.Copyable(obj);
             % Make a deep copy of the copyable classes
-            cpObj.PsyData = copy(obj.PsyData);
-            cpObj.CH = copy(obj.CH);
-            cpObj.DE = copy(obj.DE);
-            cpObj.PL = copy(obj.PL);
+            if isobject(obj.PsyData), cpObj.PsyData = copy(obj.PsyData); end
+            if isobject(obj.CH), cpObj.CH = copy(obj.CH); end
+            if isobject(obj.DE), cpObj.DE = copy(obj.DE); end
+            if isobject(obj.PL), cpObj.PL = copy(obj.PL); end
       end
     end
     
