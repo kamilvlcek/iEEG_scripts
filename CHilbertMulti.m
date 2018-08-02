@@ -456,7 +456,12 @@ classdef CHilbertMulti < CHilbert
             %data uz bez treningu
             typ = cell2mat(epochData(:,2)) ;
             b1 = [find(typ(2:end) ~= typ(1:end-1)); size(typ,1)]; %konce bloku
-            b0 = [ 1; (b1(1:end-1)+1)]; %zacatky bloku
+            if min(diff(b1)) > 1
+                b0 = [ 1; (b1(1:end-1)+1)]; %zacatky bloku                
+            else %pokud existuji bloky o delce 1 (u PPA testu), tak chci mit vsechy bloky o delce 1
+                b1 = (1:size(epochData,1))';
+                b0 = (1:size(epochData,1))';
+            end
             bloky = [typ(b0),b1-b0+1,b0,b1];
         end
         function blokyprehazej = ShuffleBlocks(bloky0, bloky1)

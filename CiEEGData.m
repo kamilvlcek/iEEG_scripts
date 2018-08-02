@@ -584,6 +584,18 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
             [obj.samples,obj.channels, obj.epochs] = obj.DSize();
         end
+        function obj = Resample(obj,fsnew)
+            assert(obj.epochs==1, 'muze resamplovat jen neepochovana data');
+            obj.d = resample(obj.d,fsnew,obj.fs);
+            dv = datevec([obj.tabs(1),obj.tabs(end)]); %rozlozi datetime na komponenty Y M D H M S
+            secdif = etime(dv(2,:),dv(1,:)); %pocet vterin mezi zacatkem a koncem tabs
+            dates = datenum(dv(1,1),dv(1,2),dv(1,3),dv(1,4),dv(1,5),dv(1,6):(1/fsnew):dv(1,6)+secdif+(1/fsnew)); %pridavam jednu hodnotu na konci, protoze to pocitam z rozdilu
+            obj.tabs = dates'; %dates jsou v radku
+            obj.tabs_orig = obj.tabs;
+            obj.fs = fsnew;
+            obj.DatumCas.Resampled = datestr(now);
+            disp(['resampled to ' num2str(fsnew) 'Hz']);
+        end
         function [katsnames,kombinace,kats] = GetKatsNames(obj)
             %vraci nazvy kategorii ve statistice v aktivnim kontrastu a jejich kombinaci, do intervalyResp aj
            if numel(obj.Wp) >= obj.WpActive
@@ -631,8 +643,9 @@ classdef CiEEGData < matlab.mixin.Copyable
                 if dofig, subplot(min(2,size(intervaly,1)),ceil(size(intervaly,1) /2),int);  end %pro kazdy interval jiny subplot
                 %spocitam prumery celkove i za kazdou kategorii v kazdem casovem intervalu
                 % dve cisla v kazdem sloupci - od do ve vterinach   
-                iintervalyData = min(round((intervaly(int,:)-obj.epochtime(1)).*obj.fs),size(obj.d,1)); % pro data kde je na zacatku baseline             
-                iintervalyStat = min(round(intervaly(int,:).*obj.fs),size(obj.Wp(obj.WpActive).WpKat{1,2},1)); % pro statistiku, kde na zacatku neni baseline              
+                iintervalyData = min(round((intervaly(int,:)-obj.epochtime(1)).*obj.fs),size(obj.d,1)); % pro katdata kde je na zacatku baseline             
+                iintervalyStat = min(round(intervaly(int,:).*obj.fs),size(obj.Wp(obj.WpActive).WpKat{1,2},1)); % pro statistiku obj.Wp.WpKat, kde na zacatku neni baseline
+                iintervalyStat(1) = iintervalyStat(1) + (diff(iintervalyStat)-diff(iintervalyData)); %korekce zaokrouhlovani, posunu zacatek iintervalyStat aby stejne dlouhe jako iintervalyData
                 %katdata = obj.CategoryData(kats); 
                 %iCh = min(obj.Wp.D2(iintervalyStat(1):iintervalyStat(2),channels),[],1) < 0.05; %kanaly kde je signifikantni rozdil vuci baseline, alesponjednou
                 %prumery(iCh,j,1) = mean(mean(katdata(iintervalyData(1):iintervalyData(2),iCh,:),3),1); %prumer za vsechy epochy a cely casovy interval

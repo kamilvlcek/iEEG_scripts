@@ -144,7 +144,7 @@ pacienti(p).epievents = 'p136_ppa_epievents.mat'; %2017
 pacienti(p).rjch = [47]; %#ok<NBRAK>
 
 p=p+1;
-pacienti(p).todo = 1;
+pacienti(p).todo = 0; %signal type ='ECoG-Grid' nejde tam udelat bipolarni reference
 pacienti(p).folder = 'p138 Ven VT21'; %'VT21';
 pacienti(p).data = 'VT21_2017-02-28_09-35_001_500hz_concat_ppa.mat'; %wifi data
 pacienti(p).header = 'p138_header.mat'; %'P83_64ch_header.mat'
