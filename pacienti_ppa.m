@@ -144,7 +144,7 @@ pacienti(p).epievents = 'p136_ppa_epievents.mat'; %2017
 pacienti(p).rjch = [47]; %#ok<NBRAK>
 
 p=p+1;
-pacienti(p).todo = 1;
+pacienti(p).todo = 0; %signal type ='ECoG-Grid' nejde tam udelat bipolarni reference
 pacienti(p).folder = 'p138 Ven VT21'; %'VT21';
 pacienti(p).data = 'VT21_2017-02-28_09-35_001_500hz_concat_ppa.mat'; %wifi data
 pacienti(p).header = 'p138_header.mat'; %'P83_64ch_header.mat'
@@ -164,13 +164,23 @@ pacienti(p).epievents = 'p155_ppa_epievents.mat'; %2017
 pacienti(p).rjch = [47]; %
 
 pacienti(p).todo = 1;
-pacienti(p).folder = 'p160 VT31';
+pacienti(p).folder = 'p160 Kor VT28';
 pacienti(p).data = 'VT28_2017-12-11_16-05_001_concat_ppa.mat';
 pacienti(p).header = 'p160_header.mat';
 pacienti(p).psychopy = 'p160_ppa.mat';
 pacienti(p).rjepoch = 'p160_ppa_rjepoch.mat';
 pacienti(p).epievents = 'p160_ppa_epievents.mat'; 
 pacienti(p).rjch = [47,5,79,105, 106, 107, 122];
+
+p=p+1;
+pacienti(p).todo = 1;
+pacienti(p).folder = 'p162 Fra VT29';
+pacienti(p).data = 'VT29_2018-01-09_10-04_001_ppa.mat';
+pacienti(p).header = 'p162_header.mat';
+pacienti(p).psychopy = 'p162_ppa.mat';
+pacienti(p).rjepoch = 'p162_ppa_rjepoch.mat';
+pacienti(p).epievents = 'p162_ppa_epievents.mat'; 
+pacienti(p).rjch = [47,72,73,74,75,80,81,82,83,84,85,86,87,91,92,93,94,95,96,104,105,106,107,108,114,115,116,117,118]; 
 
 p=p+1;
 pacienti(p).todo = 1;
@@ -184,23 +194,13 @@ pacienti(p).rjch = [47];
 
 p=p+1;
 pacienti(p).todo = 1;
-pacienti(p).folder = 'p162 Fra VT29';
-pacienti(p).data = 'VT29_2018-01-09_10-04_001_ppa.mat';
-pacienti(p).header = 'p162_header.mat';
-pacienti(p).psychopy = 'p162_ppa.mat';
-pacienti(p).rjepoch = 'p162_ppa_rjepoch.mat';
-pacienti(p).epievents = 'p162_ppa_epievents.mat'; 
-pacienti(p).rjch = [47;72;73;74;75;80;81;82;83;84;85;86;87;91;92;93;94;95;96;104;105;106;107;108;114;115;116;117;118]; 
-
-p=p+1;
-pacienti(p).todo = 1;
 pacienti(p).folder = 'p170 Zem VT32';
 pacienti(p).data = 'VT32_2018-03-13_10-13_001_concat_ppa.mat';
 pacienti(p).header = 'p170_headerX.mat';
 pacienti(p).psychopy = 'p170_ppa.mat';
 pacienti(p).rjepoch = 'p170_ppa_rjepoch.mat';
 pacienti(p).epievents = 'p170_ppa_epievents.mat'; 
-pacienti(p).rjch = [1;2;9;10;14;15;16;18;23;24;25;26;27;28;31;34;35;36;37;38;39;40;45;46;47;48;49;50;51;53;54;55;56;82]; 
+pacienti(p).rjch = [1,2,9,10,14,15,16,18,23,24,25,26,27,28,31,34,35,36,37,38,39,40,45,46,47,48,49,50,51,53,54,55,56,82];
 
 p=p+1;
 pacienti(p).todo = 1;

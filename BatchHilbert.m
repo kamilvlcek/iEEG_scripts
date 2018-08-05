@@ -167,16 +167,21 @@ for f=1:numel(frekvence)
                             if ~exist('mults','var'),  mults = []; end
                             if ~exist('header','var'), header = []; end
                             if ERP
-                                E = CiEEGData(d,tabs,fs,mults,header);
-                                E.GetHHeader(H);
-                                E.Filter([0 60],[],[],0); %odfiltruju vsechno nad 60Hz, nekreslim obrazek
-                                E.Decimate(4); % ze 512 Hz na 128Hz. To staci na 60Hz signal                                
+                                E = CiEEGData(d,tabs,fs,mults,header);                              
                             elseif strcmp(classname,'CMorlet')
-                                E = CMorlet(d,tabs,fs,mults,header);
-                                E.GetHHeader(H);
+                                E = CMorlet(d,tabs,fs,mults,header);                                
                             else
-                                E = CHilbert(d,tabs,fs,mults,header);
-                                E.GetHHeader(H);                                
+                                E = CHilbert(d,tabs,fs,mults,header);                                                                
+                            end
+                            E.GetHHeader(H);
+                            if E.fs == 500 %pokud se jedna o wifi data s frekvenci 500Hz
+                                E.Resample(512); %prevzorkuju na 512 Hz
+                            elseif E.fs ~= 512
+                                error(['soubor ma nekompatibilni vzorkovaci frekvenci ' num2str(obj.fs)]);
+                            end
+                            if ERP
+                                E.Filter([0 60],[],[],0); %odfiltruju vsechno nad 60Hz, nekreslim obrazek
+                                E.Decimate(4); % ze 512 Hz na 128Hz. To staci na 60Hz signal
                             end
                             clear d;                        
                             E.RejectChannels(pacienti(p).rjch);
@@ -235,7 +240,7 @@ for f=1:numel(frekvence)
                             souborystats(2) = souborystats(2) + 1; %dalsi ulozeny soubor
                             tablelog(cyklus+1,:) = {['''' frekvence(f).freqname], pacienti(p).folder, num2str(p), reference(r).name, 'saved', outfilename,datestr(now) };                                
                             if isempty(find(~cellfun('isempty',strfind(filenames,basename(outfilename))))), filenames{end+1,1} = basename(outfilename); end %#ok<AGROW,EFIND>
-                            clear E d tabs fs mults header RjEpoch psychopy H ans; 
+                            clear E d tabs fs mults header RjEpoch RjEpochCh psychopy H ans; 
                         catch exception 
                             errorMessage = exceptionLog(exception);                         
                             disp(errorMessage);  fprintf(fileID,[errorMessage '\n']);  %#ok<DSPS> %zobrazim hlasku, zaloguju, ale snad to bude pokracovat dal                            

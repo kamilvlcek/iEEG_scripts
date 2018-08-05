@@ -28,6 +28,9 @@ if strcmp(testname,'menrot')
 elseif strcmp(testname,'aedist')
     dirCM = 'd:\eeg\motol\CHilbertMulti\Aedist\'; %musi koncit \
     fileCS = 'd:\eeg\motol\CHilbertMulti\Aedist\CSelCh_AEdist.mat';
+elseif strcmp(testname,'ppa')
+    dirCM = 'd:\eeg\motol\CHilbertMulti\PPA\'; %musi koncit \
+    fileCS = 'd:\eeg\motol\CHilbertMulti\PPA\CSelCh_AEdist.mat';
 else
     error('neznamy typ testu');
 end
@@ -60,7 +63,7 @@ for f = 1:numel(files) %cyklus pres vsechny soubory
                 disp(msg); fprintf(fileID,[ msg '\n']);
 
                 CB = CBrainPlot;     %#ok<USENS> %brainplot na ziskani signif odpovedi
-                CB.IntervalyResp(testname,[0.1 1],files{f},kontrasts(kontrast)); %ziskam signif rozdily pro kategorie a mezi kategoriemi pro vsechny pacienty       
+                CB.IntervalyResp(testname,[0.1 min(1,setup.epochtime(2))],files{f},kontrasts(kontrast)); %ziskam signif rozdily pro kategorie a mezi kategoriemi pro vsechny pacienty       
                 kategorie = find(~cellfun('isempty',strfind(CB.katstr,'X'))); %strfind je jenom case sensitivni
                 katsnames = CB.katstr;
             else

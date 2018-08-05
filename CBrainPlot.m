@@ -144,6 +144,8 @@ classdef CBrainPlot < matlab.mixin.Copyable
             end
         end
         function [obj] = GetPAC(obj,prumery,H,pac_folder)
+            %vytvori a ulozi PAC data do obj.PAC pro jednoho pacienta z prumery a headeru
+            %updatuje obj.iPAC jako index v obj.PAC
             if isempty(obj.PAC)
                 obj.PAC = cell(size(prumery,2),size(prumery,3));
                 obj.iPAC = ones(size(prumery,2),size(prumery,3));

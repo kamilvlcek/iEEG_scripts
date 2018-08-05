@@ -584,6 +584,18 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
             [obj.samples,obj.channels, obj.epochs] = obj.DSize();
         end
+        function obj = Resample(obj,fsnew)
+            assert(obj.epochs==1, 'muze resamplovat jen neepochovana data');
+            obj.d = resample(obj.d,fsnew,obj.fs);
+            dv = datevec([obj.tabs(1),obj.tabs(end)]); %rozlozi datetime na komponenty Y M D H M S
+            secdif = etime(dv(2,:),dv(1,:)); %pocet vterin mezi zacatkem a koncem tabs
+            dates = datenum(dv(1,1),dv(1,2),dv(1,3),dv(1,4),dv(1,5),dv(1,6):(1/fsnew):dv(1,6)+secdif+(1/fsnew)); %pridavam jednu hodnotu na konci, protoze to pocitam z rozdilu
+            obj.tabs = dates'; %dates jsou v radku
+            obj.tabs_orig = obj.tabs;
+            obj.fs = fsnew;
+            obj.DatumCas.Resampled = datestr(now);
+            disp(['resampled to ' num2str(fsnew) 'Hz']);
+        end
         function [katsnames,kombinace,kats] = GetKatsNames(obj)
             %vraci nazvy kategorii ve statistice v aktivnim kontrastu a jejich kombinaci, do intervalyResp aj
            if numel(obj.Wp) >= obj.WpActive
@@ -631,8 +643,9 @@ classdef CiEEGData < matlab.mixin.Copyable
                 if dofig, subplot(min(2,size(intervaly,1)),ceil(size(intervaly,1) /2),int);  end %pro kazdy interval jiny subplot
                 %spocitam prumery celkove i za kazdou kategorii v kazdem casovem intervalu
                 % dve cisla v kazdem sloupci - od do ve vterinach   
-                iintervalyData = min(round((intervaly(int,:)-obj.epochtime(1)).*obj.fs),size(obj.d,1)); % pro data kde je na zacatku baseline             
-                iintervalyStat = min(round(intervaly(int,:).*obj.fs),size(obj.Wp(obj.WpActive).WpKat{1,2},1)); % pro statistiku, kde na zacatku neni baseline              
+                iintervalyData = min(round((intervaly(int,:)-obj.epochtime(1)).*obj.fs),size(obj.d,1)); % pro katdata kde je na zacatku baseline             
+                iintervalyStat = min(round(intervaly(int,:).*obj.fs),size(obj.Wp(obj.WpActive).WpKat{1,2},1)); % pro statistiku obj.Wp.WpKat, kde na zacatku neni baseline
+                iintervalyStat(1) = iintervalyStat(1) + (diff(iintervalyStat)-diff(iintervalyData)); %korekce zaokrouhlovani, posunu zacatek iintervalyStat aby stejne dlouhe jako iintervalyData
                 %katdata = obj.CategoryData(kats); 
                 %iCh = min(obj.Wp.D2(iintervalyStat(1):iintervalyStat(2),channels),[],1) < 0.05; %kanaly kde je signifikantni rozdil vuci baseline, alesponjednou
                 %prumery(iCh,j,1) = mean(mean(katdata(iintervalyData(1):iintervalyData(2),iCh,:),3),1); %prumer za vsechy epochy a cely casovy interval
@@ -1647,14 +1660,18 @@ classdef CiEEGData < matlab.mixin.Copyable
         function obj = hybejPlotCh(obj,~,eventDat)  
            %reaguje na udalosti v grafu PlotResponseCh
            switch eventDat.Key
-               case 'rightarrow' 
+               case {'rightarrow','c'} %dalsi kanal
                    obj.PlotResponseCh( min( [obj.plotRCh.ch + 1 , obj.channels]));
-               case 'pagedown' 
+               case 'pagedown' %skok o 10 kanalu dopred
                    obj.PlotResponseCh( min( [obj.plotRCh.ch + 10 , obj.channels]));
-               case 'leftarrow'
+               case {'leftarrow','z'} %predchozi kanal
                    obj.PlotResponseCh( max( [obj.plotRCh.ch - 1 , 1]));
-               case 'pageup'
+               case 'pageup' %skok 10 kanalu dozadu
                    obj.PlotResponseCh( max( [obj.plotRCh.ch - 10 , 1]));
+               case 'home' %skok na prvni kanal
+                   obj.PlotResponseCh( 1);
+               case 'end' %skok na posledni kanal
+                   obj.PlotResponseCh( obj.channels);
                case {'multiply','8'} %hvezdicka na numericke klavesnici, nebo hvezdicka nad osmickou
                    %dialog na vlozeni minima a maxima osy y
                    answ = inputdlg('Enter ymax and min:','Yaxis limits', [1 50],{num2str(obj.plotRCh.ylim)});
@@ -1669,10 +1686,10 @@ classdef CiEEGData < matlab.mixin.Copyable
                        end
                    end
                    obj.PlotResponseCh( obj.plotRCh.ch); %prekreslim grafy
-               case {'divide','slash'} %lomeno na numericke klavesnici
+               case {'divide','slash'} %lomeno na numericke klavesnici - automaticke meritko na ose y
                    obj.plotRCh.ylim = obj.plotRCh.range; %spocitalo se pri volani PlotResponseCh
                    obj.PlotResponseCh( obj.plotRCh.ch); %prekreslim grafy
-               case 'space' %zobrazi i prumerne krivky
+               case 'space' %zobrazi i prumerne krivky - vsechny epochy a vsechny frekvence
                    if isa(obj,'CHilbert'), obj.PlotResponseFreq(obj.plotRCh.ch,obj.Wp(obj.WpActive).kats); end %vykreslim vsechna frekvencni pasma
                    obj.PlotEpochs(obj.plotRCh.ch,obj.Wp(obj.WpActive).kats); %vykreslim prumery freq u vsech epoch
                    figure(obj.plotRCh.fh); %dam puvodni obrazek dopredu
@@ -1689,6 +1706,14 @@ classdef CiEEGData < matlab.mixin.Copyable
                        chn2 = obj.plotRCh.selCh( find(obj.plotRCh.selCh<obj.plotRCh.ch,1,'last') );
                        obj.PlotResponseCh( iff(isempty(chn2),obj.plotRCh.ch,chn2) ); %prekreslim grafy
                    end
+               case {'numpad9','e'}     % skok na dalsi kanal s nejakou signifikanci
+                   chsignif = obj.ChannelsSignif();
+                   chn2 = chsignif(find(chsignif>obj.plotRCh.ch,1)); %nasledujici signif kanaly
+                   obj.PlotResponseCh( iff(isempty(chn2),obj.plotRCh.ch,chn2) ); %prekreslim grafy  
+               case {'numpad7','q'}     % skok na predchozi kanal s nejakou signifikanci
+                   chsignif = obj.ChannelsSignif(); %seznam  kanalu s nejakou signifikanci
+                   chn2 = chsignif(find(chsignif<obj.plotRCh.ch,1,'last')); %nasledujici signif kanaly
+                   obj.PlotResponseCh( iff(isempty(chn2),obj.plotRCh.ch,chn2) ); %prekreslim grafy  
                otherwise
                    disp(['You just pressed: ' eventDat.Key]);
            end
@@ -1806,6 +1831,18 @@ classdef CiEEGData < matlab.mixin.Copyable
                 katstr = 'no';
             end
         end
+        function chsignif = ChannelsSignif(obj)
+           %vrati seznam kanalu s nejakou signifikanci z WpKatBaseline nebo WpKat
+           chsignif = []; %seznam kanalu se signifikanci
+           for kat = 1:numel(obj.Wp.kats)
+               chsignif = sort(unique([chsignif find(min(obj.Wp.WpKatBaseline{kat,1},[],1)<0.05) ]));                       
+           end
+           for kat1 = 1:numel(obj.Wp.kats)
+               for kat2 = kat:numel(obj.Wp.kats)
+                   chsignif = sort(unique([chsignif find(min(obj.Wp.WpKat{kat1,kat2},[],1)<0.05) ]));                                 
+               end               
+           end
+        end
     end
     methods  (Access = protected)
         function obj = SelChannel(obj,ch)
@@ -1824,10 +1861,10 @@ classdef CiEEGData < matlab.mixin.Copyable
             % Make a shallow copy of all properties
             cpObj = copyElement@matlab.mixin.Copyable(obj);
             % Make a deep copy of the copyable classes
-            cpObj.PsyData = copy(obj.PsyData);
-            cpObj.CH = copy(obj.CH);
-            cpObj.DE = copy(obj.DE);
-            cpObj.PL = copy(obj.PL);
+            if isobject(obj.PsyData), cpObj.PsyData = copy(obj.PsyData); end
+            if isobject(obj.CH), cpObj.CH = copy(obj.CH); end
+            if isobject(obj.DE), cpObj.DE = copy(obj.DE); end
+            if isobject(obj.PL), cpObj.PL = copy(obj.PL); end
       end
     end
     
