@@ -89,24 +89,21 @@ classdef CHilbertMulti < CHilbert
                     if ~exist('baseline','var'), baseline = [epochtime(1) 0]; end %fake baseline, pokud nebyla ulozena
                     test = ~P.data(:,P.sloupce.zpetnavazba); %index testovych epoch
                     
+                    obj.GetEpochTime(epochtime,baseline);
                     %identita jednotlivych epoch - epochData 
                     %predpokladam epochovana data, pro jina jsem ani nezkousel
                     obj.GetEpochData(epochData,fileno,test); %soucasne naplni obj.blokyprehazej, ktere muzu pouzivat dal                    
-                    [d,tabs,RjEpochCh,P]=obj.PrehazejEpochy(d,tabs,RjEpochCh,P,test); %vyradi treningove trialy a prehazi epochy pokud je to treba
+                    [d,tabs,RjEpochCh,P, epochData]=obj.PrehazejEpochy(d,tabs,RjEpochCh,P,epochData,test); %vyradi treningove trialy a prehazi epochy pokud je to treba
+                    obj.GetEpochData(epochData,fileno,test,1); 
                     
                     %d hlavni data
-                    obj.GetD(d); %ulozi nova data d, pripadne prehazi epochy
+                    obj.GetD(d,RjEpochCh); %ulozi nova data d, pripadne prehazi epochy
                     
                     %tabs a tabs_orig
                     obj.GetTabs(tabs); %,tabs_orig,fileno                   
                     
                     %fs - vzorkovaci prekvence - musi byt pro vsechny soubory stejna
-                    if ~isempty(obj.fs), assert(obj.fs == fs,'fs musi byt stejne');  else, obj.fs = fs; end
-                                        
-                    obj.GetEpochTime(epochtime,baseline);
-                    
-                    %vyrazene epochy x kanaly
-                    obj.RjEpochCh = cat(1,obj.RjEpochCh,RjEpochCh); %spojim pres kanaly, pocet epoch musi by stejny                    
+                    if ~isempty(obj.fs), assert(obj.fs == fs,'fs musi byt stejne');  else, obj.fs = fs; end                                                                             
                     
                     %Hammer header
                     obj.GetHeader(H,fileno);
@@ -133,13 +130,13 @@ classdef CHilbertMulti < CHilbert
             %kdyz chci pridat label jeste po tom, co jsem udelal ImportExtract
             obj.label = label;
         end
-        function [d,tabs,RjEpochCh,P]= PrehazejEpochy(obj,d,tabs,RjEpochCh,P,test) 
+        function [d,tabs,RjEpochCh,P,epochData] = PrehazejEpochy(obj,d,tabs,RjEpochCh,P,epochData,test) 
             %vyradi treningove epochy ze vsech dat 
             %pokud je potreba, prehazi epochy podle blokyprehazej
             d = d(:,:,test); %jen testove epochy, trening vymazu
             if ~isempty(obj.d) %pokud uz existuji data v obj.d - nejedna se o prvni soubor
                 assert(size(obj.d,1)==size(d,1),['pocet vzorku musi byt stejny: d:' num2str(size(d,1)) ' x predchozi:' num2str(size(obj.d,1))]);
-                assert(size(obj.d,3)==size(d,3),['pocet epoch musi byt stejny: d:' num2str(size(d,3)) ' x predchozi:' num2str(size(obj.d,3))]);
+                assert(size(obj.d,3)<=size(d,3),['pocet epoch musi byt stejny nebo mensi v drivejsim souboru: d:' num2str(size(d,3)) ' x predchozi:' num2str(size(obj.d,3))]);
                 assert(size(obj.d,3)==size(obj.epochData,1), 'pocet epoch v epochData a d musi byt stejny');
             end              
             
@@ -147,37 +144,44 @@ classdef CHilbertMulti < CHilbert
             RjEpochCh = RjEpochCh(:,test);
             Psy = CPsyData(P);%vytvorim objekt CPsyData 
             Psy.RemoveTraining(); %odstranim treninkove trialy
-            P = Psy.P; %zase vytahnu strukturu P ven
-            
+            P = Psy.P; %zase vytahnu strukturu P ven            
             if ~isempty(obj.blokyprehazej) %pokud je treba prehazet epochy - jine poradi bloku nez v predchozim souboru
                 %tam budu ukladat kopie dat s prehazenymi epochami
                 d2=zeros(size(d)); 
                 tabs2 = zeros(size(tabs));
                 RjEpochCh2 = zeros(size(RjEpochCh));
                 Pdata2 = zeros(size(P.data));
-                epocha2=1; %nove cislo epochy 1-n
-                for blok2 = 1:size(obj.blokyprehazej,1) %blok 16ti epoch (u AEdist) - nova cisla bloku 1-n
-                    blok1 = obj.blokyprehazej(blok2,2); %puvodni cislo bloku, ktere chci zmenit na nove                
-                    for epocha1 = obj.blokyprehazej(blok1,3) :  obj.blokyprehazej(blok1,4) %jednotlive epochy - puvodni cisla epoch                 
+                epochData2 = cell(size(d,3),3);                               
+                
+                epocha2b=1; %nove cislo epochy 1-n druhehou souboru
+                for iblok = 1:size(obj.blokyprehazej,1) %blok 16ti epoch (u AEdist) - cisla bloku 1-n z prvniho souboru
+                    blok2 = obj.blokyprehazej(iblok,4); %cislo bloku z druheho souboru, ktere chci zmenit na nove                
+                    %for epocha1 = obj.blokyprehazej(iblok,3) :  obj.blokyprehazej(iblok,4) %jednotlive epochy - puvodni cisla epoch                 
+                    for epocha2a = obj.blokyprehazej(blok2,5) : obj.blokyprehazej(blok2,6) %jednotlive epochy - druhy soubor - stare cislo epochy
+                       %vlozim epochu na novou pozici                      
+                       d2(:,:,epocha2b)= d(:,:,epocha2a); %time x channels x epochs
+                       tabs2(:,epocha2b) = tabs(:,epocha2a); %time x epochs
+                       RjEpochCh2(:,epocha2b) = RjEpochCh(:,epocha2a); %channels x epochs
+                       Pdata2(epocha2b,:) = P.data(epocha2a,:);                                             
+                       epochData2(epocha2b,:)= epochData(epocha2a,:); %{Kstring Knum tabs(izacatek)}; %zacatek podnetu beru z tabs aby sedel na tabs pri downsamplovani
                        
-                       %vlozim epochu na novou pozici
-                       d2(:,:,epocha2)= d(:,:,epocha1); %time x channels x epochs
-                       tabs2(:,epocha2) = tabs(:,epocha1); %time x epochs
-                       RjEpochCh2(:,epocha2) = RjEpochCh(:,epocha1); %channels x epochs
-                       Pdata2(epocha2,:) = P.data(epocha1,:);
-                       
-                       epocha2 = epocha2 + 1;
+                       epocha2b = epocha2b + 1;
                     end
-                end
+                end     
                 d = d2; %clear d2;
                 tabs = tabs2; %clear tabs2;
                 RjEpochCh = RjEpochCh2;
-                P.data = Pdata2; %clear Pdata2;
+                epochData = epochData2;
+                P.data = Pdata2; %clear Pdata2;                
             end
             
         end
-        function GetD(obj,d)
-            %ulozi nova eeg data k predchazejicim - prida je do spolecneho pole obj.d                     
+        function obj = GetD(obj,d,RjEpochCh)
+            %ulozi nova eeg data k predchazejicim - prida je do spolecneho pole obj.d  
+            if ~isempty(obj.d) && size(obj.d,3) < size(d,3)
+                obj.d = cat(3,obj.d,zeros(size(obj.d,1),size(obj.d,2),size(d,3) - size(obj.d,3)));
+                obj.RjEpochCh = cat(2,obj.RjEpochCh,true(size(obj.RjEpochCh,1),size(RjEpochCh,2) - size(obj.RjEpochCh,2))); %spojim pres kanaly, pocet epoch musi by stejny  
+            end
             obj.d = cat(2,obj.d,d); %spojim pres channels - jen data z testovych epoch            
             if isempty(obj.els)
                 obj.els = size(d,2);
@@ -185,6 +189,8 @@ classdef CHilbertMulti < CHilbert
                 obj.els = [obj.els obj.els(end)+size(d,2)]; %konce elektrod, zde konce pacientu
             end
             [obj.samples,obj.channels, obj.epochs] = obj.DSize();
+            %vyrazene epochy x kanaly                                                        
+            obj.RjEpochCh = cat(1,obj.RjEpochCh,RjEpochCh); %spojim pres kanaly, pocet epoch musi by stejny    
         end
         function GetHfreq(obj,Hf,Hfmean,HFreq)
             %spoji frekvencni data z predchozich a noveho souboru
@@ -241,33 +247,40 @@ classdef CHilbertMulti < CHilbert
             end            
             obj.PsyData.RemoveTraining(); %odstranim treninkove trialy
         end
-        function obj = GetEpochData(obj,epochData,fileno,test)
+        function obj = GetEpochData(obj,epochData,fileno,test,poprehozenibloku)
             %porovna poradi bloku v puvodnich souborej a novem souboru
             %pokud je jine, vytvori pole blokyprehazej, ktere se pak pouzije v PrehazejEpochy
-            epochData =  epochData(test,:); %vyradim trening;
-            if isempty(obj.epochData)                                                
-                %bloky = obj.GetBlocks(epochData); 
-                obj.epochData = epochData; %pouziju epochData prvniho souboru, ulozim bez treningu
-                obj.blokyprehazej = []; %nebudu nic prehazovat
+            if ~exist('poprehozenibloku','var'), poprehozenibloku = 0; end
+            if poprehozenibloku 
+                if ~isempty(obj.blokyprehazej)
+                    obj.epochData = epochData;                    
+                end
             else
-                assert(size(obj.epochData,1)==size(epochData,1), 'pocet podminek v epochData musi byt stejny');                                                 
-                bloky0 = obj.GetBlocks(obj.epochData); 
-                bloky1 = obj.GetBlocks(epochData); 
-                assert(size(bloky0,1)==size(bloky1,1),'pocet bloku musi byt stejny');
-                prehazet = []; %v kterych blocich jsou jine podminky
-                for b = 1:size(bloky0,1) %pres vsechny bloky
-                   if bloky0(b,2) ~= bloky1(b,2)                               
-                       assert(false,['ruzna velikost bloku ' b ]);
-                   end
-                   if bloky0(b,1) ~= bloky1(b,1), prehazet = [prehazet b]; end %#ok<AGROW> %budu muset poradi bloku prehazet, podminky v jinem poradi 
-                end
-                if numel(prehazet) > 0
-                    obj.blokyprehazej = obj.ShuffleBlocks(bloky0, bloky1);                    
-                else
+                epochData =  epochData(test,:); %vyradim trening;
+                if isempty(obj.epochData)                                                
+                    %bloky = obj.GetBlocks(epochData); 
+                    obj.epochData = epochData; %pouziju epochData prvniho souboru, ulozim bez treningu
                     obj.blokyprehazej = []; %nebudu nic prehazovat
-                end
-            end           
-            obj.orig(fileno).epochData = epochData; % ulozim original taky                        
+                else
+                    assert(size(obj.epochData,1)<=size(epochData,1), 'pocet podminek v epochData musi byt stejny nebo mensi v prvnim souboru');                                                 
+                    bloky0 = obj.GetBlocks(obj.epochData); 
+                    bloky1 = obj.GetBlocks(epochData); 
+                    assert(size(bloky0,1)<=size(bloky1,1),'pocet bloku musi byt stejny, nebo mensi v prvnim souboru');
+                    prehazet = []; %v kterych blocich jsou jine podminky
+                    for b = 1:size(bloky0,1) %pres vsechny bloky
+                       if bloky0(b,2) ~= bloky1(b,2)                               
+                           assert(false,['ruzna velikost bloku ' b ]);
+                       end
+                       if bloky0(b,1) ~= bloky1(b,1), prehazet = [prehazet b]; end %#ok<AGROW> %budu muset poradi bloku prehazet, podminky v jinem poradi 
+                    end
+                    if numel(prehazet) > 0
+                        obj.blokyprehazej = obj.ShuffleBlocks(bloky0, bloky1);                    
+                    else
+                        obj.blokyprehazej = []; %nebudu nic prehazovat
+                    end
+                end          
+                obj.orig(fileno).epochData = epochData; % ulozim original taky                        
+            end
         end
         function obj = GetHeader(obj,H,fileno)
             %spoji header (kanaly) v puvodnich souborech a tom novem
@@ -306,10 +319,11 @@ classdef CHilbertMulti < CHilbert
         end
         function obj = GetEpochTime(obj,epochtime,baseline)
             %epochtime - cas epochy, napriklad -0.2 - 1.2, taky musi byt pro vsechny soubory stejne
+            if numel(epochtime)==2, epochtime(3) = 0; end %defaultne epochuji podle podnetu
             if ~isempty(obj.epochtime)
-                assert(isequal(obj.epochtime,epochtime(1:2)),'epochtime musi byt stejne');
+                assert(isequal(obj.epochtime,epochtime),'epochtime musi byt stejne');
             else
-                obj.epochtime = epochtime(1:2);
+                obj.epochtime = epochtime;                
             end  
             %baseline - cas 
             if ~isempty(obj.baseline)
@@ -466,18 +480,25 @@ classdef CHilbertMulti < CHilbert
         end
         function blokyprehazej = ShuffleBlocks(bloky0, bloky1)
             %zjisti indexy k prehazeni bloku, v bloky1=Cil podle bloky0=Zdroj
-            blokyprehazej = [bloky0(:,1) zeros(size(bloky0,1),1) bloky0(:,3:4)]; %vzorove poradi bloku , k tomu budu pridavat cisla 
+            blokyprehazej = nan(size(bloky1,1),6); %bloky1 jsou stejne nebo vetsi nez bloky 0
+            blokyprehazej(1:size(bloky0,1),1:3) = [bloky0(:,1) bloky0(:,3:4)]; %vzorove poradi bloku , k tomu budu pridavat cisla 
+            blokyprehazej(:,5:6) = bloky1(:,3:4);
             lastkat = [unique(bloky1(:,1)) zeros(numel(unique(bloky1(:,1))),1)]; %tam si budu ukladat podledni nalezena cisla bloku
-            for b = 1:size(blokyprehazej,1)
-                
+            for b = 1:size(bloky0,1)                
                 blok = blokyprehazej(b,1); %cislo podminky z bloku 1 v Zdroj
                 ilastkat = find(lastkat(:,1)==blok,1); %index podminky v kastkat
                 temp = find(bloky1(lastkat(ilastkat,2)+1:end,1)==blok,1)+lastkat(ilastkat,2); %najde dalsi blok s touto podminkou v Cil
-                %find hleda jen v te casti bloky1, takze musim pricist index, odkud jsem hledal
-                lastkat(ilastkat,2) = temp;               
-                blokyprehazej(b,2)=temp;
+                %+lastkat: find hleda jen v te casti bloky1, takze musim pricist index, odkud jsem hledal
+                if numel(temp) > 0
+                    lastkat(ilastkat,2) = temp;               
+                    blokyprehazej(b,4)=temp;
+                else
+                    error(['nepodarilo se bloky prehazet: blok c. ' num2str(b) ' kat ' num2str(blok) ]);
+                end
             end
-            
+            %v PPA pri serazeni 650 podle 325 bloku se hleda v cislech az 386
+            bpdiff = setdiff([1:size(bloky1,1)]',blokyprehazej(:,4)); %cisla bloku, ktera zatim chybi v seznamu k prehazeni
+            blokyprehazej(size(bloky0,1)+1: size(bloky1,1),4) = bpdiff;
         end       
         function [str]= basename(filename)
             % vraci filename s koncem path pro identifikaci pacienta
