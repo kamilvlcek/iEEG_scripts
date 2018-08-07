@@ -8,15 +8,16 @@ if alignresponse %zarovnani epoch podle odpovedi %to u PPA nema smysl
     setup.epochtime =  [-0.8 0.3 1];  % hranice epochy: [-0.3 0.8] PPA, zarovnani podle odpovedi/podnetu [-1 1]; [-0.2 1.2] AEdist [-0.2 2.0] pro ResampleEpochs
     setup.baseline = [-0.8 -0.5]; %baseline [-1 0.8]; [-0.5 -0.2] Aedist 2017. 2017/11 - zase [-.2 0]
 else %zarovnani epoch podle podnetu (tj. normalne)
-    setup.epochtime =  [-0.3 0.8];  % hranice epochy: [-0.3 0.8] PPA, zarovnani podle odpovedi/podnetu [-1 1]; [-0.2 1.2] AEdist [-0.2 2.0] pro ResampleEpochs
-    setup.baseline = [-.3 0]  ; %baseline [-1 0.8]; [-0.5 -0.2] Aedist 2017. 2017/11 - zase [-.2 0]    
+    setup.epochtime =  [-0.2 0.8];  % hranice epochy: [-0.2 0.8] PPA (epochy nekdy cele 1s)
+    setup.baseline = [-.2 0]  ; %baseline [-1 0.8]; 
+    
 end
 setup.suffix = 'Ep2017-11'; %Ep
 if(alignresponse)
    setup.suffix = [setup.suffix 'Resp']; %pokud zarovnavam podle odpovedi, pridavam priponu
 end
 setup.prefix = 'PPA'; %musi byt bud AlloEgo, PPA, AEdist
-setup.stat_kats = {[2 3 1],{[2 3],1},{2,[3 1]},{3,[2 1]}};  % PPA [2 3 1] Face, Object, Scene ; 
+setup.stat_kats = {[2 3 1],{[2 3],1},{[3 1],2},{[2 1],3}};  % PPA [2 3 1] Face, Object, Scene ; 
 setup.stat_opak = {}; %{[1 2],[4 5]}; %PPA opakovani 12 vs 45
 setup.subfolder = 'PPA'; %podadresar, specificky pro test, muze byt prazdne pokud se nepouzivaji podadresare
 setup.alignresponse = alignresponse;
