@@ -8,6 +8,7 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         fhR; %figure handle from PlotResponses
         warning_rt=false; %jestli uz byl warning o reakcnich casech
         testname; %jmeno testu, ze ktereho jsou data
+        blocks; %struktura, ktera uklada vysledky GetBlocks, kvuli uspore casu
     end
     
     methods (Access = public)
@@ -114,15 +115,18 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             %vraci promenne pro bloky o stejne kategorii
             b1 = [find(obj.P.data(2:end,obj.P.sloupce.kategorie) ~= obj.P.data(1:end-1,7)); size(obj.P.data,1)]; %konce bloku
             b0 = [ 1; (b1(1:end-1)+1)]; %zacatky bloku
-            kategorie = obj.P.data(b0,obj.P.sloupce.kategorie);
-            srate = zeros(numel(b0),1); % prumerna uspesnost za blok
-            test = ones(numel(b0),1);
-            for block = 1:numel(b0)
-                srate(block,1)=mean(obj.P.data(b0(block) : b1(block),obj.P.sloupce.spravne));   
-                %if isfield(obj.P.sloupce,'zpetnavazba') %pokud existuje sloupec zpetnavazba, oznacuje treningove trialy
-                    test(block) = test(block) - mean(obj.P.data(b0(block) : b1(block),obj.P.sloupce.zpetnavazba));    
-                %end %pokud neexistuje sloupec zpetnavazba, predpokladam, ze vsechny trialy jsou testove
+            kategorie = obj.P.data(b0,obj.P.sloupce.kategorie);            
+            if isempty(obj.blocks)
+                obj.blocks.srate = zeros(numel(b0),1); % prumerna uspesnost za blok
+                obj.blocks.test = ones(numel(b0),1); %jestli by blok testovy, tady nastavim ze vsechny
+                for block = 1:numel(b0)
+                    obj.blocks.srate(block,1)=mean(obj.P.data(b0(block) : b1(block),obj.P.sloupce.spravne));                       
+                    obj.blocks.test(block) = obj.blocks.test(block) - max(obj.P.data(b0(block) : b1(block),obj.P.sloupce.zpetnavazba));                        
+                        %test=1 vsechny epochy v bloku testove, test=0 alespon jedna epocha treningova
+                end                
             end
+            srate = obj.blocks.srate;
+            test = obj.blocks.test;
             blocks = [b0 b1];
         end
         
@@ -146,13 +150,13 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             rtPsy = obj.P.data(:,S.rt); %reakcni cas podle psychopy
             chyby(:,4) = rt(:,1) < 0.1 | (rtPsy(:,1) < 0.1 & rtPsy(:,1) > 0);  %v PPA clovek nereaguje spravne, takze 0 jako cas odpovedi me nezajima 
                     %chyba, pokud je reakcni cas prilis kratky (0 v PsychoPy znamena, ze nereagoval, to je taky chyba)
-            [blocks,srate,blocktest]=obj.GetBlocks();           
-            for b = 1:size(blocks,1)
+            [blocks,srate,blocktest]=obj.GetBlocks();            %#ok<PROP>
+            for b = 1:size(blocks,1) %#ok<PROP>
                 if srate(b) < 0.75  %chybny blok
-                    chyby(blocks(b,1) : blocks(b,2) , 2) = ones( blocks(b,2) - blocks(b,1) +1,1); %vyplnim jednickami
+                    chyby(blocks(b,1) : blocks(b,2) , 2) = ones( blocks(b,2) - blocks(b,1) +1,1);%#ok<PROP> %vyplnim jednickami
                 end 
                 if  blocktest(b)==0 %treningovy blok
-                    chyby(blocks(b,1) : blocks(b,2) , 3) = ones( blocks(b,2) - blocks(b,1) +1,1); %vyplnim jednickami
+                    chyby(blocks(b,1) : blocks(b,2) , 3) = ones( blocks(b,2) - blocks(b,1) +1,1); %#ok<PROP> %vyplnim jednickami
                 end
             end
         end

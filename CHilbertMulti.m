@@ -295,9 +295,8 @@ classdef CHilbertMulti < CHilbert
                 obj.CH.H.subjName = [obj.CH.H.subjName ',' H.subjName]; %spojim jmena subjektu                
                 CHfields = fieldnames(obj.CH.H.channels);
                 Hfields = fieldnames(H.channels); %nove pridavany header
-                if numel(CHfields) == numel(Hfields)
-                    obj.CH.H.channels = cat(2,obj.CH.H.channels,H.channels); %spojim udaje o kanalech
-                elseif numel(CHfields) > numel(Hfields) %predchozi soubor mel vice poli v H.channels
+
+                if numel(CHfields) > numel(Hfields) %predchozi soubor mel vice poli v H.channels
                     rozdil = setdiff(CHfields,Hfields); %jaka pole chybi v Hfields
                     prazdnepole = cell(numel(H.channels),1); %cell array o tolika polich, ktere ma nove pridavany header
                     for r = 1:numel(rozdil)                       
@@ -305,10 +304,16 @@ classdef CHilbertMulti < CHilbert
                         %tomuhle kodu moc nerozumim, ale nasel jsem ho na webu
                         %(rozdil{r}) je dynamic field
                     end
-                    obj.CH.H.channels = cat(2,obj.CH.H.channels,H.channels); %spojim udaje o kanalech
-                else
-                    error(['predchozi soubor mel mene poli v H.channels:' num2str(numel(CHfields))]);
+                elseif  numel(CHfields) < numel(Hfields) %predchozi soubory mely mene poli v H.channels
+                    rozdil = setdiff(Hfields,CHfields); %jaka pole chybi v puvodnim CHfields
+                    prazdnepole = cell(numel(obj.CH.H.channels),1); %cell array o tolika polich, ktere ma stary header
+                    for r = 1:numel(rozdil)                       
+                        [obj.CH.H.channels(:).(rozdil{r})] = prazdnepole{:}; %pridam kazde chybejici pole
+                        %tomuhle kodu moc nerozumim, ale nasel jsem ho na webu
+                        %(rozdil{r}) je dynamic field
+                    end                    
                 end
+                obj.CH.H.channels = cat(2,obj.CH.H.channels,H.channels); %spojim udaje o kanalech
                 
                 obj.CH.H.selCh_H = [obj.CH.H.selCh_H  (1:numel(H.channels))+obj.CH.H.selCh_H(end) ];                
                 obj.CH.chgroups{fileno} = (1:numel(H.channels)) + obj.CH.els(fileno-1);

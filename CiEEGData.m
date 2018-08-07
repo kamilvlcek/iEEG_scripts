@@ -325,15 +325,15 @@ classdef CiEEGData < matlab.mixin.Copyable
             else
                 iOpak = true(obj.epochs,1);  %vsechny epochy              
             end
-            if ~exist('ch','var') ch = []; end 
-            iEpCh = obj.GetEpochsExclude(); %seznam epoch ktere nejsou vyrazene 
+            if ~exist('ch','var'), ch = 1:obj.channels; end 
+            iEpCh = obj.GetEpochsExclude(ch); %seznam epoch ktere nejsou vyrazene,channels x epochs 
             iEpochy = [ ismember(cell2mat(obj.epochData(:,2)),katnum) , iOpak]; %seznam epoch v ramci kategorie ve sloupci + epochy, ktere nejsou excludovane
             d = obj.d(:,:,all(iEpochy,2)); %epochy z kategorie, ktere nejsou excludovane = maji ve vsech sloupcich 1            
-            RjEpCh = obj.RjEpochCh(:,all(iEpochy,2)) | ~iEpCh(:,all(iEpochy,2)); %epochy k vyrazeni u kazdeho kanalu - jen pro zbyvajici epochy
+            RjEpCh = obj.RjEpochCh(ch,all(iEpochy,2)) | ~iEpCh(ch,all(iEpochy,2)); %epochy k vyrazeni u kazdeho kanalu - jen pro zbyvajici epochy
             
             
             
-            if ~isempty(ch) %reakcni cas pocitam, jen kdyz vim pro jaky kanal - 8.6.2018 kvuli CPsyDataMulti
+            if numel(ch)==2 %reakcni cas pocitam, jen kdyz vim pro jaky kanal - 8.6.2018 kvuli CPsyDataMulti
                 obj.PsyData.SubjectChange(find(obj.els >= ch,1));
                 [~,psy_rt,~,~] = obj.PsyData.GetResponses();                
                 psy_rt = psy_rt(all(iEpochy,2)); %reakcni casy jen pro vybrane kategorie a opakovani a nevyrazene
@@ -341,7 +341,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 psy_rt = zeros(size(d,3),1); %nulove reakcni casy
             end
             
-            if exist('rt','var') && rt>0 %chci hodnoty serazene podle reakcniho casu               
+            if exist('rt','var') && ~isempty(rt) %chci hodnoty serazene podle reakcniho casu               
                 [psy_rt, isorted] = sort(psy_rt);
                 d = d(:,:,isorted); 
             end   
@@ -385,16 +385,21 @@ classdef CiEEGData < matlab.mixin.Copyable
             disp(['reference zmenena: ' obj.reference]); 
         end
 
-        function [iEpCh]=GetEpochsExclude(obj)
+        function [iEpCh]=GetEpochsExclude(obj,channels)
             %vraci iEpCh (ch x epoch) = index epoch k vyhodnoceni - bez chyb, treningu a rucniho vyrazeni - pro kazdy kanal zvlast            
-            iEpCh = zeros(obj.channels,obj.epochs);            
-            for ch = 1:obj.channels
-                if isa(obj.PsyData,'CPsyDataMulti') || ch==1                    
-                    PsyData = obj.PsyData.copy(); %#ok<PROP> %nechci menit puvodni tridu
-                    PsyData.SubjectChange(find(obj.els >= ch,1)); %#ok<PROP>
-                    chyby = PsyData.GetErrorTrials(); %#ok<PROP>
+            %muzu pouzit parametr channels, pokud chci jen nektere kanaly - ostatni jsou pak prazdne
+            if ~exist('channels','var'), channels = 1:obj.channels; end
+            iEpCh = zeros(numel(channels),obj.epochs);             
+            PsyData = obj.PsyData.copy();  %nechci menit puvodni tridu
+            for ch = channels
+                if isa(obj.PsyData,'CPsyDataMulti') || ch==1                                        
+                    PsyData.SubjectChange(find(obj.els >= ch,1)); 
+                    chyby = PsyData.GetErrorTrials();                    
                     epochsEx = [chyby , zeros(size(chyby,1),1) ]; %pridam dalsi prazdny sloupec
-                    epochsEx(obj.RjEpoch,5)=1; %rucne vyrazene epochy podle EEG           
+                    epochsEx(obj.RjEpoch,5)=1; %rucne vyrazene epochy podle EEG  - pro tento kanal 
+                    if size(epochsEx,1) < size(iEpCh,2)
+                        epochsEx = cat(1,epochsEx,ones(size(iEpCh,2) - size(epochsEx,1),5));
+                    end
                     iEpCh(ch,:) = all(epochsEx==0,2)'; %index epoch k pouziti                 
                     
                 else
@@ -861,7 +866,7 @@ classdef CiEEGData < matlab.mixin.Copyable
         function PlotCategory(obj,katnum,channel)
             %vykresli vsechny a prumernou odpoved na kategorii podnetu
             %nahrazeno funkcemi PlotResponseCh a PlotEpochs
-            d1=obj.CategoryData(katnum); %epochy jedne kategorie
+            d1=obj.CategoryData(katnum,[],[],channel); %epochy jedne kategorie
             d1m = mean(d1,3); %prumerne EEG z jedne kategorie
             T = (0 : 1/obj.fs : (size(obj.d,1)-1)/obj.fs) + obj.epochtime(1); %cas zacatku a konce epochy
             E = 1:size(d1,3); %cisla epoch
@@ -1138,7 +1143,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             
             %ZACINAM VYKRESLOVAT - NEJDRIV MEAN VSECH KATEGORII
             if ~exist('kategories','var') && ~exist('opakovani','var') %26.5.2017 - jen kdyz neexistuji kategorie
-                katdata =  obj.CategoryData(KATNUM);
+                katdata =  obj.CategoryData(KATNUM,[],[],ch);
                 M = mean(katdata(:,ch,:),3);             
                 E = std(katdata(:,ch,:),[],3)/sqrt(size(katdata,3)); %std err of mean          
                 h_errbar = errorbar(T,M,E,'.','Color',[.6 .6 1]); %nejdriv vykreslim errorbars aby byly vzadu [.8 .8 .8]
@@ -1189,16 +1194,16 @@ classdef CiEEGData < matlab.mixin.Copyable
                     colorkatk = [colorskat{1,kk+1} ; colorskat{2,kk+1}]; %dve barvy, na caru a stderr plochu kolem
                     if exist('opakovani','var') && ~isempty(opakovani)
                         opaknum = kategories{k}; %v kategories jsou opakovani k vykresleni, a je to cell array
-                        [katdata,~,RjEpCh] = obj.CategoryData(KATNUM,[],opaknum); %eegdata - epochy pro tato opakovani
+                        [katdata,~,RjEpCh] = obj.CategoryData(KATNUM,[],opaknum,ch); %eegdata - epochy pro tato opakovani
                     elseif iscell(kategories) %iff tady nefunguje, to by bylo samozrejme lepsi
                         katnum = kategories{k}(1); %cislo kategorie, muze byt cell, pokud vice kategorii proti jedne
-                        [katdata,~,RjEpCh] = obj.CategoryData(katnum); %eegdata - epochy jedne kategorie
+                        [katdata,~,RjEpCh] = obj.CategoryData(katnum,[],[],ch); %eegdata - epochy jedne kategorie
                     else
                         katnum = kategories(k); %cislo kategorie, muze byt cell, pokud vice kategorii proti jedne
-                        [katdata,~,RjEpCh] = obj.CategoryData(katnum); %eegdata - epochy jedne kategorie                       
-                    end    
-                    M = mean(katdata(:,ch,~RjEpCh(ch,:)),3);
-                    E = std(katdata(:,ch,~RjEpCh(ch,:)),[],3)/sqrt(size(katdata,3)); %std err of mean
+                        [katdata,~,RjEpCh] = obj.CategoryData(katnum,[],[],ch); %eegdata - epochy jedne kategorie                       
+                    end   %7.8.2018 - RjEpCh obsahuje jen aktualni kanal, takze rozmer 1x samples 
+                    M = mean(katdata(:,ch,~RjEpCh(1,:)),3);
+                    E = std(katdata(:,ch,~RjEpCh(1,:)),[],3)/sqrt(size(katdata,3)); %std err of mean
                     %h_kat(k,2) = errorbar(T,M,E,'.','color',colorskat{2,k}); %nejdriv vykreslim errorbars aby byly vzadu[.8 .8 .8]
                     %h_kat(k,2) = plotband(T, M, E, colorskat{2,k}); %nejlepsi, je pruhledny, ale nejde kopirovat do corelu
                     h_kat(k,2) = ciplot(M+E, M-E, T, colorkatk(2,:)); %funguje dobre pri kopii do corelu, ulozim handle na barevny pas
