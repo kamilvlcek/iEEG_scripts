@@ -215,9 +215,9 @@ classdef CBrainPlot < matlab.mixin.Copyable
             plotSetup.customColors.lightpos = [246 203 203];
             plotSetup.customColors.darkpos = [162 2 2]; %tmave cervena
 
-            tablelog = cell(obj.pocetcykluPlot3D(kategorie,signum)+2,6); % z toho bude vystupni xls tabulka s prehledem vysledku
-            tablelog(1,:) = {datestr(now),obj.filename,'','','',''}; %hlavicky xls tabulky
-            tablelog(2,:) = {'interval','kategorie','chname','neurologyLabel','mni','val'}; %hlavicky xls tabulky
+            tablelog = cell(obj.pocetcykluPlot3D(kategorie,signum)+2,7); % z toho bude vystupni xls tabulka s prehledem vysledku
+            tablelog(1,:) = {datestr(now),obj.filename,'','','','',''}; %hlavicky xls tabulky
+            tablelog(2,:) = {'interval','kategorie','chname','neurologyLabel','mni','val','selected'}; %hlavicky xls tabulky
             iTL = 2; %index v tablelog
             tic; %zadnu merit cas
             for interval = 1:size(obj.VALS,1) 
@@ -254,7 +254,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
                         if ~strcmp(obj.katstr{kat},'AllEl') %nechci to pro kategorii vsech elektrod
                             for iVal = 1:numel(vals_channels)
                                 tablelog(iVal + iTL,:) = { sprintf('[%.1f %.1f]',obj.intervals(interval,:)),obj.katstr{kat}, obj.NAMES{interval,kat}{iVal}, obj.NLabels{interval,kat}{iVal}, ...
-                                    sprintf('[%.1f,%.1f,%.1f]',mni_channels(iVal).MNI_x, mni_channels(iVal).MNI_y, mni_channels(iVal).MNI_z), vals_channels(iVal)};
+                                    sprintf('[%.1f,%.1f,%.1f]',mni_channels(iVal).MNI_x, mni_channels(iVal).MNI_y, mni_channels(iVal).MNI_z), vals_channels(iVal),int8(iV(iVal))};
                             end
                             iTL = iTL + numel(vals_channels);
                         end

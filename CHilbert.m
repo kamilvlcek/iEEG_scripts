@@ -639,7 +639,7 @@ classdef CHilbert < CiEEGData
                        end
                    end
                    obj.PlotResponseFreq( obj.plotF.ch); %prekreslim grafy
-                case 'delete' %Del na numericke klavesnici
+                case {'divide','slash'} %lomeno na numericke klavesnici - automaticke meritko na ose z - power
                    obj.plotF.ylim = [];
                    obj.PlotResponseFreq( obj.plotF.ch); %prekreslim grafy
                 case {'add' ,  'equal','s'}     % + oznaceni kanalu
