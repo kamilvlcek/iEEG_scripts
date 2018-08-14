@@ -58,7 +58,7 @@ x = start;
     xlabel(['sekundy z ' num2str(zaznamvterin) ' s celkove']); 
     ylabel(['channel ' num2str(channel)]); 
     zobrazenych = 0;
-    if exist('annotations','var') && isstruct(annotations);
+    if exist('annotations','var') && isstruct(annotations)
         for a = 1:numel(annotations.starttime)
             if annotations.starttime(a)>sekund_zac && annotations.starttime(a)<sekund_konec
                 anotace_index = annotations.starttime(a);
@@ -71,7 +71,7 @@ x = start;
     if exist('evts','var') && isstruct(evts)
         for a = 1:numel(evts)
             secs = find(tabs >= datenum(evts(a).dateStr),1) / fs; %v kolika vterichan od zacatku tabs
-            if ~isempty(secs) && secs>sekund_zac && secs<sekund_konec && ~isempty(evts(a).annotation)                
+            if ~isempty(secs) && secs>sekund_zac && secs<sekund_konec && isfield(evts(a),'annotation') && ~isempty(evts(a).annotation)                
                 line([secs secs],[-3000 3000],'Color','red');
                 text(secs,2900-zobrazenych*80,evts(a).annotation,'Color','red');
                 text(secs,2000-zobrazenych*80, evts(a).dateStr,'Color','magenta');

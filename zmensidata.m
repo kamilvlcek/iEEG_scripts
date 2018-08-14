@@ -19,7 +19,7 @@ if  isempty(ext)
     for f = 1:numel(files)
         filename = [ files(f).folder filesep files(f).name];
         disp(['filename ' num2str(f) '/' num2str(numel(files)) ': ' filename]);
-        zmensidata(filename,podil,fsforce);
+        [fs,delka]=zmensidata(filename,podil,fsforce);
     end
     
 else

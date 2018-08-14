@@ -212,5 +212,15 @@ pacienti(p).rjepoch = 'p173_ppa_rjepoch.mat';
 pacienti(p).epievents = 'p173_ppa_epievents.mat'; 
 pacienti(p).rjch = [47]; 
 
+p=p+1;
+pacienti(p).todo = 1;
+pacienti(p).folder = 'p181 Tis VT36';
+pacienti(p).data = 'VT36_2018-06-02_10-34_001_concat_ppa.mat';
+pacienti(p).header = 'p181_header.mat';
+pacienti(p).psychopy = 'p181_ppa.mat';
+pacienti(p).rjepoch = 'p181_ppa_rjepoch.mat';
+pacienti(p).epievents = 'p181_ppa_epievents.mat'; 
+pacienti(p).rjch = [];  %zadny kanal k vyrazeni
+
 end
 

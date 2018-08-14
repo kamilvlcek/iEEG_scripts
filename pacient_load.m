@@ -51,7 +51,7 @@ else
     %vytvorim novy objekt CiEEGData z existujicich EEG dat
     load([ setup.basedir pacienti(p).folder '\' pacienti(p).data]);
     if ~exist('mults','var'), mults = [];  end
-    if exist('frequencies','var') 
+    if ~isempty(frequencies) 
         if exist('classname','var') && strcmp(classname,'cmorlet')
             E = CMorlet(d,tabs,fs,mults);
         else
@@ -74,7 +74,7 @@ else
     E.RejectChannels(pacienti(p).rjch);
     
     %frekvencni analyza
-    if exist('frequencies','var')
+    if  ~isempty(frequencies) 
         if ~exist('channels','var'), channels = 1:E.channels; end
         E.ChangeReference('b');
         E.PasmoFrekvence(frequencies,channels);
@@ -89,7 +89,7 @@ else
     E.RejectEpochs(RjEpoch, RjEpochCh); %uz drive ulozene vyrazene epochy
     %E.RjEpochsEpi([],0);
     %E.RjEpochsEpi(30);
-    if exist('frequencies','var') %defaultne delam statistiku jen pro frekvencni data
+    if ~isempty(frequencies)  %defaultne delam statistiku jen pro frekvencni data
         E.ResponseSearch(0.1,setup.stat_kats); %vypocitam statistiku
     end
 end

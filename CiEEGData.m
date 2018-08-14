@@ -731,7 +731,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 if dofig                                  
                     title(['interval: ' mat2str(intervaly(int,:))]);
                     xlim([-1 numel(channels)+1]);
-                    xticks([-1 5:5:numel(channels)+1]);
+                    set(gca, 'XTick', [-1 5:5:numel(channels)+1]); %kompatibilni s 2016a a nizsi %xticks([-1 5:5:numel(channels)+1]);
                     grid on;
                     %vykreslim jmena u signifikatnich kanalu
                     for ch = 1:numel(channels)                        
