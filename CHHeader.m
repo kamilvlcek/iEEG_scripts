@@ -97,7 +97,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             end
             ch = 0;
         end
-        function [XYZ,obj] = ChannelPlot(obj,pohled,XYZ2)
+        function [XYZ,obj] = ChannelPlot(obj,pohled,labels,XYZ2)
             %zobrazi 3D obrazek elektrod v MNI prostoru. Obrazek ma rozmery podle rozmeru mozku
             %pohled muze urcti smer pohledu s-sagital,c-coronal,h-horizontal
             if isfield(obj.H.channels,'MNI_x')
@@ -118,7 +118,12 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     plot3(X,Y,Z,'o-','MarkerSize',5,'MarkerEdgeColor','b','MarkerFaceColor','b','LineWidth',2);
                     if chg==1, hold on; end                    
                     for ich = 1:numel(group) 
-                        text(X(ich),Y(ich),Z(ich)+3,obj.H.channels(group(ich)).name);
+                        if labels
+                            th = text(X(ich),Y(ich),Z(ich)+3,obj.H.channels(group(ich)).neurologyLabel);
+                            th.FontSize = 8;
+                        else
+                            th = text(X(ich),Y(ich),Z(ich)+3,obj.H.channels(group(ich)).name);
+                        end
                     end
                 end
                 if exist('XYZ2','var')
@@ -129,7 +134,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 xlabel('MNI X'); %levoprava souradnice
                 ylabel('MNI Y'); %predozadni souradnice
                 zlabel('MNI Z'); %hornodolni
-                if ~exist('pohled','var'), pohled = ''; end
+                if ~exist('pohled','var') || isempty(pohled), pohled = ''; end
                 switch pohled
                     case 's' %sagital = levoprava
                         view([-1 0 0]); %zleva
@@ -142,7 +147,11 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 text(-70,0,0,'LEVA');        
                 text(70,0,0,'PRAVA');   
                 text(0,65,0,'VPREDU');        
-                text(0,-115,0,'VZADU');   
+                text(0,-115,0,'VZADU');                 
+                load('GMSurfaceMesh.mat'); %seda hmota v MNI
+                scatter3(GMSurfaceMesh.node(:,1),GMSurfaceMesh.node(:,2),GMSurfaceMesh.node(:,3),'.','MarkerEdgeAlpha',.2);
+                %load('WMSurfaceMesh.mat');
+                %scatter3(WMSurfaceMesh.node(:,1),WMSurfaceMesh.node(:,2),WMSurfaceMesh.node(:,3),'.','MarkerEdgeAlpha',.1);
             else
                 disp('No MNI data');
             end

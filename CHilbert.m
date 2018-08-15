@@ -492,7 +492,12 @@ classdef CHilbert < CiEEGData
             if ~exist('kategorie','var'), kategorie = []; end %kategorie ze ktere chci ziskat hodnoty - odpovida kategoriim z IntervalyResp a pak v CBrainPLot
           
             BPD.intervals = [0 1]; %budu mit dve pole hodnoty, vybrane kanaly a vsechny kanaly s vybranymi vyznacenyma
-            label = iff(isprop(obj,'label'), obj.label, 'vals'); %v pripade ze se jedna o CHilbertMulti, muze byt definovane label podle jmena extraktu
+            if isprop(obj,'label')
+                label = obj.label; %v pripade ze se jedna o CHilbertMulti, muze byt definovane label podle jmena extraktu
+            else
+                label = 'vals';
+            end
+             
             BPD.katstr = iff(isempty(chns),{'all',label},{'all','selected'}); %v druhem poli jsou bud hodnoty vsech, nebo jen vybrane kanaly
             BPD.testname = obj.PsyData.testname; %jmeno testu, aedist, menrot nebo ppa
             BPD.reference = obj.reference; %reference

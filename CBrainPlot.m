@@ -181,7 +181,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
             obj.Hf = BPD.Hf;
             obj.selCh = BPD.selCh; %vyber kanalu z CHilbertMulti aj
         end
-        function PlotBrain3D(obj,kategorie,signum,outputDir,overwrite)
+        function PlotBrain3D(obj,kategorie,signum,outputDir,overwrite,NLabels)
             %vykresli jpg obrazky jednotlivych kategorii a kontrastu mezi nimi            
             %TODO do jmena vystupniho jpg pridat i frekvence a referenci, aby se to neprepisovalo
             %TODO je mozne ty signif vyexportovat a pak je nacist zase do CHilbertMulti?
@@ -196,6 +196,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
                 plotSetup.outputDir = outputDir;
             end            
             if ~exist('overwrite','var'), overwrite = 1; end; %defaultne se vystupni soubory prepisuji
+            if ~exist('NLabels','var'),   NLabels =0; end; %defaultne se nevypisuji anatomicke lokalizace
             
             if ~isempty(obj.brainsurface)
                 brainsurface = obj.brainsurface;  %#ok<PROPLC>
@@ -249,7 +250,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
                             vals_channels = vals_channels*signum; %u zapornych hodnot prehodim znamenko
                         end
                         mni_channels = obj.MNI{interval,kat}(iV);                                                                                                 
-                        names_channels = obj.NAMES{interval,kat}(iV);                        
+                        names_channels = iff(NLabels, obj.NLabels{interval,kat}(iV), obj.NAMES{interval,kat}(iV));                        
                         
                         if ~strcmp(obj.katstr{kat},'AllEl') %nechci to pro kategorii vsech elektrod
                             for iVal = 1:numel(vals_channels)
