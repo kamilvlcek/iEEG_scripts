@@ -7,7 +7,7 @@ p = 1;
 pacienti(p).todo = 1;
 pacienti(p).folder = 'p073 Pech VT6'; %'p073_VT6';
 pacienti(p).data = 'VT6_INV Test Vlcek1_X_ppa.mat';
-pacienti(p).header = 'p73_header.mat';
+pacienti(p).header = 'p73_headerX.mat';
 pacienti(p).psychopy = 'p73_ppa.mat';
 pacienti(p).rjepoch = 'ppa_RjEpoch.mat';
 pacienti(p).epievents = 'p73_ppa_epievents.mat'; %2017 
@@ -93,15 +93,15 @@ pacienti(p).rjepoch = ''; %muze byt prazne, pak se nevyrazuji zadne epochy
 pacienti(p).epievents = 'p126_ppa_epievents.mat'; %2017 
 pacienti(p).rjch = [47 50]; %#ok<NB%#ok<MSNU> RAK>
 
-p=p+1;
-pacienti(p).todo = 0;
-pacienti(p).folder = 'p119 Buc VT16'; %'VT16';
-pacienti(p).data = 'VT16_2016-10-10_17-11_001_concat_ppa.mat';
-pacienti(p).header = 'p119_header_kamil.mat';%chybi header Hammer
-pacienti(p).psychopy = 'p119_ppa.mat';
-pacienti(p).rjepoch = 'ppa_RjEpoch.mat';
-pacienti(p).epievents = 'p119_ppa_epievents.mat'; %2017 
-pacienti(p).rjch = [47 57 64]; %#ok<NB%#ok<MSNU> RAK>
+% p=p+1;
+% pacienti(p).todo = 0;
+% pacienti(p).folder = 'p119 Buc VT16'; %'VT16';
+% pacienti(p).data = 'VT16_2016-10-10_17-11_001_concat_ppa.mat';
+% pacienti(p).header = 'p119_header_kamil.mat';%chybi header Hammer
+% pacienti(p).psychopy = 'p119_ppa.mat';
+% pacienti(p).rjepoch = 'ppa_RjEpoch.mat';
+% pacienti(p).epievents = 'p119_ppa_epievents.mat'; %2017 
+% pacienti(p).rjch = [47 57 64]; %#ok<NB%#ok<MSNU> RAK>
 
 p=p+1;
 pacienti(p).todo = 1;
@@ -143,15 +143,16 @@ pacienti(p).rjepoch = 'ppa_RjEpoch.mat';
 pacienti(p).epievents = 'p136_ppa_epievents.mat'; %2017 
 pacienti(p).rjch = [47]; %#ok<NBRAK>
 
-p=p+1;
-pacienti(p).todo = 0; %signal type ='ECoG-Grid' nejde tam udelat bipolarni reference
-pacienti(p).folder = 'p138 Ven VT21'; %'VT21';
-pacienti(p).data = 'VT21_2017-02-28_09-35_001_500hz_concat_ppa.mat'; %wifi data
-pacienti(p).header = 'p138_header.mat'; %'P83_64ch_header.mat'
-pacienti(p).psychopy = 'p138_ppa.mat';
-pacienti(p).rjepoch = 'ppa_RjEpoch.mat';
-pacienti(p).epievents = 'p138_ppa_epievents.mat'; %2017 
-pacienti(p).rjch = []; %
+% je to grid, nejde tam asi udelat bipolarni reference, 
+% p=p+1;
+% pacienti(p).todo = 0; %signal type ='ECoG-Grid' nejde tam udelat bipolarni reference
+% pacienti(p).folder = 'p138 Ven VT21'; %'VT21';
+% pacienti(p).data = 'VT21_2017-02-28_09-35_001_500hz_concat_ppa.mat'; %wifi data
+% pacienti(p).header = 'p138_header.mat'; %'P83_64ch_header.mat'
+% pacienti(p).psychopy = 'p138_ppa.mat';
+% pacienti(p).rjepoch = 'ppa_RjEpoch.mat';
+% pacienti(p).epievents = 'p138_ppa_epievents.mat'; %2017 
+% pacienti(p).rjch = []; %
 
 p=p+1;
 pacienti(p).todo = 1;

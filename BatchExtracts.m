@@ -36,6 +36,7 @@ else
 end
 brainplots_onlyselch = 1; %generovat CBrainPlot3D jedine ze souboru, kde jsou selected channels
 plotallchns = 0; %jestli generovat obrazky mozku i se vsema kanalama (bez ohledu na signifikanci)
+NLabels = 1; %jestli se maji misto jmen kanalu vypisovat jejich Neurology Labels
 
 %LOG SOUBORY
 %1. seznam vsech extraktu
@@ -57,7 +58,7 @@ pocetextracts = 1;
 for f = 1:numel(files) %cyklus pres vsechny soubory
     for kontrast = 1:numel(kontrasts) %cyklus pres vsechny kontrasty
         stat = setup.stat_kats{kontrasts(kontrast)};      %#ok<NASGU>
-        try
+%         try
             if doIntervalyResp
                 msg = [' --- ' files{f} ': IntervalyResp *********** ']; %#ok<UNRCH>
                 disp(msg); fprintf(fileID,[ msg '\n']);
@@ -82,7 +83,7 @@ for f = 1:numel(files) %cyklus pres vsechny soubory
             end
             for kat = 1:numel(kategorie)
                 katstr = katsnames{kategorie(kat)}; %jmeno kombinace kategorii z CB, naprikad znackaXvy
-                try
+%                 try
                     outfilename = [dirCM 'CM ' katstr ' ' files{f}]; %jmeno souboru CHilbertMulti
                     CM = CHilbertMulti;
                     if exist(outfilename,'file')==2 && overwriteCM == 0
@@ -124,27 +125,27 @@ for f = 1:numel(files) %cyklus pres vsechny soubory
                         CBo = CBrainPlot; %brainplot na generovani obrazku mozku
                         BPD = CM.ExtractBrainPlotData([],kategorie(kat)); %vytvori data pro import do CBrainPlot
                         CBo.ImportData(BPD); %naimportuje data z CHilbertMulti
-                        CBo.PlotBrain3D(iff(plotallchns,[1 2],2),[],[],overwrite_brainplots); %vykresli obrazek mozku
+                        CBo.PlotBrain3D(iff(plotallchns,[1 2],2),[],[],overwrite_brainplots,NLabels); %vykresli obrazek mozku
                     end
-                catch exception 
-                    errorMessage = exceptionLog(exception);                            
-                    disp(errorMessage);  fprintf(fileID,[errorMessage '\n']);   %zobrazim hlasku, zaloguju, ale snad to bude pokracovat dal                                        
-                    tablelog(cyklus+1,:) = { files{f}, num2str(f), katstr, 'error', exception.message , datestr(now)}; 
-                    clear CM; 
-                end 
+%                 catch exception 
+%                     errorMessage = exceptionLog(exception);                            
+%                     disp(errorMessage);  fprintf(fileID,[errorMessage '\n']);   %zobrazim hlasku, zaloguju, ale snad to bude pokracovat dal                                        
+%                     tablelog(cyklus+1,:) = { files{f}, num2str(f), katstr, 'error', exception.message , datestr(now)}; 
+%                     clear CM; 
+%                 end 
                 cyklus = cyklus + 1;
                 xlswrite([logfilename '.xls'],tablelog); %budu to psat znova po kazdem souboru, abych o log neprisel, pokud se program zhrouti
                 xlswrite(FFFilenames_logname,FFFilenames_XLS); %budu to psat znova po kazdem souboru, abych o log neprisel, pokud se program zhrouti
             end
-        catch exception
-            errorMessage = exceptionLog(exception);                          
-            disp(errorMessage);  fprintf(fileID,[errorMessage '\n']);   %zobrazim hlasku, zaloguju, ale snad to bude pokracovat dal                                        
-            tablelog(cyklus+1,:) = { files{f}, num2str(f), 'no kat', 'error', exception.message , datestr(now)}; 
-            clear CB;        
-            cyklus = cyklus + 1;
-            xlswrite([logfilename '.xls'],tablelog); %budu to psat znova po kazdem souboru, abych o log neprisel, pokud se program zhrouti
-            xlswrite(FFFilenames_logname,FFFilenames_XLS); %budu to psat znova po kazdem souboru, abych o log neprisel, pokud se program zhrouti
-        end
+%         catch exception
+%             errorMessage = exceptionLog(exception);                          
+%             disp(errorMessage);  fprintf(fileID,[errorMessage '\n']);   %zobrazim hlasku, zaloguju, ale snad to bude pokracovat dal                                        
+%             tablelog(cyklus+1,:) = { files{f}, num2str(f), 'no kat', 'error', exception.message , datestr(now)}; 
+%             clear CB;        
+%             cyklus = cyklus + 1;
+%             xlswrite([logfilename '.xls'],tablelog); %budu to psat znova po kazdem souboru, abych o log neprisel, pokud se program zhrouti
+%             xlswrite(FFFilenames_logname,FFFilenames_XLS); %budu to psat znova po kazdem souboru, abych o log neprisel, pokud se program zhrouti
+%         end
     end
 end
 

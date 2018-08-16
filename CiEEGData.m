@@ -1860,19 +1860,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             else
                 katstr = 'no';
             end
-        end
-        function chsignif = ChannelsSignif(obj)
-           %vrati seznam kanalu s nejakou signifikanci z WpKatBaseline nebo WpKat
-           chsignif = []; %seznam kanalu se signifikanci
-           for kat = 1:numel(obj.Wp.kats)
-               chsignif = sort(unique([chsignif find(min(obj.Wp.WpKatBaseline{kat,1},[],1)<0.05) ]));                       
-           end
-           for kat1 = 1:numel(obj.Wp.kats)
-               for kat2 = kat:numel(obj.Wp.kats)
-                   chsignif = sort(unique([chsignif find(min(obj.Wp.WpKat{kat1,kat2},[],1)<0.05) ]));                                 
-               end               
-           end
-        end
+        end        
         function chsignif = ChannelsSignif(obj)
            %vrati seznam kanalu s nejakou signifikanci z WpKatBaseline nebo WpKat
            chsignif = []; %seznam kanalu se signifikanci           
