@@ -460,6 +460,7 @@ classdef CHilbert < CiEEGData
                 epochtime = obj.epochtime; %#ok<NASGU> %abych vedel kde je podnet
                 baseline = obj.baseline; %#ok<NASGU> 
                 RjEpochCh = obj.RjEpochCh(chns,:); %#ok<NASGU> %kanaly vs epochy
+                RjEpoch = obj.RjEpoch; %#ok<NASGU> %na to jsem zapomnel - 17.8.2018
                 epochData = obj.epochData; %#ok<NASGU> %identita jednotlivych epoch. Musi byt stejna pres pacienty
                 DatumCas = obj.DatumCas;
                 DatumCas.Extracted = datestr(now);          
@@ -477,7 +478,7 @@ classdef CHilbert < CiEEGData
                 HFreq = obj.HFreq(:,chns,:,:); %#ok<PROPLC,NASGU>  %time x channel x freq (x kategorie)            
                 Wp = obj.Wp;  %#ok<NASGU>  %exportuju statistiku
                 reference = obj.reference; %#ok<NASGU>  %exportuju referenci
-                save(filename,'d','tabs','tabs_orig','fs','P','epochtime','baseline','RjEpochCh','epochData','DatumCas','H','Hf','Hfmean','HFreq','Wp','reference','-v7.3'); 
+                save(filename,'d','tabs','tabs_orig','fs','P','epochtime','baseline','RjEpochCh','RjEpoch','epochData','DatumCas','H','Hf','Hfmean','HFreq','Wp','reference','-v7.3'); 
                 disp(['extract saved to "' basefilename '"']);
             else
                 disp(['extract already exists, skipped: "' basefilename '"']);

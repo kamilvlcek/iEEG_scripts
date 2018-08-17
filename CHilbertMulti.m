@@ -17,6 +17,8 @@ classdef CHilbertMulti < CHilbert
         function obj = CHilbertMulti(filename)              
             if exist('filename','var')
                 obj.Load(filename);
+            else
+                obj.RjEpoch = [];
             end
         end
         
@@ -51,6 +53,7 @@ classdef CHilbertMulti < CHilbert
             obj.epochData = {};
             obj.els = [];
             obj.RjEpochCh = [];
+            obj.RjEpoch = [];
             obj.mults = {};
             obj.epochtime = {};
             obj.baseline = {};
@@ -86,13 +89,14 @@ classdef CHilbertMulti < CHilbert
                     disp(obj.basename(filename)); %zobrazim jmeno souboru s pouze koncem 
                     obj.filenames{fileno,1} = filename;
                     load(filename); %nacte vsechny promenne
-                    if ~exist('baseline','var'), baseline = [epochtime(1) 0]; end %fake baseline, pokud nebyla ulozena
+                    if ~exist('baseline','var'), baseline = [epochtime(1) 0]; end %fake baseline, pokud nebyla ulozena                    
                     test = ~P.data(:,P.sloupce.zpetnavazba); %index testovych epoch
                     
                     obj.GetEpochTime(epochtime,baseline);
                     %identita jednotlivych epoch - epochData 
                     %predpokladam epochovana data, pro jina jsem ani nezkousel
-                    obj.GetEpochData(epochData,fileno,test); %soucasne naplni obj.blokyprehazej, ktere muzu pouzivat dal                    
+                    obj.GetEpochData(epochData,fileno,test); %soucasne naplni obj.blokyprehazej, ktere muzu pouzivat dal                         
+                    RjEpochCh = obj.RjEpoch2Ch(RjEpoch,RjEpochCh); %prevedu RjEpoch na RjEpochCh, protoze RjEpoch nemuzu v CM pouzit
                     [d,tabs,RjEpochCh,P, epochData]=obj.PrehazejEpochy(d,tabs,RjEpochCh,P,epochData,test); %vyradi treningove trialy a prehazi epochy pokud je to treba
                     obj.GetEpochData(epochData,fileno,test,1); 
                     
@@ -190,7 +194,7 @@ classdef CHilbertMulti < CHilbert
             end
             [obj.samples,obj.channels, obj.epochs] = obj.DSize();
             %vyrazene epochy x kanaly                                                        
-            obj.RjEpochCh = cat(1,obj.RjEpochCh,RjEpochCh); %spojim pres kanaly, pocet epoch musi by stejny    
+            obj.RjEpochCh = cat(1,obj.RjEpochCh,RjEpochCh); %spojim pres kanaly, pocet epoch musi by stejny             
         end
         function GetHfreq(obj,Hf,Hfmean,HFreq)
             %spoji frekvencni data z predchozich a noveho souboru
@@ -281,7 +285,7 @@ classdef CHilbertMulti < CHilbert
                 end          
                 obj.orig(fileno).epochData = epochData; % ulozim original taky                        
             end
-        end
+        end        
         function obj = GetHeader(obj,H,fileno)
             %spoji header (kanaly) v puvodnich souborech a tom novem
             if isempty(obj.CH)
@@ -446,7 +450,7 @@ classdef CHilbertMulti < CHilbert
             filename = strrep(filename,'_CHilb.mat',''); %funkce ExtractData pro zmenu vyzaduje tuhle priponu
             filenames = cell(0,4); %budu vrace vsechny nalezene udaje, nejen filename, kvuli prehledu
             for p = 1:numel(pacienti)
-               path = [setup.basedir pacienti(p).folder filesep setup.subfolder filesep];
+               path = [setup.basedir pacienti(p).folder filesep setup.subfolder filesep 'Extracts' filesep];
                files = dir([path filename ' ' label '_Extract.mat']);
                for f = 1:numel(files)
                    files(f).name = [path files(f).name];                   
@@ -514,6 +518,13 @@ classdef CHilbertMulti < CHilbert
             end
             fslash = strfind(filename,'\');
             str = filename(fslash(end-2)+1:end); %dve casti path pred basename
+        end
+        function [RjEpochCh] = RjEpoch2Ch(RjEpoch,RjEpochCh)
+            %prevede RjEpoch do RjEpochCh - rozkopiruje na vsechny kanaly
+            RjEpochCh2 = false(1,size(RjEpochCh,2)); %epochy jen
+            RjEpochCh2(RjEpoch) = true;
+            RjEpochCh2 = repmat(RjEpochCh2,size(RjEpochCh,1),1); %rozkopiruju do radku pro kazdy kanal
+            RjEpochCh = RjEpochCh | RjEpochCh2; %kdyz je alespon jedna bunka true
         end
         
     end

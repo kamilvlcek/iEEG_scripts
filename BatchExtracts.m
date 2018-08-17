@@ -18,10 +18,11 @@ for kontrast = 1:numel(kontrasts) %cyklus jen na vypocet celkoveho poctu cyklu p
     pocetcyklu = pocetcyklu + numel(files) * size(kombinace_kat,1) ;
 end
 
-overwrite_extracts = 0; %jestli se maji prepisovat extrakty pro kazdeho pacienta
+overwrite_extracts = 1; %jestli se maji prepisovat extrakty pro kazdeho pacienta
 overwrite_brainplots = 1;
 overwriteCM = 0; %jestli se maji prepisovat soubory CHilbertMulti
-doIntervalyResp = 0; %jestli se maji hledaty signif soubory pres vsechny pacienty pomoci CN.IntervalyResp, pokud ne, potrebuju uz mit hotove CHilbertMulti soubory
+doIntervalyResp = 1; %jestli se maji hledaty signif soubory pres vsechny pacienty pomoci CN.IntervalyResp, pokud ne, potrebuju uz mit hotove CHilbertMulti soubory
+loadCM = 0; %jestli se maji nacist existujici CM soubory pokud existuji
 if strcmp(testname,'menrot')
     dirCM = 'd:\eeg\motol\CHilbertMulti\Menrot\'; %musi koncit \
     fileCS = 'd:\eeg\motol\CHilbertMulti\Menrot\CSelCh_Menrot.mat';
@@ -89,17 +90,22 @@ for f = 1:numel(files) %cyklus pres vsechny soubory
                     label = [katstr '_' intvstr];
                     outfilename = [dirCM 'CM ' label ' ' files{f}]; %jmeno souboru CHilbertMulti
                     CM = CHilbertMulti;
-                    if exist(outfilename,'file')==2 && overwriteCM == 0
+                    if exist(outfilename,'file')==2 && overwriteCM == 0 && loadCM == 1
                         msg = [ ' --- ' strrep(outfilename,'\','\\') ' nacteno '  datestr(now)];
                         disp(msg); fprintf(fileID,[ msg '\n']);                     
                         tablelog(cyklus+1,:) = { files{f}, num2str(f), katstr,intvstr,cell2str(stat), 'nacteno', outfilename,datestr(now) };                     
                         CM.Load(outfilename);                        
-                    elseif doIntervalyResp
+                    elseif doIntervalyResp || ~loadCM
                         msg = [ ' --- ' strrep(outfilename,'\','\\') ' zpracovavam '  datestr(now)]; %#ok<UNRCH>
                         disp(msg); fprintf(fileID,[ msg '\n']);  
-
+                            
+                        if doIntervalyResp
                         %vytvorim extrakty podle tabulky PAC, pro vsechny pacienty a pro tuto kategorii
-                        filenames_extract = CM.ExtractData(CB.PAC{intv,kategorie(kat)},testname,files{f},label,overwrite_extracts);
+                            filenames_extract = CM.ExtractData(CB.PAC{intv,kategorie(kat)},testname,files{f},label,overwrite_extracts); 
+                        else
+                            filenames_extract = CM.FindExtract(testname,label,files{f});   
+                            filenames_extract = filenames_extract(:,1);
+                        end
 
                         FFFilenames_XLS(pocetextracts:pocetextracts+numel(filenames_extract)-1,:) = ...
                             cat(2,repmat({files{f},f,katstr,kat,intvstr},numel(filenames_extract),1),filenames_extract);
