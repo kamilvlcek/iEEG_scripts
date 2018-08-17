@@ -329,17 +329,17 @@ classdef CiEEGData < matlab.mixin.Copyable
                 iOpak = true(obj.epochs,1);  %vsechny epochy              
             end
             if ~exist('ch','var'), ch = 1:obj.channels; end 
-            iEpCh = obj.GetEpochsExclude(ch); %seznam epoch ktere nejsou vyrazene,channels x epochs 
-            iEpochy = [ ismember(cell2mat(obj.epochData(:,2)),katnum) , iOpak]; %seznam epoch v ramci kategorie ve sloupci + epochy, ktere nejsou excludovane
-            d = obj.d(:,:,all(iEpochy,2)); %epochy z kategorie, ktere nejsou excludovane = maji ve vsech sloupcich 1            
-            RjEpCh = obj.RjEpochCh(ch,all(iEpochy,2)) | ~iEpCh(ch,all(iEpochy,2)); %epochy k vyrazeni u kazdeho kanalu - jen pro zbyvajici epochy
+            iEpCh = obj.GetEpochsExclude(ch); %seznam epoch ktere nejsou globalne vyrazene,channels x epochs, z promenne obj.RjEpoch; pro CM data to bude ruzne pro kazdy kanal, jinak stejne pro kazdy kanal
+            iEpochy = [ ismember(cell2mat(obj.epochData(:,2)),katnum) , iOpak]; %seznam epoch pro tuto kategorii a toto opakovani - k vyhodnoceni
+            d = obj.d(:,:,all(iEpochy,2)); %epochy z teto kategorie a tohoto opakovani = maji ve vsech sloupcich 1            
+            RjEpCh = obj.RjEpochCh(ch,all(iEpochy,2)) | ~iEpCh(ch,all(iEpochy,2)); %epochy k vyrazeni u kazdeho kanalu - jen pro epochy teto kategorie katnum - odpovidaji poli d       
             
-            
-            
-            if numel(ch)==2 %reakcni cas pocitam, jen kdyz vim pro jaky kanal - 8.6.2018 kvuli CPsyDataMulti
+            if numel(ch)==1 %reakcni cas pocitam, jen kdyz vim pro jaky kanal - 8.6.2018 kvuli CPsyDataMulti
                 obj.PsyData.SubjectChange(find(obj.els >= ch,1));
-                [~,psy_rt,~,~] = obj.PsyData.GetResponses();                
-                psy_rt = psy_rt(all(iEpochy,2)); %reakcni casy jen pro vybrane kategorie a opakovani a nevyrazene
+                [~,psy_rt,~,~] = obj.PsyData.GetResponses();
+                iEpochyP = iEpochy(1:size(psy_rt,1),:); %psy_rt maji rozmer podle puvodniho poctu epoch pred sloucenim v CM. Uz jsou spravne prehazene. 
+                %Kdezto iEpochy obsahuji i vyloucene epochy na konci (pokud u tohohle subjektu nebylo tolik epoch)
+                psy_rt = psy_rt(all(iEpochyP,2)); %reakcni casy jen pro vybrane kategorie a opakovani a nevyrazene
             else
                 psy_rt = zeros(size(d,3),1); %nulove reakcni casy
             end
@@ -392,21 +392,21 @@ classdef CiEEGData < matlab.mixin.Copyable
             %vraci iEpCh (ch x epoch) = index epoch k vyhodnoceni - bez chyb, treningu a rucniho vyrazeni - pro kazdy kanal zvlast            
             %muzu pouzit parametr channels, pokud chci jen nektere kanaly - ostatni jsou pak prazdne
             if ~exist('channels','var'), channels = 1:obj.channels; end
-            iEpCh = zeros(numel(channels),obj.epochs);             
+            iEpCh = zeros(obj.channels,obj.epochs);             
             PsyData = obj.PsyData.copy();  %nechci menit puvodni tridu
-            for ch = channels
-                if isa(obj.PsyData,'CPsyDataMulti') || ch==1                                        
-                    PsyData.SubjectChange(find(obj.els >= ch,1)); 
+            for ch = 1:numel(channels)
+                if isa(obj.PsyData,'CPsyDataMulti') || ch==1 %pokud je to prvni kanal nebo                                         
+                    PsyData.SubjectChange(find(obj.els >= channels(ch),1)); 
                     chyby = PsyData.GetErrorTrials();                    
                     epochsEx = [chyby , zeros(size(chyby,1),1) ]; %pridam dalsi prazdny sloupec
                     epochsEx(obj.RjEpoch,5)=1; %rucne vyrazene epochy podle EEG  - pro tento kanal 
                     if size(epochsEx,1) < size(iEpCh,2)
                         epochsEx = cat(1,epochsEx,ones(size(iEpCh,2) - size(epochsEx,1),5));
                     end
-                    iEpCh(ch,:) = all(epochsEx==0,2)'; %index epoch k pouziti                 
+                    iEpCh(channels(ch),:) = all(epochsEx==0,2)'; %index epoch k pouziti                 
                     
                 else
-                    iEpCh(ch,:) = iEpCh(ch-1,:); %pokud se jedna o CPsyData s jednim subjektem, pro vsechny kanaly to bude stejne
+                    iEpCh(channels(ch),:) = iEpCh(channels(ch-1),:); %pokud se jedna o CPsyData s jednim subjektem, pro vsechny kanaly to bude stejne
                 end
             end
             

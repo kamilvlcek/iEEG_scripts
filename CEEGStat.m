@@ -52,13 +52,24 @@ classdef CEEGStat
             
             %rozdily kategorii vuci baseline - 28.3.2017
             WpKatBaseline = cell(numel(kats),1);  %rozdily kategorii vuci baseline   
-            for k =  1: numel(kats)
-                    baselineall = baselinekat{k};
-                    baselineA = mean(baselineall(1:floor(size(baselineall,1)/2)      ,:,:));
-                    baselineB = mean(baselineall(  floor(size(baselineall,1)/2)+1:end,:,:));
-                    WpBA = CStat.Wilcox2D(responsekat{k},baselineA,1,[],['kat ' num2str(k) ' vs baseline A'],rjepchkat{k},rjepchkat{k});
-                    WpBB = CStat.Wilcox2D(responsekat{k},baselineB,1,[],['kat ' num2str(k) ' vs baseline B'],rjepchkat{k},rjepchkat{k});
-                    WpKatBaseline{k,1} = max (WpBA,WpBB);
+            for k =  1: numel(kats)                
+                 baselineall = baselinekat{k};
+                 baselineA = mean(baselineall(1:floor(size(baselineall,1)/2)      ,:,:));
+                 baselineB = mean(baselineall(  floor(size(baselineall,1)/2)+1:end,:,:));
+                 if exist('Pbaseline','var') && ~isempty(Pbaseline) %nova verze, statistika pro kazdy kanal zvlast, tam kde je odpoved vuci baseline
+                     WpKatBaseline{k,1} = ones(size(responsekat{k},1), size(responsekat{k},2)); %time x channels
+                     fprintf('kat %i vs baseline Channels Wilcox2D: 1 ... ',k);
+                     for ch = 1:size(responsekat{k},2) %musim baseline signif taky pocitat pro kazdy kanal zvast protoze ji pak zohlednuju mezi kategoriemi
+                        WpBA = CStat.Wilcox2D(responsekat{k}(:,ch,:),baselineA(:,ch,:),0,[],['kat ' num2str(k) ' vs baseline A'],rjepchkat{k}(ch,:),rjepchkat{k}(ch,:));
+                        WpBB = CStat.Wilcox2D(responsekat{k}(:,ch,:),baselineB(:,ch,:),0,[],['kat ' num2str(k) ' vs baseline B'],rjepchkat{k}(ch,:),rjepchkat{k}(ch,:));
+                        WpKatBaseline{k,1}(:,ch) = max (WpBA,WpBB);
+                     end
+                     fprintf('... %i \n',ch);
+                 else %puvodni verze, statistika pro vsechny kanaly najednou  
+                     WpBA = CStat.Wilcox2D(responsekat{k},baselineA,1,[],['kat ' num2str(k) ' vs baseline A'],rjepchkat{k},rjepchkat{k});
+                     WpBB = CStat.Wilcox2D(responsekat{k},baselineB,1,[],['kat ' num2str(k) ' vs baseline B'],rjepchkat{k},rjepchkat{k});
+                     WpKatBaseline{k,1} = max (WpBA,WpBB);
+                 end
             end
             
             %rozdily kategorii vuci sobe

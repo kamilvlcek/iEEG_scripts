@@ -1,4 +1,4 @@
-function [ ] = BatchExtracts( testname,files,kontrasts )
+function [ ] = BatchExtracts( testname,files,kontrasts, intervals )
 
 % files = {   'AEdist CHilbert 50-150 -0.5-1.2 refBipo Ep2018-04_CHilb.mat',...
 %             'AEdist CMorlet 1-10M -0.5-1.2 refBipo Ep2018-06 FE_CHilb.mat',...
@@ -8,8 +8,8 @@ function [ ] = BatchExtracts( testname,files,kontrasts )
 % testname = 'aedist';
 
 [ pacienti, setup  ] = pacienti_setup_load( testname );
-if ~exist('kontrasts','var'), kontrasts = 1:numel(setup.stat_kats); end %statisticky kontrast, pokud nezadam zvnejsku, udelam vsechny
-
+if ~exist('kontrasts','var') || isempty(kontrasts), kontrasts = 1:numel(setup.stat_kats); end %statisticky kontrast, pokud nezadam zvnejsku, udelam vsechny
+if ~exist('intervals','var'), intervals = [0.1 1]; end
 pocetcyklu = 0;
 for kontrast = 1:numel(kontrasts) %cyklus jen na vypocet celkoveho poctu cyklu pres vsechny kontrasty ve statistice
     stat = setup.stat_kats{kontrast}; %resp setup.stat_kats{1} {2} nebo {3} pro menrot 
@@ -18,7 +18,7 @@ for kontrast = 1:numel(kontrasts) %cyklus jen na vypocet celkoveho poctu cyklu p
     pocetcyklu = pocetcyklu + numel(files) * size(kombinace_kat,1) ;
 end
 
-overwrite_extracts = 1; %jestli se maji prepisovat extrakty pro kazdeho pacienta
+overwrite_extracts = 0; %jestli se maji prepisovat extrakty pro kazdeho pacienta
 overwrite_brainplots = 1;
 overwriteCM = 0; %jestli se maji prepisovat soubory CHilbertMulti
 doIntervalyResp = 0; %jestli se maji hledaty signif soubory pres vsechny pacienty pomoci CN.IntervalyResp, pokud ne, potrebuju uz mit hotove CHilbertMulti soubory
@@ -34,21 +34,21 @@ elseif strcmp(testname,'ppa')
 else
     error('neznamy typ testu');
 end
-brainplots_onlyselch = 1; %generovat CBrainPlot3D jedine ze souboru, kde jsou selected channels
+brainplots_onlyselch = 0; %generovat CBrainPlot3D jedine ze souboru, kde jsou selected channels
 plotallchns = 0; %jestli generovat obrazky mozku i se vsema kanalama (bez ohledu na signifikanci)
-NLabels = 1; %jestli se maji misto jmen kanalu vypisovat jejich Neurology Labels
+NLabels = 0; %jestli se maji misto jmen kanalu vypisovat jejich Neurology Labels
 
 %LOG SOUBORY
 %1. seznam vsech extraktu
 logfilename = ['logs\BatchExtract_' testname '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') '.log'];
 FFFilenames_logname = ['logs\BatchExtractFilenames_' testname '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') '.xls'];
-FFFilenames_XLS = cell(1+pocetcyklu*numel(pacienti),5); 
-FFFilenames_XLS(1,:)={'file','fileno','kat','katno','extract'};
+FFFilenames_XLS = cell(1+pocetcyklu*numel(pacienti),6); 
+FFFilenames_XLS(1,:)={'file','fileno','kat','katno','interval','extract'};
 %2. soubor na logovani prubehu
 [fileID,~] = fopen(logfilename,'wt'); 
 %3. tabulka vyslednych CHilbertMulti souboru
-tablelog = cell(pocetcyklu+1,7); 
-tablelog(1,:) = {'file','fileno','kategorie','stat','result','file','datetime'}; %hlavicky xls tabulky
+tablelog = cell(pocetcyklu+1,8); 
+tablelog(1,:) = {'file','fileno','kategorie','interval','stat','result','file','datetime'}; %hlavicky xls tabulky
 if exist('fileCS','var') && exist(fileCS,'file')==2
     CS = CSelCh(fileCS);
 end
@@ -63,8 +63,8 @@ for f = 1:numel(files) %cyklus pres vsechny soubory
                 msg = [' --- ' files{f} ': IntervalyResp *********** ']; %#ok<UNRCH>
                 disp(msg); fprintf(fileID,[ msg '\n']);
 
-                CB = CBrainPlot;     %#ok<USENS> %brainplot na ziskani signif odpovedi
-                CB.IntervalyResp(testname,[0.1 min(1,setup.epochtime(2))],files{f},kontrasts(kontrast)); %ziskam signif rozdily pro kategorie a mezi kategoriemi pro vsechny pacienty       
+                CB = CBrainPlot;     %#ok<USENS> %brainplot na ziskani signif odpovedi               
+                CB.IntervalyResp(testname,min(intervals,setup.epochtime(2)),files{f},kontrasts(kontrast)); %ziskam signif rozdily pro kategorie a mezi kategoriemi pro vsechny pacienty       
                 kategorie = find(~cellfun('isempty',strfind(CB.katstr,'X'))); %strfind je jenom case sensitivni
                 katsnames = CB.katstr;
             else
@@ -83,38 +83,43 @@ for f = 1:numel(files) %cyklus pres vsechny soubory
             end
             for kat = 1:numel(kategorie)
                 katstr = katsnames{kategorie(kat)}; %jmeno kombinace kategorii z CB, naprikad znackaXvy
+                for intv = 1:size(intervals,1) %cyklus pres intervaly
+                    intvstr = sprintf('(%1.1f-%1.1f)',intervals(intv,:)); %pojmenovani intervalu
 %                 try
-                    outfilename = [dirCM 'CM ' katstr ' ' files{f}]; %jmeno souboru CHilbertMulti
+                    label = [katstr '_' intvstr];
+                    outfilename = [dirCM 'CM ' label ' ' files{f}]; %jmeno souboru CHilbertMulti
                     CM = CHilbertMulti;
                     if exist(outfilename,'file')==2 && overwriteCM == 0
                         msg = [ ' --- ' strrep(outfilename,'\','\\') ' nacteno '  datestr(now)];
                         disp(msg); fprintf(fileID,[ msg '\n']);                     
-                        tablelog(cyklus+1,:) = { files{f}, num2str(f), katstr,cell2str(stat), 'nacteno', outfilename,datestr(now) };                     
+                        tablelog(cyklus+1,:) = { files{f}, num2str(f), katstr,intvstr,cell2str(stat), 'nacteno', outfilename,datestr(now) };                     
                         CM.Load(outfilename);                        
                     elseif doIntervalyResp
                         msg = [ ' --- ' strrep(outfilename,'\','\\') ' zpracovavam '  datestr(now)]; %#ok<UNRCH>
                         disp(msg); fprintf(fileID,[ msg '\n']);  
 
                         %vytvorim extrakty podle tabulky PAC, pro vsechny pacienty a pro tuto kategorii
-                        filenames_extract = CM.ExtractData(CB.PAC{1,kategorie(kat)},testname,files{f},katstr,overwrite_extracts);
+                        filenames_extract = CM.ExtractData(CB.PAC{intv,kategorie(kat)},testname,files{f},label,overwrite_extracts);
 
                         FFFilenames_XLS(pocetextracts:pocetextracts+numel(filenames_extract)-1,:) = ...
-                            cat(2,repmat({files{f},f,katstr,kat},numel(filenames_extract),1),filenames_extract);
+                            cat(2,repmat({files{f},f,katstr,kat,intvstr},numel(filenames_extract),1),filenames_extract);
                         pocetextracts = pocetextracts + numel(filenames_extract);                
                         
                         %FILES = CM.TestExtract(filenames_extract);
-                        CM.ImportExtract(filenames_extract,katstr);
-                        CM.ResponseSearch(0.1,stat);  
-
+                        CM.ImportExtract(filenames_extract,label);
+                        CM.ResponseSearch(0.1,stat); 
+                        CM.SetStatActive(2);
+                        CM.ResponseSearch(0.1,setup.stat_kats{1}); %vzdy budu mit jako druhou statistiku vse proti vsemu
+    
                         CM.Save(outfilename);
 
-                        msg = [ ' --- ' files{f} ': ' katstr ' OK '  datestr(now)];
+                        msg = [ ' --- ' files{f} ': ' label ' OK '  datestr(now)];
                         disp(msg); fprintf(fileID,[ msg '\n']);            
-                        tablelog(cyklus+1,:) = { files{f}, num2str(f), katstr,cell2str(stat), 'saved', outfilename,datestr(now) }; 
+                        tablelog(cyklus+1,:) = { files{f}, num2str(f), katstr,intvstr,cell2str(stat), 'saved', outfilename,datestr(now) }; 
                     else
                         msg = [ ' --- ' strrep(outfilename,'\','\\') ' nevytvoreno, nenacteno '  datestr(now)];
                         disp(msg); fprintf(fileID,[ msg '\n']);   
-                        tablelog(cyklus+1,:) = { files{f}, num2str(f), katstr,cell2str(stat), 'nothing to do', outfilename,datestr(now) }; 
+                        tablelog(cyklus+1,:) = { files{f}, num2str(f), katstr,intvstr,cell2str(stat), 'nothing to do', outfilename,datestr(now) }; 
                     end
                     if exist('CS','var')                        
                         selCh = CS.GetSelCh(CM); %pokud se tam nazev souboru najde, vlozi se selected channels, jinak ne
@@ -133,6 +138,7 @@ for f = 1:numel(files) %cyklus pres vsechny soubory
 %                     tablelog(cyklus+1,:) = { files{f}, num2str(f), katstr, 'error', exception.message , datestr(now)}; 
 %                     clear CM; 
 %                 end 
+                end
                 cyklus = cyklus + 1;
                 xlswrite([logfilename '.xls'],tablelog); %budu to psat znova po kazdem souboru, abych o log neprisel, pokud se program zhrouti
                 xlswrite(FFFilenames_logname,FFFilenames_XLS); %budu to psat znova po kazdem souboru, abych o log neprisel, pokud se program zhrouti
