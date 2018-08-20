@@ -84,8 +84,11 @@ else
     E.ExtractEpochs(getpsychopydata(filename,testname),setup.epochtime,setup.baseline);
 
     %vyradim epochy
-    load([setup.basedir pacienti(p).folder '\' setup.subfolder '\' pacienti(p).rjepoch]);
+    if ~isempty(pacienti(p).rjepoch)
+        load([setup.basedir pacienti(p).folder '\' setup.subfolder '\' pacienti(p).rjepoch]);
+    end
     if ~exist('RjEpochCh','var'), RjEpochCh = []; end %pokud neexistuje RjEpochCh - starsi data
+    if ~exist('RjEpoch','var'), RjEpoch = []; end %pokud neexistuje RjEpoch - starsi data
     E.RejectEpochs(RjEpoch, RjEpochCh); %uz drive ulozene vyrazene epochy
     %E.RjEpochsEpi([],0);
     %E.RjEpochsEpi(30);
@@ -96,7 +99,7 @@ end
 end
 function DE = getepievents(filename)
     if exist(filename,'file')~=2
-            disp(['no epievents:' pacienti(p).epievents]);    
+            disp(['no epievents: ' filename]);    
             DE = [];
     else
             load(filename);        

@@ -71,7 +71,7 @@ pacienti(p).header = 'P97_header.mat';
 pacienti(p).psychopy = 'p97_ppa.mat';
 pacienti(p).rjepoch = 'ppa_RjEpoch-p97.mat';
 pacienti(p).epievents = 'p97_ppa_epievents.mat'; %2017 
-pacienti(p).rjch = [47]; %#ok<NBRAK>
+pacienti(p).rjch = [1;2;3;4;5;8;9;10;11;12;13;14;15;17;18;19;20;21;22;23;24;25;27;28;29;30;31;32;33;34;35;37;38;39;40;41;42;43;44;45;46;47;49;50;51;52;53;54;55;56;57;58;59;60;61;62;63;64;65;66;67;68;69;70;71;72;75;76;77;78;79;80;81;82;83;84;85;86;87;88;102;105;106;111;118;119]'; %#ok<NBRAK>
 
 p=p+1;
 pacienti(p).todo = 1;
@@ -81,7 +81,7 @@ pacienti(p).header = 'p110_header.mat';
 pacienti(p).psychopy = 'p110_ppa.mat';
 pacienti(p).rjepoch = 'ppa_RjEpoch.mat';
 pacienti(p).epievents = 'p110_ppa_epievents.mat'; %2017 
-pacienti(p).rjch = [47 15]; %#ok<NB%#ok<MSNU> RAK>
+pacienti(p).rjch = [1;15;32;51;52;53;54;47]'; %#ok<NB%#ok<MSNU> RAK>
 
 p=p+1; % moc zachvatu?
 pacienti(p).todo = 1;
@@ -89,7 +89,7 @@ pacienti(p).folder = 'p126 Sve VT15'; %'VT15';
 pacienti(p).data = 'VT15_2016-09-06_09-18_001_concat_ppa.mat';
 pacienti(p).header = 'P126_headerX.mat';
 pacienti(p).psychopy = 'p126_ppa.mat';
-pacienti(p).rjepoch = ''; %muze byt prazne, pak se nevyrazuji zadne epochy
+pacienti(p).rjepoch = 'p126_ppa_rjEpoch.mat'; %muze byt prazne, pak se nevyrazuji zadne epochy
 pacienti(p).epievents = 'p126_ppa_epievents.mat'; %2017 
 pacienti(p).rjch = [47 50]; %#ok<NB%#ok<MSNU> RAK>
 
@@ -110,7 +110,7 @@ pacienti(p).data = 'VT17_2016-10-24_15-41_001_concat_ppa.mat';
 pacienti(p).header = 'p130_header.mat';
 pacienti(p).psychopy = 'p130_ppa.mat';
 pacienti(p).rjepoch = 'ppa_RjEpoch.mat';
-pacienti(p).epievents = 'p126_ppa_epievents.mat'; %2017 
+pacienti(p).epievents = 'p130_ppa_epievents.mat'; %2017 
 pacienti(p).rjch = [47]; %#ok<NB%#ok<MSNU> RAK>
 
 p=p+1;
@@ -141,7 +141,7 @@ pacienti(p).header = 'p136_header.mat'; %'P83_64ch_header.mat'
 pacienti(p).psychopy = 'p136_ppa.mat';
 pacienti(p).rjepoch = 'ppa_RjEpoch.mat';
 pacienti(p).epievents = 'p136_ppa_epievents.mat'; %2017 
-pacienti(p).rjch = [47]; %#ok<NBRAK>
+pacienti(p).rjch = [47 74]; %#ok<NBRAK>
 
 % je to grid, nejde tam asi udelat bipolarni reference, 
 % p=p+1;
@@ -157,13 +157,14 @@ pacienti(p).rjch = [47]; %#ok<NBRAK>
 p=p+1;
 pacienti(p).todo = 1;
 pacienti(p).folder = 'p155 Svi VT27'; %'VT21';
-pacienti(p).data = 'VT27_2017-11-22_08-36_001_concat_ppa.matt';
+pacienti(p).data = 'VT27_2017-11-22_08-36_001_concat_ppa.mat';
 pacienti(p).header = 'p155_header.mat'; %'P83_64ch_header.mat'
 pacienti(p).psychopy = 'p155_ppa.mat';
 pacienti(p).rjepoch = 'p155_ppa_rjepoch.mat';
 pacienti(p).epievents = 'p155_ppa_epievents.mat'; %2017 
 pacienti(p).rjch = [47]; %
 
+p=p+1;
 pacienti(p).todo = 1;
 pacienti(p).folder = 'p160 Kor VT28';
 pacienti(p).data = 'VT28_2017-12-11_16-05_001_concat_ppa.mat';

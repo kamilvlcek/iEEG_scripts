@@ -30,7 +30,9 @@ classdef CPsyDataMulti < CPsyData
             %nacte data z dalsiho subjektu a rovnou ho aktivuje
             testname = obj.GetTestName(inputname(2));
             assert(strcmp(testname,obj.testname),['data ze dvou ruznych testu: ' testname ' x ' obj.testname]);
-            obj.Pmulti(obj.iS+1) = psy;
+            obj.P = psy;
+            obj.DoplnZpetnavazba(); %pokud neni v puvodnich datech, doplnim sloupec zpetnavazba
+            obj.Pmulti(obj.iS+1) = obj.P;
             obj.nS = obj.nS + 1;
             obj.SubjectChange(obj.iS + 1);
         end        

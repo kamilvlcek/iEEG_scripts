@@ -329,7 +329,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 iOpak = true(obj.epochs,1);  %vsechny epochy              
             end
             if ~exist('ch','var'), ch = 1:obj.channels; end 
-            iEpCh = obj.GetEpochsExclude(ch); %seznam epoch ktere nejsou globalne vyrazene,channels x epochs, z promenne obj.RjEpoch; pro CM data to bude ruzne pro kazdy kanal, jinak stejne pro kazdy kanal
+            iEpCh = obj.GetEpochsExclude(ch); %seznam epoch k vyhodnoceni (bez chyb, treningu a rucniho vyrazeni=obj.RjEpoch),channels x epochs ; pro CM data to bude ruzne pro kazdy kanal, jinak stejne pro kazdy kanal
             iEpochy = [ ismember(cell2mat(obj.epochData(:,2)),katnum) , iOpak]; %seznam epoch pro tuto kategorii a toto opakovani - k vyhodnoceni
             d = obj.d(:,:,all(iEpochy,2)); %epochy z teto kategorie a tohoto opakovani = maji ve vsech sloupcich 1            
             RjEpCh = obj.RjEpochCh(ch,all(iEpochy,2)) | ~iEpCh(ch,all(iEpochy,2)); %epochy k vyrazeni u kazdeho kanalu - jen pro epochy teto kategorie katnum - odpovidaji poli d       
@@ -394,13 +394,13 @@ classdef CiEEGData < matlab.mixin.Copyable
             if ~exist('channels','var'), channels = 1:obj.channels; end
             iEpCh = zeros(obj.channels,obj.epochs);             
             PsyData = obj.PsyData.copy();  %nechci menit puvodni tridu
-            for ch = 1:numel(channels)
-                if isa(obj.PsyData,'CPsyDataMulti') || ch==1 %pokud je to prvni kanal nebo                                         
+            for ch = 1:numel(channels) 
+                if isa(obj.PsyData,'CPsyDataMulti') || ch==1 %pokud je to prvni kanal nebo se jedna o data CHilbertMulti s ruznymi subjektu a tedy ruznymi pocty chyb aj                                        
                     PsyData.SubjectChange(find(obj.els >= channels(ch),1)); 
                     chyby = PsyData.GetErrorTrials();                    
                     epochsEx = [chyby , zeros(size(chyby,1),1) ]; %pridam dalsi prazdny sloupec
                     epochsEx(obj.RjEpoch,5)=1; %rucne vyrazene epochy podle EEG  - pro tento kanal 
-                    if size(epochsEx,1) < size(iEpCh,2)
+                    if size(epochsEx,1) < size(iEpCh,2) %pokud ruzny pocet epoch u ruznych subjektu
                         epochsEx = cat(1,epochsEx,ones(size(iEpCh,2) - size(epochsEx,1),5));
                     end
                     iEpCh(channels(ch),:) = all(epochsEx==0,2)'; %index epoch k pouziti                 
@@ -422,7 +422,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             if ~iscell(method), method = {method,'chn1'}; end %predelam retezec na cell
             if numel(method) < 2, method{2} = 'chn1'; end %druha polozka bude urcovat, jestli se ma vyhodnocovat vsechny kanaly (chnall), nebo kazdy kanal zvlast (chn1)
             
-            iEpCh = obj.GetEpochsExclude(); %ziska seznam Chs x Epochs k vyhodnoceni
+            iEpCh = obj.GetEpochsExclude(); %ziska seznam Chs x Epochs k vyhodnoceni, neni v tom RjEpochCh
             iEp = true(obj.epochs,1); %musim predat nejaky parametr, ale uz ho ted nepotrebuju, kvuli iEpCh - 8.6.2018
             EEGStat = CEEGStat(obj.d,obj.fs);
             WpA = obj.WpActive; %jen zkratka
@@ -439,7 +439,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             obj.Wp(WpA).Dparams = timewindow; %hodnoty pro zpetnou kontrolu
             obj.Wp(WpA).Dfdr = 1;
             obj.Wp(WpA).DiEp = iEp; %index zpracovanych epoch 
-            obj.Wp(WpA).DiEpCh = iEpCh; %index zpracovanych epochCh, pro ruzne kanaly budou ruzna data je u tridy CHilbertMulti 
+            obj.Wp(WpA).DiEpCh = iEpCh & ~obj.RjEpochCh; %index zpracovanych epochCh, pro ruzne kanaly budou ruzna data je u tridy CHilbertMulti 
             obj.Wp(WpA).epochtime = obj.epochtime;
             obj.Wp(WpA).baseline = obj.baseline; %pro zpetnou kontrolu, zaloha parametru
             
@@ -652,8 +652,9 @@ classdef CiEEGData < matlab.mixin.Copyable
                 %spocitam prumery celkove i za kazdou kategorii v kazdem casovem intervalu
                 % dve cisla v kazdem sloupci - od do ve vterinach   
                 iintervalyData = min(round((intervaly(int,:)-obj.epochtime(1)).*obj.fs),size(obj.d,1)); % pro katdata kde je na zacatku baseline             
-                iintervalyStat = min(round(intervaly(int,:).*obj.fs),size(obj.Wp(obj.WpActive).WpKat{1,2},1)); % pro statistiku obj.Wp.WpKat, kde na zacatku neni baseline
+                iintervalyStat = min(round(intervaly(int,:).*obj.fs) , size(obj.Wp(obj.WpActive).WpKat{1,2},1)); % pro statistiku obj.Wp.WpKat, kde na zacatku neni baseline
                 iintervalyStat(1) = iintervalyStat(1) + (diff(iintervalyStat)-diff(iintervalyData)); %korekce zaokrouhlovani, posunu zacatek iintervalyStat aby stejne dlouhe jako iintervalyData
+                if iintervalyStat(1)<=0, iintervalyStat = iintervalyStat + diff([iintervalyStat(1) 1]); end %aby od 1, kvuli vzorkovani d-size 51 vzorku je 0.7969s
                 %katdata = obj.CategoryData(kats); 
                 %iCh = min(obj.Wp.D2(iintervalyStat(1):iintervalyStat(2),channels),[],1) < 0.05; %kanaly kde je signifikantni rozdil vuci baseline, alesponjednou
                 %prumery(iCh,j,1) = mean(mean(katdata(iintervalyData(1):iintervalyData(2),iCh,:),3),1); %prumer za vsechy epochy a cely casovy interval

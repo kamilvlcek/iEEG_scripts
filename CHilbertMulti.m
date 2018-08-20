@@ -248,6 +248,7 @@ classdef CHilbertMulti < CHilbert
                 obj.PsyData.GetPsyData(P); %vlozim nova data pro tento subjekt a aktivuju je
                 %obj.PsyData.P.pacientid = [ obj.PsyData.P.pacientid ',' P.pacientid]; %spojim pacient ID od vice pacientu
                 %ostatni psydata zatim nepouzivam, reakcni uspesnost a rychlost bude u kazdeno jina
+                %sloupec zpetnavazba pro test PPA uz je v puvodnich extraktech takze ho nemusim doplnovat
             end            
             obj.PsyData.RemoveTraining(); %odstranim treninkove trialy
         end
