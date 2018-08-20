@@ -113,7 +113,7 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 
         function [blocks, srate, test, kategorie]= GetBlocks(obj)
             %vraci promenne pro bloky o stejne kategorii
-            b1 = [find(obj.P.data(2:end,obj.P.sloupce.kategorie) ~= obj.P.data(1:end-1,7)); size(obj.P.data,1)]; %konce bloku
+            b1 = [find(obj.P.data(2:end,obj.P.sloupce.kategorie) ~= obj.P.data(1:end-1,obj.P.sloupce.kategorie)); size(obj.P.data,1)]; %konce bloku
             b0 = [ 1; (b1(1:end-1)+1)]; %zacatky bloku
             kategorie = obj.P.data(b0,obj.P.sloupce.kategorie);            
             if isempty(obj.blocks)
@@ -145,7 +145,7 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             S = obj.P.sloupce;          
             
             chyby = zeros(size(obj.P.data,1),4); %ctyri sloupce - chybne trials a chybne bloky, trening, prilis rychle reakcni casy
-            chyby(:,1) = obj.P.data(:,S.spravne)==0;
+            chyby(:,1) = obj.P.data(:,S.spravne)==0; %pro PPA jsou vsechny ovoce spatne. Sloupec spravne je u ovoce vzdy 0, chyba v PHP asi
             rt = obj.ReactionTime(1); %reakcni casy podle Sychropulsu
             rtPsy = obj.P.data(:,S.rt); %reakcni cas podle psychopy
             chyby(:,4) = rt(:,1) < 0.1 | (rtPsy(:,1) < 0.1 & rtPsy(:,1) > 0);  %v PPA clovek nereaguje spravne, takze 0 jako cas odpovedi me nezajima 
@@ -271,7 +271,7 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             obj.P.data = obj.P.data(test,:);
         end
     end
-    methods  (Access = private)
+    methods  (Access = protected)
         function [obj] = DoplnZpetnavazba(obj)
             %doplni sloupec zpetnavazba, pokud neexistuje a naplni ho nulama
             if isstruct(obj.P) && ~isfield(obj.P.sloupce,'zpetnavazba')                
