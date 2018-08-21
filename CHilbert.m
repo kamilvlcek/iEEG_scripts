@@ -273,10 +273,11 @@ classdef CHilbert < CiEEGData
         function obj = PlotResponseFreq(obj,ch,kategories)
             %uchovani stavu grafu, abych ho mohl obnovit a ne kreslit novy
             if ~exist('ch','var')
-                if isfield(obj.plotF,'ch'), ch = obj.plotF.ch;
-                else ch = 1; obj.plotF.ch = ch; end
+                if isfield(obj.plotF,'ch'), ch =  obj.CH.sortorder(obj.plotF.ch); %vytahnu cislo kanalu podle ulozeneho indexu
+                else, obj.plotF.ch = 1; ch =  obj.CH.sortorder(1); end
             else
-                obj.plotF.ch = ch;
+                obj.plotF.ch = ch; %tady bude ulozeny index sortorder, parametr ch urcuje index v sortorder
+                ch =  obj.CH.sortorder(ch); %promenna ch uz urcuje skutecne cislo kanalu
             end
             
             if ~exist('kategories','var')
@@ -331,7 +332,8 @@ classdef CHilbert < CiEEGData
                 caxis([miny,maxy]);               
                 title( obj.PsyData.CategoryName(cellval(kategories,k)));
                 if k == 1
-                    ylabel(['channel ' num2str(ch) ' - freq [Hz]']); 
+                    chstr = iff(isempty(obj.CH.sortedby),num2str(ch), [ num2str(ch) '(' obj.CH.sortedby  num2str(obj.plotRCh.ch) ')' ]);
+                    ylabel(['channel ' chstr ' - freq [Hz]']); 
                     if isprop(obj,'plotRCh') && isfield(obj.plotRCh,'selCh') && sum(obj.plotRCh.selCh==ch)>0
                         text(0,obj.Hf(1),'*', 'FontSize', 24,'Color','red');
                     end

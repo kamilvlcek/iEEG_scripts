@@ -788,10 +788,11 @@ classdef CiEEGData < matlab.mixin.Copyable
             %uchovani stavu grafu, abych ho mohl obnovit a ne kreslit novy
             assert(obj.epochs > 1,'only for epoched data');
             if ~exist('ch','var')
-                if isfield(obj.plotEp,'ch'), ch = obj.plotEp.ch;
-                else, ch = 1; obj.plotEp.ch = ch; end
+                if isfield(obj.plotEp,'ch'), ch =  obj.CH.sortorder(obj.plotEp.ch); %vytahnu cislo kanalu podle ulozeneho indexu
+                else,  obj.plotEp.ch = 1; ch =  obj.CH.sortorder(1); end
             else
-                obj.plotEp.ch = ch;
+                obj.plotEp.ch = ch; %tady bude ulozeny index sortorder, parametr ch urcuje index v sortorder
+                ch =  obj.CH.sortorder(ch); %promenna ch uz urcuje skutecne cislo kanalu
             end
             if ~exist('kategories','var')
                 if isfield(obj.plotEp,'kategories'), kategories = obj.plotEp.kategories;
@@ -868,7 +869,10 @@ classdef CiEEGData < matlab.mixin.Copyable
                     ylim([miny,maxy]);
                     line([0 0],[miny maxy ],'Color','black','LineWidth',1);
                 end
-                if k == 1, ylabel([ 'Epochs - channel ' num2str(ch)]); end %ylabel jen u prniho obrazku
+                if k == 1
+                    chstr = iff(isempty(obj.CH.sortedby),num2str(ch), [ num2str(ch) '(' obj.CH.sortedby  num2str(obj.plotRCh.ch) ')' ]);
+                    ylabel([ 'Epochs - channel ' chstr]); 
+                end %ylabel jen u prniho obrazku
                 if k == numel(kategories), colorbar('Position',[0.92 0.1 0.02 0.82]); end
             end
             methodhandle = @obj.hybejPlotEpochs;
@@ -1719,6 +1723,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                case 'space' %zobrazi i prumerne krivky - vsechny epochy a vsechny frekvence
                    if isa(obj,'CHilbert'), obj.PlotResponseFreq(obj.plotRCh.ch,obj.Wp(obj.WpActive).kats); end %vykreslim vsechna frekvencni pasma
                    obj.PlotEpochs(obj.plotRCh.ch,obj.Wp(obj.WpActive).kats); %vykreslim prumery freq u vsech epoch
+                   obj.CH.ChannelPlot2D(obj.plotRCh.ch); %vykreslim obrazek mozku s vybranym kanalem
                    figure(obj.plotRCh.fh); %dam puvodni obrazek dopredu
                case {'add' ,  'equal','f'}     % + oznaceni kanalu
                    obj.SelChannel(obj.plotRCh.ch);

@@ -12,6 +12,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         filterMatrix; %kopie filterMatrix, vytvari se pri zmene reference
         sortorder; %index serazenych kanalu
         sortedby; %podle ceho jsou kanaly serazeny
+        plotCh2D; 
     end
     
     methods (Access = public)
@@ -104,6 +105,8 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         function [XYZ,obj] = ChannelPlot(obj,pohled,labels,XYZ2)
             %zobrazi 3D obrazek elektrod v MNI prostoru. Obrazek ma rozmery podle rozmeru mozku
             %pohled muze urcti smer pohledu s-sagital,c-coronal,h-horizontal
+            if ~exist('pohled','var') || isempty(pohled), pohled = ''; end
+            if ~exist('labels','var') || isempty(labels), labels = 0; end
             if isfield(obj.H.channels,'MNI_x')
                 figure('Name','ChannelPlot in MNI');                
                 [obj,chgroups] = obj.ChannelGroups(); %#ok<PROPLC>          
@@ -138,7 +141,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 xlabel('MNI X'); %levoprava souradnice
                 ylabel('MNI Y'); %predozadni souradnice
                 zlabel('MNI Z'); %hornodolni
-                if ~exist('pohled','var') || isempty(pohled), pohled = ''; end
+                
                 switch pohled
                     case 's' %sagital = levoprava
                         view([-1 0 0]); %zleva
@@ -159,6 +162,62 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             else
                 disp('No MNI data');
             end
+        end
+        function ChannelPlot2D(obj,chsel)
+            x = [obj.H.channels(:).MNI_x];
+            y = [obj.H.channels(:).MNI_y];
+            z = [obj.H.channels(:).MNI_z];            
+            load('GMSurfaceMesh.mat'); %seda hmota v MNI
+            
+            if isfield(obj.plotCh2D,'fh') && ishandle(obj.plotCh2D.fh)
+                figure(obj.plotCh2D.fh); %pouziju uz vytvoreny graf
+                clf(obj.plotCh2D.fh); %graf vycistim
+            else
+                obj.plotCh2D.fh = figure('Name','ChannelPlot2D in MNI');                     
+            end            
+                   
+            subplot(1,2,1);
+            %axialni plot
+            scatter(GMSurfaceMesh.node(:,1),GMSurfaceMesh.node(:,2),'.','MarkerEdgeAlpha',.1); %seda hmota normalizovaneho mozku
+            el0 = 1;
+            hold on;
+            for ie = 1:numel(obj.els)                
+                plot(x(el0:obj.els(ie)),y(el0:obj.els(ie)),'-o'); %plot kontaktu jedne elektrody
+                for ch = el0:obj.els(ie)
+                    th = text(x(ch),y(ch),num2str(ch));
+                    th.FontSize = 8;
+                end
+                el0 = obj.els(ie)+1;                
+            end
+            if ~isempty(chsel)
+                plot(x(obj.sortorder(chsel)),y(obj.sortorder(chsel)),'o','MarkerSize',7,'MarkerEdgeColor','r','MarkerFaceColor','r'); 
+                chstr = iff(isempty(obj.sortedby),num2str(chsel), [ num2str(obj.sortorder(chsel)) '(' obj.sortedby  num2str(chsel) ')' ]);
+                title( [ 'channel ' chstr ]);
+            end
+            text(-70,70,'LEVA');
+            text(55,70,'PRAVA');  
+            axis equal;            
+            xlabel('MNI X'); %levoprava souradnice
+            ylabel('MNI Y'); %predozadni souradnice
+           
+            subplot(1,2,2);
+            %sagitalni plot
+            scatter(GMSurfaceMesh.node(:,2),GMSurfaceMesh.node(:,3),'.','MarkerEdgeAlpha',.1);   %seda hmota normalizovaneho mozku
+            hold on;      
+            for ie = 1:numel(obj.els)                
+                plot(y(el0:obj.els(ie)),z(el0:obj.els(ie)),'-o'); %plot kontaktu jedne elektrody
+                for ch = el0:obj.els(ie)
+                    th = text(y(ch),z(ch),num2str(ch));
+                    th.FontSize = 8;
+                end
+                el0 = obj.els(ie)+1;                
+            end  
+            if ~isempty(chsel)
+                plot(y(obj.sortorder(chsel)),z(obj.sortorder(chsel)),'o','MarkerSize',7,'MarkerEdgeColor','r','MarkerFaceColor','r'); 
+            end
+            axis equal;
+            xlabel('MNI Y'); %predozadni souradnice
+            ylabel('MNI Z'); %hornodolni
         end
         function tag= PacientTag(obj)
             %vraci tag pacienta, napriklad p73
