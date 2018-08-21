@@ -10,6 +10,8 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         RjCh;
         BrainAtlas_zkratky; %tabulka od Martina Tomaska
         filterMatrix; %kopie filterMatrix, vytvari se pri zmene reference
+        sortorder; %index serazenych kanalu
+        sortedby; %podle ceho jsou kanaly serazeny
     end
     
     methods (Access = public)
@@ -26,7 +28,9 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
 %             for iE = 1:numel(idx)
 %                 obj.E{iE}= E{idx};
 %             end
-             obj = obj.SelChannels();   
+             obj = obj.SelChannels(); 
+             obj.sortorder = 1:numel(obj.H.channels); %defaultni sort order
+             obj.sortedby = '';
         end
         
         function [obj, chgroups, els] = ChannelGroups(obj)
@@ -278,6 +282,24 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             end
             obj.H = H; %#ok<PROPLC> %prepisu puvodni ulozeny header
             obj.SetFilterMatrix(filterMatrix); %#ok<PROPLC> %uchovam si filterMatrix na pozdeji, kvuli prepoctu RjEpochCh
+        end
+        function obj = SortChannels(obj,by)
+            %seradi kanaly podle vybrane MNI souradnice a ulozi do sortorder
+            if ~exist('by','var')
+                obj.sortorder = 1:numel(obj.H.channels);
+                obj.sortedby = '';
+            elseif strcmp(by,'x')
+                [~,obj.sortorder]=sort([obj.H.channels(:).MNI_x]);                
+                obj.sortedby = 'x';
+            elseif strcmp(by,'y')
+                [~,obj.sortorder]=sort([obj.H.channels(:).MNI_y]);                
+                obj.sortedby = 'y';
+            elseif strcmp(by,'z')
+                [~,obj.sortorder]=sort([obj.H.channels(:).MNI_z]); 
+                obj.sortedby = 'z';
+            else
+                disp(['nezname razeni podle ' by]); 
+            end
         end
     end
     

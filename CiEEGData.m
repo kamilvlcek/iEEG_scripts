@@ -216,7 +216,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 obj.plotRCh.selCh = selCh;
             end
         end
-        
+ 
         function obj = ExtractEpochs(obj, psy,epochtime,baseline)
             % psy je struct dat z psychopy, 
             % epochtime je array urcujici delku epochy v sec pred a po podnetu/odpovedi: [pred pod podnet=0/odpoved=1]
@@ -1089,10 +1089,16 @@ classdef CiEEGData < matlab.mixin.Copyable
                 obj.plotRCh.pvalue = pvalue;
             end
             if ~exist('ch','var')
-                if isfield(obj.plotRCh,'ch'), ch = obj.plotRCh.ch;
-                else ch = 1; obj.plotRCh.ch = ch; end
+                if isfield(obj.plotRCh,'ch')
+                    ch = obj.CH.sortorder(obj.plotRCh.ch); %vytahnu cislo kanalu podle ulozeneho indexu
+                else
+                    ch = obj.CH.sortorder(1); %prvni kanal podle sortorder
+                    obj.plotRCh.ch = 1; 
+                end
             else
-                obj.plotRCh.ch = ch;
+                obj.plotRCh.ch = ch; %tady bude ulozeny index sortorder, parametr ch urcuje index v sortorder
+                ch = obj.CH.sortorder(ch); %promenna ch uz urcuje skutecne cislo kanalu
+                
             end
             WpA = obj.WpActive; %jen zkratka
             if ~exist('kategories','var') || isempty(kategories) 
@@ -1306,8 +1312,8 @@ classdef CiEEGData < matlab.mixin.Copyable
                 uistack(h_mean, 'top'); %uplne nahoru dam prumer vsech kategorii
             end 
             
-           
-            title(['channel ' num2str(ch) '/' num2str(obj.channels) ' - ' obj.PacientID()], 'Interpreter', 'none'); % v titulu obrazku bude i pacientID napriklad p132-VT18
+            chstr = iff(isempty(obj.CH.sortedby),num2str(ch), [ num2str(ch) '(' obj.CH.sortedby  num2str(obj.plotRCh.ch) ')' ]);
+            title(['channel ' chstr '/' num2str(obj.channels) ' - ' obj.PacientID()], 'Interpreter', 'none'); % v titulu obrazku bude i pacientID napriklad p132-VT18
             text(-0.1,ymax*.95,[ obj.CH.H.channels(1,ch).name ' : ' obj.CH.H.channels(1,ch).neurologyLabel ',' obj.CH.H.channels(1,ch).ass_brainAtlas]);
             if  isfield(obj.CH.H.channels,'MNI_x') %vypisu MNI souradnice
                 text(-0.1,ymax*.90,[ 'MNI:' num2str(obj.CH.H.channels(1,ch).MNI_x) ',' num2str(obj.CH.H.channels(1,ch).MNI_y ) ',' num2str(obj.CH.H.channels(1,ch).MNI_z)]);
@@ -1745,6 +1751,18 @@ classdef CiEEGData < matlab.mixin.Copyable
                        obj.WpActive = obj.WpActive - 1;
                        obj.PlotResponseCh();
                    end
+               case 'period'     % prepinani razeni kanalu
+                   switch obj.CH.sortedby
+                       case ''
+                           obj.CH.SortChannels('x');
+                       case 'x'
+                           obj.CH.SortChannels('y');
+                       case 'y'
+                           obj.CH.SortChannels('z');
+                       case 'z'
+                           obj.CH.SortChannels();
+                   end 
+                   obj.PlotResponseCh();
                otherwise
                    disp(['You just pressed: ' eventDat.Key]);
            end
