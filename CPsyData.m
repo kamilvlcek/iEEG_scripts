@@ -114,9 +114,13 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         function [blocks, srate, test, kategorie]= GetBlocks(obj)
             %vraci promenne pro bloky o stejne kategorii
             b1 = [find(obj.P.data(2:end,obj.P.sloupce.kategorie) ~= obj.P.data(1:end-1,obj.P.sloupce.kategorie)); size(obj.P.data,1)]; %konce bloku
+            if min(diff(b1)) == 1
+                b1 = (1:size(obj.P.data,1))'; %pro PPA test - pokud jsou nektere bloky velikosti 1, tak je udelam vsechy tak mal
+            end %jinak to dela problemy pri prohazeni a pocitam srate
             b0 = [ 1; (b1(1:end-1)+1)]; %zacatky bloku
             kategorie = obj.P.data(b0,obj.P.sloupce.kategorie);            
-            if isempty(obj.blocks)
+            blocks = [b0 b1];
+            if isempty(obj.blocks) || size(blocks,1) ~= numel(obj.blocks.srate)
                 obj.blocks.srate = zeros(numel(b0),1); % prumerna uspesnost za blok
                 obj.blocks.test = ones(numel(b0),1); %jestli by blok testovy, tady nastavim ze vsechny
                 for block = 1:numel(b0)
@@ -127,7 +131,7 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             end
             srate = obj.blocks.srate;
             test = obj.blocks.test;
-            blocks = [b0 b1];
+            
         end
         
         function [resp,rt,kat,test] = GetResponses(obj)
