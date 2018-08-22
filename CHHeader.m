@@ -163,7 +163,9 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 disp('No MNI data');
             end
         end
-        function ChannelPlot2D(obj,chsel)
+        function ChannelPlot2D(obj,chsel,selCh)
+            if ~exist('chsel','var'), chsel = []; end %promenna na jeden cerveny kanal
+            if ~exist('selCh','var'), selCh = []; end %promenna na vic cernych kanaly, pro obj.PlotRCh.SelCh
             x = [obj.H.channels(:).MNI_x];
             y = [obj.H.channels(:).MNI_y];
             z = [obj.H.channels(:).MNI_z];            
@@ -194,6 +196,9 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 chstr = iff(isempty(obj.sortedby),num2str(chsel), [ num2str(obj.sortorder(chsel)) '(' obj.sortedby  num2str(chsel) ')' ]);
                 title( [ 'channel ' chstr ]);
             end
+            if ~isempty(selCh) %hromadne vybrane kanaly, zobrazne cernym koleckem
+                plot(x(obj.sortorder(selCh)),y(obj.sortorder(selCh)),'o','MarkerSize',5,'MarkerEdgeColor','k','MarkerFaceColor','k');
+            end
             text(-70,70,'LEVA');
             text(55,70,'PRAVA');  
             axis equal;            
@@ -214,6 +219,9 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             end  
             if ~isempty(chsel)
                 plot(y(obj.sortorder(chsel)),z(obj.sortorder(chsel)),'o','MarkerSize',7,'MarkerEdgeColor','r','MarkerFaceColor','r'); 
+            end
+            if ~isempty(selCh) %hromadne vybrane kanaly, zobrazne cernym koleckem
+                plot(y(obj.sortorder(selCh)),z(obj.sortorder(selCh)),'o','MarkerSize',5,'MarkerEdgeColor','k','MarkerFaceColor','k');
             end
             axis equal;
             xlabel('MNI Y'); %predozadni souradnice

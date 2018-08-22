@@ -205,15 +205,22 @@ classdef CiEEGData < matlab.mixin.Copyable
                  selCh = [];
             end
         end
-        function obj = SetSelCh(obj,selCh)
+        function obj = SetSelCh(obj,selCh,markno)
             %nastaveni vsechny vybrane kanaly najednou
-            if selCh(end) >=999 %kdy zadam 999 nebo vyssi cislo, tak se vyberou vsechny kanaly
-                obj.plotRCh.selCh = 1:obj.channels;
+            if ~exist('markno','var'), markno = 1; end
+            if isempty(selCh)
+                obj.plotRCh.selCh = zeros(obj.channels,6);                
+            elseif selCh(end) >=999 %kdy zadam 999 nebo vyssi cislo, tak se vyberou vsechny kanaly
+                obj.plotRCh.selCh = zeros(obj.channels,6);
+                obj.plotRCh.selCh(:,1) = ones(obj.channels,1); %prvni mark nastavim vsude 1
             elseif selCh(1) <= -1
-                NOTselCh = setdiff(1:obj.channels,obj.plotRCh.selCh); 
-                obj.plotRCh.selCh = NOTselCh; %vyberu ty kanaly ted nevybrane
+                obj.plotRCh.selCh = double(~ obj.plotRCh.selCh); %zeros dela taky double type
+            elseif max(selCh) > 1
+                obj.plotRch.selCh(selCh,1) = 1; %budu predpokladat ze to jsou cisla kanalu
+            elseif size(selCh,2) == 1
+                obj.plotRCh.selCh(:,markno) = selCh; %jen jedna znacka najednou
             else
-                obj.plotRCh.selCh = selCh;
+                obj.plotRCh.selCh = selCh; %cele pole najednou
             end
         end
  
@@ -686,9 +693,10 @@ classdef CiEEGData < matlab.mixin.Copyable
                     Pmax(kat) = max(P); %maximum pro kategorii pres vsechny kanaly
                     if dofig
                         ploth(kat) = plot(P','o-','Color',colorskat{kat}); %kreslim tuto kategorii                       
-                        hold on;
-                        if ~isempty(obj.plotRCh.selCh) %pokud existuji nejake vybrane kanaly, vykreslim je plnou barvou
-                            plot(obj.plotRCh.selCh,P(obj.plotRCh.selCh)','o','Color',colorskat{kat},'MarkerFaceColor', colorskat{kat});
+                        hold on;           
+                        selCh = find(any(obj.plotRCh.selCh,2)); %indexy jakkoliv oznacenych kanalu
+                        if ~isempty(selCh) %pokud existuji nejake vybrane kanaly, vykreslim je plnou barvou
+                            plot(selCh,P(selCh)','o','Color',colorskat{kat},'MarkerFaceColor', colorskat{kat});
                         end
                     end
                     iChKats(1,:) = iChKats(1,:) | iCh; %pridam dalsi kanaly, kde je signif odpoved                                        
@@ -720,8 +728,9 @@ classdef CiEEGData < matlab.mixin.Copyable
                     colorindex = colorkombinace{kombinace(kat,2),kombinace(kat,1)};
                     if dofig %kreslim rozdily mezi odpovedmi pro kategorie                        
                         ph = plot(P'+yKombinace,'o-','Color',colorskat{colorindex}); %kreslim tuto kombinaci kategorii nahoru                        
-                        if ~isempty(obj.plotRCh.selCh) %pokud existuji nejake vybrane kanaly, vykreslim je plnou barvou
-                            plot(obj.plotRCh.selCh,P(obj.plotRCh.selCh)'+yKombinace,'o','Color',colorskat{colorindex},'MarkerFaceColor', colorskat{colorindex});
+                        selCh = find(any(obj.plotRCh.selCh,2)); %indexy jakkoliv oznacenych kanalu
+                        if ~isempty(selCh) %pokud existuji nejake vybrane kanaly, vykreslim je plnou barvou
+                            plot(selCh,P(selCh)'+yKombinace,'o','Color',colorskat{colorindex},'MarkerFaceColor', colorskat{colorindex});
                         end
                         if kat>numel(kats), ploth(kat) = ph; end %pokud je kombinaci vic nez kategorii, ulozim si handle, budu ho potrebovat na legendu
                     end
@@ -1336,8 +1345,9 @@ classdef CiEEGData < matlab.mixin.Copyable
             else
                 text(-0.1,ymax*.85,['no epiinfo']);
             end
-            if isprop(obj,'plotRCh') && isfield(obj.plotRCh,'selCh') && sum(obj.plotRCh.selCh==ch)>0
-                text(-0.18,ymax*.95,'*', 'FontSize', 24,'Color','red');
+            if isprop(obj,'plotRCh') && isfield(obj.plotRCh,'selCh') && any(obj.plotRCh.selCh(ch,:),2)==1                
+                klavesy = 'fghjkl'; %abych mohl vypsat primo nazvy klaves vedle hvezdicky podle selCh
+                text(-0.18,ymax*.95,['*' klavesy(logical(obj.plotRCh.selCh(ch,:)))], 'FontSize', 12,'Color','red');
             end
             methodhandle = @obj.hybejPlotCh;
             set(obj.plotRCh.fh,'KeyPressFcn',methodhandle);          
@@ -1562,6 +1572,9 @@ classdef CiEEGData < matlab.mixin.Copyable
             if ismember('selCh', {vars.name}) %nastaveni grafu PlotResponseCh
                 load(filename,'selCh'); obj.plotRCh.selCh = selCh;          %#ok<CPROPLC,CPROP,PROP> 
             end
+            if isempty(obj.plotRCh.selCh) %kdyz to je prazdne, tak to pak zlobi, musi byt zeros
+                obj.SetSelCh([]); %nastavim prazdne - zadne vybrane kanaly
+            end
             %obj.plotH = plotH;             %#ok<CPROPLC,CPROP,PROP> 
             obj.RjCh = RjCh;                %#ok<CPROPLC,CPROP,PROP>     
             obj.RjEpoch = RjEpoch;          %#ok<CPROPLC,CPROP,PROP> 
@@ -1723,19 +1736,30 @@ classdef CiEEGData < matlab.mixin.Copyable
                case 'space' %zobrazi i prumerne krivky - vsechny epochy a vsechny frekvence
                    if isa(obj,'CHilbert'), obj.PlotResponseFreq(obj.plotRCh.ch,obj.Wp(obj.WpActive).kats); end %vykreslim vsechna frekvencni pasma
                    obj.PlotEpochs(obj.plotRCh.ch,obj.Wp(obj.WpActive).kats); %vykreslim prumery freq u vsech epoch
-                   obj.CH.ChannelPlot2D(obj.plotRCh.ch); %vykreslim obrazek mozku s vybranym kanalem
+                   figure(obj.plotRCh.fh); %dam puvodni obrazek dopredu
+               case 'return' %zobrazi obrazek mozku s vybranych kanalem                   
+                   selCh = find(any(obj.plotRCh.selCh,2)); %seznam cisel vybranych kanalu
+                   obj.CH.ChannelPlot2D(obj.plotRCh.ch,selCh); %vykreslim obrazek mozku s vybranym kanalem
                    figure(obj.plotRCh.fh); %dam puvodni obrazek dopredu
                case {'add' ,  'equal','f'}     % + oznaceni kanalu
                    obj.SelChannel(obj.plotRCh.ch);
                    obj.PlotResponseCh( obj.plotRCh.ch); %prekreslim grafy
+               case {'g','h'}     % + oznaceni kanalu Mark 2-6
+                   obj.SelChannel(obj.plotRCh.ch,eventDat.Key - 'f' +1 ); %g je 2, f je 1
+                   obj.PlotResponseCh( obj.plotRCh.ch); %prekreslim grafy
+               case {'j','k','l'}     % + oznaceni kanalu Mark 2-6
+                   obj.SelChannel(obj.plotRCh.ch,eventDat.Key - 'f' ); %g je 2, f je 1
+                   obj.PlotResponseCh( obj.plotRCh.ch); %prekreslim grafy
                case {'numpad6','d'}     % skok na dalsi oznaceny kanal   
                    if isfield(obj.plotRCh,'selCh')
-                        chn2 = obj.plotRCh.selCh( find(obj.plotRCh.selCh>obj.plotRCh.ch,1) );
-                        obj.PlotResponseCh( iff(isempty(chn2),obj.plotRCh.ch,chn2) ); %prekreslim grafy                        
+                       selCh = find(any(obj.plotRCh.selCh,2)); %seznam cisel vybranych kanalu
+                       chn2 = selCh(find(selCh>obj.plotRCh.ch,1)); %dalsi vyznaceny kanal
+                       obj.PlotResponseCh( iff(isempty(chn2),obj.plotRCh.ch,chn2) ); %prekreslim grafy                        
                    end                   
                case {'numpad4','a'}     % skok na predchozi oznaceny kanal
                    if isfield(obj.plotRCh,'selCh')
-                       chn2 = obj.plotRCh.selCh( find(obj.plotRCh.selCh<obj.plotRCh.ch,1,'last') );
+                       selCh = find(any(obj.plotRCh.selCh,2)); %seznam cisel vybranych kanalu
+                       chn2 =  selCh(find(selCh<obj.plotRCh.ch,1,'last')) ;
                        obj.PlotResponseCh( iff(isempty(chn2),obj.plotRCh.ch,chn2) ); %prekreslim grafy
                    end
                case {'numpad9','e'}     % skok na dalsi kanal s nejakou signifikanci
@@ -1899,14 +1923,15 @@ classdef CiEEGData < matlab.mixin.Copyable
         end
     end
     methods  (Access = protected)
-        function obj = SelChannel(obj,ch)
+        function obj = SelChannel(obj,ch,markno)
             %vybere nebo odebere jeden kanal
+            if ~exist('markno','var'), markno = 1; end
+            assert(markno <= 6,'moc vysoke cislo znacky');
             if ~isfield(obj.plotRCh,'selCh')
-                obj.plotRCh.selCh = ch; %prvni vybrany kanal
-            elseif sum(obj.plotRCh.selCh==ch)>0 
-                obj.plotRCh.selCh(obj.plotRCh.selCh==ch) = []; %vymazu kanal z vyberu
+                obj.plotRCh.selCh = zeros(obj.channels,6); %6 ruznych znacek moznych
+                obj.plotRCh.selCh(ch,markno) = 1; %prvni vybrany kanal
             else
-                obj.plotRCh.selCh = sort([obj.plotRCh.selCh ch]); %pridam kanal k vyberu                
+                obj.plotRCh.selCh(ch,markno) = 1 - obj.plotRCh.selCh(ch,markno); %pridam kanal k vyberu , nebo odeberu             
             end
         end
         

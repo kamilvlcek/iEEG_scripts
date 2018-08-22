@@ -334,8 +334,9 @@ classdef CHilbert < CiEEGData
                 if k == 1
                     chstr = iff(isempty(obj.CH.sortedby),num2str(ch), [ num2str(ch) '(' obj.CH.sortedby  num2str(obj.plotRCh.ch) ')' ]);
                     ylabel(['channel ' chstr ' - freq [Hz]']); 
-                    if isprop(obj,'plotRCh') && isfield(obj.plotRCh,'selCh') && sum(obj.plotRCh.selCh==ch)>0
-                        text(0,obj.Hf(1),'*', 'FontSize', 24,'Color','red');
+                    if isprop(obj,'plotRCh') && isfield(obj.plotRCh,'selCh') && any(obj.plotRCh.selCh(ch,:),2)==1        
+                        klavesy = 'fghjkl'; %abych mohl vypsat primo nazvy klaves vedle hvezdicky podle selCh
+                        text(0,obj.Hf(1),['*' klavesy(logical(obj.plotRCh.selCh(ch,:)))], 'FontSize', 15,'Color','red');
                     end
                 end
                 
