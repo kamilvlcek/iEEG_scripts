@@ -175,7 +175,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             else
                 obj.plotCh2D.chsel = chsel;
             end
-            
+            chsel = obj.sortorder(chsel);
             if ~exist('selCh','var')%promenna na vic cernych kanaly, pro obj.PlotRCh.SelCh
                 if isfield(obj.plotCh2D,'selCh')
                     selCh = obj.plotCh2D.selCh;
@@ -195,7 +195,9 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             y = [obj.H.channels(:).MNI_y];
             z = [obj.H.channels(:).MNI_z];            
             load('GMSurfaceMesh.mat'); %seda hmota v MNI
-            
+            size_ch = 10; %velikosti krouzko oznacujicich kanaly
+            size_selCh = 7;
+            x_text = -100;
             if isfield(obj.plotCh2D,'fh') && ishandle(obj.plotCh2D.fh)
                 figure(obj.plotCh2D.fh); %pouziju uz vytvoreny graf
                 clf(obj.plotCh2D.fh); %graf vycistim
@@ -216,13 +218,18 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 end
                 el0 = obj.els(ie)+1;                
             end
-            if ~isempty(chsel)
-                plot(x(obj.sortorder(chsel)),y(obj.sortorder(chsel)),'o','MarkerSize',7,'MarkerEdgeColor','r','MarkerFaceColor','r'); 
+            if ~isempty(chsel) %pokud je vybrany nejaky kanal
+                plot(x(chsel),y(chsel),'o','MarkerSize',size_ch,'MarkerEdgeColor','r','MarkerFaceColor','r'); 
                 chstr = iff(isempty(obj.sortedby),num2str(chsel), [ num2str(obj.sortorder(chsel)) '(' obj.sortedby  num2str(chsel) ')' ]);
                 title( [ 'channel ' chstr ]);
+                
             end
             if ~isempty(selCh) %hromadne vybrane kanaly, zobrazne cernym koleckem
-                plot(x(obj.sortorder(selCh)),y(obj.sortorder(selCh)),'o','MarkerSize',5,'MarkerEdgeColor','k','MarkerFaceColor','k');
+                barvy = 'bgcmky';
+                for m = 1:size(selCh,2) %jednu znacku za druhou
+                   ch = find(selCh(:,m)); %seznam cisel vybranych kanalu pro danou znacku
+                   plot(x(ch),y(ch),'o','MarkerSize',size_selCh,'MarkerEdgeColor',barvy(m),'MarkerFaceColor',barvy(m));
+                end
             end
             text(-70,70,'LEVA');
             text(55,70,'PRAVA');  
@@ -242,11 +249,32 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 end
                 el0 = obj.els(ie)+1;                
             end  
-            if ~isempty(chsel)
-                plot(y(obj.sortorder(chsel)),z(obj.sortorder(chsel)),'o','MarkerSize',7,'MarkerEdgeColor','r','MarkerFaceColor','r'); 
+            if ~isempty(chsel) %pokud je vybrany nejaky kanal
+                plot(y(chsel),z(chsel),'o','MarkerSize',size_ch,'MarkerEdgeColor','r','MarkerFaceColor','r'); 
+                
+                text(x_text,110,[ obj.H.channels(1,chsel).name]);
+                text(x_text,100,[ obj.H.channels(1,chsel).neurologyLabel ',' obj.H.channels(1,chsel).ass_brainAtlas]);
+                if  isfield(obj.H.channels,'MNI_x') %vypisu MNI souradnice
+                    text(x_text,90,[ 'MNI: ' num2str(round(obj.H.channels(1,chsel).MNI_x)) ', ' num2str(round(obj.H.channels(1,chsel).MNI_y )) ', ' num2str(round(obj.H.channels(1,chsel).MNI_z))]);
+                else
+                    text(x_text,90,'no MNI');
+                end                
             end
-            if ~isempty(selCh) %hromadne vybrane kanaly, zobrazne cernym koleckem
-                plot(y(obj.sortorder(selCh)),z(obj.sortorder(selCh)),'o','MarkerSize',5,'MarkerEdgeColor','k','MarkerFaceColor','k');
+            if ~isempty(selCh) %hromadne vybrane kanaly, zobrazne cernym koleckem                
+                barvy = 'bgcmky';
+                klavesy = 'fghjkl'; %abych mohl vypsat primo nazvy klaves vedle hvezdicky podle selCh
+                for m = 1:size(selCh,2) %jednu znacku za druhou
+                   ch = find(selCh(:,m)); %seznam cisel vybranych kanalu pro danou znacku
+                   if ~isempty(ch) %pokud jsou takove nejake vybrane kanaly
+                       plot(y(ch),z(ch),'o','MarkerSize',size_selCh,'MarkerEdgeColor',barvy(m),'MarkerFaceColor',barvy(m));
+                       th = text(x_text+m*10,-90,klavesy(m), 'FontSize', 15,'Color',barvy(m));
+                       th.BackgroundColor = [.6 .6 .6];
+                   end
+                end
+                if any(selCh(chsel,:),2)==1 %pokud je aktualni kanal jeden z vybranych                
+                    klavesy = 'fghjkl'; %abych mohl vypsat primo nazvy klaves vedle hvezdicky podle selCh
+                    text(x_text,80,['*' klavesy(logical(selCh(chsel,:)))], 'FontSize', 12,'Color','red');
+                end
             end
             axis equal;
             xlabel('MNI Y'); %predozadni souradnice
@@ -397,6 +425,19 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 disp(['nezname razeni podle ' by]); 
             end
         end
+        function obj = NextSortChOrder(obj) 
+            %zmeni na dalsi razeni kanalu v poradi, podle MNI souradnic
+            switch obj.sortedby
+               case ''
+                   obj.SortChannels('x');
+               case 'x'
+                   obj.SortChannels('y');
+               case 'y'
+                   obj.SortChannels('z');
+               case 'z'
+                   obj.SortChannels();
+            end 
+        end
     end
     
     %  --------- privatni metody ----------------------
@@ -438,11 +479,37 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
               switch eventDat.Key
                   case {'rightarrow','c'} %dalsi kanal
                       obj.ChannelPlot2D( min( [obj.plotCh2D.chsel + 1 , max(obj.H.selCh_H)]));
+                  case 'pagedown' %skok o 10 kanalu dopred
+                      obj.ChannelPlot2D( min( [obj.plotCh2D.chsel + 10 , max(obj.H.selCh_H)]));
                   case {'leftarrow','z'} %predchozi kanal
                       obj.ChannelPlot2D( max( [obj.plotCh2D.chsel - 1 , 1]));
+                  case 'pageup' %skok 10 kanalu dozadu
+                      obj.ChannelPlot2D( max( [obj.plotCh2D.chsel - 10, 1]));
                   case 'return' %zobrazi obrazek mozku s vybranych kanalem                   
                       obj.plotCh2D.plotChH(obj.plotCh2D.chsel); %vykreslim @obj.PlotResponseCh                     
                       figure(obj.plotCh2D.fh); %dam puvodni obrazek dopredu
+                  case 'home' %skok na prvni kanal
+                      obj.ChannelPlot2D(1);
+                  case 'end' %skok na posledni kanal
+                      obj.ChannelPlot2D( max(obj.H.selCh_H));
+                  case 'period'     % prepinani razeni kanalu
+                      sortorder0 = obj.sortorder; %musi si ulozit stare razeni, abych potom nasel ten spravny kanal
+                      obj.NextSortChOrder();                   
+                      obj.ChannelPlot2D(find(obj.sortorder==sortorder0(obj.plotCh2D.chsel))); %#ok<FNDSB> %takhle zustanu na tom stejnem kanale 
+                  case {'numpad6','d'}     % skok na dalsi oznaceny kanal   
+                    if isfield(obj.plotCh2D,'selCh') 
+                       selCh = find(any(obj.plotCh2D.selCh,2)); %seznam cisel vybranych kanalu
+                       iselCh = find(ismember(obj.sortorder,selCh)); %indexy vybranych kanalu v sortorder
+                       chn2 = iselCh(find(iselCh>obj.plotCh2D.chsel,1)); %dalsi vyznaceny kanal
+                       obj.ChannelPlot2D( iff(isempty(chn2),obj.plotCh2D.chsel,chn2) ); %prekreslim grafy                        
+                    end                   
+                  case {'numpad4','a'}     % skok na predchozi oznaceny kanal
+                    if isfield(obj.plotCh2D,'selCh')  
+                       selCh = find(any(obj.plotCh2D.selCh,2)); %seznam cisel vybranych kanalu
+                       iselCh = find(ismember(obj.sortorder,selCh)); %indexy vybranych kanalu v sortorder
+                       chn2 =  iselCh(find(iselCh < obj.plotCh2D.chsel,1,'last')) ;
+                       obj.ChannelPlot2D( iff(isempty(chn2),obj.plotCh2D.chsel,chn2) ); %prekreslim grafy
+                    end
               end
           end
     end

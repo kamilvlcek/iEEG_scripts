@@ -1329,7 +1329,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             title(['channel ' chstr '/' num2str(obj.channels) ' - ' obj.PacientID()], 'Interpreter', 'none'); % v titulu obrazku bude i pacientID napriklad p132-VT18
             text(-0.1,ymax*.95,[ obj.CH.H.channels(1,ch).name ' : ' obj.CH.H.channels(1,ch).neurologyLabel ',' obj.CH.H.channels(1,ch).ass_brainAtlas]);
             if  isfield(obj.CH.H.channels,'MNI_x') %vypisu MNI souradnice
-                text(-0.1,ymax*.90,[ 'MNI:' num2str(obj.CH.H.channels(1,ch).MNI_x) ',' num2str(obj.CH.H.channels(1,ch).MNI_y ) ',' num2str(obj.CH.H.channels(1,ch).MNI_z)]);
+                text(-0.1,ymax*.90,[ 'MNI: ' num2str(obj.CH.H.channels(1,ch).MNI_x) ', ' num2str(obj.CH.H.channels(1,ch).MNI_y ) ', ' num2str(obj.CH.H.channels(1,ch).MNI_z)]);
             else
                 text(-0.1,ymax*.90,'no MNI');
             end
@@ -1737,9 +1737,8 @@ classdef CiEEGData < matlab.mixin.Copyable
                    if isa(obj,'CHilbert'), obj.PlotResponseFreq(obj.plotRCh.ch,obj.Wp(obj.WpActive).kats); end %vykreslim vsechna frekvencni pasma
                    obj.PlotEpochs(obj.plotRCh.ch,obj.Wp(obj.WpActive).kats); %vykreslim prumery freq u vsech epoch
                    figure(obj.plotRCh.fh); %dam puvodni obrazek dopredu
-               case 'return' %zobrazi obrazek mozku s vybranych kanalem                   
-                   selCh = find(any(obj.plotRCh.selCh,2)); %seznam cisel vybranych kanalu
-                   obj.CH.ChannelPlot2D(obj.plotRCh.ch,selCh,@obj.PlotResponseCh); %#ok<FNDSB> %vykreslim obrazek mozku s vybranym kanalem
+               case 'return' %zobrazi obrazek mozku s vybranych kanalem                                     
+                   obj.CH.ChannelPlot2D(obj.plotRCh.ch,obj.plotRCh.selCh,@obj.PlotResponseCh);  %vykreslim obrazek mozku s vybranym kanalem
                    figure(obj.plotRCh.fh); %dam puvodni obrazek dopredu
                case {'add' ,  'equal','f'}     % + oznaceni kanalu
                    obj.SelChannel(obj.CH.sortorder(obj.plotRCh.ch));
@@ -1784,16 +1783,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                    end
                case 'period'     % prepinani razeni kanalu
                    sortorder0 = obj.CH.sortorder; %musi si ulozit stare razeni, abych potom nasel ten spravny kanal
-                   switch obj.CH.sortedby
-                       case ''
-                           obj.CH.SortChannels('x');
-                       case 'x'
-                           obj.CH.SortChannels('y');
-                       case 'y'
-                           obj.CH.SortChannels('z');
-                       case 'z'
-                           obj.CH.SortChannels();
-                   end 
+                   obj.CH.NextSortChOrder();                   
                    obj.PlotResponseCh(find(obj.CH.sortorder==sortorder0(obj.plotRCh.ch))); %#ok<FNDSB> %takhle zustanu na tom stejnem kanale 
                otherwise
                    disp(['You just pressed: ' eventDat.Key]);
