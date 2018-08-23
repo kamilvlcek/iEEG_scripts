@@ -12,7 +12,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         filterMatrix; %kopie filterMatrix, vytvari se pri zmene reference
         sortorder; %index serazenych kanalu
         sortedby; %podle ceho jsou kanaly serazeny
-        plotCh2D; 
+        plotCh2D; %udaje o 2D grafu kanalu, hlavne handle
     end
     
     methods (Access = public)
@@ -163,9 +163,34 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 disp('No MNI data');
             end
         end
-        function ChannelPlot2D(obj,chsel,selCh)
-            if ~exist('chsel','var'), chsel = []; end %promenna na jeden cerveny kanal
-            if ~exist('selCh','var'), selCh = []; end %promenna na vic cernych kanaly, pro obj.PlotRCh.SelCh
+        function ChannelPlot2D(obj,chsel,selCh,plotChH)
+            %vstupni promenne
+            if ~exist('chsel','var')%promenna na jeden cerveny kanal
+                if isfield(obj.plotCh2D,'chsel')
+                    chsel = obj.plotCh2D.chsel;
+                else
+                    chsel = 1;  
+                    obj.plotCh2D.chsel = 1;
+                end
+            else
+                obj.plotCh2D.chsel = chsel;
+            end
+            
+            if ~exist('selCh','var')%promenna na vic cernych kanaly, pro obj.PlotRCh.SelCh
+                if isfield(obj.plotCh2D,'selCh')
+                    selCh = obj.plotCh2D.selCh;
+                else
+                    selCh = []; 
+                    obj.plotCh2D.selCh = [];
+                end
+            else
+                obj.plotCh2D.selCh = selCh;
+            end
+            if exist('plotChH','var')  %handlet na funkci z CiEEGData @obj.PlotResponseCh
+                obj.plotCh2D.plotChH = plotChH;
+            end
+            
+            %vytvoreni figure
             x = [obj.H.channels(:).MNI_x];
             y = [obj.H.channels(:).MNI_y];
             z = [obj.H.channels(:).MNI_z];            
@@ -226,6 +251,10 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             axis equal;
             xlabel('MNI Y'); %predozadni souradnice
             ylabel('MNI Z'); %hornodolni
+            
+            %rozhybani obrazku
+            methodhandle = @obj.hybejPlot2D;
+            set(obj.plotCh2D.fh,'KeyPressFcn',methodhandle); 
         end
         function tag= PacientTag(obj)
             %vraci tag pacienta, napriklad p73
@@ -404,6 +433,17 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     bl = [bl '?'];
                 end
             end
+          end
+          function obj = hybejPlot2D(obj,~,eventDat) 
+              switch eventDat.Key
+                  case {'rightarrow','c'} %dalsi kanal
+                      obj.ChannelPlot2D( min( [obj.plotCh2D.chsel + 1 , max(obj.H.selCh_H)]));
+                  case {'leftarrow','z'} %predchozi kanal
+                      obj.ChannelPlot2D( max( [obj.plotCh2D.chsel - 1 , 1]));
+                  case 'return' %zobrazi obrazek mozku s vybranych kanalem                   
+                      obj.plotCh2D.plotChH(obj.plotCh2D.chsel); %vykreslim @obj.PlotResponseCh                     
+                      figure(obj.plotCh2D.fh); %dam puvodni obrazek dopredu
+              end
           end
     end
     

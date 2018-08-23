@@ -1739,27 +1739,29 @@ classdef CiEEGData < matlab.mixin.Copyable
                    figure(obj.plotRCh.fh); %dam puvodni obrazek dopredu
                case 'return' %zobrazi obrazek mozku s vybranych kanalem                   
                    selCh = find(any(obj.plotRCh.selCh,2)); %seznam cisel vybranych kanalu
-                   obj.CH.ChannelPlot2D(obj.plotRCh.ch,selCh); %vykreslim obrazek mozku s vybranym kanalem
+                   obj.CH.ChannelPlot2D(obj.plotRCh.ch,selCh,@obj.PlotResponseCh); %#ok<FNDSB> %vykreslim obrazek mozku s vybranym kanalem
                    figure(obj.plotRCh.fh); %dam puvodni obrazek dopredu
                case {'add' ,  'equal','f'}     % + oznaceni kanalu
-                   obj.SelChannel(obj.plotRCh.ch);
+                   obj.SelChannel(obj.CH.sortorder(obj.plotRCh.ch));
                    obj.PlotResponseCh( obj.plotRCh.ch); %prekreslim grafy
                case {'g','h'}     % + oznaceni kanalu Mark 2-6
-                   obj.SelChannel(obj.plotRCh.ch,eventDat.Key - 'f' +1 ); %g je 2, f je 1
+                   obj.SelChannel(obj.CH.sortorder(obj.plotRCh.ch),eventDat.Key - 'f' +1 ); %g je 2, f je 1
                    obj.PlotResponseCh( obj.plotRCh.ch); %prekreslim grafy
                case {'j','k','l'}     % + oznaceni kanalu Mark 2-6
-                   obj.SelChannel(obj.plotRCh.ch,eventDat.Key - 'f' ); %g je 2, f je 1
+                   obj.SelChannel(obj.CH.sortorder(obj.plotRCh.ch),eventDat.Key - 'f' ); %g je 2, f je 1
                    obj.PlotResponseCh( obj.plotRCh.ch); %prekreslim grafy
                case {'numpad6','d'}     % skok na dalsi oznaceny kanal   
                    if isfield(obj.plotRCh,'selCh')
                        selCh = find(any(obj.plotRCh.selCh,2)); %seznam cisel vybranych kanalu
-                       chn2 = selCh(find(selCh>obj.plotRCh.ch,1)); %dalsi vyznaceny kanal
+                       iselCh = find(ismember(obj.CH.sortorder,selCh)); %indexy vybranych kanalu v sortorder
+                       chn2 = iselCh(find(iselCh>obj.plotRCh.ch,1)); %dalsi vyznaceny kanal
                        obj.PlotResponseCh( iff(isempty(chn2),obj.plotRCh.ch,chn2) ); %prekreslim grafy                        
                    end                   
                case {'numpad4','a'}     % skok na predchozi oznaceny kanal
                    if isfield(obj.plotRCh,'selCh')
                        selCh = find(any(obj.plotRCh.selCh,2)); %seznam cisel vybranych kanalu
-                       chn2 =  selCh(find(selCh<obj.plotRCh.ch,1,'last')) ;
+                       iselCh = find(ismember(obj.CH.sortorder,selCh)); %indexy vybranych kanalu v sortorder
+                       chn2 =  iselCh(find(iselCh < obj.plotRCh.ch,1,'last')) ;
                        obj.PlotResponseCh( iff(isempty(chn2),obj.plotRCh.ch,chn2) ); %prekreslim grafy
                    end
                case {'numpad9','e'}     % skok na dalsi kanal s nejakou signifikanci
@@ -1781,6 +1783,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                        obj.PlotResponseCh();
                    end
                case 'period'     % prepinani razeni kanalu
+                   sortorder0 = obj.CH.sortorder; %musi si ulozit stare razeni, abych potom nasel ten spravny kanal
                    switch obj.CH.sortedby
                        case ''
                            obj.CH.SortChannels('x');
@@ -1791,7 +1794,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                        case 'z'
                            obj.CH.SortChannels();
                    end 
-                   obj.PlotResponseCh();
+                   obj.PlotResponseCh(find(obj.CH.sortorder==sortorder0(obj.plotRCh.ch))); %#ok<FNDSB> %takhle zustanu na tom stejnem kanale 
                otherwise
                    disp(['You just pressed: ' eventDat.Key]);
            end
