@@ -23,13 +23,14 @@ classdef CBrainPlot < matlab.mixin.Copyable
     end
     
     methods (Access = public)        
-        function [obj] = IntervalyResp(obj,testname,intervals,filename,contrast)
+        function [obj] = IntervalyResp(obj,testname,intervals,filename,contrast,signum)
             %IntervalyResp(testname,intervals,filename,contrast)
             %vola postupne pro vsechny pacienty E.IntervalyResp a uklada vysledky
             %vyradi vsechny kontakty bez odpovedi nebo se zapornou odpovedi
             %spoji vsechno dohromady
             %vrati vysledky ve formatu pro SEEE-vizualization
             %napr CB.IntervalyResp('aedist',[0.2 0.8],'AEdist CHilbert 50-120 refBipo Ep2017-11_CHilb.mat');
+            %signum = jestli chci jen kat1>kat2 (1), nebo obracene (-1), nebo vsechny (0)
             if ~exist('contrast','var'), contrast = 1; end; %defaultni je prvni kontrast            
             if strcmp(testname,'aedist')
                 pacienti = pacienti_aedist(); %nactu celou strukturu pacientu    
@@ -59,7 +60,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
                         continue;
                     end
                     E.SetStatActive(contrast); %nastavi jeden z ulozenych statistickych kontrastu
-                    [prumery, MNI,names,~,katstr,neurologyLabels] = E.IntervalyResp( intervals,[],0);   %#ok<PROPLC> %no figure, funkce z CiEEGData                           
+                    [prumery, MNI,names,~,katstr,neurologyLabels] = E.IntervalyResp( intervals,[],signum,0);   %#ok<PROPLC> %no figure, funkce z CiEEGData                           
                     obj.pacients{p} = pacienti(p).folder;
                     obj.GetPAC(prumery,E.CH.H,pacienti(p).folder);
                     obj.reference = E.reference;

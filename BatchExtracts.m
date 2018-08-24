@@ -20,7 +20,7 @@ end
 
 overwrite_extracts = 1; %jestli se maji prepisovat extrakty pro kazdeho pacienta
 overwrite_brainplots = 1;
-overwriteCM = 0; %jestli se maji prepisovat soubory CHilbertMulti
+overwriteCM = 1; %jestli se maji prepisovat soubory CHilbertMulti
 doIntervalyResp = 1; %jestli se maji hledaty signif soubory pres vsechny pacienty pomoci CN.IntervalyResp, pokud ne, potrebuju uz mit hotove CHilbertMulti soubory
 loadCM = 0; %jestli se maji nacist existujici CM soubory pokud existuji
 if strcmp(testname,'menrot')
@@ -38,6 +38,7 @@ end
 brainplots_onlyselch = 0; %generovat CBrainPlot3D jedine ze souboru, kde jsou selected channels
 plotallchns = 0; %jestli generovat obrazky mozku i se vsema kanalama (bez ohledu na signifikanci)
 NLabels = 0; %jestli se maji misto jmen kanalu vypisovat jejich Neurology Labels
+IntervalyRespSignum = 1; %jestli chci jen kat1>kat2 (1), nebo obracene (-1), nebo vsechny (0)
 
 %LOG SOUBORY
 %1. seznam vsech extraktu
@@ -65,7 +66,7 @@ for f = 1:numel(files) %cyklus pres vsechny soubory
                 disp(msg); fprintf(fileID,[ msg '\n']);
 
                 CB = CBrainPlot;     %#ok<USENS> %brainplot na ziskani signif odpovedi               
-                CB.IntervalyResp(testname,min(intervals,setup.epochtime(2)),files{f},kontrasts(kontrast)); %ziskam signif rozdily pro kategorie a mezi kategoriemi pro vsechny pacienty       
+                CB.IntervalyResp(testname,min(intervals,setup.epochtime(2)),files{f},kontrasts(kontrast),IntervalyRespSignum); %ziskam signif rozdily pro kategorie a mezi kategoriemi pro vsechny pacienty       
                 kategorie = find(~cellfun('isempty',strfind(CB.katstr,'X'))); %strfind je jenom case sensitivni
                 katsnames = CB.katstr;
             else
@@ -87,7 +88,7 @@ for f = 1:numel(files) %cyklus pres vsechny soubory
                 for intv = 1:size(intervals,1) %cyklus pres intervaly
                     intvstr = sprintf('(%1.1f-%1.1f)',intervals(intv,:)); %pojmenovani intervalu
 %                 try
-                    label = [katstr '_' intvstr];
+                    label = [katstr '_' intvstr '_sig' num2str(IntervalyRespSignum)];
                     outfilename = [dirCM 'CM ' label ' ' files{f}]; %jmeno souboru CHilbertMulti
                     CM = CHilbertMulti;
                     if exist(outfilename,'file')==2 && overwriteCM == 0 && loadCM == 1
@@ -134,7 +135,7 @@ for f = 1:numel(files) %cyklus pres vsechny soubory
                     end
                     if ~brainplots_onlyselch || ~isempty(selCh) %pokud negenerovat jen pro selch, nebo pokud nejsou prazne selch
                         CBo = CBrainPlot; %brainplot na generovani obrazku mozku
-                        BPD = CM.ExtractBrainPlotData([],kategorie(kat)); %vytvori data pro import do CBrainPlot
+                        BPD = CM.ExtractBrainPlotData([],kategorie(kat),IntervalyRespSignum); %vytvori data pro import do CBrainPlot
                         CBo.ImportData(BPD); %naimportuje data z CHilbertMulti
                         CBo.PlotBrain3D(iff(plotallchns,[1 2],2),[],[],overwrite_brainplots,NLabels); %vykresli obrazek mozku
                     end
