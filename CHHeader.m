@@ -189,12 +189,20 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             if exist('plotChH','var')  %handlet na funkci z CiEEGData @obj.PlotResponseCh
                 obj.plotCh2D.plotChH = plotChH;
             end
+            if ~isfield(obj.plotCh2D,'marks')  %handlet na funkci z CiEEGData @obj.PlotResponseCh
+                obj.plotCh2D.marks = [1 1 1 1 1 1]; %ktere znacky fghjjkl se maji zobrazovat
+            end
             
             %vytvoreni figure
             x = [obj.H.channels(:).MNI_x];
             y = [obj.H.channels(:).MNI_y];
             z = [obj.H.channels(:).MNI_z];            
             load('GMSurfaceMesh.mat'); %seda hmota v MNI
+            if isfield(obj.plotCh2D,'boundary') && obj.plotCh2D.boundary && ~isfield(obj.plotCh2D,'BrainBoundaryXY') %trva docela dlouho nez se to spocita
+                obj.plotCh2D.BrainBoundaryXY = boundary(GMSurfaceMesh.node(:,1),GMSurfaceMesh.node(:,2)); %vnejsi hranice mozku
+                obj.plotCh2D.BrainBoundaryYZ = boundary(GMSurfaceMesh.node(:,2),GMSurfaceMesh.node(:,3));
+            end
+            
             size_ch = 10; %velikosti krouzko oznacujicich kanaly
             size_selCh = 7;
             x_text = -100;
@@ -206,10 +214,15 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             end            
                    
             subplot(1,2,1);
-            %axialni plot
-            scatter(GMSurfaceMesh.node(:,1),GMSurfaceMesh.node(:,2),'.','MarkerEdgeAlpha',.1); %seda hmota normalizovaneho mozku
-            el0 = 1;
+            %axialni plot            
+            if isfield(obj.plotCh2D,'boundary') && obj.plotCh2D.boundary
+                %defaultne budu vykreslovat scatter, ale kvuli kopirovani se bude hodit i jen boundary
+                plot(GMSurfaceMesh.node(obj.plotCh2D.BrainBoundaryXY,1),GMSurfaceMesh.node(obj.plotCh2D.BrainBoundaryXY,2));
+            else
+                scatter(GMSurfaceMesh.node(:,1),GMSurfaceMesh.node(:,2),'.','MarkerEdgeAlpha',.1); %seda hmota normalizovaneho mozku
+            end           
             hold on;
+            el0 = 1;            
             for ie = 1:numel(obj.els)                
                 plot(x(el0:obj.els(ie)),y(el0:obj.els(ie)),'-o'); %plot kontaktu jedne elektrody
                 for ch = el0:obj.els(ie)
@@ -227,8 +240,10 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             if ~isempty(selCh) %hromadne vybrane kanaly, zobrazne cernym koleckem
                 barvy = 'bgcmky';
                 for m = 1:size(selCh,2) %jednu znacku za druhou
-                   ch = find(selCh(:,m)); %seznam cisel vybranych kanalu pro danou znacku
-                   plot(x(ch),y(ch),'o','MarkerSize',size_selCh,'MarkerEdgeColor',barvy(m),'MarkerFaceColor',barvy(m));
+                   if  obj.plotCh2D.marks(m) %pokud se ma znacka zobrazovat
+                       ch = find(selCh(:,m)); %seznam cisel vybranych kanalu pro danou znacku
+                       plot(x(ch),y(ch),'o','MarkerSize',size_selCh,'MarkerEdgeColor',barvy(m),'MarkerFaceColor',barvy(m));
+                   end
                 end
             end
             text(-70,70,'LEVA');
@@ -238,9 +253,13 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             ylabel('MNI Y'); %predozadni souradnice
            
             subplot(1,2,2);
-            %sagitalni plot
-            scatter(GMSurfaceMesh.node(:,2),GMSurfaceMesh.node(:,3),'.','MarkerEdgeAlpha',.1);   %seda hmota normalizovaneho mozku
-            hold on;      
+            %sagitalni plot            
+            if isfield(obj.plotCh2D,'boundary') && obj.plotCh2D.boundary
+                plot(GMSurfaceMesh.node(obj.plotCh2D.BrainBoundaryYZ,2),GMSurfaceMesh.node(obj.plotCh2D.BrainBoundaryYZ,3));
+            else
+                scatter(GMSurfaceMesh.node(:,2),GMSurfaceMesh.node(:,3),'.','MarkerEdgeAlpha',.1);   %seda hmota normalizovaneho mozku
+            end
+            hold on;     
             for ie = 1:numel(obj.els)                
                 plot(y(el0:obj.els(ie)),z(el0:obj.els(ie)),'-o'); %plot kontaktu jedne elektrody
                 for ch = el0:obj.els(ie)
@@ -264,12 +283,14 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 barvy = 'bgcmky';
                 klavesy = 'fghjkl'; %abych mohl vypsat primo nazvy klaves vedle hvezdicky podle selCh
                 for m = 1:size(selCh,2) %jednu znacku za druhou
-                   ch = find(selCh(:,m)); %seznam cisel vybranych kanalu pro danou znacku
-                   if ~isempty(ch) %pokud jsou takove nejake vybrane kanaly
-                       plot(y(ch),z(ch),'o','MarkerSize',size_selCh,'MarkerEdgeColor',barvy(m),'MarkerFaceColor',barvy(m));
-                       th = text(x_text+m*10,-90,klavesy(m), 'FontSize', 15,'Color',barvy(m));
-                       th.BackgroundColor = [.6 .6 .6];
-                   end
+                    if  obj.plotCh2D.marks(m) %pokud se ma znacka zobrazovat
+                       ch = find(selCh(:,m)); %seznam cisel vybranych kanalu pro danou znacku
+                       if ~isempty(ch) %pokud jsou takove nejake vybrane kanaly
+                           plot(y(ch),z(ch),'o','MarkerSize',size_selCh,'MarkerEdgeColor',barvy(m),'MarkerFaceColor',barvy(m));
+                           th = text(x_text+m*10,-90,klavesy(m), 'FontSize', 15,'Color',barvy(m));
+                           th.BackgroundColor = [.6 .6 .6];
+                       end
+                    end
                 end
                 if any(selCh(chsel,:),2)==1 %pokud je aktualni kanal jeden z vybranych                
                     klavesy = 'fghjkl'; %abych mohl vypsat primo nazvy klaves vedle hvezdicky podle selCh
@@ -280,9 +301,9 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             xlabel('MNI Y'); %predozadni souradnice
             ylabel('MNI Z'); %hornodolni
             
-            %rozhybani obrazku
-            methodhandle = @obj.hybejPlot2D;
-            set(obj.plotCh2D.fh,'KeyPressFcn',methodhandle); 
+            %rozhybani obrazku            
+            set(obj.plotCh2D.fh,'KeyPressFcn',@obj.hybejPlot2D); 
+            set(obj.plotCh2D.fh, 'WindowButtonDownFcn', @obj.hybejPlot2Dclick);
         end
         function tag= PacientTag(obj)
             %vraci tag pacienta, napriklad p73
@@ -510,6 +531,41 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                        chn2 =  iselCh(find(iselCh < obj.plotCh2D.chsel,1,'last')) ;
                        obj.ChannelPlot2D( iff(isempty(chn2),obj.plotCh2D.chsel,chn2) ); %prekreslim grafy
                     end
+                  case 'space'
+                     if isfield(obj.plotCh2D,'boundary') %prepinam v grafu cely scatter s jen hranici mozku - hlavne kvuli kopirovani do corelu
+                         obj.plotCh2D.boundary  = 1 - obj.plotCh2D.boundary;
+                     else
+                         obj.plotCh2D.boundary  = 1;
+                     end
+                     obj.ChannelPlot2D();
+                  case {'f','g','h'}
+                      obj.plotCh2D.marks( eventDat.Key - 'f' + 1) = 1 - obj.plotCh2D.marks( eventDat.Key - 'f' + 1);
+                      obj.ChannelPlot2D();
+                  case {'j','k','l'}
+                      obj.plotCh2D.marks( eventDat.Key - 'f' ) = 1 - obj.plotCh2D.marks( eventDat.Key - 'f' );
+                      obj.ChannelPlot2D();
+              end              
+          end
+          function hybejPlot2Dclick(obj,h,~)
+              mousept = get(gca,'currentPoint');
+              x = mousept(1,1); y = mousept(1,2); %souradnice v grafu              
+              xy = get(h, 'currentpoint'); %souradnice v pixelech
+              pos = get(gcf, 'Position'); 
+              width = pos(3);
+              subp = xy(1) > width/2; 
+              chns_mni = [];
+              if subp == 0  %axialni graf, subplot 1
+                  if x > -70 && x < 70 && y > -120 && y < 90
+                    chns_mni = [[obj.H.channels(:).MNI_x]' , [obj.H.channels(:).MNI_y]'];                  
+                  end
+              else         %sagitalni graf, subplot 2
+                  if x > -100 && x < 70 && y > -100 && y < 90
+                    chns_mni = [[obj.H.channels(:).MNI_y]' , [obj.H.channels(:).MNI_z]'];   
+                  end
+              end
+              if ~isempty(chns_mni)
+                  [ch,d] = dsearchn(chns_mni,[x y]); %najde nejblizsi kanal a vzdalenost k nemu
+                  obj.ChannelPlot2D(find(obj.sortorder==ch)); %#ok<FNDSB>              
               end
           end
     end
