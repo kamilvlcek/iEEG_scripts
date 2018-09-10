@@ -128,6 +128,8 @@ classdef CHilbertMulti < CHilbert
                 end
                 
             end
+            obj.CH.SortChannels(); %ulozi se defaultni poradi kanalu
+            obj.SetSelCh([]);
             disp(['nacteno souboru: ' num2str(obj.filesimported)]);
         end
         function obj = SetLabel(obj,label)

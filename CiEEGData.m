@@ -383,7 +383,11 @@ classdef CiEEGData < matlab.mixin.Copyable
                 %pocet elektrod se meni jejen u bipolarni ref, kdyz jsou nektere kanaly na konci vyrazene
             end
             [obj.samples,obj.channels, obj.epochs] = obj.DSize();
-            if ref=='b', obj.RjCh = []; end %rejectovane kanaly uz byly vyrazeny, ted nejsou zadne           
+            if ref=='b' 
+                obj.DatumCas.ChangeReference = datestr(now);
+                obj.header.RjChOriginal = obj.RjCh; %zazalohuju si puvodni rjch, kvuli referenci
+                obj.RjCh = []; %rejectovane kanaly uz byly vyrazeny, ted nejsou zadne  
+            end          
            
             obj.filename = []; %nechci si omylem prepsat puvodni data 
             switch ref
@@ -1358,7 +1362,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 klavesy = 'fghjkl'; %abych mohl vypsat primo nazvy klaves vedle hvezdicky podle selCh
                 text(-0.18,ymax*.95,['*' klavesy(logical(obj.plotRCh.selCh(ch,:)))], 'FontSize', 12,'Color','red');
             end
-            if isprop(obj,'label')
+            if isprop(obj,'label') && ~isempty(obj.label)
                 text(-0.1,ymax*.78,strrep(obj.label,'_','\_'), 'FontSize', 10,'Color','blue'); 
             end            
             methodhandle = @obj.hybejPlotCh;
