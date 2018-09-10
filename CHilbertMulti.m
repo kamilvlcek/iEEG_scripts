@@ -371,6 +371,18 @@ classdef CHilbertMulti < CHilbert
                 iPAC = iPAC + 1;                
             end
         end
+        function [katname,interval,signum] = GetLabelInfo(obj)
+            %vrati rozclenene label na informace vlozene pomoci BatchExtracts
+            C = strsplit(obj.label,'_');
+            katname = C{1};
+            if numel(C) > 1
+                CI = strsplit(C{2},{'-','(',')'});
+                interval = [ str2double(CI{2}) str2double(CI{3})]; %vycleni to i prazdny znak pred ( jako jeden prvek
+            end
+            if numel(C) > 2
+                signum = str2double(C{3}(4));
+            end            
+        end
         %% SAVE AND LOAD FILE
         %dve funkce na ulozeni a nacteni dat tridy
         %uklada se vcetne dat parenta CHilbert a pres nej taky CiEEGData        

@@ -17,7 +17,7 @@ classdef CSelCh < matlab.mixin.Copyable
                 obj.n = 0;
             end
         end
-        function obj = SetSelCh(obj,selCh,filename,chnames, katstr,freq)            
+        function obj = SetSelCh(obj,selCh,filename,chnames, katstr,freq,chvals)            
             %ulozi vyber kanalu do teto tridy            
             if ~exist('chnames','var'), chnames = []; end
             if ~exist('katstr','var'), katstr = []; end
@@ -37,8 +37,11 @@ classdef CSelCh < matlab.mixin.Copyable
                 else
                     freq = [];
                 end
-                chnames = {E.CH.H.channels(selCh).name}; %jmena vybranych kanaly
-                obj.SetSelCh(selCh,filename,chnames,katstr,freq);
+                chnames = {E.CH.H.channels(1:size(selCh,1)).name}'; %jmena vybranych kanaly - 2018-09-07 - ted jsou SelCH indexy, takze ukladam jmena vsech kanalu
+                [katname,interval,signum] = E.GetLabelInfo();
+                [prumery, ~,~,~,katsnames,~] = E.IntervalyResp(interval,[],signum,1);    %chci vykresli obrazek        
+                chvals = prumery(:,1,contains(katsnames,katname));
+                obj.SetSelCh(selCh,filename,chnames,katstr,freq,chvals);
             else
                 if obj.n>0
                     s = find(~cellfun(@isempty,strfind(obj.selCh(:,1),filename)),1); %najdu pouze prvni vyhovujici soubor
@@ -46,12 +49,12 @@ classdef CSelCh < matlab.mixin.Copyable
                     s = [];
                 end
                 if isempty(s) %filename neexistuje, ulozim
-                    obj.selCh(obj.n+1,:) = {filename,selCh,katstr,freq,chnames};
+                    obj.selCh(obj.n+1,:) = {filename,selCh,katstr,freq,chnames,chvals};
                     obj.n = obj.n +1;
                 else %filename uz ulozen, radku s nim prepisu
-                    obj.selCh(s,:) = {filename,selCh,katstr,freq,chnames}; 
+                    obj.selCh(s,:) = {filename,selCh,katstr,freq,chnames,chvals}; 
                 end
-                disp([ num2str(numel(selCh)) ' selected channels saved']);                   
+                disp([ num2str(numel(find(any(selCh,2)))) ' selected channels saved']);                   
             end
         end
         function selCh = GetSelCh(obj,filename)
@@ -62,9 +65,9 @@ classdef CSelCh < matlab.mixin.Copyable
                  if ~isempty(s)
                      selCh = obj.selCh{s,2};                     
                      selChNames = obj.selCh{s,5};
-                     for ich = 1:numel(selCh)
+                     for ich = 1:size(selCh,1)
                         if ~isempty(obj.selCh{s,5})
-                            if ~strcmp(selChNames{ich},E.CH.H.channels(selCh(ich)).name)
+                            if ~strcmp(selChNames{ich},E.CH.H.channels(ich).name)
                                 warning(['channel ' num2str(selCh(ich)) ' nesedi s popisem: ' selChNames{ich} ' vs.' E.CH.H.channels(selCh(ich)).name]);     
                                 selCh = [];
                                 break;
