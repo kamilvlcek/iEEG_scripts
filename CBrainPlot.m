@@ -181,7 +181,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
             obj.Hf = BPD.Hf;
             obj.selCh = BPD.selCh; %vyber kanalu z CHilbertMulti aj
         end
-        function PlotBrain3D(obj,kategorie,signum,outputDir,overwrite)
+        function PlotBrain3D(obj,kategorie,signum,outputDir,overwrite,NLabels)
             %vykresli jpg obrazky jednotlivych kategorii a kontrastu mezi nimi            
             %TODO do jmena vystupniho jpg pridat i frekvence a referenci, aby se to neprepisovalo
             %TODO je mozne ty signif vyexportovat a pak je nacist zase do CHilbertMulti?
@@ -196,6 +196,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
                 plotSetup.outputDir = outputDir;
             end            
             if ~exist('overwrite','var'), overwrite = 1; end; %defaultne se vystupni soubory prepisuji
+            if ~exist('NLabels','var'),   NLabels =0; end; %defaultne se nevypisuji anatomicke lokalizace
             
             if ~isempty(obj.brainsurface)
                 brainsurface = obj.brainsurface;  %#ok<PROPLC>
@@ -215,9 +216,9 @@ classdef CBrainPlot < matlab.mixin.Copyable
             plotSetup.customColors.lightpos = [246 203 203];
             plotSetup.customColors.darkpos = [162 2 2]; %tmave cervena
 
-            tablelog = cell(obj.pocetcykluPlot3D(kategorie,signum)+2,6); % z toho bude vystupni xls tabulka s prehledem vysledku
-            tablelog(1,:) = {datestr(now),obj.filename,'','','',''}; %hlavicky xls tabulky
-            tablelog(2,:) = {'interval','kategorie','chname','neurologyLabel','mni','val'}; %hlavicky xls tabulky
+            tablelog = cell(obj.pocetcykluPlot3D(kategorie,signum)+2,7); % z toho bude vystupni xls tabulka s prehledem vysledku
+            tablelog(1,:) = {datestr(now),obj.filename,'','','','',''}; %hlavicky xls tabulky
+            tablelog(2,:) = {'interval','kategorie','chname','neurologyLabel','mni','val','selected'}; %hlavicky xls tabulky
             iTL = 2; %index v tablelog
             tic; %zadnu merit cas
             for interval = 1:size(obj.VALS,1) 
@@ -249,12 +250,12 @@ classdef CBrainPlot < matlab.mixin.Copyable
                             vals_channels = vals_channels*signum; %u zapornych hodnot prehodim znamenko
                         end
                         mni_channels = obj.MNI{interval,kat}(iV);                                                                                                 
-                        names_channels = obj.NAMES{interval,kat}(iV);                        
+                        names_channels = iff(NLabels, obj.NLabels{interval,kat}(iV), obj.NAMES{interval,kat}(iV));                        
                         
                         if ~strcmp(obj.katstr{kat},'AllEl') %nechci to pro kategorii vsech elektrod
                             for iVal = 1:numel(vals_channels)
                                 tablelog(iVal + iTL,:) = { sprintf('[%.1f %.1f]',obj.intervals(interval,:)),obj.katstr{kat}, obj.NAMES{interval,kat}{iVal}, obj.NLabels{interval,kat}{iVal}, ...
-                                    sprintf('[%.1f,%.1f,%.1f]',mni_channels(iVal).MNI_x, mni_channels(iVal).MNI_y, mni_channels(iVal).MNI_z), vals_channels(iVal)};
+                                    sprintf('[%.1f,%.1f,%.1f]',mni_channels(iVal).MNI_x, mni_channels(iVal).MNI_y, mni_channels(iVal).MNI_z), vals_channels(iVal),int8(iV(iVal))};
                             end
                             iTL = iTL + numel(vals_channels);
                         end
@@ -327,21 +328,25 @@ classdef CBrainPlot < matlab.mixin.Copyable
                     H = CH.H;
                 end
                 ii = ~cellfun(@isempty,{H.channels.neurologyLabel}); %neprazdne cells
-                index = [];
-                labels = lower({H.channels(ii).neurologyLabel}');
-                for jj = 1:size(label,2)                    
-                    indexjj =  find(~cellfun('isempty',strfind(labels,lower(label{jj}))))'; %rozepsal jsem, aby se to dalo lepe debugovat
-                    index = [index indexjj];  %#ok<AGROW>
-                    % 3.5.2018 nejakym zahadnym zpusobem funguje hledani pomoci strfind ve sloupci a ne v radku. 
-                    % Proto nejdriv prehodim pomoci ' na sloupec a pak zase na radek
+                if ~isempty(struktura) || ~isempty(label)
+                    index = []; %bude obsahovat cisla vybranych kanalu - jeden radek
+                    labels = lower({H.channels(ii).neurologyLabel}');
+                    for jj = 1:size(label,2)                    
+                        indexjj =  find(~cellfun('isempty',strfind(labels,lower(label{jj}))))'; %rozepsal jsem, aby se to dalo lepe debugovat
+                        index = [index indexjj];  %#ok<AGROW>
+                        % 3.5.2018 nejakym zahadnym zpusobem funguje hledani pomoci strfind ve sloupci a ne v radku. 
+                        % Proto nejdriv prehodim pomoci ' na sloupec a pak zase na radek
+                    end
+                    iiBA = ~cellfun(@isempty,{H.channels.ass_brainAtlas}); %neprazdne cells
+                    iiCM = ~cellfun(@isempty,{H.channels.ass_cytoarchMap}); %neprazdne cells
+                    for jj = 1:size(struktura,2)
+                        index = [ index find(~cellfun('isempty',strfind(lower({H.channels(iiCM).ass_cytoarchMap}),lower(struktura{jj}))))]; %#ok<AGROW>
+                        index = [ index find(~cellfun('isempty',strfind(lower({H.channels(iiBA).ass_brainAtlas}),lower(struktura{jj}))))]; %#ok<AGROW>
+                    end
+                    index = union(index,[]); %vsechny tri dohromady - seradi podle velikost a odstrani duplikaty
+                else
+                    index = 1:numel(H.channels); %pokud neuvedu nic k hledani, beru vsechny kanaly
                 end
-                iiBA = ~cellfun(@isempty,{H.channels.ass_brainAtlas}); %neprazdne cells
-                iiCM = ~cellfun(@isempty,{H.channels.ass_cytoarchMap}); %neprazdne cells
-                for jj = 1:size(struktura,2)
-                    index = [ index find(~cellfun('isempty',strfind(lower({H.channels(iiCM).ass_cytoarchMap}),lower(struktura{jj}))))]; %#ok<AGROW>
-                    index = [ index find(~cellfun('isempty',strfind(lower({H.channels(iiBA).ass_brainAtlas}),lower(struktura{jj}))))]; %#ok<AGROW>
-                end
-                index = union(index,[]); %vsechny tri dohromady
                 if isempty(reference) || reference ~= 'b' %pokud jsem kanaly nevyradil uz pri zmene reference - vyrazuji se jen pri bipolarni
                     indexvyradit = ismember(index, pacienti(p).rjch); %vyrazene kanaly tady nechci
                     index(indexvyradit)=[]; 
@@ -355,9 +360,14 @@ classdef CBrainPlot < matlab.mixin.Copyable
                     PAC(iPAC).neurologyLabel = H.channels(index(ii)).neurologyLabel; %#ok<AGROW>
                     PAC(iPAC).ass_brainAtlas = H.channels(index(ii)).ass_brainAtlas;%#ok<AGROW>
                     PAC(iPAC).ass_cytoarchMap = H.channels(index(ii)).ass_cytoarchMap; %#ok<AGROW>
+                    PAC(iPAC).MNI_x = H.channels(index(ii)).MNI_x; %#ok<AGROW>
+                    PAC(iPAC).MNI_y = H.channels(index(ii)).MNI_y; %#ok<AGROW>
+                    PAC(iPAC).MNI_z = H.channels(index(ii)).MNI_z; %#ok<AGROW>
                     iPAC = iPAC + 1;
                 end
-            end            
+            end 
+            xlsname = ['./logs/StructFind PAC_' testname '_' cell2str(struktura,1) '_' cell2str(label,1) '.xlsx'];
+            writetable(struct2table(PAC), xlsname); %ulozimvysledek taky do xls
         end
         function PAC = StructFindLoad(xlsfile,sheet)
             %nacteni struktury PAC z existujiciho xls souboru, napr po editaci radku            

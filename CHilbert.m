@@ -273,10 +273,11 @@ classdef CHilbert < CiEEGData
         function obj = PlotResponseFreq(obj,ch,kategories)
             %uchovani stavu grafu, abych ho mohl obnovit a ne kreslit novy
             if ~exist('ch','var')
-                if isfield(obj.plotF,'ch'), ch = obj.plotF.ch;
-                else ch = 1; obj.plotF.ch = ch; end
+                if isfield(obj.plotF,'ch'), ch =  obj.CH.sortorder(obj.plotF.ch); %vytahnu cislo kanalu podle ulozeneho indexu
+                else, obj.plotF.ch = 1; ch =  obj.CH.sortorder(1); end
             else
-                obj.plotF.ch = ch;
+                obj.plotF.ch = ch; %tady bude ulozeny index sortorder, parametr ch urcuje index v sortorder
+                ch =  obj.CH.sortorder(ch); %promenna ch uz urcuje skutecne cislo kanalu
             end
             
             if ~exist('kategories','var')
@@ -331,9 +332,11 @@ classdef CHilbert < CiEEGData
                 caxis([miny,maxy]);               
                 title( obj.PsyData.CategoryName(cellval(kategories,k)));
                 if k == 1
-                    ylabel(['channel ' num2str(ch) ' - freq [Hz]']); 
-                    if isprop(obj,'plotRCh') && isfield(obj.plotRCh,'selCh') && sum(obj.plotRCh.selCh==ch)>0
-                        text(0,obj.Hf(1),'*', 'FontSize', 24,'Color','red');
+                    chstr = iff(isempty(obj.CH.sortedby),num2str(ch), [ num2str(ch) '(' obj.CH.sortedby  num2str(obj.plotRCh.ch) ')' ]);
+                    ylabel(['channel ' chstr ' - freq [Hz]']); 
+                    if isprop(obj,'plotRCh') && isfield(obj.plotRCh,'selCh') && any(obj.plotRCh.selCh(ch,:),2)==1        
+                        klavesy = 'fghjkl'; %abych mohl vypsat primo nazvy klaves vedle hvezdicky podle selCh
+                        text(0,obj.Hf(1),['*' klavesy(logical(obj.plotRCh.selCh(ch,:)))], 'FontSize', 15,'Color','red');
                     end
                 end
                 
@@ -460,6 +463,7 @@ classdef CHilbert < CiEEGData
                 epochtime = obj.epochtime; %#ok<NASGU> %abych vedel kde je podnet
                 baseline = obj.baseline; %#ok<NASGU> 
                 RjEpochCh = obj.RjEpochCh(chns,:); %#ok<NASGU> %kanaly vs epochy
+                RjEpoch = obj.RjEpoch; %#ok<NASGU> %na to jsem zapomnel - 17.8.2018
                 epochData = obj.epochData; %#ok<NASGU> %identita jednotlivych epoch. Musi byt stejna pres pacienty
                 DatumCas = obj.DatumCas;
                 DatumCas.Extracted = datestr(now);          
@@ -477,7 +481,7 @@ classdef CHilbert < CiEEGData
                 HFreq = obj.HFreq(:,chns,:,:); %#ok<PROPLC,NASGU>  %time x channel x freq (x kategorie)            
                 Wp = obj.Wp;  %#ok<NASGU>  %exportuju statistiku
                 reference = obj.reference; %#ok<NASGU>  %exportuju referenci
-                save(filename,'d','tabs','tabs_orig','fs','P','epochtime','baseline','RjEpochCh','epochData','DatumCas','H','Hf','Hfmean','HFreq','Wp','reference','-v7.3'); 
+                save(filename,'d','tabs','tabs_orig','fs','P','epochtime','baseline','RjEpochCh','RjEpoch','epochData','DatumCas','H','Hf','Hfmean','HFreq','Wp','reference','-v7.3'); 
                 disp(['extract saved to "' basefilename '"']);
             else
                 disp(['extract already exists, skipped: "' basefilename '"']);
@@ -492,7 +496,12 @@ classdef CHilbert < CiEEGData
             if ~exist('kategorie','var'), kategorie = []; end %kategorie ze ktere chci ziskat hodnoty - odpovida kategoriim z IntervalyResp a pak v CBrainPLot
           
             BPD.intervals = [0 1]; %budu mit dve pole hodnoty, vybrane kanaly a vsechny kanaly s vybranymi vyznacenyma
-            label = iff(isprop(obj,'label'), obj.label, 'vals'); %v pripade ze se jedna o CHilbertMulti, muze byt definovane label podle jmena extraktu
+            if isprop(obj,'label')
+                label = obj.label; %v pripade ze se jedna o CHilbertMulti, muze byt definovane label podle jmena extraktu
+            else
+                label = 'vals';
+            end
+             
             BPD.katstr = iff(isempty(chns),{'all',label},{'all','selected'}); %v druhem poli jsou bud hodnoty vsech, nebo jen vybrane kanaly
             BPD.testname = obj.PsyData.testname; %jmeno testu, aedist, menrot nebo ppa
             BPD.reference = obj.reference; %reference
@@ -639,7 +648,7 @@ classdef CHilbert < CiEEGData
                        end
                    end
                    obj.PlotResponseFreq( obj.plotF.ch); %prekreslim grafy
-                case 'delete' %Del na numericke klavesnici
+                case {'divide','slash'} %lomeno na numericke klavesnici - automaticke meritko na ose z - power
                    obj.plotF.ylim = [];
                    obj.PlotResponseFreq( obj.plotF.ch); %prekreslim grafy
                 case {'add' ,  'equal','s'}     % + oznaceni kanalu
