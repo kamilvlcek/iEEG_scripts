@@ -8,6 +8,7 @@ classdef CSelCh < matlab.mixin.Copyable
         filename;
     end
     %#ok<*PROP>
+    %#ok<*PROPLC>
     methods (Access = public)
         function obj = CSelCh(filename)
             if exist('filename','var')                
@@ -100,8 +101,8 @@ classdef CSelCh < matlab.mixin.Copyable
             else
                 obj.filename = filename;
             end
-            selCh = obj.selCh; %#ok<NASGU,PROPLC>
-            n = obj.n;      %#ok<NASGU,PROPLC>                  
+            selCh = obj.selCh; %#ok<NASGU>
+            n = obj.n;      %#ok<NASGU>                  
             save(filename,'selCh','n','filename','-v7.3');  
             disp(['ulozeno do ' filename]); 
         end
@@ -122,26 +123,87 @@ classdef CSelCh < matlab.mixin.Copyable
         function CM = LoadCM(obj,n)
             CM = CHilbertMulti(obj.selCh{n,1});
         end
-        function [ChNames,ChVals,ChLabels] = GetTables(obj)
-            ChNames = obj.selCh{1,5};
-            for n = 2:obj.n 
-                ChNames = union(ChNames, obj.selCh{n,5});  %ziskam serazeny seznam vsech kanalu ve vsech souborech
+        function [ChNames,ChVals,ChLabels,ChNum,Intervals] = GetTables(obj,chlabels,notchnlabels)
+            ChNames = obj.selCh{1,5};  %seznam jmen kanalu pres vsechny soubory         
+            Intervals = {obj.GetInterval(1)}; %seznam vsech casovych intervalu v poradu podle razeni selCh
+            for n = 2:obj.n  
+                ChNames = union(ChNames, obj.selCh{n,5});  %ziskam serazeny seznam vsech kanalu ve vsech souborech                
+                Intervals = union(Intervals,obj.GetInterval(n));
             end
-            ChVals = zeros(numel(ChNames),obj.n); %tam budou hodnoty kanalu
+            ChVals = zeros(numel(ChNames),numel(Intervals)); %tam budou hodnoty kanalu
+            ChNum = zeros(numel(ChNames),numel(Intervals));  %pocty prekryvajicich se kontrastu v tomto kanalu a intervalu
             ChLabels = cell(numel(ChNames),1); %labely kanalu                       
             for n = 1:obj.n                 
                for ch = 1:size(obj.selCh{n,2},1)
-                   if any(obj.selCh{n,2}(ch,:)) %pokud je jakykoliv vyber tohoto kanalu
-                       iU = contains(ChNames,obj.selCh{n,5}(ch));
-                       ChVals(iU,n) = obj.selCh{n,6}(ch); 
+                   if obj.selCh{n,2}(ch,1) %pokud je vyber 'f' tohoto kanalu
+                       iU = contains(ChNames,obj.selCh{n,5}(ch));                       
+                       iI = contains(Intervals,obj.GetInterval(n)); %index v poli intervaly
+                       if  ChVals(iU,iI) == 0
+                           ChVals(iU,iI) = obj.selCh{n,6}(ch);  %prvni hodnota pro tento kanal                           
+                       else
+                           %pokud bude vice hodnot nez dve, bude tohle spatne
+                           ChVals(iU,iI) = mean([obj.selCh{n,6}(ch) ChVals(iU,iI)]);  %prumer pro rozdil vuci jedne a druhe kategorii
+                       end
+                       ChNum(iU,iI) = ChNum(iU,iI) + 1;
                        if isempty(ChLabels{iU})
                            ChLabels{iU} = obj.selCh{n,7}{ch}; %staci jednou pro kazdy kanal
                        end
                    end
                end
             end
+            %odfiltruju kanaly bez oznaceni pres vsechny intervaly
+            iChVals = max(ChVals,[],2)==0; 
+            ChVals(iChVals,:) = [];
+            ChNames(iChVals) = [];
+            ChNum(iChVals,:) = [];
+            ChLabels(iChVals) = [];
             
+            if exist('chlabels','var')
+                iL = contains(ChLabels,chlabels);
+                if exist('notchnlabels','var') 
+                    iLx = contains(ChLabels,notchnlabels);
+                    iL = iL & ~iLx;
+                    notLstr = [ ' not:' cell2str(notchnlabels)];
+                else
+                    notLstr = '';
+                end
+                ChVals = ChVals(iL,:);
+                ChNames = ChNames(iL);
+                ChNum = ChNum(iL,:);
+                ChLabels = ChLabels(iL);
+            else
+                chlabels = {};
+                notLstr = '';
+            end
+            %seradim kanaly podle casu a velkosti odpovedi            
+            [Max,iMax] = max(ChVals,[],2); %Nejvyssi odpoved v kazdem radku  + jeji index v radku
+            [iMax2,iiMax] = sort(iMax); %serazene indexy max odpovedi (prvni v radku, druhe v radku ....) a jejich indexy 
+            MaxVals = [iMax2, Max(iiMax), iiMax]; %serazene indexy max odpovedi + ty maximalni odpovedi serazene podle jejich indexu v radku
+            MaxVals = sortrows(MaxVals,[1 -2]); %ziskam serazene iiMax v tretim sloupci
+            ChVals = ChVals(MaxVals(:,3),:);
+            ChNames = ChNames(MaxVals(:,3));
+            ChLabels = ChLabels(MaxVals(:,3));
+            ChNum = ChNum(MaxVals(:,3),:);
+            
+            figure('Name',['CSelCh GetTables ' cell2str(chlabels)]);
+            imagesc(ChVals);
+            title([cell2str(chlabels) notLstr]);
+            set(gca, 'YTick', 1:numel(ChNames), 'YTickLabel', ChNames) % 10 ticks 
+            set(gca, 'XTick', 1:numel(Intervals), 'XTickLabel', Intervals) % 10 ticks 
+            if numel(chlabels) > 0
+                for iL = 1:numel(ChLabels)
+                    text(0.6,iL,ChLabels{iL},'Color','white');
+                end
+            end
+            colorbar;
         end
-    end   
+    end
+     %  --------- privatni metody ----------------------
+    methods (Access = private)
+        function [intervalstr] = GetInterval(obj,n)
+           [~,interval,~] = CHilbertMulti.GetLabelInfo(obj.selCh{n,3}); %inverval prvniho souboru
+           intervalstr = num2str(interval,'%.1f-%.1f');
+        end
+    end
 end
 
