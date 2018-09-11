@@ -175,15 +175,43 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 opak = zeros(size(obj.P.data,1),1); %opakovani 0
             end
         end
-        function obj = Cond2Epochs(obj)
-            %predela conditions na epochy, kvuli ITPC
-            katnum = obj.Categories();
-            data2 = zeros(numel(katnum),size(obj.P.data,2));
-            for k = 1:numel(katnum)
-                idata = obj.P.data(:,obj.P.sloupce.kategorie)==katnum(k) & obj.P.data(:,obj.P.sloupce.zpetnavazba)==0 ;
-                data2(k,:) = [0 0 1 mean(obj.P.data(idata,4)) 0 0 katnum(k) min(obj.P.data(idata,8)) min(obj.P.data(idata,9))];
+        function obj = Cond2Epochs(obj, ppa, kats)
+            %predela conditions na epochy, kvuli ITPC, ak su contrasts
+            data2 = zeros(numel(kats),size(ppa.data,2));
+            strings = cell(numel(kats),2);
+            for k = 1:numel(kats)
+               
+                if iscell(kats)
+                    kat = kats{k};
+                else
+                    kat = kats(k);
+                end
+                strings{k,1} = obj.CategoryName(kat);
+                strings{k,2} = k-1;
+                idata = ismember(ppa.data(:,ppa.sloupce.kategorie),kat) & ...
+                    obj.P.data(:,obj.P.sloupce.spravne)==1;
+                if isfield(obj.P.sloupce,'zpetnavazba')
+                    idata = idata & obj.P.data(:,ppa.sloupce.zpetnavazba)==0;
+                    data2(k,obj.P.sloupce.zpetnavazba) = 0;
+                end
+                data2(k,obj.P.sloupce.soubor) = 0;
+                data2(k,obj.P.sloupce.klavesa) = 0;
+                data2(k,obj.P.sloupce.spravne) = 1;
+                data2(k,obj.P.sloupce.rt) = mean(obj.P.data(idata,obj.P.sloupce.rt));
+                data2(k,obj.P.sloupce.kategorie) = k-1;
+                data2(k,obj.P.sloupce.ts_podnet) = min(obj.P.data(idata,obj.P.sloupce.ts_podnet));
+                data2(k,obj.P.sloupce.ts_odpoved) = min(obj.P.data(idata,obj.P.sloupce.ts_odpoved));
+                               
+                if isfield(obj.P.sloupce,'opakovani') % AEDIST a MENROT
+                    data2(k,obj.P.sloupce.opakovani) = 0;
+                elseif isfield(obj.P.sloupce, 'opakovani_obrazku') % PPA
+                    data2(k,obj.P.sloupce.opakovani_obrazku) = 0;
+                    data2(k,obj.P.sloupce.cislo_obrazku) = 0;
+                    data2(k,obj.P.sloupce.pauza) = 0;
+                end
             end
             obj.P.data = data2;
+            obj.P.strings.podminka = strings;
         end
         %% PLOT FUNCTIONS
         function [obj, chyby] = PlotResponses(obj)

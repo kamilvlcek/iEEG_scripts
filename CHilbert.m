@@ -15,6 +15,8 @@ classdef CHilbert < CiEEGData
         fphase; %faze vsech zpracovavanych frekvenci - premiestnene z CMorlet pre vykreslenie a porovnanie faz z MW a Hilberta do buducna        
         frealEpochs; % epochovane filtrovane eeg
         normalization; %typ normalizace
+        itpc_calc;
+        dMulti;
     end
     methods (Access = public)
         %% ELEMENTAL FUNCTIONS 
@@ -180,60 +182,96 @@ classdef CHilbert < CiEEGData
                  obj.HFreq = Hfreq2;
             end
         end
-        function GetITPC(obj)
+        function GetITPC(obj)% parameter pre novu statistiku 
             assert(obj.epochs > 1, 'data musi byt epochovana');
+            
+            fprintf('Calculating ITPC ... ');
+            obj.PsyData = CPsyDataMulti(obj.PsyData.P); % vytvorim Pmulti z povodnej P
+            
+            % zachovam povodne ppa a rjepoch 
+            ppa = obj.PsyData.P;
+            rjepochCh = obj.RjEpochCh;
+            rjepoch = obj.RjEpoch;
+            epochs = obj.epochs;
+            epochData = obj.epochData;
+            % vytvorim CPlotsN pre pocitanie ITPC, pozor, neviem ci ked
+            % zmenim obj tak sa zmena prepise aj dovnutra!
             PN = CPlotsN(obj);
-            fprintf('CalculateITPC ... ');
-            [itpc, ~, itpc_pmean,n_epoch] = PN.CalculateITPC(obj.Wp(obj.WpActive).kats); %TODO nada pridat parametr kats, ktery umozni i cell array
-            % d = time x channel x epoch
-            % itpc_pmean = ch x condition x time - p values z mean itpc pres frekvence
-            
-            fprintf('CalculateITPCdiffs ... ');            
-            [ditpc, ditpc_p, ~,diffs] = PN.CalculateITPCcontrasts(obj.Wp(obj.WpActive).kats,itpc,n_epoch);
-            % ditpc_pmean = ch x diffs x time - p values z mean ditpc pres frekvence
-            % ditpc_p - ch x contrast1 x contrast2 x time x fq - p values
-            % citpc_pmean ch x contrast1 x contrast2 x time - p values z mean itpc pres frekvence
-            
-            itpc = permute(itpc,[3 1 4 2]); %time x channel x freq x epoch
-            obj.HFreq = movmean(itpc,5,1); 
-            obj.d = movmean(squeeze(mean(itpc,3)),5,1); %prumer pres frekvence            
-            obj.PsyData.Cond2Epochs();            
-            obj.RejectEpochs([],[]);
-            obj.RjEpoch = [];
-            obj.epochs = size(itpc,4); 
-            katnum = obj.PsyData.Categories();
-            epochData2 = cell(numel(katnum),3);
-            for k = 1:numel(katnum)
-               ikat = find([obj.epochData{:,2}]==katnum(k),1);
-               epochData2(k,:) = obj.epochData(ikat,:);
-            end
-            obj.epochData = epochData2;
-            %smazu statistiku, aby nebyla na obrazcich
-            EEEGStat = CEEGStat(obj.d,obj.fs);
-            baseline = EEEGStat.Baseline(obj.epochtime,obj.baseline);
-            ibaseline = round(baseline.*obj.fs);       
-            iepochtime = round(obj.epochtime(1:2).*obj.fs);     
-            
-            for k = 1:numel(obj.Wp(obj.WpActive).kats)
-                stat = itpc_pmean(:,obj.Wp(obj.WpActive).kats(k)+1,abs(iepochtime(1)-ibaseline(2))+1 : end ); %vsechny hodnoty po konci baseline  
-                obj.Wp(obj.WpActive).WpKatBaseline{k,1} = permute(squeeze(stat),[2 1]); %chci mit rozmer time x ch
-                %TODO pridat FDR korekci
-                %pridat korekci na podminky, nebo jinou kterou navrhuje Cohen? Korekce pro cas neni potreba, pocita se to podle hladiny, ktera je zavisla na poctu epoch. 
-                
-                %obj.Wp(obj.WpActive).WpKatBaseline{w} = ones(size(obj.Wp(obj.WpActive).WpKatBaseline{w}));
-            end            
-            
-            for d = 1:size(diffs,1)
-                stat = squeeze(ditpc_p(:,diffs(d,1),diffs(d,2),abs(iepochtime(1)-ibaseline(2))+1 : end,:));
-                [~,iminp] = min(mean(stat,2),[],3);  %mean pres cas, min pres frekvence              
-                stat2 = zeros(size(stat,1),size(stat,2));
-                for ch = 1:size(stat,1)
-                    stat2(ch,:) = stat(ch,:,iminp(ch));
+            for i = 1:numel(obj.Wp) 
+                obj.itpc_calc = false;
+                obj.WpActive = i;
+                if i > 1 % pri prvom prechode je vsetko este default
+                    
+                    obj.PsyData.GetStatData(ppa);
+                    obj.RjEpochCh = rjepochCh;
+                    obj.RjEpoch = rjepoch;
+                    obj.epochs = epochs;
+                    obj.epochData = epochData;
+                    PN = CPlotsN(obj);
                 end
-                obj.Wp(obj.WpActive).WpKat{diffs(d,1),diffs(d,2)} = permute(stat2,[2 1]);  %chci mit rozmer time x ch 
-                %obj.Wp(obj.WpActive).WpKat{w} = ones(size(obj.Wp(obj.WpActive).WpKat{w}));    
-                %TODO - kontrola - vracet frekvence s maximalni signif a do d ukladat ne prumer ale tu frekvenci
+                       
+
+                
+                % tu potrebujem povodne P
+                [itpc, ~, itpc_pmean, itpc_min, n_epoch] = PN.CalculateITPC(obj.Wp(obj.WpActive).kats); %obj.PsyData.Categories()
+                % d = time x channel x epoch
+                % itpc_pmean = ch x condition x time - p values z mean itpc pres frekvence
+                % itpc_min = ch x condition x time 
+                [~, ~, ~,citpc_min, diffs] = PN.CalculateITPCcontrasts(obj.Wp(obj.WpActive).kats);%, itpc, n_epoch);
+                obj.itpc_calc = true;
+                itpc = permute(itpc,[3 1 4 2]); %time x channel x freq x epoch
+                obj.HFreq = movmean(itpc,5,1); 
+                itpc_min.val = permute(itpc_min.val,[3 1 2]); 
+                obj.d = movmean(itpc_min.val,5,1); %prumer pres frekvence --> zmena na minimum cez frekvencie 
+                obj.dMulti{obj.WpActive} = obj.d;
+
+
+                fprintf('CalculateITPCcontrasts ... ');            
+
+                obj.PsyData.Cond2Epochs(ppa, obj.Wp(obj.WpActive).kats);
+                obj.RejectEpochs([],[]);
+                obj.RjEpoch = [];
+                
+                % toto prerobit, aby to bolo spravne
+    %             epochData2 = cell(numel(katnum),3);
+    %             for k = 1:numel(katnum)
+    %                ikat = find([obj.epochData{:,2}]==katnum(k),1);
+    %                epochData2(k,:) = obj.epochData(ikat,:);
+    %             end
+                obj.epochs = size(itpc,4); 
+                katnum = obj.Wp(obj.WpActive).kats;
+                obj.epochData = obj.PsyData.P.strings.podminka;
+                
+                %smazu statistiku, aby nebyla na obrazcich
+                EEEGStat = CEEGStat(obj.d,obj.fs);
+                baseline = EEEGStat.Baseline(obj.epochtime,obj.baseline);
+                ibaseline = round(baseline.*obj.fs);       
+                iepochtime = round(obj.epochtime(1:2).*obj.fs);     
+
+                for k = 1:numel(obj.Wp(obj.WpActive).kats)
+                    stat = itpc_pmean(:,k,abs(iepochtime(1)-ibaseline(2))+1 : end ); %vsechny hodnoty po konci baseline  
+                    obj.Wp(obj.WpActive).WpKatBaseline{k,1} = permute(squeeze(stat),[2 1]); %chci mit rozmer time x ch
+                    %TODO pridat FDR korekci
+                    %pridat korekci na podminky, nebo jinou kterou navrhuje Cohen? Korekce pro cas neni potreba, pocita se to podle hladiny, ktera je zavisla na poctu epoch. 
+
+                    %obj.Wp(obj.WpActive).WpKatBaseline{w} = ones(size(obj.Wp(obj.WpActive).WpKatBaseline{w}));
+                end            
+
+                for d = 1:size(diffs,1)
+                    stat = squeeze(citpc_min.pval(:,diffs(d,1),diffs(d,2),abs(iepochtime(1)-ibaseline(2))+1 : end));
+    %                 [~,iminp] = min(mean(stat,2),[],3);  %mean pres cas, min pres frekvence              
+    %                 stat2 = zeros(size(stat,1),size(stat,2));
+    %                 for ch = 1:size(stat,1)
+    %                     stat2(ch,:) = stat(ch,:,iminp(ch));
+    %                 end
+                    obj.Wp(obj.WpActive).WpKat{diffs(d,1),diffs(d,2)} = permute(stat,[2 1]);  %chci mit rozmer time x ch 
+                    %obj.Wp(obj.WpActive).WpKat{w} = ones(size(obj.Wp(obj.WpActive).WpKat{w}));    
+                    %TODO - kontrola - vracet frekvence s maximalni signif a do d ukladat ne prumer ale tu frekvenci
+                    obj.PsyData.SetStatData(obj.PsyData.P);
+                end
+                
             end
+            
             fprintf('done\n');
         end
         function obj = Decimate(obj,podil,rtrim)
