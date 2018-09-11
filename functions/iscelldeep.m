@@ -3,10 +3,11 @@ function [ output] = iscelldeep( val )
 %   kvuli stat_kats = {[0 1 2 3],{[0 1],[2 3]},{[0 2],[1 3]}};
 
 if iscell(val)
-    for j = 1:numel(val)
-        output = false;
+    output = false;
+    for j = 1:numel(val)        
         if iscell(val{j})
             output = true;
+            break;
         end        
     end
 else

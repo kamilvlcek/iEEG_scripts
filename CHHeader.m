@@ -564,8 +564,10 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                   end
               end
               if ~isempty(chns_mni)
-                  [ch,d] = dsearchn(chns_mni,[x y]); %najde nejblizsi kanal a vzdalenost k nemu
-                  obj.ChannelPlot2D(find(obj.sortorder==ch)); %#ok<FNDSB>              
+                  [ch,d] = dsearchn(chns_mni,[x y]); %najde nejblizsi kanal a vzdalenost k nemu                   
+                  obj.ChannelPlot2D(find(obj.sortorder==ch)); %#ok<FNDSB>   
+                  obj.plotCh2D.plotChH(obj.plotCh2D.chsel); %vykreslim @obj.PlotResponseCh  
+                  figure(obj.plotCh2D.fh); %dam puvodni obrazek dopredu
               end
           end
     end

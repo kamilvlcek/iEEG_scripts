@@ -42,7 +42,7 @@ for f = 1:numel(filenames) %muzu zpracovavat vic souboru za sebou
         if pacienti(p).todo
             msg = ['***   ' pacienti(p).folder '   ***'];
             disp(msg); fprintf(fileID,[msg '\n']);
-            try
+%             try
                 E = pacient_load(pacienti(p).folder,testname,filename); %nejspis objekt CHilbert, pripadne i jiny
                 if isempty(E)
                     msg = 'no data';
@@ -65,11 +65,11 @@ for f = 1:numel(filenames) %muzu zpracovavat vic souboru za sebou
                 cas = toc(batchtimer); %zjistim celkovy cas v sec
                 msg = sprintf(' cas zatim: %.1f min',cas/60); %celkovy cas v minutach
                 disp(msg); fprintf(fileID,[msg '\n']); %#ok<DSPS>
-            catch exception 
-                errorMessage = exceptionLog(exception);
-                disp(errorMessage);  fprintf(fileID,[errorMessage '\n']);   %zobrazim hlasku, zaloguju, ale snad to bude pokracovat dal                            
-                clear E ans; 
-            end  
+%             catch exception 
+%                 errorMessage = exceptionLog(exception);
+%                 disp(errorMessage);  fprintf(fileID,[errorMessage '\n']);   %zobrazim hlasku, zaloguju, ale snad to bude pokracovat dal                            
+%                 clear E ans; 
+%             end  
         end
     end
 end

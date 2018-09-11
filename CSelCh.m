@@ -7,17 +7,17 @@ classdef CSelCh < matlab.mixin.Copyable
         n; %pocet ulozenych dat
         filename;
     end
-    
+    %#ok<*PROP>
     methods (Access = public)
         function obj = CSelCh(filename)
             if exist('filename','var')                
                 obj.Load(filename);            
             else
-                obj.selCh = cell(1,5); %prvni sloupec je filename, druhy selCh, treti katstr, ctvrty freq , paty chnames
+                obj.selCh = cell(1,8); %prvni sloupec je filename, druhy selCh, treti katstr, ctvrty freq , paty chnames
                 obj.n = 0;
             end
         end
-        function obj = SetSelCh(obj,selCh,filename,chnames, katstr,freq,chvals)            
+        function obj = SetSelCh(obj,selCh,filename,chnames, katstr,freq,chvals,neurologyLabels)            
             %ulozi vyber kanalu do teto tridy            
             if ~exist('chnames','var'), chnames = []; end
             if ~exist('katstr','var'), katstr = []; end
@@ -38,21 +38,21 @@ classdef CSelCh < matlab.mixin.Copyable
                     freq = [];
                 end
                 chnames = {E.CH.H.channels(1:size(selCh,1)).name}'; %jmena vybranych kanaly - 2018-09-07 - ted jsou SelCH indexy, takze ukladam jmena vsech kanalu
-                [katname,interval,signum] = E.GetLabelInfo();
-                [prumery, ~,~,~,katsnames,~] = E.IntervalyResp(interval,[],signum,1);    %chci vykresli obrazek        
+                [katname,interval,signum] = CHilbertMulti.GetLabelInfo(E.label);
+                [prumery, ~,~,~,katsnames,neurologyLabels] = E.IntervalyResp(interval,[],signum,1);    %chci vykresli obrazek        
                 chvals = prumery(:,1,contains(katsnames,katname));
-                obj.SetSelCh(selCh,filename,chnames,katstr,freq,chvals);
+                obj.SetSelCh(selCh,filename,chnames,katstr,freq,chvals,neurologyLabels);
             else
                 if obj.n>0
                     s = find(~cellfun(@isempty,strfind(obj.selCh(:,1),filename)),1); %najdu pouze prvni vyhovujici soubor
                 else
                     s = [];
-                end
+                end                
                 if isempty(s) %filename neexistuje, ulozim
-                    obj.selCh(obj.n+1,:) = {filename,selCh,katstr,freq,chnames,chvals};
+                    obj.selCh(obj.n+1,:) = {filename,selCh,katstr,freq,chnames,chvals,neurologyLabels,datestr(now);};
                     obj.n = obj.n +1;
                 else %filename uz ulozen, radku s nim prepisu
-                    obj.selCh(s,:) = {filename,selCh,katstr,freq,chnames,chvals}; 
+                    obj.selCh(s,:) = {filename,selCh,katstr,freq,chnames,chvals,neurologyLabels,datestr(now);}; 
                 end
                 disp([ num2str(numel(find(any(selCh,2)))) ' selected channels saved']);                   
             end
@@ -113,8 +113,35 @@ classdef CSelCh < matlab.mixin.Copyable
             obj.filename = filename;
             disp(['nacten soubor ' filename]); 
         end
+        function obj = SortByLabel(obj)
+            %seradi soubory v selCh podle labels
+            labels = obj.selCh(:,3);
+            [~,il] = sort(labels);
+            obj.selCh(1:end,:) = obj.selCh(il,:);
+        end  
+        function CM = LoadCM(obj,n)
+            CM = CHilbertMulti(obj.selCh{n,1});
+        end
+        function [ChNames,ChVals,ChLabels] = GetTables(obj)
+            ChNames = obj.selCh{1,5};
+            for n = 2:obj.n 
+                ChNames = union(ChNames, obj.selCh{n,5});  %ziskam serazeny seznam vsech kanalu ve vsech souborech
+            end
+            ChVals = zeros(numel(ChNames),obj.n); %tam budou hodnoty kanalu
+            ChLabels = cell(numel(ChNames),1); %labely kanalu                       
+            for n = 1:obj.n                 
+               for ch = 1:size(obj.selCh{n,2},1)
+                   if any(obj.selCh{n,2}(ch,:)) %pokud je jakykoliv vyber tohoto kanalu
+                       iU = contains(ChNames,obj.selCh{n,5}(ch));
+                       ChVals(iU,n) = obj.selCh{n,6}(ch); 
+                       if isempty(ChLabels{iU})
+                           ChLabels{iU} = obj.selCh{n,7}{ch}; %staci jednou pro kazdy kanal
+                       end
+                   end
+               end
+            end
             
-    end
-    
+        end
+    end   
 end
 
