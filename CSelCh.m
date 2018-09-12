@@ -6,6 +6,7 @@ classdef CSelCh < matlab.mixin.Copyable
         selCh;
         n; %pocet ulozenych dat
         filename;
+        reference;
     end
     %#ok<*PROP>
     %#ok<*PROPLC>
@@ -14,11 +15,11 @@ classdef CSelCh < matlab.mixin.Copyable
             if exist('filename','var')                
                 obj.Load(filename);            
             else
-                obj.selCh = cell(1,8); %prvni sloupec je filename, druhy selCh, treti katstr, ctvrty freq , paty chnames
+                obj.selCh = cell(1,9); %sloupce filename, selCh,3:katstr=label, freq , chnames,6: chval, chlabels, 8: datestr, MNI
                 obj.n = 0;
             end
         end
-        function obj = SetSelCh(obj,selCh,filename,chnames, katstr,freq,chvals,neurologyLabels)            
+        function obj = SetSelCh(obj,selCh,filename,chnames, katstr,freq,chvals,neurologyLabels,MNI,reference)            
             %ulozi vyber kanalu do teto tridy            
             if ~exist('chnames','var'), chnames = []; end
             if ~exist('katstr','var'), katstr = []; end
@@ -38,22 +39,29 @@ classdef CSelCh < matlab.mixin.Copyable
                 else
                     freq = [];
                 end
-                chnames = {E.CH.H.channels(1:size(selCh,1)).name}'; %jmena vybranych kanaly - 2018-09-07 - ted jsou SelCH indexy, takze ukladam jmena vsech kanalu
+                iCh = 1:size(selCh,1); %index kanalu, ktere ukladam 
+                chnames = {E.CH.H.channels(iCh).name}'; %jmena vybranych kanaly - 2018-09-07 - ted jsou SelCH indexy, takze ukladam jmena vsech kanalu
                 [katname,interval,signum] = CHilbertMulti.GetLabelInfo(E.label);
                 [prumery, ~,~,~,katsnames,neurologyLabels] = E.IntervalyResp(interval,[],signum,1);    %chci vykresli obrazek        
                 chvals = prumery(:,1,contains(katsnames,katname));
-                obj.SetSelCh(selCh,filename,chnames,katstr,freq,chvals,neurologyLabels);
+                MNI_xyz = cat(2,{E.CH.H.channels(iCh).MNI_x}',{E.CH.H.channels(iCh).MNI_y}',{E.CH.H.channels(iCh).MNI_z}'); %cell(ch,3)
+                obj.SetSelCh(selCh,filename,chnames,katstr,freq,chvals,neurologyLabels,MNI_xyz,E.reference);
             else
                 if obj.n>0
                     s = find(~cellfun(@isempty,strfind(obj.selCh(:,1),filename)),1); %najdu pouze prvni vyhovujici soubor
                 else
                     s = [];
-                end                
+                end                 
                 if isempty(s) %filename neexistuje, ulozim
-                    obj.selCh(obj.n+1,:) = {filename,selCh,katstr,freq,chnames,chvals,neurologyLabels,datestr(now);};
+                    obj.selCh(obj.n+1,:) = {filename,selCh,katstr,freq,chnames,chvals,neurologyLabels,datestr(now),MNI};
                     obj.n = obj.n +1;
                 else %filename uz ulozen, radku s nim prepisu
-                    obj.selCh(s,:) = {filename,selCh,katstr,freq,chnames,chvals,neurologyLabels,datestr(now);}; 
+                    obj.selCh(s,:) = {filename,selCh,katstr,freq,chnames,chvals,neurologyLabels,datestr(now),MNI}; 
+                end
+                if ~isempty(obj.reference)
+                    assert(strcmp(obj.reference,reference),'soubory musi mit stejnou referenci');
+                else
+                    obj.reference = reference;
                 end
                 disp([ num2str(numel(find(any(selCh,2)))) ' selected channels saved']);                   
             end
@@ -102,16 +110,18 @@ classdef CSelCh < matlab.mixin.Copyable
                 obj.filename = filename;
             end
             selCh = obj.selCh; %#ok<NASGU>
-            n = obj.n;      %#ok<NASGU>                  
-            save(filename,'selCh','n','filename','-v7.3');  
+            n = obj.n;      %#ok<NASGU>  
+            ref = obj.reference; %#ok<NASGU>  
+            save(filename,'selCh','n','filename','ref','-v7.3');  
             disp(['ulozeno do ' filename]); 
         end
         function obj = Load(obj,filename)            
             assert(exist(filename,'file')==2, 'soubor neexistuje');
-            load(filename,'selCh','n','filename');              
+            load(filename,'selCh','n','filename','ref');              
             obj.n = n; %#ok<CPROPLC>
             obj.selCh = selCh; %#ok<CPROPLC>
             obj.filename = filename;
+            obj.reference = ref;
             disp(['nacten soubor ' filename]); 
         end
         function obj = SortByLabel(obj)
@@ -189,7 +199,22 @@ classdef CSelCh < matlab.mixin.Copyable
             text(0.1,0.1, cell2str(KatNames) ); %pozici jsem si vyzkousel empiricky
             
         end
-        
+        function ExtractBrainPlotData(obj)
+            BPD = struct; 
+            %{ 
+            BPD.intervals - matrix
+            BPD.katstr - cell katstr
+            BPD.reference
+            BPD.Hf 50:5:150
+            BPD.selCh cell(intervals,kat)
+            BPD.NAMES cell(intervals,kat)
+            !!! BPD.MNI
+            BPD.VALS
+            BPD.NLABELS 
+            xx BPD.EPI
+            %}
+            
+        end
     end
      %  --------- privatni metody ----------------------
     methods (Access = private)

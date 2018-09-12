@@ -248,7 +248,10 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             end
             text(-70,70,'LEVA');
             text(55,70,'PRAVA');  
-            axis equal;            
+            axis equal;  
+            grid on;
+            xticks(-70:10:70);
+            yticks(-100:10:70);
             xlabel('MNI X'); %levoprava souradnice
             ylabel('MNI Y'); %predozadni souradnice
            
@@ -298,6 +301,9 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 end
             end
             axis equal;
+            grid on;
+            yticks(-80:10:80);
+            xticks(-100:10:70);
             xlabel('MNI Y'); %predozadni souradnice
             ylabel('MNI Z'); %hornodolni
             
