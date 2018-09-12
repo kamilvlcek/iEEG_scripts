@@ -123,21 +123,33 @@ classdef CSelCh < matlab.mixin.Copyable
         function CM = LoadCM(obj,n)
             CM = CHilbertMulti(obj.selCh{n,1});
         end
-        function [ChNames,ChVals,ChLabels,ChNum,Intervals] = GetTables(obj,chlabels,notchnlabels)
-            ChNames = obj.selCh{1,5};  %seznam jmen kanalu pres vsechny soubory         
-            Intervals = {obj.GetInterval(1)}; %seznam vsech casovych intervalu v poradu podle razeni selCh
+        function [ChNames,ChVals,ChLabels,ChNum,Intervals] = GetTables(obj,selCh,chlabels,notchnlabels,sort,normalize)
+            %TODO - k selCh to bude chtit jeste parametr katstr, abych mel data napr jen z SceneXFace nebo SceneXObject
+            if ~exist('selCh','var') || isempty(selCh), selCh = [1 0 0 0 0 0]; end
+            selCh(numel(selCh)+1:6)= zeros(1,6-numel(selCh));            
+            if ~exist('chlabels','var') || isempty(chlabels), chlabels = {}; end
+            if ~exist('notchnlabels','var') || isempty(notchnlabels), notchnlabels = {}; end
+            if ~exist('normalize','var') || isempty(normalize) , normalize = 1; end
+            if ~exist('sort','var') || isempty(sort), sort = 1; end
+            ChNames = obj.selCh{1,5};  %seznam jmen kanalu pres vsechny soubory                     
+            [invervalstr,katname]=obj.GetIntervalKat(1);
+            Intervals = {invervalstr}; %seznam vsech casovych intervalu v poradu podle razeni selCh
+            KatNames = {katname};
             for n = 2:obj.n  
                 ChNames = union(ChNames, obj.selCh{n,5});  %ziskam serazeny seznam vsech kanalu ve vsech souborech                
-                Intervals = union(Intervals,obj.GetInterval(n));
+                [invervalstr,katname]=obj.GetIntervalKat(n);
+                Intervals = union(Intervals,invervalstr);
+                KatNames = union(KatNames,katname);
             end
             ChVals = zeros(numel(ChNames),numel(Intervals)); %tam budou hodnoty kanalu
             ChNum = zeros(numel(ChNames),numel(Intervals));  %pocty prekryvajicich se kontrastu v tomto kanalu a intervalu
-            ChLabels = cell(numel(ChNames),1); %labely kanalu                       
-            for n = 1:obj.n                 
-               for ch = 1:size(obj.selCh{n,2},1)
-                   if obj.selCh{n,2}(ch,1) %pokud je vyber 'f' tohoto kanalu
+            ChLabels = cell(numel(ChNames),1); %labely kanalu             
+            for n = 1:obj.n %pro vsechny radky = importovane CM soubory               
+               iI = contains(Intervals,obj.GetIntervalKat(n)); %index v poli intervaly
+               for ch = 1:size(obj.selCh{n,2},1) %pro vsechny kanaly v kazdem CM souboru
+                   if any(obj.selCh{n,2}(ch,logical(selCh))) %pokud je vyber 'f' tohoto kanalu
                        iU = contains(ChNames,obj.selCh{n,5}(ch));                       
-                       iI = contains(Intervals,obj.GetInterval(n)); %index v poli intervaly
+                       
                        if  ChVals(iU,iI) == 0
                            ChVals(iU,iI) = obj.selCh{n,6}(ch);  %prvni hodnota pro tento kanal                           
                        else
@@ -151,16 +163,53 @@ classdef CSelCh < matlab.mixin.Copyable
                    end
                end
             end
-            %odfiltruju kanaly bez oznaceni pres vsechny intervaly
+            
+            [ChVals,ChNames,ChNum,ChLabels,notLstr] = obj.ChValsFilter(ChVals,ChNames,ChNum,ChLabels,chlabels,notchnlabels);
+            if sort == 1
+                [ChVals,ChNames,ChNum,ChLabels] = obj.ChValsSort(ChVals,ChNames,ChNum,ChLabels);
+            end
+            if normalize == 1
+                ChVals = obj.ChValsNormalize(ChVals); 
+            end
+            
+            fh = figure('Name',['CSelCh GetTables ' cell2str(chlabels)]);
+            ax1 = axes('Position',[0 0 1 1],'Visible','off'); 
+            ax2 = axes('Position',[0.18 0.18 0.75 0.75]); % https://nl.mathworks.com/help/matlab/creating_plots/placing-text-outside-the-axes.html
+            imagesc(ax2,ChVals);            
+            title([cell2str(chlabels) notLstr ' - ' num2str(selCh,'%.0f-%.0f-%.0f-%.0f-%.0f-%.0f')]);
+            set(gca, 'YTick', 1:numel(ChNames), 'YTickLabel', ChNames) % 10 ticks 
+            set(gca, 'XTick', 1:numel(Intervals), 'XTickLabel', Intervals) % 10 ticks 
+%             if numel(chlabels) > 0
+                for iL = 1:numel(ChLabels)
+                    text(0.6,iL,ChLabels{iL},'Color','white');
+                end
+%             end
+            colorbar;
+            axes(ax1); % sets ax1 to current axes
+            text(0.1,0.1, cell2str(KatNames) ); %pozici jsem si vyzkousel empiricky
+            
+        end
+        
+    end
+     %  --------- privatni metody ----------------------
+    methods (Access = private)
+        function [intervalstr,katname] = GetIntervalKat(obj,n)
+           [katname,interval,~] = CHilbertMulti.GetLabelInfo(obj.selCh{n,3}); %inverval prvniho souboru
+           intervalstr = num2str(interval,'%.1f-%.1f');
+        end        
+    end
+    methods (Access = private, Static)
+        function [ChVals,ChNames,ChNum,ChLabels,notLstr]=ChValsFilter(ChVals,ChNames,ChNum,ChLabels,chlabels,notchnlabels)
+             %odfiltruju kanaly bez oznaceni pres vsechny intervaly
             iChVals = max(ChVals,[],2)==0; 
             ChVals(iChVals,:) = [];
             ChNames(iChVals) = [];
             ChNum(iChVals,:) = [];
             ChLabels(iChVals) = [];
             
-            if exist('chlabels','var')
+            if numel(chlabels) > 0
                 iL = contains(ChLabels,chlabels);
-                if exist('notchnlabels','var') 
+                if numel(notchnlabels) > 0
                     iLx = contains(ChLabels,notchnlabels);
                     iL = iL & ~iLx;
                     notLstr = [ ' not:' cell2str(notchnlabels)];
@@ -171,10 +220,11 @@ classdef CSelCh < matlab.mixin.Copyable
                 ChNames = ChNames(iL);
                 ChNum = ChNum(iL,:);
                 ChLabels = ChLabels(iL);
-            else
-                chlabels = {};
+            else                
                 notLstr = '';
             end
+        end
+        function [ChVals,ChNames,ChNum,ChLabels] = ChValsSort(ChVals,ChNames,ChNum,ChLabels)
             %seradim kanaly podle casu a velkosti odpovedi            
             [Max,iMax] = max(ChVals,[],2); %Nejvyssi odpoved v kazdem radku  + jeji index v radku
             [iMax2,iiMax] = sort(iMax); %serazene indexy max odpovedi (prvni v radku, druhe v radku ....) a jejich indexy 
@@ -184,25 +234,12 @@ classdef CSelCh < matlab.mixin.Copyable
             ChNames = ChNames(MaxVals(:,3));
             ChLabels = ChLabels(MaxVals(:,3));
             ChNum = ChNum(MaxVals(:,3),:);
-            
-            figure('Name',['CSelCh GetTables ' cell2str(chlabels)]);
-            imagesc(ChVals);
-            title([cell2str(chlabels) notLstr]);
-            set(gca, 'YTick', 1:numel(ChNames), 'YTickLabel', ChNames) % 10 ticks 
-            set(gca, 'XTick', 1:numel(Intervals), 'XTickLabel', Intervals) % 10 ticks 
-            if numel(chlabels) > 0
-                for iL = 1:numel(ChLabels)
-                    text(0.6,iL,ChLabels{iL},'Color','white');
-                end
-            end
-            colorbar;
         end
-    end
-     %  --------- privatni metody ----------------------
-    methods (Access = private)
-        function [intervalstr] = GetInterval(obj,n)
-           [~,interval,~] = CHilbertMulti.GetLabelInfo(obj.selCh{n,3}); %inverval prvniho souboru
-           intervalstr = num2str(interval,'%.1f-%.1f');
+        function ChVals = ChValsNormalize(ChVals)
+            for ch = 1:size(ChVals,1)
+                iCh = ChVals(ch,:)>0;
+                ChVals(ch,iCh) = ChVals(ch,iCh)./max(ChVals(ch,iCh));
+            end
         end
     end
 end
