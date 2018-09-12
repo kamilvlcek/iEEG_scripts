@@ -1175,7 +1175,12 @@ classdef CiEEGData < matlab.mixin.Copyable
                 figure(obj.plotRCh.fh); %pouziju uz vytvoreny graf
                 clf(obj.plotRCh.fh); %graf vycistim
             else
-                obj.plotRCh.fh = figure('Name','W plot channel');
+                if isprop(obj,'label') && ~isempty(obj.label)
+                    figurename = ['PlotResponseCh - ' obj.label];
+                else
+                    figurename = 'PlotResponseCh';
+                end
+                obj.plotRCh.fh = figure('Name',figurename);
             end
             [ymin ymax] = obj.responseChYLim(iff(~isempty(opakovani),KATNUM,kategories));
             
