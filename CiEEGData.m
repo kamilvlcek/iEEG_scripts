@@ -1753,8 +1753,9 @@ classdef CiEEGData < matlab.mixin.Copyable
                    if isa(obj,'CHilbert'), obj.PlotResponseFreq(obj.plotRCh.ch,obj.Wp(obj.WpActive).kats); end %vykreslim vsechna frekvencni pasma
                    obj.PlotEpochs(obj.plotRCh.ch,obj.Wp(obj.WpActive).kats); %vykreslim prumery freq u vsech epoch
                    figure(obj.plotRCh.fh); %dam puvodni obrazek dopredu
-               case 'return' %zobrazi obrazek mozku s vybranych kanalem                                     
-                   obj.CH.ChannelPlot2D(obj.plotRCh.ch,obj.plotRCh.selCh,@obj.PlotResponseCh);  %vykreslim obrazek mozku s vybranym kanalem
+               case 'return' %zobrazi obrazek mozku s vybranych kanalem                      
+                   if isprop(obj,'label') && ~isempty(obj.label), label = obj.label; else, label = ''; end
+                   obj.CH.ChannelPlot2D(obj.plotRCh.ch,obj.plotRCh.selCh,@obj.PlotResponseCh,label);  %vykreslim obrazek mozku s vybranym kanalem
                    figure(obj.plotRCh.fh); %dam puvodni obrazek dopredu
                case {'add' ,  'equal','f'}     % + oznaceni kanalu
                    obj.SelChannel(obj.CH.sortorder(obj.plotRCh.ch));

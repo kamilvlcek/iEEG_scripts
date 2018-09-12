@@ -163,7 +163,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 disp('No MNI data');
             end
         end
-        function ChannelPlot2D(obj,chsel,selCh,plotChH)
+        function ChannelPlot2D(obj,chsel,selCh,plotChH,label)
             %vstupni promenne
             if ~exist('chsel','var')%promenna na jeden cerveny kanal
                 if isfield(obj.plotCh2D,'chsel')
@@ -191,6 +191,16 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             end
             if ~isfield(obj.plotCh2D,'marks')  %handlet na funkci z CiEEGData @obj.PlotResponseCh
                 obj.plotCh2D.marks = [1 1 1 1 1 1]; %ktere znacky fghjjkl se maji zobrazovat
+            end
+            if ~exist('label','var') %promenna z CM oznacujici nejaky label celeho souboru 
+                if isfield(obj.plotCh2D,'label')
+                    label = obj.plotCh2D.label;
+                else
+                    label = []; 
+                    obj.plotCh2D.label = [];
+                end
+            else
+                obj.plotCh2D.label = label;
             end
             
             %vytvoreni figure
@@ -226,7 +236,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             for ie = 1:numel(obj.els)                
                 plot(x(el0:obj.els(ie)),y(el0:obj.els(ie)),'-o'); %plot kontaktu jedne elektrody
                 for ch = el0:obj.els(ie)
-                    th = text(x(ch),y(ch),num2str(ch));
+                    th = text(x(ch),y(ch),num2str(ch)); %cislo kazdeho kanalu
                     th.FontSize = 8;
                 end
                 el0 = obj.els(ie)+1;                
@@ -249,11 +259,15 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             text(-70,70,'LEVA');
             text(55,70,'PRAVA');  
             axis equal;  
-            grid on;
+            if isfield(obj.plotCh2D,'grid') && obj.plotCh2D.grid==1
+                grid on;
+            end
+                
             xticks(-70:10:70);
             yticks(-100:10:70);
             xlabel('MNI X'); %levoprava souradnice
             ylabel('MNI Y'); %predozadni souradnice
+            set(gca,'color','none'); %zadne bile pozadi, pak ani v corelu
            
             subplot(1,2,2);
             %sagitalni plot            
@@ -299,13 +313,19 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     klavesy = 'fghjkl'; %abych mohl vypsat primo nazvy klaves vedle hvezdicky podle selCh
                     text(x_text,80,['*' klavesy(logical(selCh(chsel,:)))], 'FontSize', 12,'Color','red');
                 end
+                if ~isempty(label)
+                    text(x_text,-75,strrep(label,'_','\_'), 'FontSize', 10,'Color','blue' );
+                end
             end
             axis equal;
-            grid on;
+            if isfield(obj.plotCh2D,'grid') && obj.plotCh2D.grid==1
+                grid on;
+            end
             yticks(-80:10:80);
             xticks(-100:10:70);
             xlabel('MNI Y'); %predozadni souradnice
             ylabel('MNI Z'); %hornodolni
+            set(gca,'color','none'); %zadne bile pozadi, pak ani v corelu
             
             %rozhybani obrazku            
             set(obj.plotCh2D.fh,'KeyPressFcn',@obj.hybejPlot2D); 
@@ -549,6 +569,13 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                       obj.ChannelPlot2D();
                   case {'j','k','l'}
                       obj.plotCh2D.marks( eventDat.Key - 'f' ) = 1 - obj.plotCh2D.marks( eventDat.Key - 'f' );
+                      obj.ChannelPlot2D();
+                  case {'tab'} %zapinani a vypinani gridu
+                      if isfield(obj.plotCh2D,'grid') 
+                          obj.plotCh2D.grid = 1-obj.plotCh2D.grid;
+                      else
+                         obj.plotCh2D.grid = 1;
+                      end
                       obj.ChannelPlot2D();
               end              
           end
