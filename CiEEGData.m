@@ -429,7 +429,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             % -- pokud jedna hodnota, je to sirka klouzaveho okna - maximalni p z teto delky
             %TODO - moznost spojit kategorie 
             assert(obj.epochs > 1,'only for epoched data');                       
-            if ~exist('method','var'), method = {'wilcox'}; end  %defaultni metoda statistiky je wilcox test
+            if ~exist('method','var') || isempty(method), method = {'wilcox'}; end  %defaultni metoda statistiky je wilcox test
             if ~iscell(method), method = {method,'chn1'}; end %predelam retezec na cell
             if numel(method) < 2, method{2} = 'chn1'; end %druha polozka bude urcovat, jestli se ma vyhodnocovat vsechny kanaly (chnall), nebo kazdy kanal zvlast (chn1)
             
@@ -495,6 +495,20 @@ classdef CiEEGData < matlab.mixin.Copyable
                 obj.Wp(WpA).opakovani = {};
             end
             obj.DatumCas.ResponseSearch = datestr(now);
+        end
+        function obj = ResponseSearchMulti(obj,timewindow,stat_kats,opakovani,method)
+            %vola ResponseSearch pro kazdy kontrast, nastavi vsechny statistiky
+            if ~exist('opakovani','var'), opakovani = []; end
+            if ~exist('method','var'), method = []; end
+            if iscelldeep(stat_kats) %pokud mam nekolik ruznych statistik na spocitani
+                for WpA = 1:numel(stat_kats)
+                    obj.SetStatActive(WpA);
+                    disp(['pocitam kontrast' cell2str(stat_kats{WpA}) ]);
+                    obj.ResponseSearch(timewindow,stat_kats{WpA},opakovani,method);
+                end
+            else
+                obj.E.ResponseSearch(timewindow,stat_kats, opakovani,method);
+            end
         end
         function obj = SetStatActive(obj,WpActive)
             WpActive = max(1,min(size(obj.Wp,2)+1,WpActive)); %osetreni na prilis vysoke a nizke cislo            

@@ -303,12 +303,13 @@ classdef CBrainPlot < matlab.mixin.Copyable
         end
     end
     methods (Static,Access = public)
-        function PAC = StructFind(struktura,label,testname,reference)
+        function PAC = StructFind(struktura,label,testname,reference,labelnot)
             %najde pacienty, jejich headery obsahuji mozkovou strukturu
             %struktura je nazev struktury podle atlas napriklad hippo, label je kratky nazev podle martina, napriklad hi
             if ~exist('label','var'),    label = struktura; end %defaultni test
             if ~exist('testname','var') || isempty(testname), testname = 'aedist'; end %defaultni test
             if ~exist('reference','var') || isempty(reference), reference = []; end %defaultni test
+            if ~exist('labelnot','var'),    labelnot = {}; end %defaultni test
             if ischar(struktura), struktura = {struktura}; end %prevedu na cell array
             if ischar(label), label = {label}; end %prevedu na cell array
             [ pacienti, setup ] = pacienti_setup_load( testname );
@@ -330,15 +331,14 @@ classdef CBrainPlot < matlab.mixin.Copyable
                     H = CH.H;
                 end
                 ii = ~cellfun(@isempty,{H.channels.neurologyLabel}); %neprazdne cells
-                if ~isempty(struktura) || ~isempty(label)
-                    index = []; %bude obsahovat cisla vybranych kanalu - jeden radek
-                    labels = lower({H.channels(ii).neurologyLabel}');
-                    for jj = 1:size(label,2)                    
-                        indexjj =  find(~cellfun('isempty',strfind(labels,lower(label{jj}))))'; %rozepsal jsem, aby se to dalo lepe debugovat
-                        index = [index indexjj];  %#ok<AGROW>
-                        % 3.5.2018 nejakym zahadnym zpusobem funguje hledani pomoci strfind ve sloupci a ne v radku. 
-                        % Proto nejdriv prehodim pomoci ' na sloupec a pak zase na radek
+                if ~isempty(struktura) || ~isempty(label)                    
+                    labels = lower({H.channels(ii).neurologyLabel});
+                    iLabels = contains(labels,lower(label)); %najde vsechny label naraz                    
+                    if ~isempty(labelnot)
+                        iLabelsNOT = contains(labels,lower(labelnot)); %najde vsechny label naraz  
+                        iLabels = iLabels & ~iLabelsNOT;
                     end
+                    index = find(iLabels);%bude obsahovat cisla vybranych kanalu - jeden radek
                     iiBA = ~cellfun(@isempty,{H.channels.ass_brainAtlas}); %neprazdne cells
                     iiCM = ~cellfun(@isempty,{H.channels.ass_cytoarchMap}); %neprazdne cells
                     for jj = 1:size(struktura,2)
