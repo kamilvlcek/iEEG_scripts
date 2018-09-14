@@ -527,11 +527,12 @@ classdef CHilbert < CiEEGData
                 
         end
         
-        function BPD = ExtractBrainPlotData(obj,chns,kategorie)
+        function BPD = ExtractBrainPlotData(obj,chns,kategorie,signum)
             %vytvori Brain Plot Data, pro CBrainPlot.PlotBrain3D
             BPD = struct;            
             if ~exist('chns','var'), chns = []; end %pokud neni definovane, je prazdne a pak vytvarim jen data pro vsechny elektrody                     
             if ~exist('kategorie','var'), kategorie = []; end %kategorie ze ktere chci ziskat hodnoty - odpovida kategoriim z IntervalyResp a pak v CBrainPLot
+            if ~exist('signum','var'), signum = 0; end %jestli chci jen kat1>kat2 (1), nebo obracene (-1), nebo vsechny (0)
           
             BPD.intervals = [0 1]; %budu mit dve pole hodnoty, vybrane kanaly a vsechny kanaly s vybranymi vyznacenyma
             if isprop(obj,'label')
@@ -572,7 +573,7 @@ classdef CHilbert < CiEEGData
                     BPD.EPI{1}(ch).rejected = obj.CH.H.channels(ch).rejected;
                 end                
             end
-            BPD.selCh{1} = 1:obj.channels;
+            BPD.selCh{1} = ones(obj.channels,6); %novy format z 22.8.2018 - kanaly x marks
             
             %hodnoty pro vybrane kanaly
             BPD.NAMES{2}= cell(iff(isempty(chns),obj.channels,numel(chns)),1);
@@ -580,9 +581,12 @@ classdef CHilbert < CiEEGData
             BPD.VALS{2} = ones(iff(isempty(chns),obj.channels,numel(chns)),1);                
             BPD.NLABELS{2}= cell(iff(isempty(chns),obj.channels,numel(chns)),1);
             BPD.EPI{2} = struct('seizureOnset',{},'interictalOften',{},'rejected',{});                      
-            BPD.selCh{2} = obj.GetSelCh();      
+            BPD.selCh{2} = obj.GetSelCh();  
+            if sum(BPD.selCh{2})==0 %pokud neni vybrany zadny kanal
+                BPD.selCh{2} = ones(obj.channels,6); %novy format z 22.8.2018 - kanaly x marks
+            end
             if isempty(chns)
-                prumery = obj.IntervalyResp([],[],0);
+                prumery = obj.IntervalyResp([],[],signum,0);
                 if isempty(kategorie)
                     kategorie = 1:size(prumery,3);
                 end

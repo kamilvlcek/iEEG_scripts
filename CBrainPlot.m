@@ -23,13 +23,14 @@ classdef CBrainPlot < matlab.mixin.Copyable
     end
     
     methods (Access = public)        
-        function [obj] = IntervalyResp(obj,testname,intervals,filename,contrast)
+        function [obj] = IntervalyResp(obj,testname,intervals,filename,contrast,signum)
             %IntervalyResp(testname,intervals,filename,contrast)
             %vola postupne pro vsechny pacienty E.IntervalyResp a uklada vysledky
             %vyradi vsechny kontakty bez odpovedi nebo se zapornou odpovedi
             %spoji vsechno dohromady
             %vrati vysledky ve formatu pro SEEE-vizualization
             %napr CB.IntervalyResp('aedist',[0.2 0.8],'AEdist CHilbert 50-120 refBipo Ep2017-11_CHilb.mat');
+            %signum = jestli chci jen kat1>kat2 (1), nebo obracene (-1), nebo vsechny (0)
             if ~exist('contrast','var'), contrast = 1; end; %defaultni je prvni kontrast            
             if strcmp(testname,'aedist')
                 pacienti = pacienti_aedist(); %nactu celou strukturu pacientu    
@@ -59,7 +60,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
                         continue;
                     end
                     E.SetStatActive(contrast); %nastavi jeden z ulozenych statistickych kontrastu
-                    [prumery, MNI,names,~,katstr,neurologyLabels] = E.IntervalyResp( intervals,[],0);   %#ok<PROPLC> %no figure, funkce z CiEEGData                           
+                    [prumery, MNI,names,~,katstr,neurologyLabels] = E.IntervalyResp( intervals,[],signum,0);   %#ok<PROPLC> %no figure, funkce z CiEEGData                           
                     obj.pacients{p} = pacienti(p).folder;
                     obj.GetPAC(prumery,E.CH.H,pacienti(p).folder);
                     obj.reference = E.reference;
@@ -215,6 +216,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
             plotSetup.customColors.lightneg = [212 255 171];
             plotSetup.customColors.lightpos = [246 203 203];
             plotSetup.customColors.darkpos = [162 2 2]; %tmave cervena
+            plotSetup.figureNamePrefix = [ obj.testname '_' num2str(obj.Hf([1 end]),'%i-%iHz') '_' obj.reference '_names']; %default name
 
             tablelog = cell(obj.pocetcykluPlot3D(kategorie,signum)+2,7); % z toho bude vystupni xls tabulka s prehledem vysledku
             tablelog(1,:) = {datestr(now),obj.filename,'','','','',''}; %hlavicky xls tabulky
@@ -228,7 +230,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
                     elseif signum <0 
                         iV = obj.VALS{interval,kat} < 0; %jen zaporne rozdily
                     elseif ~isempty(obj.selCh{interval,kat})
-                        iV = ismember(1:numel(obj.VALS{interval,kat}),obj.selCh{interval,kat}); %vyber kanalu k zobrazeni, napriklad z CHilbertMulti
+                        iV = ismember(1:numel(obj.VALS{interval,kat}),find(any(obj.selCh{interval,kat},2))); %vyber kanalu k zobrazeni, napriklad z CHilbertMulti
                     else
                         iV = true(size(obj.VALS{interval,kat})); %vsechny rozdily
                     end                    
@@ -382,6 +384,27 @@ classdef CBrainPlot < matlab.mixin.Copyable
              PAC = cell2struct(raw(2:end,:),raw(1,:),2)';  %originalni PAC struktura z StructFind ma rozmer 1 x N, takze transponuju z excelu
              disp( [ basename(xlsfile) ': soubor nacten']);
         end
+%         function PAC2Bipolar(PAC)
+%             %kdyz nemam strukturu PAC bipolarne a potrebuju ji
+%             PACpac = unique({PAC.pacient});
+%             [ pacienti, setup ] = pacienti_setup_load( testname );            
+%             for iPAC = 1:numel(PACpac)
+%                 p = pacient_find(pacienti,PACpac{iPAC});
+%                 if p < 0
+%                     disp(['pacient nenalezen: ' nick]);                        
+%                     continue;
+%                 end
+%                 disp(['* ' pacienti(p).folder ' - ' pacienti(p).header ' *']);                
+%                 hfilename = [setup.basedir pacienti(p).folder '\' pacienti(p).header];                
+%                 if exist(hfilename,'file')==2
+%                     load(hfilename);
+%                 else
+%                     disp(['header ' hfilename ' neexistuje']);
+%                     continue; %zkusim dalsiho pacienta, abych vypsal, ktere vsechny headery neexistujou
+%                 end  
+%                 
+%             end
+%         end
         function MIS = StructFindErr(testname)
             [ pacienti, setup ] = pacienti_setup_load( testname );
             load('BrainAtlas_zkratky.mat');

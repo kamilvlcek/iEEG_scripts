@@ -18,14 +18,8 @@ elseif strcmp(testname,'ppa')
 else
     error('zatim pracuji jen s aedist, menrot a ppa');
 end
-nalezen = false;
-for p = 1:numel(pacienti)
-    if strfind(pacienti(p).folder,nick)
-        nalezen = true;
-        break; %nasel jsem pacienta
-    end        
-end
-if ~nalezen
+p = pacient_find(pacienti,nick);
+if p<0
     disp(['pacient nenalezen: ' nick]);    
     E = [];
     return;

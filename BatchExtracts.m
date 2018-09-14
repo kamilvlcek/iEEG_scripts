@@ -1,4 +1,4 @@
-function [ ] = BatchExtracts( testname,files,kontrasts, intervals )
+function [ ] = BatchExtracts( testname,files,kontrasts, intervals, CSelChName, FAZE)
 
 % files = {   'AEdist CHilbert 50-150 -0.5-1.2 refBipo Ep2018-04_CHilb.mat',...
 %             'AEdist CMorlet 1-10M -0.5-1.2 refBipo Ep2018-06 FE_CHilb.mat',...
@@ -10,6 +10,7 @@ function [ ] = BatchExtracts( testname,files,kontrasts, intervals )
 [ pacienti, setup  ] = pacienti_setup_load( testname );
 if ~exist('kontrasts','var') || isempty(kontrasts), kontrasts = 1:numel(setup.stat_kats); end %statisticky kontrast, pokud nezadam zvnejsku, udelam vsechny
 if ~exist('intervals','var'), intervals = [0.1 1]; end
+if ~exist('FAZE','var'), FAZE = 1; end
 pocetcyklu = 0;
 for kontrast = 1:numel(kontrasts) %cyklus jen na vypocet celkoveho poctu cyklu pres vsechny kontrasty ve statistice
     stat = setup.stat_kats{kontrast}; %resp setup.stat_kats{1} {2} nebo {3} pro menrot 
@@ -18,26 +19,43 @@ for kontrast = 1:numel(kontrasts) %cyklus jen na vypocet celkoveho poctu cyklu p
     pocetcyklu = pocetcyklu + numel(files) * size(kombinace_kat,1) ;
 end
 
-overwrite_extracts = 1; %jestli se maji prepisovat extrakty pro kazdeho pacienta
-overwrite_brainplots = 1;
-overwriteCM = 0; %jestli se maji prepisovat soubory CHilbertMulti
-doIntervalyResp = 1; %jestli se maji hledaty signif soubory pres vsechny pacienty pomoci CN.IntervalyResp, pokud ne, potrebuju uz mit hotove CHilbertMulti soubory
-loadCM = 0; %jestli se maji nacist existujici CM soubory pokud existuji
+if FAZE==1 %vytvarim extrakty a CM soubory
+    overwrite_extracts = 1; %jestli se maji prepisovat extrakty pro kazdeho pacienta
+    overwrite_brainplots = 1;
+    overwriteCM = 1; %jestli se maji prepisovat soubory CHilbertMulti
+    doIntervalyResp = 1; %jestli se maji hledaty signif soubory pres vsechny pacienty pomoci CN.IntervalyResp, pokud ne, potrebuju uz mit hotove CHilbertMulti soubory
+    loadCM = 0; %jestli se maji nacist existujici CM soubory pokud existuji
+    brainplots_onlyselch = 0; %generovat CBrainPlot3D jedine ze souboru, kde jsou selected channels
+    plotallchns = 0; %jestli generovat obrazky mozku i se vsema kanalama (bez ohledu na signifikanci)        
+elseif FAZE == 2 %nove CBrainPloty podle SelCh
+    overwrite_extracts = 0; %jestli se maji prepisovat extrakty pro kazdeho pacienta
+    overwrite_brainplots = 1;
+    overwriteCM = 0; %jestli se maji prepisovat soubory CHilbertMulti
+    doIntervalyResp = 0; %jestli se maji hledaty signif soubory pres vsechny pacienty pomoci CN.IntervalyResp, pokud ne, potrebuju uz mit hotove CHilbertMulti soubory
+    loadCM = 1; %jestli se maji nacist existujici CM soubory pokud existuji
+    brainplots_onlyselch = 1; %generovat CBrainPlot3D jedine ze souboru, kde jsou selected channels
+    plotallchns = 0; %jestli generovat obrazky mozku i se vsema kanalama (bez ohledu na signifikanci)   
+else
+    error('jaka faze?');
+end
+IntervalyRespSignum = 1; %jestli chci jen kat1>kat2 (1), nebo obracene (-1), nebo vsechny (0)
+NLabels = 0; %jestli se maji misto jmen kanalu vypisovat jejich Neurology Labels
+
 if strcmp(testname,'menrot')
+    if ~exist('CSelChName','var') || isempty(CSelChName), CSelChName = 'CSelCh_Menrot.mat'; end
     dirCM = 'd:\eeg\motol\CHilbertMulti\Menrot\'; %musi koncit \
-    fileCS = 'd:\eeg\motol\CHilbertMulti\Menrot\CSelCh_Menrot.mat';
+    fileCS = ['d:\eeg\motol\CHilbertMulti\Menrot\' CSelChName];
 elseif strcmp(testname,'aedist')
+    if ~exist('CSelChName','var') || isempty(CSelChName), CSelChName = 'CSelCh_AEdist.mat'; end
     dirCM = 'd:\eeg\motol\CHilbertMulti\Aedist\'; %musi koncit \
-    fileCS = 'd:\eeg\motol\CHilbertMulti\Aedist\CSelCh_AEdist.mat';
+    fileCS = ['d:\eeg\motol\CHilbertMulti\Aedist\' CSelChName];
 elseif strcmp(testname,'ppa')
+    if ~exist('CSelChName','var') || isempty(CSelChName), CSelChName = 'CSelCh_PPA.mat'; end
     dirCM = 'd:\eeg\motol\CHilbertMulti\PPA\'; %musi koncit \
-    fileCS = 'd:\eeg\motol\CHilbertMulti\PPA\CSelCh_PPA.mat';
+    fileCS = ['d:\eeg\motol\CHilbertMulti\PPA\' CSelChName];
 else
     error('neznamy typ testu');
 end
-brainplots_onlyselch = 0; %generovat CBrainPlot3D jedine ze souboru, kde jsou selected channels
-plotallchns = 0; %jestli generovat obrazky mozku i se vsema kanalama (bez ohledu na signifikanci)
-NLabels = 0; %jestli se maji misto jmen kanalu vypisovat jejich Neurology Labels
 
 %LOG SOUBORY
 %1. seznam vsech extraktu
@@ -65,7 +83,7 @@ for f = 1:numel(files) %cyklus pres vsechny soubory
                 disp(msg); fprintf(fileID,[ msg '\n']);
 
                 CB = CBrainPlot;     %#ok<USENS> %brainplot na ziskani signif odpovedi               
-                CB.IntervalyResp(testname,min(intervals,setup.epochtime(2)),files{f},kontrasts(kontrast)); %ziskam signif rozdily pro kategorie a mezi kategoriemi pro vsechny pacienty       
+                CB.IntervalyResp(testname,min(intervals,setup.epochtime(2)),files{f},kontrasts(kontrast),IntervalyRespSignum); %ziskam signif rozdily pro kategorie a mezi kategoriemi pro vsechny pacienty       
                 kategorie = find(~cellfun('isempty',strfind(CB.katstr,'X'))); %strfind je jenom case sensitivni
                 katsnames = CB.katstr;
             else
@@ -87,7 +105,7 @@ for f = 1:numel(files) %cyklus pres vsechny soubory
                 for intv = 1:size(intervals,1) %cyklus pres intervaly
                     intvstr = sprintf('(%1.1f-%1.1f)',intervals(intv,:)); %pojmenovani intervalu
 %                 try
-                    label = [katstr '_' intvstr];
+                    label = [katstr '_' intvstr '_sig' num2str(IntervalyRespSignum)];
                     outfilename = [dirCM 'CM ' label ' ' files{f}]; %jmeno souboru CHilbertMulti
                     CM = CHilbertMulti;
                     if exist(outfilename,'file')==2 && overwriteCM == 0 && loadCM == 1
@@ -134,7 +152,7 @@ for f = 1:numel(files) %cyklus pres vsechny soubory
                     end
                     if ~brainplots_onlyselch || ~isempty(selCh) %pokud negenerovat jen pro selch, nebo pokud nejsou prazne selch
                         CBo = CBrainPlot; %brainplot na generovani obrazku mozku
-                        BPD = CM.ExtractBrainPlotData([],kategorie(kat)); %vytvori data pro import do CBrainPlot
+                        BPD = CM.ExtractBrainPlotData([],kategorie(kat),IntervalyRespSignum); %vytvori data pro import do CBrainPlot
                         CBo.ImportData(BPD); %naimportuje data z CHilbertMulti
                         CBo.PlotBrain3D(iff(plotallchns,[1 2],2),[],[],overwrite_brainplots,NLabels); %vykresli obrazek mozku
                     end
