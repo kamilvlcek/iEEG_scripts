@@ -20,6 +20,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
         reference; %reference
         Hf; %seznam frekvencnich pasem
         selCh; %vyber kanalu, ktere zobrazit
+        plotBrain3Dcfg; %struktura s nastavenim plotBrain3D
     end
     
     methods (Access = public)        
@@ -181,8 +182,44 @@ classdef CBrainPlot < matlab.mixin.Copyable
             obj.reference = BPD.reference;
             obj.Hf = BPD.Hf;
             obj.selCh = BPD.selCh; %vyber kanalu z CHilbertMulti aj
+            if isfield(BPD,'signum')
+                obj.plotBrain3Dcfg.signum = BPD.signum;
+            end
         end
-        function PlotBrain3D(obj,kategorie,signum,outputDir,overwrite,NLabels)
+        function obj = PlotBrain3DConfig(obj,cfg)
+            if ~exist('cfg','var'), cfg = struct; end
+            if ~isprop(obj,'plotBrain3Dcfg')
+                obj.plotBrain3Dcfg = struct; 
+            end
+            if isstruct(cfg) && isfield(cfg,'signum')
+                obj.plotBrain3Dcfg.signum = cfg.signum;
+            elseif ~isfield(obj.plotBrain3Dcfg,'signum') || isempty(obj.plotBrain3Dcfg.signum)
+                %vyplnuje se, jen pokud je zatim prazcne
+                obj.plotBrain3Dcfg.signum = 0; %defaultni je rozdil kladny i zaporny
+            end
+            if isstruct(cfg) && isfield(cfg,'outputDir')
+                obj.plotBrain3Dcfg.outputDir = cfg.outputDir;
+            else
+                obj.plotBrain3Dcfg.outputDir = 'd:\eeg\motol\CBrainPlot\';
+            end
+            if isstruct(cfg) && isfield(cfg,'overwrite')
+                obj.plotBrain3Dcfg.overwrite = cfg.overwrite;
+            else
+                obj.plotBrain3Dcfg.overwrite = 1; %defaultne se vystupni soubory prepisuji
+            end
+            if isstruct(cfg) && isfield(cfg,'NLabels')
+                obj.plotBrain3Dcfg.NLabels = cfg.NLabels;
+            else
+                obj.plotBrain3Dcfg.NLabels = 0; %defaultne se nevypisuji anatomicke lokalizace
+            end
+            if isstruct(cfg) && isfield(cfg,'NOnames')
+                obj.plotBrain3Dcfg.NOnames = cfg.NOnames;
+            else
+                obj.plotBrain3Dcfg.NOnames = 0; %defaultne se nedelaji obrazky bez popisu elektrod
+            
+            end            
+        end
+        function PlotBrain3D(obj,kategorie)
             %vykresli jpg obrazky jednotlivych kategorii a kontrastu mezi nimi            
             %TODO do jmena vystupniho jpg pridat i frekvence a referenci, aby se to neprepisovalo
             %TODO je mozne ty signif vyexportovat a pak je nacist zase do CHilbertMulti?
@@ -190,14 +227,8 @@ classdef CBrainPlot < matlab.mixin.Copyable
             assert(~isempty(obj.VALS),'zadna data VALS');
             plotSetup = {};
             if ~exist('kategorie','var') || isempty(kategorie) , kategorie = 1:size(obj.VALS,2); end %muzu chtit jen nektere kategorie
-            if ~exist('signum','var') || isempty(signum), signum = 0; end; %defaultni je rozdil kladny i zaporny
-            if ~exist('outputDir','var') || isempty(outputDir)
-                plotSetup.outputDir = 'd:\eeg\motol\CBrainPlot\';    
-            else
-                plotSetup.outputDir = outputDir;
-            end            
-            if ~exist('overwrite','var'), overwrite = 1; end; %defaultne se vystupni soubory prepisuji
-            if ~exist('NLabels','var'),   NLabels =0; end; %defaultne se nevypisuji anatomicke lokalizace
+            signum = obj.plotBrain3Dcfg.signum; 
+            plotSetup.outputDir = obj.plotBrain3Dcfg.outputDir;                                              
             
             if ~isempty(obj.brainsurface)
                 brainsurface = obj.brainsurface;  %#ok<PROPLC>
@@ -241,9 +272,9 @@ classdef CBrainPlot < matlab.mixin.Copyable
                     if strcmp(plotSetup.figureVisible,'off')
                         disp('figures invisible');
                     end
-                    figureNameNames = [ obj.testname '_' num2str(obj.intervals(interval,:),'%i-%is')  '_' katname '_' num2str(signum) ...
+                    figureNameNames = [ obj.testname '_' num2str(obj.intervals(interval,:),'%.1f-%.1fs')  '_' katname '_' num2str(signum) ...
                             '_' num2str(obj.Hf([1 end]),'%i-%iHz') '_' obj.reference '_names'];
-                    figureNameNoNames = [ obj.testname '_' num2str(obj.intervals(interval,:),'%i-%is')  '_' katname '_' num2str(signum) ...
+                    figureNameNoNames = [ obj.testname '_' num2str(obj.intervals(interval,:),'%.1f-%.1fs')  '_' katname '_' num2str(signum) ...
                             '_' num2str(obj.Hf([1 end]),'%i-%iHz') '_' obj.reference '_NOnames'];
                     if numel(obj.VALS{interval,kat}(iV)) > 0
                         
@@ -252,7 +283,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
                             vals_channels = vals_channels*signum; %u zapornych hodnot prehodim znamenko
                         end
                         mni_channels = obj.MNI{interval,kat}(iV);                                                                                                 
-                        names_channels = iff(NLabels, obj.NLabels{interval,kat}(iV), obj.NAMES{interval,kat}(iV));                        
+                        names_channels = iff(obj.plotBrain3Dcfg.NLabels, obj.NLabels{interval,kat}(iV), obj.NAMES{interval,kat}(iV));                        
                         
                         if ~strcmp(obj.katstr{kat},'AllEl') %nechci to pro kategorii vsech elektrod
                             for iVal = 1:numel(vals_channels)
@@ -263,20 +294,24 @@ classdef CBrainPlot < matlab.mixin.Copyable
                         end
                         
                         %nejdriv vykreslim bez popisku elektrod
-                        if isempty(dir([ plotSetup.outputDir '3D_model\' figureNameNoNames '*'])) || overwrite==1 
-                            plotSetup.figureNamePrefix = figureNameNoNames;
-                            disp(plotSetup.figureNamePrefix);                            
-                            brainsurface = main_brainPlot(vals_channels,mni_channels,[],brainsurface,plotSetup);  %#ok<PROPLC>
-                            %volam Jirkuv skript, vsechny ty promenne predtim jsou do nej
-                            if isempty(obj.brainsurface)
-                                obj.brainsurface = brainsurface; %#ok<PROPLC> %ulozim si ho pro dalsi volani
+                        if obj.plotBrain3Dcfg.NOnames 
+                            if  isempty(dir([ plotSetup.outputDir '3D_model\' figureNameNoNames '*'])) || obj.plotBrain3Dcfg.overwrite==1 
+                                plotSetup.figureNamePrefix = figureNameNoNames;
+                                disp(plotSetup.figureNamePrefix);                            
+                                brainsurface = main_brainPlot(vals_channels,mni_channels,[],brainsurface,plotSetup);  %#ok<PROPLC>
+                                %volam Jirkuv skript, vsechny ty promenne predtim jsou do nej
+                                if isempty(obj.brainsurface)
+                                    obj.brainsurface = brainsurface; %#ok<PROPLC> %ulozim si ho pro dalsi volani
+                                end
+                            else
+                                disp(['soubor uz existuje ' figureNameNoNames ' - neprepisuju ']);
                             end
                         else
-                            disp(['soubor uz existuje ' figureNameNoNames ' - neprepisuju ']);
+                             disp([figureNameNoNames ': obrazky noNames negeneruju' ]);
                         end
                         
                         %a pak jeste s popisy elektrod                        
-                        if isempty(dir([ plotSetup.outputDir '3D_model\' figureNameNames '*'])) || overwrite==1 
+                        if isempty(dir([ plotSetup.outputDir '3D_model\' figureNameNames '*'])) || obj.plotBrain3Dcfg.overwrite==1 
                             plotSetup.figureNamePrefix = figureNameNames;
                             disp(plotSetup.figureNamePrefix);                                                     
                             brainsurface = main_brainPlot(vals_channels,mni_channels,names_channels,brainsurface,plotSetup);    %#ok<PROPLC>  

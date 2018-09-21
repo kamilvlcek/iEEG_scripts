@@ -664,7 +664,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             assert(isfield(obj.Wp(obj.WpActive), 'WpKatBaseline'),'musi byt spocitana statistika kategorii');
             if ~exist('intervaly','var') || isempty(intervaly), intervaly = [0.1 obj.epochtime(2)]; end %defaultni epocha je cely interval
             if ~exist('channels','var') || isempty(channels) , channels = 1:obj.channels; end
-            if ~exist('signum','var') || isempty(signum) , signum = 0:obj.channels; end %defaultne vraci hodnoty vetsi i mensi v prvni kat
+            if ~exist('signum','var') || isempty(signum) , signum = 0; end %defaultne vraci hodnoty vetsi i mensi v prvni kat
             if ~exist('dofig','var'), dofig = 1; end %defaultne delam obrazek
             [katsnames,kombinace,kats] = obj.GetKatsNames();                                
 
