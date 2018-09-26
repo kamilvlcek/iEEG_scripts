@@ -63,4 +63,5 @@ CM.Load(['d:\eeg\motol\pacienti\0sumarne\CM ' M(testname) ' ' label ' ' frekvenc
 %% 3 OBRAZEK MOZKU
 BPD = CM.ExtractBrainPlotData(); %vytvori data pro import do CBrainPlot
 CB.ImportData(BPD); %naimportuje data z CHilbertMulti
+CB.PlotBrain3DConfig(struct('Names',1,'NoNames',0,'signum',0,'overwrite',1)); %nahraje defaultni konfiguraci
 CB.PlotBrain3D(); %vykresli obrazek mozku
