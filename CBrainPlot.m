@@ -185,6 +185,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
             if isfield(BPD,'signum')
                 obj.plotBrain3Dcfg.signum = BPD.signum;
             end
+            obj.filename = BPD.filename;
         end
         function obj = PlotBrain3DConfig(obj,cfg)
             if ~exist('cfg','var'), cfg = struct; end
@@ -341,7 +342,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
                 end
             end
                       
-            logfilename = [num2str([obj.intervals(1,1) obj.intervals(end,2)],'%.1f-%.1fs') '_sig' num2str(signum) '_' obj.filename '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') ];            
+            logfilename = [num2str([obj.intervals(1,1) obj.intervals(end,2)],'%.1f-%.1fs') '_sig' num2str(signum) '_' basename(obj.filename) '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') ];            
             xlsfilename = ['logs\PlotBrain3D_' logfilename '.xls'];
             xlswrite(xlsfilename,tablelog); %zapisu do xls tabulky
             disp([ 'xls tables saved: ' xlsfilename]);
