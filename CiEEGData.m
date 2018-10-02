@@ -1830,7 +1830,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                    figure(obj.plotRCh.fh); %dam puvodni obrazek dopredu
                case 'return' %zobrazi obrazek mozku s vybranych kanalem                      
                    if isprop(obj,'label') && ~isempty(obj.label), label = obj.label; else, label = ''; end
-                   obj.CH.ChannelPlot2D(obj.plotRCh.ch,obj.plotRCh.selCh,@obj.PlotResponseCh,label);  %vykreslim obrazek mozku s vybranym kanalem
+                   obj.CH.ChannelPlot2D(obj.plotRCh.ch,obj.plotRCh,@obj.PlotResponseCh,label);  %vykreslim obrazek mozku s vybranym kanalem
                    figure(obj.plotRCh.fh); %dam puvodni obrazek dopredu
                case {'add' ,  'equal','f'}     % + oznaceni kanalu
                    obj.SelChannel(obj.CH.sortorder(obj.plotRCh.ch));

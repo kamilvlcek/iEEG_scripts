@@ -496,7 +496,7 @@ classdef CHilbert < CiEEGData
             
             BPD = struct;                                   
             if ~exist('signum','var') || isempty(dofig) , signum = 0; end %jestli chci jen kat1>kat2 (1), nebo obracene (-1), nebo vsechny (0)
-            if ~exist('dofig','var'), dofig = 1; end %jestli chci jen kat1>kat2 (1), nebo obracene (-1), nebo vsechny (0)
+            if ~exist('dofig','var'), dofig = 0; end %jestli chci jen kat1>kat2 (1), nebo obracene (-1), nebo vsechny (0)
             BPD.signum = signum; %jen abych mel info v datech
             if isprop(obj,'label')
                 [~,intervaly,~] = CHilbertMulti.GetLabelInfo(obj.label);
