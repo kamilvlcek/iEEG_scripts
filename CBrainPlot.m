@@ -20,6 +20,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
         reference; %reference
         Hf; %seznam frekvencnich pasem
         selCh; %vyber kanalu, ktere zobrazit
+        plotBrain3Dcfg; %struktura s nastavenim plotBrain3D
     end
     
     methods (Access = public)        
@@ -181,8 +182,48 @@ classdef CBrainPlot < matlab.mixin.Copyable
             obj.reference = BPD.reference;
             obj.Hf = BPD.Hf;
             obj.selCh = BPD.selCh; %vyber kanalu z CHilbertMulti aj
+            if isfield(BPD,'signum')
+                obj.plotBrain3Dcfg.signum = BPD.signum;
+            end
         end
-        function PlotBrain3D(obj,kategorie,signum,outputDir,overwrite,NLabels)
+        function obj = PlotBrain3DConfig(obj,cfg)
+            if ~exist('cfg','var'), cfg = struct; end
+            if ~isprop(obj,'plotBrain3Dcfg')
+                obj.plotBrain3Dcfg = struct; 
+            end
+            if isstruct(cfg) && isfield(cfg,'signum')
+                obj.plotBrain3Dcfg.signum = cfg.signum;
+            elseif ~isfield(obj.plotBrain3Dcfg,'signum') || isempty(obj.plotBrain3Dcfg.signum)
+                %vyplnuje se, jen pokud je zatim prazcne
+                obj.plotBrain3Dcfg.signum = 0; %defaultni je rozdil kladny i zaporny
+            end
+            if isstruct(cfg) && isfield(cfg,'outputDir')
+                obj.plotBrain3Dcfg.outputDir = cfg.outputDir;
+            else
+                obj.plotBrain3Dcfg.outputDir = 'd:\eeg\motol\CBrainPlot\';
+            end
+            if isstruct(cfg) && isfield(cfg,'overwrite')
+                obj.plotBrain3Dcfg.overwrite = cfg.overwrite;
+            else
+                obj.plotBrain3Dcfg.overwrite = 1; %defaultne se vystupni soubory prepisuji
+            end
+            if isstruct(cfg) && isfield(cfg,'NLabels')
+                obj.plotBrain3Dcfg.NLabels = cfg.NLabels;
+            else
+                obj.plotBrain3Dcfg.NLabels = 0; %defaultne se nevypisuji anatomicke lokalizace
+            end
+            if isstruct(cfg) && isfield(cfg,'NOnames')
+                obj.plotBrain3Dcfg.NOnames = cfg.NOnames;
+            else
+                obj.plotBrain3Dcfg.NOnames = 0; %defaultne se nedelaji obrazky bez popisu elektrod            
+            end            
+            if isstruct(cfg) && isfield(cfg,'Names')
+                obj.plotBrain3Dcfg.Names = cfg.Names;
+            else
+                obj.plotBrain3Dcfg.Names = 1; %defaultne se delaji obrazky s popisem elektrod            
+            end            
+        end
+        function PlotBrain3D(obj,kategorie)
             %vykresli jpg obrazky jednotlivych kategorii a kontrastu mezi nimi            
             %TODO do jmena vystupniho jpg pridat i frekvence a referenci, aby se to neprepisovalo
             %TODO je mozne ty signif vyexportovat a pak je nacist zase do CHilbertMulti?
@@ -190,14 +231,8 @@ classdef CBrainPlot < matlab.mixin.Copyable
             assert(~isempty(obj.VALS),'zadna data VALS');
             plotSetup = {};
             if ~exist('kategorie','var') || isempty(kategorie) , kategorie = 1:size(obj.VALS,2); end %muzu chtit jen nektere kategorie
-            if ~exist('signum','var') || isempty(signum), signum = 0; end; %defaultni je rozdil kladny i zaporny
-            if ~exist('outputDir','var') || isempty(outputDir)
-                plotSetup.outputDir = 'd:\eeg\motol\CBrainPlot\';    
-            else
-                plotSetup.outputDir = outputDir;
-            end            
-            if ~exist('overwrite','var'), overwrite = 1; end; %defaultne se vystupni soubory prepisuji
-            if ~exist('NLabels','var'),   NLabels =0; end; %defaultne se nevypisuji anatomicke lokalizace
+            signum = obj.plotBrain3Dcfg.signum; 
+            plotSetup.outputDir = obj.plotBrain3Dcfg.outputDir;                                              
             
             if ~isempty(obj.brainsurface)
                 brainsurface = obj.brainsurface;  %#ok<PROPLC>
@@ -217,10 +252,20 @@ classdef CBrainPlot < matlab.mixin.Copyable
             plotSetup.customColors.lightpos = [246 203 203];
             plotSetup.customColors.darkpos = [162 2 2]; %tmave cervena
             plotSetup.figureNamePrefix = [ obj.testname '_' num2str(obj.Hf([1 end]),'%i-%iHz') '_' obj.reference '_names']; %default name
-
+            if strcmp(plotSetup.figureVisible,'off')
+                disp('figures invisible');
+            end
+            if ~obj.plotBrain3Dcfg.NOnames 
+               disp('obrazky noNames negeneruju');
+            end
+            if ~obj.plotBrain3Dcfg.Names 
+               disp('obrazky Names negeneruju');
+            end
             tablelog = cell(obj.pocetcykluPlot3D(kategorie,signum)+2,7); % z toho bude vystupni xls tabulka s prehledem vysledku
             tablelog(1,:) = {datestr(now),obj.filename,'','','','',''}; %hlavicky xls tabulky
             tablelog(2,:) = {'interval','kategorie','chname','neurologyLabel','mni','val','selected'}; %hlavicky xls tabulky
+            [ChMap,ChNames] = obj.ChannelMap();
+            
             iTL = 2; %index v tablelog
             tic; %zadnu merit cas
             for interval = 1:size(obj.VALS,1) 
@@ -238,12 +283,10 @@ classdef CBrainPlot < matlab.mixin.Copyable
                     katname = obj.katstr{kat};
                     plotSetup.circle_size = iff(strcmp(katname,'all') || strcmp(katname,'AllEl'),28,56); %mensi kulicka pokud vsechny elektrody                
                     
-                    if strcmp(plotSetup.figureVisible,'off')
-                        disp('figures invisible');
-                    end
-                    figureNameNames = [ obj.testname '_' num2str(obj.intervals(interval,:),'%i-%is')  '_' katname '_' num2str(signum) ...
+                    
+                    figureNameNames = [ obj.testname '_' num2str(obj.intervals(interval,:),'%.1f-%.1fs')  '_' katname '_' num2str(signum) ...
                             '_' num2str(obj.Hf([1 end]),'%i-%iHz') '_' obj.reference '_names'];
-                    figureNameNoNames = [ obj.testname '_' num2str(obj.intervals(interval,:),'%i-%is')  '_' katname '_' num2str(signum) ...
+                    figureNameNoNames = [ obj.testname '_' num2str(obj.intervals(interval,:),'%.1f-%.1fs')  '_' katname '_' num2str(signum) ...
                             '_' num2str(obj.Hf([1 end]),'%i-%iHz') '_' obj.reference '_NOnames'];
                     if numel(obj.VALS{interval,kat}(iV)) > 0
                         
@@ -252,63 +295,104 @@ classdef CBrainPlot < matlab.mixin.Copyable
                             vals_channels = vals_channels*signum; %u zapornych hodnot prehodim znamenko
                         end
                         mni_channels = obj.MNI{interval,kat}(iV);                                                                                                 
-                        names_channels = iff(NLabels, obj.NLabels{interval,kat}(iV), obj.NAMES{interval,kat}(iV));                        
+                        names_channels = iff(obj.plotBrain3Dcfg.NLabels, obj.NLabels{interval,kat}(iV), obj.NAMES{interval,kat}(iV));                        
                         
                         if ~strcmp(obj.katstr{kat},'AllEl') %nechci to pro kategorii vsech elektrod
                             for iVal = 1:numel(vals_channels)
                                 tablelog(iVal + iTL,:) = { sprintf('[%.1f %.1f]',obj.intervals(interval,:)),obj.katstr{kat}, obj.NAMES{interval,kat}{iVal}, obj.NLabels{interval,kat}{iVal}, ...
                                     sprintf('[%.1f,%.1f,%.1f]',mni_channels(iVal).MNI_x, mni_channels(iVal).MNI_y, mni_channels(iVal).MNI_z), vals_channels(iVal),int8(iV(iVal))};
+                                iChNames = contains(ChNames,obj.NAMES{interval,kat}{iVal});
+                                ChMap(iChNames,kat,interval) = vals_channels(iVal);
                             end
+                            
                             iTL = iTL + numel(vals_channels);
                         end
                         
                         %nejdriv vykreslim bez popisku elektrod
-                        if isempty(dir([ plotSetup.outputDir '3D_model\' figureNameNoNames '*'])) || overwrite==1 
-                            plotSetup.figureNamePrefix = figureNameNoNames;
-                            disp(plotSetup.figureNamePrefix);                            
-                            brainsurface = main_brainPlot(vals_channels,mni_channels,[],brainsurface,plotSetup);  %#ok<PROPLC>
-                            %volam Jirkuv skript, vsechny ty promenne predtim jsou do nej
-                            if isempty(obj.brainsurface)
-                                obj.brainsurface = brainsurface; %#ok<PROPLC> %ulozim si ho pro dalsi volani
-                            end
-                        else
-                            disp(['soubor uz existuje ' figureNameNoNames ' - neprepisuju ']);
+                        if obj.plotBrain3Dcfg.NOnames 
+                            if  isempty(dir([ plotSetup.outputDir '3D_model\' figureNameNoNames '*'])) || obj.plotBrain3Dcfg.overwrite==1 
+                                plotSetup.figureNamePrefix = figureNameNoNames;
+                                disp(plotSetup.figureNamePrefix);                            
+                                brainsurface = main_brainPlot(vals_channels,mni_channels,[],brainsurface,plotSetup);  %#ok<PROPLC>
+                                %volam Jirkuv skript, vsechny ty promenne predtim jsou do nej
+                                if isempty(obj.brainsurface)
+                                    obj.brainsurface = brainsurface; %#ok<PROPLC> %ulozim si ho pro dalsi volani
+                                end
+                            else
+                                disp(['soubor uz existuje ' figureNameNoNames ' - neprepisuju ']);
+                            end                       
                         end
-                        
-                        %a pak jeste s popisy elektrod                        
-                        if isempty(dir([ plotSetup.outputDir '3D_model\' figureNameNames '*'])) || overwrite==1 
-                            plotSetup.figureNamePrefix = figureNameNames;
-                            disp(plotSetup.figureNamePrefix);                                                     
-                            brainsurface = main_brainPlot(vals_channels,mni_channels,names_channels,brainsurface,plotSetup);    %#ok<PROPLC>  
-                            if isempty(obj.brainsurface)
-                                obj.brainsurface = brainsurface; %#ok<PROPLC> %ulozim si ho pro dalsi volani
-                            end
-                        else
-                            disp(['soubor uz existuje ' figureNameNames ' - neprepisuju ']);
+                        %a pak jeste s popisy elektrod  
+                        if obj.plotBrain3Dcfg.Names                                                  
+                            if isempty(dir([ plotSetup.outputDir '3D_model\' figureNameNames '*'])) || obj.plotBrain3Dcfg.overwrite==1 
+                                plotSetup.figureNamePrefix = figureNameNames;
+                                disp(plotSetup.figureNamePrefix);                                                     
+                                brainsurface = main_brainPlot(vals_channels,mni_channels,names_channels,brainsurface,plotSetup);    %#ok<PROPLC>  
+                                if isempty(obj.brainsurface)
+                                    obj.brainsurface = brainsurface; %#ok<PROPLC> %ulozim si ho pro dalsi volani
+                                end
+                            else
+                                disp(['soubor uz existuje ' figureNameNames ' - neprepisuju ']);
+                            end                        
                         end
                     else  
                         disp(['zadne hodnoty pro ' plotSetup.figureNamePrefix ' - neukladam ']);                                         
                     end
                 end
             end
-            toc; %ukoncim mereni casu a vypisu
-            logfilename = ['logs\PlotBrain3D_' figureNameNames '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') ];
+                      
+            logfilename = [num2str([obj.intervals(1,1) obj.intervals(end,2)],'%.1f-%.1fs') '_sig' num2str(signum) '_' obj.filename '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') ];            
+            xlsfilename = ['logs\PlotBrain3D_' logfilename '.xls'];
+            xlswrite(xlsfilename,tablelog); %zapisu do xls tabulky
+            disp([ 'xls tables saved: ' xlsfilename]);
+            xlsfilename = ['logs\PlotBrain3D_MAP_' logfilename '.xls'];
+            obj.ChannelMap2Xls(ChNames,ChMap,xlsfilename);
+            disp([ 'xls tables saved: ' xlsfilename ]);
             
-            xlswrite([plotSetup.outputDir logfilename '.xls'],tablelog); %zapisu do xls tabulky
+            toc; %ukoncim mereni casu a vypisu 
             if hybernovat
                 system('shutdown -h')  %#ok<UNRCH>
             elseif vypnout            
                 system('shutdown -s') %#ok<UNRCH>
             end
         end
+        function [ChMap,ChNames] = ChannelMap(obj)
+            %chci ziskat prehled ze vsech kanalu, ktere vykazuji nejake odpovedi na jednotlive kategorie
+            if strcmp(obj.katstr(end),'AllEl')
+                ChNames = obj.NAMES{1,end}; %seznam vsech kanalu pres vsechny elektrody                
+                ChLabels = obj.NLabels{1,end}; %seznam vsech Neurol lokalizaci pres vsechny elektrody   
+            else
+                ChNames = {}; ChLabels = {};
+                for k = 1:numel(obj.NAMES) %cyklus pres vsechny intervaly a kategorie
+                    ChNames = union(ChNames,obj.NAMES{k});
+                    ChLabels = union(ChLabels,obj.NLabels{k});
+                end
+            end
+            ChNames = cat(2,ChNames,ChLabels); %budu mit v jednom cellarray oboji
+            ChMap = zeros(numel(ChNames),numel(obj.katstr),size(obj.intervals,1)); %tam budu  ukladat odpovedi pro jednotlive kanaly, kategorie a intervaly          
+        end  
+        function ChannelMap2Xls(obj,ChNames,ChMap,xlsfilename)
+            %zapise ChMap do xls tabulky spolu se jmeny a nlabely kanalu
+            %pro kazdou kategorii bere maximalni absolutni hodnotu pres vsechny intervaly
+            tablexls = cell(size(ChNames,1)+1,size(ChMap,2)+3); %2 sloupce navic - ChNames a ChLabels, a AnyKat
+            tablexls(1,:) = cat(2,{'channel','nlabel','anykat'},obj.katstr);
+            for iCh = 1:size(ChNames,1)
+                [~,im]=max(abs(ChMap(iCh,:,:)),[],3); %indexy maximalnich absolutnich hodnot pres cas
+                M = ChMap(sub2ind(size(ChMap),iCh*ones(1,numel(im)),1:numel(im),im)); %vyzvednu ty maximalni hodnoty pomoci absolutniho indexovani - pro kazdou polozku im jeden index
+                tablexls(iCh+1,:)=cat(2,ChNames(iCh,:),num2cell(int8(any(M~=0))),num2cell(M)); %ukladam maximalni hodnoty ze vsech casu pro kazdou kategorii zvlast
+            end
+            xlswrite(xlsfilename ,tablexls); %zapisu do xls tabulky
+        end
     end
+    
     methods (Static,Access = public)
-        function PAC = StructFind(struktura,label,testname,reference)
+        function PAC = StructFind(struktura,label,testname,reference,labelnot)
             %najde pacienty, jejich headery obsahuji mozkovou strukturu
             %struktura je nazev struktury podle atlas napriklad hippo, label je kratky nazev podle martina, napriklad hi
             if ~exist('label','var'),    label = struktura; end %defaultni test
             if ~exist('testname','var') || isempty(testname), testname = 'aedist'; end %defaultni test
             if ~exist('reference','var') || isempty(reference), reference = []; end %defaultni test
+            if ~exist('labelnot','var'),    labelnot = {}; end %defaultni test
             if ischar(struktura), struktura = {struktura}; end %prevedu na cell array
             if ischar(label), label = {label}; end %prevedu na cell array
             [ pacienti, setup ] = pacienti_setup_load( testname );
@@ -330,15 +414,14 @@ classdef CBrainPlot < matlab.mixin.Copyable
                     H = CH.H;
                 end
                 ii = ~cellfun(@isempty,{H.channels.neurologyLabel}); %neprazdne cells
-                if ~isempty(struktura) || ~isempty(label)
-                    index = []; %bude obsahovat cisla vybranych kanalu - jeden radek
-                    labels = lower({H.channels(ii).neurologyLabel}');
-                    for jj = 1:size(label,2)                    
-                        indexjj =  find(~cellfun('isempty',strfind(labels,lower(label{jj}))))'; %rozepsal jsem, aby se to dalo lepe debugovat
-                        index = [index indexjj];  %#ok<AGROW>
-                        % 3.5.2018 nejakym zahadnym zpusobem funguje hledani pomoci strfind ve sloupci a ne v radku. 
-                        % Proto nejdriv prehodim pomoci ' na sloupec a pak zase na radek
+                if ~isempty(struktura) || ~isempty(label)                    
+                    labels = lower({H.channels(ii).neurologyLabel});
+                    iLabels = contains(labels,lower(label)); %najde vsechny label naraz                    
+                    if ~isempty(labelnot)
+                        iLabelsNOT = contains(labels,lower(labelnot)); %najde vsechny label naraz  
+                        iLabels = iLabels & ~iLabelsNOT;
                     end
+                    index = find(iLabels);%bude obsahovat cisla vybranych kanalu - jeden radek
                     iiBA = ~cellfun(@isempty,{H.channels.ass_brainAtlas}); %neprazdne cells
                     iiCM = ~cellfun(@isempty,{H.channels.ass_cytoarchMap}); %neprazdne cells
                     for jj = 1:size(struktura,2)
@@ -434,7 +517,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
                     end
                 end
             end
-        end
+        end        
     end
     methods (Access=private)
         function n = pocetcykluPlot3D(obj,kategorie,signum)
@@ -454,7 +537,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
                     end
                 end
             end
-        end
+        end        
     end
     
 end

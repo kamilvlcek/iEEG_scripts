@@ -527,89 +527,70 @@ classdef CHilbert < CiEEGData
                 
         end
         
-        function BPD = ExtractBrainPlotData(obj,chns,kategorie,signum)
+        function BPD = ExtractBrainPlotData(obj,kategorie,signum,dofig)
             %vytvori Brain Plot Data, pro CBrainPlot.PlotBrain3D
-            BPD = struct;            
-            if ~exist('chns','var'), chns = []; end %pokud neni definovane, je prazdne a pak vytvarim jen data pro vsechny elektrody                     
-            if ~exist('kategorie','var'), kategorie = []; end %kategorie ze ktere chci ziskat hodnoty - odpovida kategoriim z IntervalyResp a pak v CBrainPLot
-            if ~exist('signum','var'), signum = 0; end %jestli chci jen kat1>kat2 (1), nebo obracene (-1), nebo vsechny (0)
-          
-            BPD.intervals = [0 1]; %budu mit dve pole hodnoty, vybrane kanaly a vsechny kanaly s vybranymi vyznacenyma
+            %kategorie, hodnoty a jejich signifikance vytahne na zaklade aktualne zvolene statistiky
+            %kategorie jsou indexy v katsnames, ktere vzniknou spojenim kategorii vuc baseline, kategorii vuci sobe a vsech elektrod. Pro tri kategorie je to 1-7
+            
+            BPD = struct;                                   
+            if ~exist('signum','var') || isempty(dofig) , signum = 0; end %jestli chci jen kat1>kat2 (1), nebo obracene (-1), nebo vsechny (0)
+            if ~exist('dofig','var'), dofig = 1; end %jestli chci jen kat1>kat2 (1), nebo obracene (-1), nebo vsechny (0)
+            BPD.signum = signum; %jen abych mel info v datech
             if isprop(obj,'label')
-                label = obj.label; %v pripade ze se jedna o CHilbertMulti, muze byt definovane label podle jmena extraktu
+                [~,intervaly,~] = CHilbertMulti.GetLabelInfo(obj.label);
             else
-                label = 'vals';
-            end
-             
-            BPD.katstr = iff(isempty(chns),{'all',label},{'all','selected'}); %v druhem poli jsou bud hodnoty vsech, nebo jen vybrane kanaly
+                intervaly = [0.1 obj.epochtime(2)]; 
+            end  
+            
+            [prumery, MNI,names,intervaly,katsnames,neurologyLabels] = obj.IntervalyResp(intervaly,[],signum,dofig); %tohle funguje pro aktualni nastavenou statistiku
+            %prumery obsahuji 0 tam, kde neni signif rozdil
+            katsnames = union(katsnames,'AllEl','stable'); %pridam posledni kategorii all
+            
+            if ~exist('kategorie','var'), kategorie = 1:numel(katsnames); end %kategorie ze ktere chci ziskat hodnoty - odpovida kategoriim z IntervalyResp a pak v CBrainPLot
+            %kategorie budou indexy v katsnames
+            
+            BPD.intervals = intervaly; %budu mit dve pole hodnoty, vybrane kanaly a vsechny kanaly s vybranymi vyznacenyma           
+            BPD.katstr = katsnames(kategorie);
             BPD.testname = obj.PsyData.testname; %jmeno testu, aedist, menrot nebo ppa
             BPD.reference = obj.reference; %reference
             BPD.Hf = obj.Hf;%seznam frekvencnich pasem
-            BPD.selCh = cell(1,2); 
+            celltpl = cell(size(intervaly,1),numel(kategorie)); %size (interval,kat) - templat velikosti pro ostatni promenne
             %jen definice velikosti
-            BPD.NAMES = cell(1,2);                        
-            BPD.MNI = cell(1,2);
-            BPD.VALS = cell(1,2);
-            BPD.NLABELS = cell(1,2); %sem budu ukladata neurologyLabel od Martina Tomaska  
-            BPD.EPI = cell(1,2); %pridam jeste udaje o epilepticke aktivite, ktera pak muzu pouzit v zobrazeni mozku            
+            BPD.selCh = celltpl;            
+            BPD.NAMES = celltpl;                      
+            BPD.MNI = celltpl;
+            BPD.VALS = celltpl;
+            BPD.NLABELS = celltpl;%sem budu ukladata neurologyLabel od Martina Tomaska  
+            BPD.EPI = celltpl; %pridam jeste udaje o epilepticke aktivite, ktera pak muzu pouzit v zobrazeni mozku            
             
             %nejdriv udaje pro vsechny elektrody
-            BPD.NAMES{1}= cell(obj.channels,1);            
-            BPD.MNI{1} = struct('MNI_x',{},'MNI_y',{},'MNI_z',{});            
-            BPD.VALS{1} = zeros(obj.channels,1); %tam pak doplnim 1 na mista vybranych kanalu         
-            BPD.NLABELS{1}= cell(obj.channels,1);
-            BPD.EPI{1} = struct('seizureOnset',{},'interictalOften',{},'rejected',{});
-            
-            %hodnoty provsechy kanaly
-            for ch = 1:obj.channels
-                BPD.NAMES{1}{ch} = obj.CH.H.channels(ch).name;
-                BPD.NLABELS{1}{ch} = obj.CH.H.channels(ch).neurologyLabel;
-                BPD.MNI{1}(ch).MNI_x = obj.CH.H.channels(ch).MNI_x;
-                BPD.MNI{1}(ch).MNI_y = obj.CH.H.channels(ch).MNI_y;
-                BPD.MNI{1}(ch).MNI_z = obj.CH.H.channels(ch).MNI_z;
-                if isfield(obj.CH.H.channels,'seizureOnset')
-                    BPD.EPI{1}(ch).seizureOnset = obj.CH.H.channels(ch).seizureOnset;
-                    BPD.EPI{1}(ch).interictalOften = obj.CH.H.channels(ch).interictalOften;
-                    BPD.EPI{1}(ch).rejected = obj.CH.H.channels(ch).rejected;
-                end                
-            end
-            BPD.selCh{1} = ones(obj.channels,6); %novy format z 22.8.2018 - kanaly x marks
-            
-            %hodnoty pro vybrane kanaly
-            BPD.NAMES{2}= cell(iff(isempty(chns),obj.channels,numel(chns)),1);
-            BPD.MNI{2} = struct('MNI_x',{},'MNI_y',{},'MNI_z',{});                        
-            BPD.VALS{2} = ones(iff(isempty(chns),obj.channels,numel(chns)),1);                
-            BPD.NLABELS{2}= cell(iff(isempty(chns),obj.channels,numel(chns)),1);
-            BPD.EPI{2} = struct('seizureOnset',{},'interictalOften',{},'rejected',{});                      
-            BPD.selCh{2} = obj.GetSelCh();  
-            if sum(BPD.selCh{2})==0 %pokud neni vybrany zadny kanal
-                BPD.selCh{2} = ones(obj.channels,6); %novy format z 22.8.2018 - kanaly x marks
-            end
-            if isempty(chns)
-                prumery = obj.IntervalyResp([],[],signum,0);
-                if isempty(kategorie)
-                    kategorie = 1:size(prumery,3);
+            for int = 1:size(intervaly,1)
+                for kat = 1:numel(kategorie)
+                    %TODO 17.9.2018
+                    if kat <= size(prumery,3)
+                        ich = prumery(:,int, kat) ~= 0; % chci i zaporny rozdil ; aby tam neco bylo                     
+                        BPD.VALS{int,kat} = prumery(ich,int,kategorie(kat));
+                    else
+                        ich = true(size(prumery,1),1);
+                        BPD.VALS{int,kat} = ones(size(prumery,1),1);
+                    end
+                        
+                    BPD.NAMES{int,kat}= names(ich);
+                    BPD.MNI{int,kat} = MNI(ich);            
+
+                    BPD.NLABELS{int,kat}= neurologyLabels(ich);
+                    if isfield(obj.CH.H.channels,'seizureOnset')                        
+                        BPD.EPI{int,kat} = struct('seizureOnset',{obj.CH.H.channels(ich).seizureOnset},'interictalOften',{obj.CH.H.channels(ich).interictalOften},'rejected',{obj.CH.H.channels(ich).interictalOften});
+                    else
+                        BPD.EPI{int,kat} = struct('seizureOnset',{},'interictalOften',{},'rejected',{});
+                    end
+                    if isprop(obj,'plotRCh')  && isfield(obj.plotRCh,'selCh')  
+                        BPD.selCh{int,kat} = obj.plotRCh.selCh(ich,:); %novy format z 22.8.2018 - kanaly x marks
+                    else
+                        BPD.selCh{int,kat} = true(sum(ich),6);
+                    end                                                                              
                 end
-                prumery = squeeze(mean(prumery(:,1,kategorie),3)); %prumer pres kategorie
-            else
-                prumery = ones(numel(chns),1); % vsechno jednicky
-            end    
-            channels = iff(isempty(chns), 1:obj.channels , chns);
-            
-            for ch = 1:numel(channels)
-                BPD.VALS{1}(channels(ch)) = 1;
-                BPD.VALS{2}(channels(ch)) = prumery(channels(ch));
-                BPD.NAMES{2}{ch} = obj.CH.H.channels(channels(ch)).name;     
-                BPD.NLABELS{2}{ch} = obj.CH.H.channels(channels(ch)).neurologyLabel; 
-                BPD.MNI{2}(ch).MNI_x = obj.CH.H.channels(channels(ch)).MNI_x;
-                BPD.MNI{2}(ch).MNI_y = obj.CH.H.channels(channels(ch)).MNI_y;
-                BPD.MNI{2}(ch).MNI_z = obj.CH.H.channels(channels(ch)).MNI_z;
-                if isfield(obj.CH.H.channels,'seizureOnset')
-                    BPD.EPI{2}(ch).seizureOnset = obj.CH.H.channels(channels(ch)).seizureOnset;
-                    BPD.EPI{2}(ch).interictalOften = obj.CH.H.channels(channels(ch)).interictalOften;
-                    BPD.EPI{2}(ch).rejected = obj.CH.H.channels(channels(ch)).rejected;
-                end
-            end
+            end            
         end
         
     end 

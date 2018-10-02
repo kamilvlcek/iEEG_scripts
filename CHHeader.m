@@ -14,7 +14,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         sortedby; %podle ceho jsou kanaly serazeny
         plotCh2D; %udaje o 2D grafu kanalu, hlavne handle
     end
-    
+    %#ok<*PROPLC>
     methods (Access = public)
         function obj = CHHeader(H)
             %konstruktor
@@ -109,12 +109,12 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             if ~exist('labels','var') || isempty(labels), labels = 0; end
             if isfield(obj.H.channels,'MNI_x')
                 figure('Name','ChannelPlot in MNI');                
-                [obj,chgroups] = obj.ChannelGroups(); %#ok<PROPLC>          
+                [obj,chgroups] = obj.ChannelGroups();          
                 
                 %objekt se dobre uklada i pri poradi return values XYZ,obj
                 XYZ = struct('X',0,'Y',0,'Z',0);
-                for chg = 1:size(chgroups,2) %#ok<PROPLC>
-                    group = chgroups{chg}; %#ok<PROPLC>
+                for chg = 1:size(chgroups,2) 
+                    group = chgroups{chg}; 
                     X = zeros(1,numel(group)); Y = X; Z = X;
                     for ich = 1:numel(group)                        
                         X(ich) = obj.H.channels(group(ich)).MNI_x;
@@ -163,7 +163,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 disp('No MNI data');
             end
         end
-        function ChannelPlot2D(obj,chsel,selCh,plotChH)
+        function ChannelPlot2D(obj,chsel,selCh,plotChH,label)
             %vstupni promenne
             if ~exist('chsel','var')%promenna na jeden cerveny kanal
                 if isfield(obj.plotCh2D,'chsel')
@@ -192,6 +192,16 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             if ~isfield(obj.plotCh2D,'marks')  %handlet na funkci z CiEEGData @obj.PlotResponseCh
                 obj.plotCh2D.marks = [1 1 1 1 1 1]; %ktere znacky fghjjkl se maji zobrazovat
             end
+            if ~exist('label','var') %promenna z CM oznacujici nejaky label celeho souboru 
+                if isfield(obj.plotCh2D,'label')
+                    label = obj.plotCh2D.label;
+                else
+                    label = ''; 
+                    obj.plotCh2D.label = '';
+                end
+            else
+                obj.plotCh2D.label = label;
+            end
             
             %vytvoreni figure
             x = [obj.H.channels(:).MNI_x];
@@ -210,9 +220,19 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 figure(obj.plotCh2D.fh); %pouziju uz vytvoreny graf
                 clf(obj.plotCh2D.fh); %graf vycistim
             else
-                obj.plotCh2D.fh = figure('Name','ChannelPlot2D in MNI');                     
+                obj.plotCh2D.fh = figure('Name',['ChannelPlot2D - ' label]);                     
             end            
                    
+            if isfield(obj.plotCh2D,'chshow') && numel(obj.plotCh2D.chshow) < numel(obj.H.channels) %pokud chci zobrazovat jen cast kanalu podle chshow
+                els = obj.plotCh2D.chshow;
+                els0 = obj.plotCh2D.chshow; %nebudu resit zactky a konec elektrod
+                chshow = obj.plotCh2D.chshow;
+            else
+                els = obj.els; %konce elektrod/pacientu u CM
+                els0 = [1 obj.els(1:end-1)+1]; %zacatky elektrod/pacientu u CM
+                chshow = 1:numel(obj.H.channels); 
+            end
+            
             subplot(1,2,1);
             %axialni plot            
             if isfield(obj.plotCh2D,'boundary') && obj.plotCh2D.boundary
@@ -221,15 +241,14 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             else
                 scatter(GMSurfaceMesh.node(:,1),GMSurfaceMesh.node(:,2),'.','MarkerEdgeAlpha',.1); %seda hmota normalizovaneho mozku
             end           
-            hold on;
-            el0 = 1;            
-            for ie = 1:numel(obj.els)                
-                plot(x(el0:obj.els(ie)),y(el0:obj.els(ie)),'-o'); %plot kontaktu jedne elektrody
-                for ch = el0:obj.els(ie)
-                    th = text(x(ch),y(ch),num2str(ch));
+            hold on;             
+            
+            for ie = 1:numel(els)                
+                plot(x(els0(ie):els(ie)),y(els0(ie):els(ie)),'-o'); %plot kontaktu jedne elektrody
+                for ch = els0(ie):els(ie)
+                    th = text(x(ch),y(ch),num2str(ch)); %cislo kazdeho kanalu
                     th.FontSize = 8;
-                end
-                el0 = obj.els(ie)+1;                
+                end                              
             end
             if ~isempty(chsel) %pokud je vybrany nejaky kanal
                 plot(x(chsel),y(chsel),'o','MarkerSize',size_ch,'MarkerEdgeColor','r','MarkerFaceColor','r'); 
@@ -242,6 +261,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 for m = 1:size(selCh,2) %jednu znacku za druhou
                    if  obj.plotCh2D.marks(m) %pokud se ma znacka zobrazovat
                        ch = find(selCh(:,m)); %seznam cisel vybranych kanalu pro danou znacku
+                       ch = intersect(chshow,ch); 
                        plot(x(ch),y(ch),'o','MarkerSize',size_selCh,'MarkerEdgeColor',barvy(m),'MarkerFaceColor',barvy(m));
                    end
                 end
@@ -249,11 +269,17 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             text(-70,70,'LEVA');
             text(55,70,'PRAVA');  
             axis equal;  
-            grid on;
+            if isfield(obj.plotCh2D,'grid') && obj.plotCh2D.grid==1
+                grid on;
+            end
+                
             xticks(-70:10:70);
             yticks(-100:10:70);
             xlabel('MNI X'); %levoprava souradnice
             ylabel('MNI Y'); %predozadni souradnice
+            if isfield(obj.plotCh2D,'background') && obj.plotCh2D.background==0
+                set(gca,'color','none'); %zadne bile pozadi, pak ani v corelu
+            end
            
             subplot(1,2,2);
             %sagitalni plot            
@@ -263,13 +289,12 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 scatter(GMSurfaceMesh.node(:,2),GMSurfaceMesh.node(:,3),'.','MarkerEdgeAlpha',.1);   %seda hmota normalizovaneho mozku
             end
             hold on;     
-            for ie = 1:numel(obj.els)                
-                plot(y(el0:obj.els(ie)),z(el0:obj.els(ie)),'-o'); %plot kontaktu jedne elektrody
-                for ch = el0:obj.els(ie)
+            for ie = 1:numel(els)                 
+                plot(y(els0(ie):els(ie)),z(els0(ie):els(ie)),'-o'); %plot kontaktu jedne elektrody
+                for ch = els0(ie):els(ie)
                     th = text(y(ch),z(ch),num2str(ch));
                     th.FontSize = 8;
-                end
-                el0 = obj.els(ie)+1;                
+                end                
             end  
             if ~isempty(chsel) %pokud je vybrany nejaky kanal
                 plot(y(chsel),z(chsel),'o','MarkerSize',size_ch,'MarkerEdgeColor','r','MarkerFaceColor','r'); 
@@ -288,9 +313,10 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 for m = 1:size(selCh,2) %jednu znacku za druhou
                     if  obj.plotCh2D.marks(m) %pokud se ma znacka zobrazovat
                        ch = find(selCh(:,m)); %seznam cisel vybranych kanalu pro danou znacku
+                       ch = intersect(chshow,ch); 
                        if ~isempty(ch) %pokud jsou takove nejake vybrane kanaly
                            plot(y(ch),z(ch),'o','MarkerSize',size_selCh,'MarkerEdgeColor',barvy(m),'MarkerFaceColor',barvy(m));
-                           th = text(x_text+m*10,-90,klavesy(m), 'FontSize', 15,'Color',barvy(m));
+                           th = text(x_text+m*10,-90,klavesy(m), 'FontSize', 15,'Color',barvy(m)); %legenda k barvam kanalu dole pod mozkem
                            th.BackgroundColor = [.6 .6 .6];
                        end
                     end
@@ -299,13 +325,24 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     klavesy = 'fghjkl'; %abych mohl vypsat primo nazvy klaves vedle hvezdicky podle selCh
                     text(x_text,80,['*' klavesy(logical(selCh(chsel,:)))], 'FontSize', 12,'Color','red');
                 end
+                if ~isempty(label)
+                    text(x_text,-75,strrep(label,'_','\_'), 'FontSize', 10,'Color','blue' );
+                end
+                if isfield(obj.plotCh2D,'chshowstr') && ~isempty(obj.plotCh2D.chshowstr)
+                    text(0,-90,['chshow:' obj.plotCh2D.chshowstr] ,'Color','red');
+                end
             end
             axis equal;
-            grid on;
+            if isfield(obj.plotCh2D,'grid') && obj.plotCh2D.grid==1
+                grid on;
+            end
             yticks(-80:10:80);
             xticks(-100:10:70);
             xlabel('MNI Y'); %predozadni souradnice
             ylabel('MNI Z'); %hornodolni
+            if isfield(obj.plotCh2D,'background') && obj.plotCh2D.background==0
+                set(gca,'color','none'); %zadne bile pozadi, pak ani v corelu
+            end
             
             %rozhybani obrazku            
             set(obj.plotCh2D.fh,'KeyPressFcn',@obj.hybejPlot2D); 
@@ -313,7 +350,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         end
         function tag= PacientTag(obj)
             %vraci tag pacienta, napriklad p73
-            if isfield(obj.H,'patientTag'), tag = obj.H.patientTag; else tag=obj.H.subjName; end
+            if isfield(obj.H,'patientTag'), tag = obj.H.patientTag; else, tag=obj.H.subjName; end
         end
         function [MNI_coors]= GetMNI(obj,channels)   
             %vraci koordinaty MNI pro Jirkovy skripty na SEEG-vizualizaci
@@ -392,7 +429,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         end
         function obj = ChangeReference(obj,ref)
             assert(any(ref=='heb'),'neznama reference, mozne hodnoty: h e b');
-            H = obj.H;  %#ok<PROPLC> %kopie headeru
+            H = obj.H;  %kopie headeru
             switch ref %jaky typ reference chci
                 case 'h'  %headbox          
                     filterSettings.name = 'car'; % options: 'car','bip','nan'
@@ -403,36 +440,36 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 case 'b'  %bipolarni
                     filterSettings.name = 'bip'; % options: 'car','bip','nan'           
             end
-            filterMatrix = createSpatialFilter_kisarg(H, numel(H.selCh_H), filterSettings,obj.RjCh); %#ok<PROPLC> %ve filterMatrix uz nejsou rejectovane kanaly                        
+            filterMatrix = createSpatialFilter_kisarg(H, numel(H.selCh_H), filterSettings,obj.RjCh); %ve filterMatrix uz nejsou rejectovane kanaly                        
                 %assert(size(rawData,2) == size(filterMatrix,1));            
             if ref=='b' %u bipolarni reference se mi meni pocet kanalu
-                H.channels = struct; %#ok<PROPLC> 
-                selCh_H = zeros(1,size(filterMatrix,2)); %#ok<PROPLC>
-                for ch = 1:size(filterMatrix,2) %#ok<PROPLC> % v tehle matrix jsou radky stare kanaly a sloupce nove kanaly - takze cyklus pres nove kanaly
-                    oldch = find(filterMatrix(:,ch)==1); %#ok<PROPLC> %cislo stareho kanalu ve sloupci s novym kanalem ch
+                H.channels = struct; 
+                selCh_H = zeros(1,size(filterMatrix,2)); 
+                for ch = 1:size(filterMatrix,2) % v tehle matrix jsou radky stare kanaly a sloupce nove kanaly - takze cyklus pres nove kanaly
+                    oldch = find(filterMatrix(:,ch)==1); %cislo stareho kanalu ve sloupci s novym kanalem ch
                     fnames = fieldnames(obj.H.channels(oldch)); %jmena poli struktury channels
                     for f = 1:numel(fnames) %postupne zkopiruju vsechny pole struktury, najednou nevim jak to udelat
                         fn = fnames{f};
-                        H.channels(ch).(fn) = obj.H.channels(oldch).(fn); %#ok<PROPLC> 
+                        H.channels(ch).(fn) = obj.H.channels(oldch).(fn); 
                     end
-                    H.channels(ch).name = ['(' H.channels(ch).name '-' obj.H.channels(filterMatrix(:,ch)==-1).name ')']; %#ok<PROPLC> %pojmenuju kanal jako rozdil
-                    H.channels(ch).neurologyLabel = ['(' H.channels(ch).neurologyLabel '-' obj.H.channels(filterMatrix(:,ch)==-1).neurologyLabel ')']; %#ok<PROPLC>  %oznaceni od Martina Tomaska
-                    H.channels(ch).ass_brainAtlas = ['(' H.channels(ch).ass_brainAtlas '-' obj.H.channels(filterMatrix(:,ch)==-1).ass_brainAtlas ')']; %#ok<PROPLC> 
+                    H.channels(ch).name = ['(' H.channels(ch).name '-' obj.H.channels(filterMatrix(:,ch)==-1).name ')']; %pojmenuju kanal jako rozdil
+                    H.channels(ch).neurologyLabel = ['(' H.channels(ch).neurologyLabel '-' obj.H.channels(filterMatrix(:,ch)==-1).neurologyLabel ')'];  %oznaceni od Martina Tomaska
+                    H.channels(ch).ass_brainAtlas = ['(' H.channels(ch).ass_brainAtlas '-' obj.H.channels(filterMatrix(:,ch)==-1).ass_brainAtlas ')']; 
                     MNI = [ H.channels(ch).MNI_x H.channels(ch).MNI_y H.channels(ch).MNI_z; ... 
                            obj.H.channels(filterMatrix(:,ch)==-1).MNI_x obj.H.channels(filterMatrix(:,ch)==-1).MNI_y obj.H.channels(filterMatrix(:,ch)==-1).MNI_z ...
-                           ]; %#ok<PROPLC> %matice MNI souradnic jednoho a druheho kanalu
+                           ]; %matice MNI souradnic jednoho a druheho kanalu
                     MNI2=(MNI(1,:) + MNI(2,:))/2; % prumer MNI souradnic - nova souradnice bipolarniho kanalu
-                    H.channels(ch).MNI_x =  MNI2(1); %#ok<PROPLC> 
-                    H.channels(ch).MNI_y =  MNI2(2); %#ok<PROPLC> 
-                    H.channels(ch).MNI_z =  MNI2(3); %#ok<PROPLC> 
-                    H.channels(ch).MNI_dist = sqrt( sum((MNI(1,:) - MNI(2,:)).^2)); %#ok<PROPLC>  %vzdalenost mezi puvodnimi MNI body                                                           
+                    H.channels(ch).MNI_x =  MNI2(1); 
+                    H.channels(ch).MNI_y =  MNI2(2); 
+                    H.channels(ch).MNI_z =  MNI2(3); 
+                    H.channels(ch).MNI_dist = sqrt( sum((MNI(1,:) - MNI(2,:)).^2));  %vzdalenost mezi puvodnimi MNI body                                                           
                     selCh_H(ch) = ch;
                 end 
-                H.selCh_H = selCh_H; %#ok<PROPLC> 
+                H.selCh_H = selCh_H; 
 %                 obj.ChangeReferenceRjEpochCh(filterMatrix); %prepocitam na bipolarni referenci i RjEpochCh 
             end
-            obj.H = H; %#ok<PROPLC> %prepisu puvodni ulozeny header
-            obj.SetFilterMatrix(filterMatrix); %#ok<PROPLC> %uchovam si filterMatrix na pozdeji, kvuli prepoctu RjEpochCh
+            obj.H = H; %prepisu puvodni ulozeny header
+            obj.SetFilterMatrix(filterMatrix); %uchovam si filterMatrix na pozdeji, kvuli prepoctu RjEpochCh
         end
         function obj = SortChannels(obj,by)
             %seradi kanaly podle vybrane MNI souradnice a ulozi do sortorder
@@ -464,6 +501,24 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                case 'z'
                    obj.SortChannels();
             end 
+        end
+        function obj = FilterChannels(obj,chlabels,notchnlabels)
+            %vyberu podle neurologylabel jen nektere kanaly k zobrazeni
+            if exist('chlabels','var') && ~isempty(chlabels)
+                ChLabels = {obj.H.channels(:).neurologyLabel}';
+                iL = contains(ChLabels,chlabels);
+                if exist('notchnlabels','var') && numel(notchnlabels) > 0
+                    iLx = contains(ChLabels,notchnlabels);
+                    iL = iL & ~iLx;
+                    obj.plotCh2D.chshowstr = [ cell2str(chlabels) ' not:' cell2str(notchnlabels)];
+                else
+                    obj.plotCh2D.chshowstr = cell2str(chlabels);
+                end
+                obj.plotCh2D.chshow = find(iL); %vyber kanalu k zobrazeni       
+            else
+                obj.plotCh2D.chshow = 1:numel(obj.H.channels);
+                obj.plotCh2D.chshowstr = '';
+            end
         end
     end
     
@@ -550,6 +605,21 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                   case {'j','k','l'}
                       obj.plotCh2D.marks( eventDat.Key - 'f' ) = 1 - obj.plotCh2D.marks( eventDat.Key - 'f' );
                       obj.ChannelPlot2D();
+                  case {'tab'} %zapinani a vypinani gridu
+                      if isfield(obj.plotCh2D,'grid') 
+                          obj.plotCh2D.grid = 1-obj.plotCh2D.grid;
+                      else
+                         obj.plotCh2D.grid = 1;
+                      end
+                      obj.ChannelPlot2D();
+                  case 'w' %zapinani a vypinani prazdneho pozadi obrazku
+                      if isfield(obj.plotCh2D,'background') 
+                          obj.plotCh2D.background = 1-obj.plotCh2D.background;
+                      else
+                         obj.plotCh2D.background = 0;
+                      end
+                      obj.ChannelPlot2D();
+                      
               end              
           end
           function hybejPlot2Dclick(obj,h,~)
@@ -572,8 +642,11 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
               if ~isempty(chns_mni)
                   [ch,d] = dsearchn(chns_mni,[x y]); %najde nejblizsi kanal a vzdalenost k nemu                   
                   obj.ChannelPlot2D(find(obj.sortorder==ch)); %#ok<FNDSB>   
-                  obj.plotCh2D.plotChH(obj.plotCh2D.chsel); %vykreslim @obj.PlotResponseCh  
-                  figure(obj.plotCh2D.fh); %dam puvodni obrazek dopredu
+                  if isfield(obj.plotCh2D,'plotChH')
+                    obj.plotCh2D.plotChH(obj.plotCh2D.chsel); %vykreslim @obj.PlotResponseCh  
+                    figure(obj.plotCh2D.fh); %dam puvodni obrazek dopredu
+                  end
+                  
               end
           end
     end

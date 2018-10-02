@@ -434,7 +434,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             % -- pokud jedna hodnota, je to sirka klouzaveho okna - maximalni p z teto delky
             %TODO - moznost spojit kategorie 
             assert(obj.epochs > 1,'only for epoched data');                       
-            if ~exist('method','var'), method = {'wilcox'}; end  %defaultni metoda statistiky je wilcox test
+            if ~exist('method','var') || isempty(method), method = {'wilcox'}; end  %defaultni metoda statistiky je wilcox test
             if ~iscell(method), method = {method,'chn1'}; end %predelam retezec na cell
             if numel(method) < 2, method{2} = 'chn1'; end %druha polozka bude urcovat, jestli se ma vyhodnocovat vsechny kanaly (chnall), nebo kazdy kanal zvlast (chn1)
             
@@ -500,6 +500,20 @@ classdef CiEEGData < matlab.mixin.Copyable
                 obj.Wp(WpA).opakovani = {};
             end
             obj.DatumCas.ResponseSearch = datestr(now);
+        end
+        function obj = ResponseSearchMulti(obj,timewindow,stat_kats,opakovani,method)
+            %vola ResponseSearch pro kazdy kontrast, nastavi vsechny statistiky
+            if ~exist('opakovani','var'), opakovani = []; end
+            if ~exist('method','var'), method = []; end
+            if iscelldeep(stat_kats) %pokud mam nekolik ruznych statistik na spocitani
+                for WpA = 1:numel(stat_kats)
+                    obj.SetStatActive(WpA);
+                    disp(['pocitam kontrast' cell2str(stat_kats{WpA}) ]);
+                    obj.ResponseSearch(timewindow,stat_kats{WpA},opakovani,method);
+                end
+            else
+                obj.E.ResponseSearch(timewindow,stat_kats, opakovani,method);
+            end
         end
         function obj = SetStatActive(obj,WpActive)
             WpActive = max(1,min(size(obj.Wp,2)+1,WpActive)); %osetreni na prilis vysoke a nizke cislo            
@@ -665,7 +679,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             assert(isfield(obj.Wp(obj.WpActive), 'WpKatBaseline'),'musi byt spocitana statistika kategorii');
             if ~exist('intervaly','var') || isempty(intervaly), intervaly = [0.1 obj.epochtime(2)]; end %defaultni epocha je cely interval
             if ~exist('channels','var') || isempty(channels) , channels = 1:obj.channels; end
-            if ~exist('signum','var') || isempty(signum) , signum = 0:obj.channels; end %defaultne vraci hodnoty vetsi i mensi v prvni kat
+            if ~exist('signum','var') || isempty(signum) , signum = 0; end %defaultne vraci hodnoty vetsi i mensi v prvni kat
             if ~exist('dofig','var'), dofig = 1; end %defaultne delam obrazek
             [katsnames,kombinace,kats] = obj.GetKatsNames();                                
 
@@ -1190,7 +1204,12 @@ classdef CiEEGData < matlab.mixin.Copyable
                 figure(obj.plotRCh.fh); %pouziju uz vytvoreny graf
                 clf(obj.plotRCh.fh); %graf vycistim
             else
-                obj.plotRCh.fh = figure('Name','W plot channel');
+                if isprop(obj,'label') && ~isempty(obj.label)
+                    figurename = ['PlotResponseCh - ' obj.label];
+                else
+                    figurename = 'PlotResponseCh';
+                end
+                obj.plotRCh.fh = figure('Name',figurename);
             end
             [ymin ymax] = obj.responseChYLim(iff(~isempty(opakovani),KATNUM,kategories));
             
@@ -1773,8 +1792,9 @@ classdef CiEEGData < matlab.mixin.Copyable
                    if isa(obj,'CHilbert'), obj.PlotResponseFreq(obj.plotRCh.ch,obj.Wp(obj.WpActive).kats); end %vykreslim vsechna frekvencni pasma
                    obj.PlotEpochs(obj.plotRCh.ch,obj.Wp(obj.WpActive).kats); %vykreslim prumery freq u vsech epoch
                    figure(obj.plotRCh.fh); %dam puvodni obrazek dopredu
-               case 'return' %zobrazi obrazek mozku s vybranych kanalem                                     
-                   obj.CH.ChannelPlot2D(obj.plotRCh.ch,obj.plotRCh.selCh,@obj.PlotResponseCh);  %vykreslim obrazek mozku s vybranym kanalem
+               case 'return' %zobrazi obrazek mozku s vybranych kanalem                      
+                   if isprop(obj,'label') && ~isempty(obj.label), label = obj.label; else, label = ''; end
+                   obj.CH.ChannelPlot2D(obj.plotRCh.ch,obj.plotRCh.selCh,@obj.PlotResponseCh,label);  %vykreslim obrazek mozku s vybranym kanalem
                    figure(obj.plotRCh.fh); %dam puvodni obrazek dopredu
                case {'add' ,  'equal','f'}     % + oznaceni kanalu
                    obj.SelChannel(obj.CH.sortorder(obj.plotRCh.ch));
