@@ -175,8 +175,8 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             else
                 obj.plotCh2D.chsel = chsel;
             end
-            chsel = obj.sortorder(chsel);
-            if ~exist('selCh','var')%promenna na vic cernych kanaly, pro obj.PlotRCh.SelCh
+            chsel = obj.sortorder(chsel); %jeden kanal, ktery je zobrazeny v PlotResponseCh
+            if ~exist('selCh','var') %promenna na vic oznacenych kanalu f-l, podle obj.PlotRCh.SelCh
                 if isfield(obj.plotCh2D,'selCh')
                     selCh = obj.plotCh2D.selCh;
                 else
@@ -273,8 +273,8 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 grid on;
             end
                 
-            xticks(-70:10:70);
-            yticks(-100:10:70);
+            set(gca, 'XTick',-70:10:70); %xticks(-70:10:70); %xtics jsou az od 2016b
+            set(gca, 'YTick',-100:10:70); %yticks(-100:10:70); %ytics jsou az od 2016b
             xlabel('MNI X'); %levoprava souradnice
             ylabel('MNI Y'); %predozadni souradnice
             if isfield(obj.plotCh2D,'background') && obj.plotCh2D.background==0
@@ -336,8 +336,8 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             if isfield(obj.plotCh2D,'grid') && obj.plotCh2D.grid==1
                 grid on;
             end
-            yticks(-80:10:80);
-            xticks(-100:10:70);
+            set(gca, 'YTick',-80:10:80); %yticks(-80:10:80);
+            set(gca, 'XTick',-100:10:70); %xticks(-100:10:70);
             xlabel('MNI Y'); %predozadni souradnice
             ylabel('MNI Z'); %hornodolni
             if isfield(obj.plotCh2D,'background') && obj.plotCh2D.background==0

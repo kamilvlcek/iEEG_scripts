@@ -794,6 +794,62 @@ classdef CiEEGData < matlab.mixin.Copyable
             [names,neurologyLabels] = obj.CH.GetChNames(channels);            
             assert(numel(MNI)==size(prumery,1),'MNI a prumery maji jiny pocet kanalu');
         end
+        function SelChannelStat(obj,kategorie,marks,add,signum)
+            %vybere kanaly podle statistiky, podle vysledku IntervalyResp
+            %kategorie jsou cisla odpovidajici katsnames z IntervalyResp - kategorie podnetu a jejich kombinace - maximalne 6,muze byt cell array
+            %marks jsou cisla znacek 1-6
+            %add=1 znamena, ze se maji pridavat znacky k aktualnim znackam, jinak se puvodni smazou
+            %signum se predava do IntervalyResp a znamena znamenko rozdilu - +1,0,-1
+            if ~exist('signum','var') || isempty(signum) , signum = 0; end %defaultne vraci hodnoty vetsi i mensi v prvni kat
+            if ~exist('kategorie','var') || isempty(kategorie) , kategorie = 1:6; end %ktere kategorie chci oznacit
+            if ~exist('marks','var') || isempty(marks) , marks = 1:numel(kategorie); end %kterym maji kategorie odpovidat znackam
+            if ~exist('add','var') || isempty(add) , add = 0; end %defaultne prepise stare znaceni 
+            assert(numel(kategorie)==numel(marks), 'CiEEGData.SelChannelStat: pocet kategorie a marks musi byt stejny');
+            [prumery, ~,~,~,katsnames,~] = obj.IntervalyResp([],[],signum, 0);
+            selCh = iff(add,obj.GetSelCh(),zeros(size(prumery,1),6));
+            pocty = zeros(1,numel(kategorie));
+            katname = cell(1,numel(kategorie));
+            
+            for kat = 1:numel(kategorie)
+                if iscell(kategorie)
+                    K = kategorie{kat};    %cisla kategorii
+                    KN = cell(1,numel(K)); %KategoryNames - bude tu vic kategorii
+                else
+                    K = kategorie(kat);   
+                    KN = katsnames{kategorie(kat)}; %KategoryNames - jmeno tehle kategorie
+                end
+                for iK = 1:numel(K) %pro vsechny prvky tehle kategorie - muze jich byt vic pokud kategorie je cellarray
+                    %K(iK) je ted cislo kategorie
+                    if(K(iK)<=size(prumery,3)) && marks(kat) <= 6
+                        iP = prumery(:,1,K(iK))~=0;                    
+                        selCh(iP,marks(kat)) = 1;
+                        pocty(kat)=pocty(kat) + sum(iP); %kolik vybrano v teto kategorii kanalu
+                        if iscell(KN) 
+                            KN(iK) = katsnames(K(iK));
+                        end
+                    end
+                end  
+                katname(kat) = iff(numel(KN) > 1,{KN},KN);                
+            end
+            obj.SetSelCh(selCh);
+            marks_str = 'fghjkl';    
+            [marks,im] = sort(marks); %seradim znadky
+            katname = katname(im); %seracim kategorie podle znacek
+            %jeste popis marks ulozim, abych mohl pozdeji pouzit do grafu
+            if ~add
+                obj.plotRCh.selChNames = cell(1,6); %prazdna jmena
+                obj.plotRCh.selChNames(marks) = katname;
+            else
+                for m = 1:numel(marks)  
+                    if isempty(obj.plotRCh.selChNames{marks(m)})
+                        obj.plotRCh.selChNames{marks(m)} = katname{m};
+                    else
+                        obj.plotRCh.selChNames{marks(m)} = union(obj.plotRCh.selChNames(marks(m)), katname{m});                    
+                    end
+                end
+            end
+            disp([ marks_str(marks) ' = ' cell2str(katname) ', (' num2str(pocty) ')']);            
+        end
         %% PLOT FUNCTIONS
         function PlotChannels(obj)  
             %vykresli korelace kazdeho kanalu s kazdym

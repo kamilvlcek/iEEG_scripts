@@ -50,12 +50,17 @@ CM.Clear();
 %% 2.4 vypocitam si statistiku
 setup = eval(['setup_' testname]); %nactu nastaveni
 CM.ResponseSearchMulti(0.1,setup.stat_kats);
+%nastavim oznaceni kanalu podle signifikance odpovedi
+CM.SetStatActive(1); %nove oznaceni
+CM.SelChannelStat({1, 2, 3, 4, [5 6]},[3 2 1 5 4],0); % fghjkl = {[Face],[Object],[Scene],[ObjectXFace],[SceneXFace],[SceneXObject]}
+CM.SetStatActive(5); %pridam k prvnimu oznaceni
+CM.SelChannelStat({4, [5 6]},[5 6],1); % kl = {[ObjectXScene],{[FaceXScene],[FaceXObject]}}
 
 %% 2.5 vyslednou sumarni tridu si ulozim, podobne jako kdyz ukladam data tridy CHilbert
 CM.Save(['d:\eeg\motol\pacienti\0sumarne\CM ' M(testname) ' ' label ' ' frekvence ' ' reference ' ' epochtime ' Ep' datumEP ' '  datum]);
 
 %% 2.6 sumarni graf odpovedi
-CM.IntervalyResp(); %graf velikosti odpovedi pres vsechny kanaly
+[prumery, MNI,names,intervaly,katsnames,neurologyLabels] = CM.IntervalyResp(); %graf velikosti odpovedi pres vsechny kanaly
 CM.PlotResponseCh(); %odpoved pro kazdy kanal zvlast 
 
 %% 2.6b nactu starsi data
