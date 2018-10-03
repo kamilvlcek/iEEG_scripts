@@ -1592,7 +1592,8 @@ classdef CiEEGData < matlab.mixin.Copyable
                 end
             end
             if (~isprop(obj,'PsyData') || isempty(obj.PsyData)) && ismember('PsyData', {vars.name}) %pokud jsem nevytvoril objekt v predchozim if
-                load(filename,'PsyData');                 
+                load(filename,'PsyData');   
+                PsyData.Init(); %kvuli 2D PMulti v PsyDataMulti, ktere neni ulozene ve starem objektu
                 obj.PsyData = PsyData ; %#ok<CPROPLC>  %  %drive ulozeny objekt, nez jsem zavedl ukladani struct nebo CPsyDataMulti                
             end
             if ismember('testname', {vars.name})

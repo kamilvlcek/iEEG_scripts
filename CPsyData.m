@@ -21,6 +21,9 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             obj.DoplnZpetnavazba();
             obj.testname = obj.GetTestName(inputname(1));
         end
+        function obj = Init(obj)
+            %prazdna funkce kvuli CPsyDataMulti
+        end
         function [obj] = SubjectChange(obj,~)
             %jen prazdna funkce, ale pretezuju ji v CPsyDataMulti, a naplnuju obsahem
             % v tehle trida mam jen jeden subjekt
