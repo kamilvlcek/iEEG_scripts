@@ -391,7 +391,11 @@ classdef CiEEGData < matlab.mixin.Copyable
                 %pocet elektrod se meni jejen u bipolarni ref, kdyz jsou nektere kanaly na konci vyrazene
             end
             [obj.samples,obj.channels, obj.epochs] = obj.DSize();
-            if ref=='b', obj.RjCh = []; end %rejectovane kanaly uz byly vyrazeny, ted nejsou zadne           
+            if ref=='b' 
+                obj.DatumCas.ChangeReference = datestr(now);
+                obj.header.RjChOriginal = obj.RjCh; %zazalohuju si puvodni rjch, kvuli referenci
+                obj.RjCh = []; %rejectovane kanaly uz byly vyrazeny, ted nejsou zadne  
+            end          
            
             obj.filename = []; %nechci si omylem prepsat puvodni data 
             switch ref
@@ -433,7 +437,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             % -- pokud jedna hodnota, je to sirka klouzaveho okna - maximalni p z teto delky
             %TODO - moznost spojit kategorie 
             assert(obj.epochs > 1,'only for epoched data');                       
-            if ~exist('method','var'), method = {'wilcox'}; end  %defaultni metoda statistiky je wilcox test
+            if ~exist('method','var') || isempty(method), method = {'wilcox'}; end  %defaultni metoda statistiky je wilcox test
             if ~iscell(method), method = {method,'chn1'}; end %predelam retezec na cell
             if numel(method) < 2, method{2} = 'chn1'; end %druha polozka bude urcovat, jestli se ma vyhodnocovat vsechny kanaly (chnall), nebo kazdy kanal zvlast (chn1)
             
@@ -499,6 +503,20 @@ classdef CiEEGData < matlab.mixin.Copyable
                 obj.Wp(WpA).opakovani = {};
             end
             obj.DatumCas.ResponseSearch = datestr(now);
+        end
+        function obj = ResponseSearchMulti(obj,timewindow,stat_kats,opakovani,method)
+            %vola ResponseSearch pro kazdy kontrast, nastavi vsechny statistiky
+            if ~exist('opakovani','var'), opakovani = []; end
+            if ~exist('method','var'), method = []; end
+            if iscelldeep(stat_kats) %pokud mam nekolik ruznych statistik na spocitani
+                for WpA = 1:numel(stat_kats)
+                    obj.SetStatActive(WpA);
+                    disp(['pocitam kontrast' cell2str(stat_kats{WpA}) ]);
+                    obj.ResponseSearch(timewindow,stat_kats{WpA},opakovani,method);
+                end
+            else
+                obj.E.ResponseSearch(timewindow,stat_kats, opakovani,method);
+            end
         end
         function obj = SetStatActive(obj,WpActive)
             WpActive = max(1,min(size(obj.Wp,2)+1,WpActive)); %osetreni na prilis vysoke a nizke cislo            
@@ -637,7 +655,9 @@ classdef CiEEGData < matlab.mixin.Copyable
                kombinace = kombinace(kombinace(:,1)>kombinace(:,2),:); %vyberu jen perumtace, kde prvni cislo je vetsi nez druhe   
                katsnames =  cell(1,numel(kats)+ size(kombinace,1));
                for kat = 1: numel(kats)
-                    if iscell(kats(kat)) %mame tu vic kategorii proti vice - na jedne strane kontrastu
+                   if obj.itpc_calc
+                       katsnames{kat} = obj.PsyData.P.strings.podminka{kat};
+                   elseif iscell(kats(kat)) %mame tu vic kategorii proti vice - na jedne strane kontrastu
                         kknames = cell(1,numel(kats{kat})); %jmena individualnich kategorii na jedne strane kontrastu
                         for kk = 1: numel(kats{kat})
                             kknames{kk}=katstr{kats{kat}(kk)+1}; %katnum jsou od 0, katstr indexovany od 1
@@ -654,14 +674,16 @@ classdef CiEEGData < matlab.mixin.Copyable
                disp(['neni vypocitana statistika']);
            end
         end
-        function [prumery, MNI,names,intervaly,katsnames,neurologyLabels] = IntervalyResp(obj, intervaly,channels,dofig)
+        function [prumery, MNI,names,intervaly,katsnames,neurologyLabels] = IntervalyResp(obj, intervaly,channels,signum, dofig)
             %vypocita hodnoty v jednotlivych intervalech casu pro jednotlive kategorie i pro celkovy prumer       
             %vykresli graf pro kazdy interval do spolecneho plotu
-            %vraci prumery [channels x intervaly x kategorie] a MNI(channels)           
+            %vraci prumery [channels x intervaly x kategorie] a MNI(channels)    
+            %signum  = jestli chci jen kat1>kat2 (1), nebo obracene (-1), nebo vsechny (0)
             assert(isfield(obj.Wp(obj.WpActive), 'kats'),'musi byt definovany kategorie podnetu');
             assert(isfield(obj.Wp(obj.WpActive), 'WpKatBaseline'),'musi byt spocitana statistika kategorii');
             if ~exist('intervaly','var') || isempty(intervaly), intervaly = [0.1 obj.epochtime(2)]; end %defaultni epocha je cely interval
             if ~exist('channels','var') || isempty(channels) , channels = 1:obj.channels; end
+            if ~exist('signum','var') || isempty(signum) , signum = 0; end %defaultne vraci hodnoty vetsi i mensi v prvni kat
             if ~exist('dofig','var'), dofig = 1; end %defaultne delam obrazek
             [katsnames,kombinace,kats] = obj.GetKatsNames();                                
 
@@ -679,9 +701,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 iintervalyStat = min(round(intervaly(int,:).*obj.fs) , size(obj.Wp(obj.WpActive).WpKat{1,2},1)); % pro statistiku obj.Wp.WpKat, kde na zacatku neni baseline
                 iintervalyStat(1) = iintervalyStat(1) + (diff(iintervalyStat)-diff(iintervalyData)); %korekce zaokrouhlovani, posunu zacatek iintervalyStat aby stejne dlouhe jako iintervalyData
                 if iintervalyStat(1)<=0, iintervalyStat = iintervalyStat + diff([iintervalyStat(1) 1]); end %aby od 1, kvuli vzorkovani d-size 51 vzorku je 0.7969s
-                %katdata = obj.CategoryData(kats); 
-                %iCh = min(obj.Wp.D2(iintervalyStat(1):iintervalyStat(2),channels),[],1) < 0.05; %kanaly kde je signifikantni rozdil vuci baseline, alesponjednou
-                %prumery(iCh,j,1) = mean(mean(katdata(iintervalyData(1):iintervalyData(2),iCh,:),3),1); %prumer za vsechy epochy a cely casovy interval
+                
                 colorskat = {[0 0 0],[0 1 0],[1 0 0],[0 0 1],[1 1 0],[0 1 1],[1 0 1]}; %barvy jako v PlotResponseCh, black, green, red, blue, yellow, aqua, fuchsia
                 colorkombinace = {0,1,2,4;0 0 3 5;0 0 0 6};
                 iChKats = false(2,numel(channels));  %dva radky pro rozdily vuci baselina a kategorii vuci sobe                                                                          
@@ -689,7 +709,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 %nejdriv samotne kategorie
                 Pmax = zeros(numel(kats),1); %sbiram maxima kategorii kvuli tomu kde posadit kontrasty mezi kat
                 for kat = 1: numel(kats) % cyklus pres kategorie - rozdil vuci baseline
-                    [katdata,~,RjEpCh] = obj.CategoryData(cellval(kats,kat)); %time x channels x epochs
+                    [katdata,~,RjEpCh] = obj.CategoryData(cellval(kats,kat),[],[],1:obj.channels,kat); %time x channels x epochs
                     iCh = min(obj.Wp(obj.WpActive).WpKatBaseline{kat,1}(iintervalyStat(1):iintervalyStat(2),channels),[],1) < 0.05; %kanaly kde je signifikantni rozdil vuci baseline, alespon jednou
                     fiCh = find(iCh); %absolutni cisla kanalu
                     data = zeros(diff(iintervalyData)+1,sum(iCh)); % samples x vybrane kanaly 
@@ -697,7 +717,11 @@ classdef CiEEGData < matlab.mixin.Copyable
                     Wp = obj.Wp(obj.WpActive).WpKatBaseline{kat,1}(iintervalyStat(1):iintervalyStat(2),iCh); %statistika jen pro vyber kanalu, kde je neco signif
                     for ch = 1:sum(iCh) %musim jet po jednotlivych kanalech kvuli RjEpCh, ch je index v ramci je vybranych kanalu se signif rozdilem, takze fiCh
                         %ted vyberu data jen z nevyrazenych epoch:
-                        data(:,ch) = mean(katdata(iintervalyData(1):iintervalyData(2),fiCh(ch),~RjEpCh(fiCh(ch),:)),3); %prumer pres epochy pro jeden kanal, pro nevyrazene epochy pro tento kanal
+                        if obj.itpc_calc
+                            data(:,ch) = katdata(iintervalyData(1):iintervalyData(2),fiCh(ch));
+                        else 
+                            data(:,ch) = mean(katdata(iintervalyData(1):iintervalyData(2),fiCh(ch),~RjEpCh(fiCh(ch),:)),3); %prumer pres epochy pro jeden kanal, pro nevyrazene epochy pro tento kanal
+                        end 
                         fitime = find(Wp(:,ch)<0.05); %indexy vzorku, kde je signif rozdil
                         %ted vyberu maximalni hodnotu jen ze signifikantnich vzorku - ziskam jeji index v data: 
                         [~,subitime] = max(abs(data(fitime,ch))); % index maximalni absolutni hodnoty se signif rozdilem - jen relativni indexy v ramci fitime
@@ -722,17 +746,30 @@ classdef CiEEGData < matlab.mixin.Copyable
                 
                 yKombinace = ceil(max(Pmax)+0.5);
                 for kat = 1:size(kombinace,1) %cyklus pres vsechny kombinace kategorii
-                    [katdata1, ~, RjEpCh1] = obj.CategoryData(cellval(kats,kombinace(kat,1))); %time x channels x epochs 
-                    [katdata2, ~, RjEpCh2] = obj.CategoryData(cellval(kats,kombinace(kat,2))); %druha vyssi kategorie, ktera se bude odecitat od te prvni
-                    iCh = min(obj.Wp(obj.WpActive).WpKat{kombinace(kat,2),kombinace(kat,1)}(iintervalyStat(1):iintervalyStat(2),channels),[],1) < 0.05; %kanaly, kde je signifikantni rozdil mezi kategoriemi, alespon jednou
+                    [katdata1, ~, RjEpCh1] = obj.CategoryData(cellval(kats,kombinace(kat,1)),[],[],1:obj.channels,kat); %time x channels x epochs 
+                    [katdata2, ~, RjEpCh2] = obj.CategoryData(cellval(kats,kombinace(kat,2)),[],[],1:obj.channels,kat); %druha vyssi kategorie, ktera se bude odecitat od te prvni
+                    WpK = obj.Wp(obj.WpActive).WpKat{kombinace(kat,2),kombinace(kat,1)}(iintervalyStat(1):iintervalyStat(2),:); %statistika vsech kanalu
+                    WpB = obj.Wp(obj.WpActive).WpKatBaseline{kombinace(kat,1),1}(iintervalyStat(1):iintervalyStat(2),:); %rozdil prvni kategorie vuci baseline
+                    dataK = zeros(diff(iintervalyData)+1,obj.channels); %tam budu davat rozdil mezi dvema kategoriemi
+                    for ch = 1:obj.channels
+                        if obj.itpc_calc
+                            dataK(:,ch) = katdata1(iintervalyData(1):iintervalyData(2),ch) - squeeze(katdata2(iintervalyData(1):iintervalyData(2),ch));
+                        else
+                            dataK(:,ch) = mean(katdata1(iintervalyData(1):iintervalyData(2),ch,~RjEpCh1(ch,:)),3) - mean(katdata2(iintervalyData(1):iintervalyData(2),ch,~RjEpCh2(ch,:)),3);                    
+                        end
+                    end
+                    idataK = iff(signum>0, dataK > 0, iff(signum < 0, dataK < 0, true(size(dataK)) ));  % jestli chci vetsi, mensi nebo jakekoliv
+                    WpAll = cat(3, WpK<0.05 , WpB<0.05 , idataK); %time x channels x tyhle tri podminky, rozdil vuci baseline, rozdil kategorii a kat1 > kat2
+                    iCh = any(all(WpAll,3),1); %vsechny tri podminky, alespon v jednom case                                        
                     fiCh = find(iCh); %absolutni cisla kanalu
                     data = zeros(diff(iintervalyData)+1,sum(iCh)); % samples x vybrane kanaly - tam budu ukladat rozdily mezi kategoriemi
-                    sub = zeros(1,sum(iCh)); % indexy=cislo samplu maximalnich signif hodnot  
-                    Wp = obj.Wp(obj.WpActive).WpKat{kombinace(kat,2),kombinace(kat,1)}(iintervalyStat(1):iintervalyStat(2),iCh); %statistika jen pro vyber kanalu, kde je signif rozdil
+                    sub = zeros(1,sum(iCh)); % indexy=cislo samplu maximalnich signif hodnot                      
                     for ch=1:sum(iCh)
-                        %ted vyberu data z nevyrazenych epoch a vypocitam rozdil
-                        data(:,ch) = mean(katdata1(iintervalyData(1):iintervalyData(2),fiCh(ch),~RjEpCh1(fiCh(ch),:)),3) - mean(katdata2(iintervalyData(1):iintervalyData(2),fiCh(ch),~RjEpCh2(fiCh(ch),:)),3);
-                        fitime = find(Wp(:,ch)<0.05); %indexy vzorku, kde je signif rozdil
+                        %ted vyberu data z nevyrazenych epoch a vypocitam rozdil - time x channels
+                        data(:,ch) = dataK(:,fiCh(ch));                        
+                        idataK = iff(signum>0, dataK(:,fiCh(ch))>0, iff(signum < 0, dataK(:,fiCh(ch))<0, true(size(dataK,1))));  % jestli chci vetsi, mensi nebo jakekoliv
+                        WpAll = [ WpK(:,fiCh(ch))<0.05 , WpB(:,fiCh(ch))<0.05 , idataK];
+                        fitime = find(all(WpAll,2)); %indexy vzorku, kde je signif rozdil a prvni kat je vetsi
                         %ted vyberu maximalni hodnotu jen ze signifikantnich vzorku - ziskam jeji index v data: 
                         [~,subitime] = max(abs(data(fitime,ch))); % index maximalni absolutni hodnoty se signif rozdilem - jen relativni indexy v ramci fitime
                         sub(ch) = fitime(subitime); %prevedu na absolutni indexy v ramci data(:,ch)
@@ -1179,7 +1216,12 @@ classdef CiEEGData < matlab.mixin.Copyable
                 figure(obj.plotRCh.fh); %pouziju uz vytvoreny graf
                 clf(obj.plotRCh.fh); %graf vycistim
             else
-                obj.plotRCh.fh = figure('Name','W plot channel');
+                if isprop(obj,'label') && ~isempty(obj.label)
+                    figurename = ['PlotResponseCh - ' obj.label];
+                else
+                    figurename = 'PlotResponseCh';
+                end
+                obj.plotRCh.fh = figure('Name',figurename);
             end
             [ymin ymax] = obj.responseChYLim(iff(~isempty(opakovani),KATNUM,kategories));
             
@@ -1292,18 +1334,24 @@ classdef CiEEGData < matlab.mixin.Copyable
                                 kat1name =  obj.PsyData.OpakovaniName(kategories{l});
                                 kat2name =  obj.PsyData.OpakovaniName(kategories{k});
                                 kat3name =  [ ' (' obj.PsyData.CategoryName(obj.Wp(WpA).kats) ')' ]; %jmeno kategorie obrazku, ze ktere se opakovani pocitalo
+                            elseif obj.itpc_calc
+                                kat1name =  obj.PsyData.P.strings.podminka{l};
+                                kat2name =  obj.PsyData.P.strings.podminka{k};
+                                kat3name = '';
                             elseif iscell(kategories)
                                 kat1name =  obj.PsyData.CategoryName(kategories{l});
                                 kat2name =  obj.PsyData.CategoryName(kategories{k});
                                 kat3name = '';
+                            
                             else
                                 kat1name =  obj.PsyData.CategoryName(kategories(l));
                                 kat2name =  obj.PsyData.CategoryName(kategories(k));
                                 kat3name = '';
-                            end
+                            end  
                             text(0.04+obj.Wp(WpA).epochtime(1),y, ['\color[rgb]{' num2str(colorskat{1,colorkatl}) '}' kat1name ...
-                                    '\color[rgb]{' num2str(color) '} *X* '  ...
-                                    '\color[rgb]{' num2str(colorkatk(1,:)) '}' kat2name kat3name]);                            
+                                '\color[rgb]{' num2str(color) '} *X* ' ...
+                                '\color[rgb]{' num2str(colorkatk(1,:)) '}' kat2name]);                            
+
                         end                                              
                     end
                    
@@ -1317,6 +1365,8 @@ classdef CiEEGData < matlab.mixin.Copyable
                             plot(Tr(iWpB),ones(1,sum(iWpB))*y, 'p','Color',colorkatk(1,:),'MarkerSize',5); % 
                             if exist('opakovani','var') && ~isempty(opakovani)
                                 kat2name =  obj.PsyData.OpakovaniName(kategories{k}); %pokud vyhodnocuju opakovani
+                            elseif obj.itpc_calc
+                                kat2name =  obj.PsyData.P.strings.podminka{k};
                             elseif iscell(kategories)
                                 kat2name =  obj.PsyData.CategoryName(kategories{k});
                             else
@@ -1371,6 +1421,9 @@ classdef CiEEGData < matlab.mixin.Copyable
                 klavesy = 'fghjkl'; %abych mohl vypsat primo nazvy klaves vedle hvezdicky podle selCh
                 text(-0.18,ymax*.95,['*' klavesy(logical(obj.plotRCh.selCh(ch,:)))], 'FontSize', 12,'Color','red');
             end
+            if isprop(obj,'label') && ~isempty(obj.label)
+                text(-0.1,ymax*.78,strrep(obj.label,'_','\_'), 'FontSize', 10,'Color','blue'); 
+            end            
             methodhandle = @obj.hybejPlotCh;
             set(obj.plotRCh.fh,'KeyPressFcn',methodhandle);          
         end        
@@ -1759,8 +1812,9 @@ classdef CiEEGData < matlab.mixin.Copyable
                    if isa(obj,'CHilbert'), obj.PlotResponseFreq(obj.plotRCh.ch,obj.Wp(obj.WpActive).kats); end %vykreslim vsechna frekvencni pasma
                    obj.PlotEpochs(obj.plotRCh.ch,obj.Wp(obj.WpActive).kats); %vykreslim prumery freq u vsech epoch
                    figure(obj.plotRCh.fh); %dam puvodni obrazek dopredu
-               case 'return' %zobrazi obrazek mozku s vybranych kanalem                                     
-                   obj.CH.ChannelPlot2D(obj.plotRCh.ch,obj.plotRCh.selCh,@obj.PlotResponseCh);  %vykreslim obrazek mozku s vybranym kanalem
+               case 'return' %zobrazi obrazek mozku s vybranych kanalem                      
+                   if isprop(obj,'label') && ~isempty(obj.label), label = obj.label; else, label = ''; end
+                   obj.CH.ChannelPlot2D(obj.plotRCh.ch,obj.plotRCh.selCh,@obj.PlotResponseCh,label);  %vykreslim obrazek mozku s vybranym kanalem
                    figure(obj.plotRCh.fh); %dam puvodni obrazek dopredu
                case {'add' ,  'equal','f'}     % + oznaceni kanalu
                    obj.SelChannel(obj.CH.sortorder(obj.plotRCh.ch));
@@ -1873,6 +1927,9 @@ classdef CiEEGData < matlab.mixin.Copyable
                             katdata = obj.CategoryData(kategories{k}); %pokud je kategorii spolecne vic
                         else
                             katdata = obj.CategoryData(kategories(k)); %epochy jedne kategorie
+                        end
+                        if obj.itpc_calc
+                           katdata = obj.d(:,:,k); 
                         end
                         channels = 1:obj.channels; %#ok<PROP>
                         channels(ismember(channels, [obj.RjCh obj.CH.GetTriggerCh()]))=[]; %#ok<PROP> %vymazu rejectovana a triggerovane channels 
