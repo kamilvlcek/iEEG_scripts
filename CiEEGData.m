@@ -653,7 +653,9 @@ classdef CiEEGData < matlab.mixin.Copyable
                kombinace = kombinace(kombinace(:,1)>kombinace(:,2),:); %vyberu jen perumtace, kde prvni cislo je vetsi nez druhe   
                katsnames =  cell(1,numel(kats)+ size(kombinace,1));
                for kat = 1: numel(kats)
-                    if iscell(kats(kat)) %mame tu vic kategorii proti vice - na jedne strane kontrastu
+                   if obj.itpc_calc
+                       katsnames{kat} = obj.PsyData.P.strings.podminka{kat};
+                   elseif iscell(kats(kat)) %mame tu vic kategorii proti vice - na jedne strane kontrastu
                         kknames = cell(1,numel(kats{kat})); %jmena individualnich kategorii na jedne strane kontrastu
                         for kk = 1: numel(kats{kat})
                             kknames{kk}=katstr{kats{kat}(kk)+1}; %katnum jsou od 0, katstr indexovany od 1
@@ -705,7 +707,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 %nejdriv samotne kategorie
                 Pmax = zeros(numel(kats),1); %sbiram maxima kategorii kvuli tomu kde posadit kontrasty mezi kat
                 for kat = 1: numel(kats) % cyklus pres kategorie - rozdil vuci baseline
-                    [katdata,~,RjEpCh] = obj.CategoryData(cellval(kats,kat)); %time x channels x epochs
+                    [katdata,~,RjEpCh] = obj.CategoryData(cellval(kats,kat),[],[],1:obj.channels,kat); %time x channels x epochs
                     iCh = min(obj.Wp(obj.WpActive).WpKatBaseline{kat,1}(iintervalyStat(1):iintervalyStat(2),channels),[],1) < 0.05; %kanaly kde je signifikantni rozdil vuci baseline, alespon jednou
                     fiCh = find(iCh); %absolutni cisla kanalu
                     data = zeros(diff(iintervalyData)+1,sum(iCh)); % samples x vybrane kanaly 
@@ -713,7 +715,11 @@ classdef CiEEGData < matlab.mixin.Copyable
                     Wp = obj.Wp(obj.WpActive).WpKatBaseline{kat,1}(iintervalyStat(1):iintervalyStat(2),iCh); %statistika jen pro vyber kanalu, kde je neco signif
                     for ch = 1:sum(iCh) %musim jet po jednotlivych kanalech kvuli RjEpCh, ch je index v ramci je vybranych kanalu se signif rozdilem, takze fiCh
                         %ted vyberu data jen z nevyrazenych epoch:
-                        data(:,ch) = mean(katdata(iintervalyData(1):iintervalyData(2),fiCh(ch),~RjEpCh(fiCh(ch),:)),3); %prumer pres epochy pro jeden kanal, pro nevyrazene epochy pro tento kanal
+                        if obj.itpc_calc
+                            data(:,ch) = katdata(iintervalyData(1):iintervalyData(2),fiCh(ch));
+                        else 
+                            data(:,ch) = mean(katdata(iintervalyData(1):iintervalyData(2),fiCh(ch),~RjEpCh(fiCh(ch),:)),3); %prumer pres epochy pro jeden kanal, pro nevyrazene epochy pro tento kanal
+                        end 
                         fitime = find(Wp(:,ch)<0.05); %indexy vzorku, kde je signif rozdil
                         %ted vyberu maximalni hodnotu jen ze signifikantnich vzorku - ziskam jeji index v data: 
                         [~,subitime] = max(abs(data(fitime,ch))); % index maximalni absolutni hodnoty se signif rozdilem - jen relativni indexy v ramci fitime
@@ -738,13 +744,17 @@ classdef CiEEGData < matlab.mixin.Copyable
                 
                 yKombinace = ceil(max(Pmax)+0.5);
                 for kat = 1:size(kombinace,1) %cyklus pres vsechny kombinace kategorii
-                    [katdata1, ~, RjEpCh1] = obj.CategoryData(cellval(kats,kombinace(kat,1))); %time x channels x epochs 
-                    [katdata2, ~, RjEpCh2] = obj.CategoryData(cellval(kats,kombinace(kat,2))); %druha vyssi kategorie, ktera se bude odecitat od te prvni
+                    [katdata1, ~, RjEpCh1] = obj.CategoryData(cellval(kats,kombinace(kat,1)),[],[],1:obj.channels,kat); %time x channels x epochs 
+                    [katdata2, ~, RjEpCh2] = obj.CategoryData(cellval(kats,kombinace(kat,2)),[],[],1:obj.channels,kat); %druha vyssi kategorie, ktera se bude odecitat od te prvni
                     WpK = obj.Wp(obj.WpActive).WpKat{kombinace(kat,2),kombinace(kat,1)}(iintervalyStat(1):iintervalyStat(2),:); %statistika vsech kanalu
                     WpB = obj.Wp(obj.WpActive).WpKatBaseline{kombinace(kat,1),1}(iintervalyStat(1):iintervalyStat(2),:); %rozdil prvni kategorie vuci baseline
                     dataK = zeros(diff(iintervalyData)+1,obj.channels); %tam budu davat rozdil mezi dvema kategoriemi
                     for ch = 1:obj.channels
-                        dataK(:,ch) = mean(katdata1(iintervalyData(1):iintervalyData(2),ch,~RjEpCh1(ch,:)),3) - mean(katdata2(iintervalyData(1):iintervalyData(2),ch,~RjEpCh2(ch,:)),3);
+                        if obj.itpc_calc
+                            dataK(:,ch) = katdata1(iintervalyData(1):iintervalyData(2),ch) - squeeze(katdata2(iintervalyData(1):iintervalyData(2),ch));
+                        else
+                            dataK(:,ch) = mean(katdata1(iintervalyData(1):iintervalyData(2),ch,~RjEpCh1(ch,:)),3) - mean(katdata2(iintervalyData(1):iintervalyData(2),ch,~RjEpCh2(ch,:)),3);                    
+                        end
                     end
                     idataK = iff(signum>0, dataK > 0, iff(signum < 0, dataK < 0, true(size(dataK)) ));  % jestli chci vetsi, mensi nebo jakekoliv
                     WpAll = cat(3, WpK<0.05 , WpB<0.05 , idataK); %time x channels x tyhle tri podminky, rozdil vuci baseline, rozdil kategorii a kat1 > kat2
@@ -1322,18 +1332,24 @@ classdef CiEEGData < matlab.mixin.Copyable
                                 kat1name =  obj.PsyData.OpakovaniName(kategories{l});
                                 kat2name =  obj.PsyData.OpakovaniName(kategories{k});
                                 kat3name =  [ ' (' obj.PsyData.CategoryName(obj.Wp(WpA).kats) ')' ]; %jmeno kategorie obrazku, ze ktere se opakovani pocitalo
+                            elseif obj.itpc_calc
+                                kat1name =  obj.PsyData.P.strings.podminka{l};
+                                kat2name =  obj.PsyData.P.strings.podminka{k};
+                                kat3name = '';
                             elseif iscell(kategories)
                                 kat1name =  obj.PsyData.CategoryName(kategories{l});
                                 kat2name =  obj.PsyData.CategoryName(kategories{k});
                                 kat3name = '';
+                            
                             else
                                 kat1name =  obj.PsyData.CategoryName(kategories(l));
                                 kat2name =  obj.PsyData.CategoryName(kategories(k));
                                 kat3name = '';
-                            end
+                            end  
                             text(0.04+obj.Wp(WpA).epochtime(1),y, ['\color[rgb]{' num2str(colorskat{1,colorkatl}) '}' kat1name ...
-                                    '\color[rgb]{' num2str(color) '} *X* '  ...
-                                    '\color[rgb]{' num2str(colorkatk(1,:)) '}' kat2name kat3name]);                            
+                                '\color[rgb]{' num2str(color) '} *X* ' ...
+                                '\color[rgb]{' num2str(colorkatk(1,:)) '}' kat2name]);                            
+
                         end                                              
                     end
                    
@@ -1347,6 +1363,8 @@ classdef CiEEGData < matlab.mixin.Copyable
                             plot(Tr(iWpB),ones(1,sum(iWpB))*y, 'p','Color',colorkatk(1,:),'MarkerSize',5); % 
                             if exist('opakovani','var') && ~isempty(opakovani)
                                 kat2name =  obj.PsyData.OpakovaniName(kategories{k}); %pokud vyhodnocuju opakovani
+                            elseif obj.itpc_calc
+                                kat2name =  obj.PsyData.P.strings.podminka{k};
                             elseif iscell(kategories)
                                 kat2name =  obj.PsyData.CategoryName(kategories{k});
                             else
@@ -1907,6 +1925,9 @@ classdef CiEEGData < matlab.mixin.Copyable
                             katdata = obj.CategoryData(kategories{k}); %pokud je kategorii spolecne vic
                         else
                             katdata = obj.CategoryData(kategories(k)); %epochy jedne kategorie
+                        end
+                        if obj.itpc_calc
+                           katdata = obj.d(:,:,k); 
                         end
                         channels = 1:obj.channels; %#ok<PROP>
                         channels(ismember(channels, [obj.RjCh obj.CH.GetTriggerCh()]))=[]; %#ok<PROP> %vymazu rejectovana a triggerovane channels 
