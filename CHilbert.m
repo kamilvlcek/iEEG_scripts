@@ -14,9 +14,7 @@ classdef CHilbert < CiEEGData
         plotF = struct; %udaje o stavu plotu PlotResponseFreq
         fphase; %faze vsech zpracovavanych frekvenci - premiestnene z CMorlet pre vykreslenie a porovnanie faz z MW a Hilberta do buducna        
         frealEpochs; % epochovane filtrovane eeg
-        normalization; %typ normalizace
-        itpc_calc;
-        dMulti;
+        normalization; %typ normalizace        
     end
     methods (Access = public)
         %% ELEMENTAL FUNCTIONS 
@@ -188,88 +186,74 @@ classdef CHilbert < CiEEGData
             fprintf('Calculating ITPC ... ');
             obj.PsyData = CPsyDataMulti(obj.PsyData.P); % vytvorim Pmulti z povodnej P
             
-            % zachovam povodne ppa a rjepoch 
-            ppa = obj.PsyData.P;
+            % zachovam povodne PsyData a rjepoch 
+            PP = obj.PsyData.P;
             rjepochCh = obj.RjEpochCh;
             rjepoch = obj.RjEpoch;
             epochs = obj.epochs;
             epochData = obj.epochData;
             % vytvorim CPlotsN pre pocitanie ITPC, pozor, neviem ci ked
             % zmenim obj tak sa zmena prepise aj dovnutra!
-            PN = CPlotsN(obj);
-            for i = 1:numel(obj.Wp) 
-                obj.itpc_calc = false;
-                obj.WpActive = i;
-                if i > 1 % pri prvom prechode je vsetko este default
-                    
-                    obj.PsyData.GetStatData(ppa);
-                    obj.RjEpochCh = rjepochCh;
+            PN = CPlotsN(obj); %tim to budu vsechno ITPC pocitat
+            for i = 1:numel(obj.Wp) %cyklus pres statistiky
+                obj.itpc_calc = false; %docasne, kvuli vypoctu itpc a podmince ve funkci CategoryData
+                obj.SetStatActive(i); %aktivni statistika nastavena
+                if i > 1 % pri prvom prechode je vsetko este default                    
+                    obj.PsyData.GetStatData(PP); %ulozi pro tento subjekt novou statistiku - ruzna psydata pro ruzne statistiky
+                    obj.RjEpochCh = rjepochCh; %potrebuju mit puvodni rjepoch kvuli pocitani itpc
                     obj.RjEpoch = rjepoch;
                     obj.epochs = epochs;
                     obj.epochData = epochData;
                     PN = CPlotsN(obj);
                 end
-                       
-
-                
+                                       
                 % tu potrebujem povodne P
-                [itpc, ~, itpc_pmean, itpc_min, n_epoch] = PN.CalculateITPC(obj.Wp(obj.WpActive).kats); %obj.PsyData.Categories()
+                [itpc, ~, itpc_pmean, itpc_min, ~] = PN.CalculateITPC(obj.Wp(obj.WpActive).kats); %obj.PsyData.Categories()
                 % d = time x channel x epoch
                 % itpc_pmean = ch x condition x time - p values z mean itpc pres frekvence
-                % itpc_min = ch x condition x time 
+                % itpc_min = ch x condition x time - hodnoty frekvence, kde je nejvyssi signif rozdil vuci 0
                 [~, ~, ~,citpc_min, diffs] = PN.CalculateITPCcontrasts(obj.Wp(obj.WpActive).kats);%, itpc, n_epoch);
-                obj.itpc_calc = true;
+                % diffs = permutace kategorii - rozdily 
+                obj.itpc_calc = true; %priznak, ze v d je itpc a epochy nejsou epochy, ale conditions
                 itpc = permute(itpc,[3 1 4 2]); %time x channel x freq x epoch
-                obj.HFreq = movmean(itpc,5,1); 
-                itpc_min.val = permute(itpc_min.val,[3 1 2]); 
+                obj.HFreq = movmean(itpc,5,1);  %moving average 
+                itpc_min.val = permute(itpc_min.val,[3 1 2]); %hodnoty ITPC pro jednu frekvenci
                 obj.d = movmean(itpc_min.val,5,1); %prumer pres frekvence --> zmena na minimum cez frekvencie 
                 obj.dMulti{obj.WpActive} = obj.d;
 
-
                 fprintf('CalculateITPCcontrasts ... ');            
 
-                obj.PsyData.Cond2Epochs(ppa, obj.Wp(obj.WpActive).kats);
-                obj.RejectEpochs([],[]);
-                obj.RjEpoch = [];
+                obj.PsyData.Cond2Epochs(PP, obj.Wp(obj.WpActive).kats); % prepisu povodni epochy novyma podle kontrastu aktualni statistiky
+                obj.PsyData.UpdateStatData(obj.PsyData.P); %ulozi prepocitane P (z conditions na Epochy) do Pmulti
                 
-                % toto prerobit, aby to bolo spravne
-    %             epochData2 = cell(numel(katnum),3);
-    %             for k = 1:numel(katnum)
-    %                ikat = find([obj.epochData{:,2}]==katnum(k),1);
-    %                epochData2(k,:) = obj.epochData(ikat,:);
-    %             end
-                obj.epochs = size(itpc,4); 
-                katnum = obj.Wp(obj.WpActive).kats;
+                obj.RejectEpochs([],[]);
+                obj.RjEpoch = [];               
+
+                obj.epochs = size(itpc,4); %pocet novych epoch = podminek
+                %katnum = obj.Wp(obj.WpActive).kats;
                 obj.epochData = obj.PsyData.P.strings.podminka;
                 
                 %smazu statistiku, aby nebyla na obrazcich
-                EEEGStat = CEEGStat(obj.d,obj.fs);
+                EEEGStat = CEEGStat(obj.d,obj.fs); %trida na vypocet statistiky
                 baseline = EEEGStat.Baseline(obj.epochtime,obj.baseline);
                 ibaseline = round(baseline.*obj.fs);       
                 iepochtime = round(obj.epochtime(1:2).*obj.fs);     
 
+                %ulozim stat vuci baseline, tj vuci 0 pro itpc
                 for k = 1:numel(obj.Wp(obj.WpActive).kats)
                     stat = itpc_pmean(:,k,abs(iepochtime(1)-ibaseline(2))+1 : end ); %vsechny hodnoty po konci baseline  
-                    obj.Wp(obj.WpActive).WpKatBaseline{k,1} = permute(squeeze(stat),[2 1]); %chci mit rozmer time x ch
-                    %TODO pridat FDR korekci
-                    %pridat korekci na podminky, nebo jinou kterou navrhuje Cohen? Korekce pro cas neni potreba, pocita se to podle hladiny, ktera je zavisla na poctu epoch. 
-
-                    %obj.Wp(obj.WpActive).WpKatBaseline{w} = ones(size(obj.Wp(obj.WpActive).WpKatBaseline{w}));
+                    obj.Wp(obj.WpActive).WpKatBaseline{k,1} = permute(squeeze(stat),[2 1]); %chci mit rozmer time x ch                    
+                    %TODO pouzit itpc_min.val - jak s permutaci?
+                    %TODO pridat FDR korekci nebo jinou na cas Ted se nepouziva zadna
+                    %pridat korekci na podminky, nebo jinou kterou navrhuje Cohen? cohen dve metody korekce.                                         
                 end            
 
+                %ulozim stat mezi kategoriemi
                 for d = 1:size(diffs,1)
-                    stat = squeeze(citpc_min.pval(:,diffs(d,1),diffs(d,2),abs(iepochtime(1)-ibaseline(2))+1 : end));
-    %                 [~,iminp] = min(mean(stat,2),[],3);  %mean pres cas, min pres frekvence              
-    %                 stat2 = zeros(size(stat,1),size(stat,2));
-    %                 for ch = 1:size(stat,1)
-    %                     stat2(ch,:) = stat(ch,:,iminp(ch));
-    %                 end
-                    obj.Wp(obj.WpActive).WpKat{diffs(d,1),diffs(d,2)} = permute(stat,[2 1]);  %chci mit rozmer time x ch 
-                    %obj.Wp(obj.WpActive).WpKat{w} = ones(size(obj.Wp(obj.WpActive).WpKat{w}));    
-                    %TODO - kontrola - vracet frekvence s maximalni signif a do d ukladat ne prumer ale tu frekvenci
-                    obj.PsyData.SetStatData(obj.PsyData.P);
-                end
-                
+                    stat = squeeze(citpc_min.pval(:,diffs(d,1),diffs(d,2),abs(iepochtime(1)-ibaseline(2))+1 : end));    
+                    obj.Wp(obj.WpActive).WpKat{diffs(d,1),diffs(d,2)} = permute(stat,[2 1]);  %chci mit rozmer time x ch                                         
+                    
+                end                
             end
             
             fprintf('done\n');

@@ -35,6 +35,8 @@ classdef CiEEGData < matlab.mixin.Copyable
         DE = {}; %trida objektu CEpiEvents - epilepticke eventy ziskane pomoci skriptu spike_detector_hilbert_v16_byISARG
         DatumCas = {}; %ruzne casove udaje, kdy bylo co spocitano. Abych mel historii vypoctu pro zpetnou referenci
         PL = {}; %objekt CPlots
+        itpc_calc; %jestli jsou ulozne itpc hodnoty misto power dat. Plni se v CHilbert.GetITPC
+        dMulti; %cell array pro ruzne d - pouziva se zatim jen pro ITPC hodnoty pro ruzne statistiky
     end
     
     methods (Access = public)
@@ -321,8 +323,8 @@ classdef CiEEGData < matlab.mixin.Copyable
             obj.RjEpoch = unique([obj.RjEpoch find(rjepoch)]); %pridam dalsi vyrazene epochy k dosud vyrazenym            
             disp(['resampled ' num2str(obj.epochs) ' epochs to ' num2str(newepochtime) ', rejected new epochs: ' num2str(numel(setdiff(find(rjepoch),obj.RjEpoch)))]);
         end
-        function [d,psy_rt,RjEpCh]= CategoryData(obj, katnum,rt,opak,ch,k)
-            if ~exist('k','var'); k = []; end
+        function [d,psy_rt,RjEpCh]= CategoryData(obj, katnum,rt,opak,ch,katitpc)
+            if ~exist('katitpc','var'); katitpc = []; end %kategorie pro itpc, odpovida cislu epochy. 
             %vraci eegdata epoch ve kterych podnet byl kategorie/podminky=katnum + reakcni casy - s uz globalne vyrazenymi epochami
             %Pokud rt>0, vraci epochy serazene podle reakcniho casu 
             %pokud opak>0, vraci jen jedno opakovani obrazku - hlavne kvuli PPA test 
@@ -340,11 +342,12 @@ classdef CiEEGData < matlab.mixin.Copyable
             iEpCh = obj.GetEpochsExclude(ch); %seznam epoch k vyhodnoceni (bez chyb, treningu a rucniho vyrazeni=obj.RjEpoch),channels x epochs ; pro CM data to bude ruzne pro kazdy kanal, jinak stejne pro kazdy kanal
             iEpochy = [ ismember(cell2mat(obj.epochData(:,2)),katnum) , iOpak]; %seznam epoch pro tuto kategorii a toto opakovani - k vyhodnoceni
             if obj.itpc_calc
-                d = obj.d(:,:,k); %epochy z prislusne kategorie     
+                d = obj.d(:,:,katitpc); %epochy z prislusne kategorie     
             else
                 d = obj.d(:,:,all(iEpochy,2)); %epochy z teto kategorie a tohoto opakovani = maji ve vsech sloupcich 1            
             end
             RjEpCh = obj.RjEpochCh(ch,all(iEpochy,2)) | ~iEpCh(ch,all(iEpochy,2)); %epochy k vyrazeni u kazdeho kanalu - jen pro epochy teto kategorie katnum - odpovidaji poli d       
+            %RjEpCh je pro itpc hodnoty prazdne
             
             if numel(ch)==1 %reakcni cas pocitam, jen kdyz vim pro jaky kanal - 8.6.2018 kvuli CPsyDataMulti
                 obj.PsyData.SubjectChange(find(obj.els >= ch,1));
@@ -408,6 +411,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             PsyData = obj.PsyData.copy();  %nechci menit puvodni tridu
             for ch = 1:numel(channels) 
                 if (isa(obj.PsyData,'CPsyDataMulti') &&  obj.PsyData.nS > 1) || ch==1 %pokud je to prvni kanal nebo se jedna o data CHilbertMulti s ruznymi subjektu a tedy ruznymi pocty chyb aj                                        
+                    %tohle se nema delat pokud jen ruzne statistiky pro jeden subjekt a itpc data - tam je taky CPsyDataMulti
                     PsyData.SubjectChange(find(obj.els >= channels(ch),1)); 
                     chyby = PsyData.GetErrorTrials();                    
                     epochsEx = [chyby , zeros(size(chyby,1),1) ]; %pridam dalsi prazdny sloupec
@@ -415,8 +419,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                     if size(epochsEx,1) < size(iEpCh,2) %pokud ruzny pocet epoch u ruznych subjektu
                         epochsEx = cat(1,epochsEx,ones(size(iEpCh,2) - size(epochsEx,1),5));
                     end
-                    iEpCh(channels(ch),:) = all(epochsEx==0,2)'; %index epoch k pouziti                 
-                    
+                    iEpCh(channels(ch),:) = all(epochsEx==0,2)'; %index epoch k pouziti                
                 else
                     iEpCh(channels(ch),:) = iEpCh(channels(ch-1),:); %pokud se jedna o CPsyData s jednim subjektem, pro vsechny kanaly to bude stejne
                 end
@@ -507,8 +510,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
             obj.WpActive = WpActive;
             
-            if obj.itpc_calc
-                obj.itpc_calc = true;
+            if obj.itpc_calc                
                 obj.PsyData.StatChange(obj.WpActive);
                 obj.epochs = length(obj.Wp(obj.WpActive).kats); 
                 obj.epochData = obj.PsyData.P.strings.podminka;

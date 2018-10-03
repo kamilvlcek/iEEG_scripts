@@ -178,15 +178,14 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         function obj = Cond2Epochs(obj, ppa, kats)
             %predela conditions na epochy, kvuli ITPC, ak su contrasts
             data2 = zeros(numel(kats),size(ppa.data,2));
-            strings = cell(numel(kats),2);
-            for k = 1:numel(kats)
-               
+            strings = cell(numel(kats),2); % sloupce - jmeno kategorie, cislo
+            for k = 1:numel(kats)               
                 if iscell(kats)
                     kat = kats{k};
                 else
                     kat = kats(k);
                 end
-                strings{k,1} = obj.CategoryName(kat);
+                strings{k,1} = obj.CategoryName(kat); % kategorie podle statistiky, i mergnute, pokud potreba
                 strings{k,2} = k-1;
                 idata = ismember(ppa.data(:,ppa.sloupce.kategorie),kat) & ...
                     obj.P.data(:,obj.P.sloupce.spravne)==1;
@@ -211,7 +210,7 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 end
             end
             obj.P.data = data2;
-            obj.P.strings.podminka = strings;
+            obj.P.strings.podminka = strings; %prepise puvodni originalni podminky, novyma podle aktualni statistiky
         end
         %% PLOT FUNCTIONS
         function [obj, chyby] = PlotResponses(obj)
