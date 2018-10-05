@@ -72,7 +72,7 @@ CM.Load(['d:\eeg\motol\pacienti\0sumarne\CM ' M(testname) ' ' label ' ' frekvenc
 %% 3 OBRAZEK MOZKU 
 %  3.1 nastavim statistiku
 statToDo = [1 5]; %ze kterych statistiky chci udelat obrazky
-stat = statToDo(2); %tohle musim rucne editova - nejdriv 1, pak 2. Muzu take kliknout na cislo a pravym tlacitkem mysi zvolit Increment Value and Run Section
+stat = statToDo(1); %tohle musim rucne editova - nejdriv 1, pak 2. Muzu take kliknout na cislo a pravym tlacitkem mysi zvolit Increment Value and Run Section
 CM.SetStatActive(stat); 
 %% 3.2 nactu data
 BPD = CM.ExtractBrainPlotData(); %vytvori data pro import do CBrainPlot
