@@ -21,6 +21,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
         Hf; %seznam frekvencnich pasem
         selCh; %vyber kanalu, ktere zobrazit
         plotBrain3Dcfg; %struktura s nastavenim plotBrain3D
+        label; %label importovan z BPD dat
     end
     
     methods (Access = public)        
@@ -186,6 +187,8 @@ classdef CBrainPlot < matlab.mixin.Copyable
                 obj.plotBrain3Dcfg.signum = BPD.signum;
             end
             obj.filename = BPD.filename;
+            obj.label = BPD.label; %label z CHilbertMulti, napr PPA_PHGent_50-150Hz
+            disp(['data importovana ze souboru "' BPD.filename '"']);
         end
         function obj = PlotBrain3DConfig(obj,cfg)
             if ~exist('cfg','var'), cfg = struct; end
@@ -268,7 +271,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
             [ChMap,ChNames] = obj.ChannelMap();
             
             iTL = 2; %index v tablelog
-            tic; %zadnu merit cas
+            tic; %zadnu merit cas            
             for interval = 1:size(obj.VALS,1) 
                 for kat = kategorie
                     if signum > 0 
@@ -284,10 +287,10 @@ classdef CBrainPlot < matlab.mixin.Copyable
                     katname = obj.katstr{kat};
                     plotSetup.circle_size = iff(strcmp(katname,'all') || strcmp(katname,'AllEl'),28,56); %mensi kulicka pokud vsechny elektrody                
                     
-                    
-                    figureNameNames = [ obj.testname '_' num2str(obj.intervals(interval,:),'%.1f-%.1fs')  '_' katname '_' num2str(signum) ...
+                    brainlabel = obj.GetBrainLabel(); %pokud v label na druhe pozici je nazev mozkove oblasti 
+                    figureNameNames = [ obj.testname brainlabel '_' num2str(obj.intervals(interval,:),'%.1f-%.1fs')  '_' katname '_' num2str(signum) ...
                             '_' num2str(obj.Hf([1 end]),'%i-%iHz') '_' obj.reference '_names'];
-                    figureNameNoNames = [ obj.testname '_' num2str(obj.intervals(interval,:),'%.1f-%.1fs')  '_' katname '_' num2str(signum) ...
+                    figureNameNoNames = [ obj.testname brainlabel '_' num2str(obj.intervals(interval,:),'%.1f-%.1fs')  '_' katname '_' num2str(signum) ...
                             '_' num2str(obj.Hf([1 end]),'%i-%iHz') '_' obj.reference '_NOnames'];
                     if numel(obj.VALS{interval,kat}(iV)) > 0
                         
@@ -302,7 +305,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
                             for iVal = 1:numel(vals_channels)
                                 tablelog(iVal + iTL,:) = { sprintf('[%.1f %.1f]',obj.intervals(interval,:)),obj.katstr{kat}, obj.NAMES{interval,kat}{iVal}, obj.NLabels{interval,kat}{iVal}, ...
                                     sprintf('[%.1f,%.1f,%.1f]',mni_channels(iVal).MNI_x, mni_channels(iVal).MNI_y, mni_channels(iVal).MNI_z), vals_channels(iVal),int8(iV(iVal))};
-                                iChNames = contains(ChNames,obj.NAMES{interval,kat}{iVal});
+                                iChNames = contains(ChNames(:,1),obj.NAMES{interval,kat}{iVal});
                                 ChMap(iChNames,kat,interval) = vals_channels(iVal);
                             end
                             
@@ -339,6 +342,8 @@ classdef CBrainPlot < matlab.mixin.Copyable
                     else  
                         disp(['zadne hodnoty pro ' plotSetup.figureNamePrefix ' - neukladam ']);                                         
                     end
+                    hotovoProc = floor(((interval-1)*(numel(kategorie)) + kat) / numel(obj.VALS) * 100) ;                    
+                    disp(['hotovo '  num2str(hotovoProc) '% za ' num2str(floor(toc/6)/10) ' minut']);
                 end
             end
                       
@@ -361,22 +366,24 @@ classdef CBrainPlot < matlab.mixin.Copyable
             %chci ziskat prehled ze vsech kanalu, ktere vykazuji nejake odpovedi na jednotlive kategorie
             if strcmp(obj.katstr(end),'AllEl')
                 ChNames = obj.NAMES{1,end}; %seznam vsech kanalu pres vsechny elektrody                
-                ChLabels = obj.NLabels{1,end}; %seznam vsech Neurol lokalizaci pres vsechny elektrody   
+                ChLabels = obj.NLabels{1,end}; %seznam vsech Neurol lokalizaci pres vsechny elektrody  
+                ChMNI = obj.MNI{1,end};
             else
                 ChNames = {}; ChLabels = {};
                 for k = 1:numel(obj.NAMES) %cyklus pres vsechny intervaly a kategorie
                     ChNames = union(ChNames,obj.NAMES{k});
                     ChLabels = union(ChLabels,obj.NLabels{k});
+                    ChMNI = union(ChMNI,obj.MNI{k});
                 end
             end
-            ChNames = cat(2,ChNames,ChLabels); %budu mit v jednom cellarray oboji
+            ChNames = cat(2,ChNames,ChLabels,{ChMNI.MNI_x}',{ChMNI.MNI_y}',{ChMNI.MNI_z}'); %budu mit v jednom cellarray vic sloupcu
             ChMap = zeros(numel(ChNames),numel(obj.katstr),size(obj.intervals,1)); %tam budu  ukladat odpovedi pro jednotlive kanaly, kategorie a intervaly          
         end  
         function ChannelMap2Xls(obj,ChNames,ChMap,xlsfilename)
             %zapise ChMap do xls tabulky spolu se jmeny a nlabely kanalu
             %pro kazdou kategorii bere maximalni absolutni hodnotu pres vsechny intervaly
-            tablexls = cell(size(ChNames,1)+1,size(ChMap,2)+3); %2 sloupce navic - ChNames a ChLabels, a AnyKat
-            tablexls(1,:) = cat(2,{'channel','nlabel','anykat'},obj.katstr);
+            tablexls = cell(size(ChNames,1)+1,size(ChMap,2)+size(ChNames,2)+1); %sloupce navic - ChNames (+ ChLabels+MINxyz) + AnyKat
+            tablexls(1,:) = cat(2,{'channel','nlabel','MNI_x','MNI_y','MNI_z','anykat'},obj.katstr);
             for iCh = 1:size(ChNames,1)
                 [~,im]=max(abs(ChMap(iCh,:,:)),[],3); %indexy maximalnich absolutnich hodnot pres cas
                 M = ChMap(sub2ind(size(ChMap),iCh*ones(1,numel(im)),1:numel(im),im)); %vyzvednu ty maximalni hodnoty pomoci absolutniho indexovani - pro kazdou polozku im jeden index
@@ -538,7 +545,17 @@ classdef CBrainPlot < matlab.mixin.Copyable
                     end
                 end
             end
-        end        
+        end  
+        function bl = GetBrainLabel(obj)
+            bl = '';
+            if ~isempty(obj.label)
+                [~,interval,~] = CHilbertMulti.GetLabelInfo(obj.label);
+                if ischar(interval)
+                    bl = ['_' interval];  %pokud druha polozka labelu z CM je string, nejspis je to zkratka mozkove oblasti, napriklad PHGent              
+                    %podtrzitko kvuli pozdejsimu vlozeni do nazvu souboru 
+                end            
+            end
+        end
     end
     
 end

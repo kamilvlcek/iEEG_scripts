@@ -527,8 +527,8 @@ classdef CHilbert < CiEEGData
             BPD.VALS = celltpl;
             BPD.NLABELS = celltpl;%sem budu ukladata neurologyLabel od Martina Tomaska  
             BPD.EPI = celltpl; %pridam jeste udaje o epilepticke aktivite, ktera pak muzu pouzit v zobrazeni mozku            
-            BPD.filename = obj.mfilename;
-            
+            BPD.filename = basename(iff(isa(obj,'CHilbertMulti'),obj.mfilename,obj.hfilename)); %jmeno zdrojoveho souboru
+            BPD.label = iff(isa(obj,'CHilbertMulti'),obj.label,'');  %pokud je tohle instance CHilbertMulti, vezmi z ni label
             %nejdriv udaje pro vsechny elektrody
             for int = 1:size(intervaly,1)
                 for kat = 1:numel(kategorie)

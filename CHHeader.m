@@ -186,8 +186,8 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 if isfield(obj.plotCh2D,'selChNames') %pojmenovani vyberu kanalu pomoci f-l
                     selChNames = obj.plotCh2D.selChNames;
                 else
-                    selChNames = []; 
-                    obj.plotCh2D.selChNames = [];
+                    selChNames = cell(1,6); 
+                    obj.plotCh2D.selChNames = selChNames;
                 end
             else
                 if isfield(plotRCh,'selCh')
@@ -197,6 +197,9 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 if isfield(plotRCh,'selChNames')
                     obj.plotCh2D.selChNames = plotRCh.selChNames;
                     selChNames = plotRCh.selChNames;
+                else
+                    selChNames = cell(1,6);
+                    obj.plotCh2D.selChNames = selChNames;                    
                 end
             end
             if exist('plotChH','var')  %handlet na funkci z CiEEGData @obj.PlotResponseCh
@@ -331,7 +334,9 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                            plot(y(ch),z(ch),'o','MarkerSize',size_selCh,'MarkerEdgeColor',barvy(m),'MarkerFaceColor',barvy(m));
                            th = text(x_text+m*10,-90,klavesy(m), 'FontSize', 15,'Color',barvy(m)); %legenda k barvam kanalu dole pod mozkem
                            th.BackgroundColor = [.6 .6 .6];
-                           text(x_text+70,-60-m*7,cell2str(selChNames{m}), 'FontSize', 9,'Color',barvy(m)); %popisy znacek f-l                           
+                           if ~isempty(selChNames{m})
+                             text(x_text+70,-60-m*7,cell2str(selChNames{m}), 'FontSize', 9,'Color',barvy(m)); %popisy znacek f-l                           
+                           end
                        end
                     end
                 end
