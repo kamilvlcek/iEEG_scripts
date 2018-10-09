@@ -482,7 +482,11 @@ classdef CHilbertMulti < CHilbert
             katname = C{1};
             if numel(C) > 1
                 CI = strsplit(C{2},{'-','(',')'});
-                interval = [ str2double(CI{2}) str2double(CI{3})]; %vycleni to i prazdny znak pred ( jako jeden prvek
+                if numel(CI) > 2
+                    interval = [ str2double(CI{2}) str2double(CI{3})]; %vycleni to i prazdny znak pred ( jako jeden prvek
+                else
+                    interval = C{2};
+                end
             end
             if numel(C) > 2
                 signum = str2double(C{3}(4));

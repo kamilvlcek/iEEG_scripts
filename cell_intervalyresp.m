@@ -3,7 +3,7 @@ reference = 'refBipo'; %'refBipo', refHead, refEle
 IntervalyRespSignum = 1;
 intervals = [(0:.1:.7)' , (0.1:.1:.8)' ]; 
 filename = 'PPA CHilbert 50-150Hz -0.2-0.8 refBipo Ep2018-08_CHilb.mat';
-kontrast = 1; %ktera ze statistik se ma zobrazit v mozku
+kontrast = 5; %5; %ktera ze statistik se ma zobrazit v mozku
 %% 1. HLEDANI SIGNIFIKANCI
 CB = CBrainPlot; %vytvorim tridu
 [ pacienti, setup  ] = pacienti_setup_load( testname );

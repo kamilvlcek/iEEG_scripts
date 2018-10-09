@@ -518,10 +518,13 @@ classdef CHilbert < CiEEGData
             
             BPD = struct;                                   
             if ~exist('signum','var') || isempty(dofig) , signum = 0; end %jestli chci jen kat1>kat2 (1), nebo obracene (-1), nebo vsechny (0)
-            if ~exist('dofig','var'), dofig = 1; end %jestli chci jen kat1>kat2 (1), nebo obracene (-1), nebo vsechny (0)
+            if ~exist('dofig','var'), dofig = 0; end %jestli chci jen kat1>kat2 (1), nebo obracene (-1), nebo vsechny (0)
             BPD.signum = signum; %jen abych mel info v datech
             if isprop(obj,'label')
                 [~,intervaly,~] = CHilbertMulti.GetLabelInfo(obj.label);
+                if ~isnumeric(intervaly) %muze to byt retezec s nazvem oblasti
+                   intervaly = [0.1 obj.epochtime(2)]; 
+                end
             else
                 intervaly = [0.1 obj.epochtime(2)]; 
             end  
@@ -546,7 +549,8 @@ classdef CHilbert < CiEEGData
             BPD.VALS = celltpl;
             BPD.NLABELS = celltpl;%sem budu ukladata neurologyLabel od Martina Tomaska  
             BPD.EPI = celltpl; %pridam jeste udaje o epilepticke aktivite, ktera pak muzu pouzit v zobrazeni mozku            
-            
+            BPD.filename = basename(iff(isa(obj,'CHilbertMulti'),obj.mfilename,obj.hfilename)); %jmeno zdrojoveho souboru
+            BPD.label = iff(isa(obj,'CHilbertMulti'),obj.label,'');  %pokud je tohle instance CHilbertMulti, vezmi z ni label
             %nejdriv udaje pro vsechny elektrody
             for int = 1:size(intervaly,1)
                 for kat = 1:numel(kategorie)
@@ -568,7 +572,7 @@ classdef CHilbert < CiEEGData
                     else
                         BPD.EPI{int,kat} = struct('seizureOnset',{},'interictalOften',{},'rejected',{});
                     end
-                    if isprop(obj,'plotRCh')  && isfield(obj.plotRCh,'selCh')  
+                    if isprop(obj,'plotRCh')  && isfield(obj.plotRCh,'selCh') && sum(sum(obj.plotRCh.selCh))>0
                         BPD.selCh{int,kat} = obj.plotRCh.selCh(ich,:); %novy format z 22.8.2018 - kanaly x marks
                     else
                         BPD.selCh{int,kat} = true(sum(ich),6);
