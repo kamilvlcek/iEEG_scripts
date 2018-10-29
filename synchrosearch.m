@@ -32,15 +32,18 @@ n = 3; % butterworth order
 
 for ch = channel:size(d,2)
     x_raw = d(start*fs+1:(start+delka)*fs,ch);
+    subplot(2,1,1);
     plot( start:1/fs:start+delka-1/fs, x_raw,'b' );   %puvodni eeg data
     axis([start start+delka -3500 3500])
+    title([' channel ' num2str(ch)]);
     
-    hold on;
+    %hold on;
+    subplot(2,1,2);
     x_filt = filtfilt(b, a, x_raw);
     plot( start:1/fs:start+delka-1/fs, x_filt,'r' );  %zfiltrovana eeg data
     xlabel('seconds');
-    title([' channel ' num2str(ch)]);
-    hold off;
+    
+    axis([start start+delka -3500 3500])
     pause;
 
 end

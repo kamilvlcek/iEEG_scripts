@@ -58,8 +58,12 @@ for j = 1:numel(spojit)
             evts0 = [evts0, evts]; %#ok<AGROW,NODEF>
         end
         if exist('header','var') 
-            header0.length = header0.length + header.length; %#ok<NODEF>
-            header0.records = header0.records + header.records;
+            if isfield(header,'length')  %#ok<NODEF>
+                header0.length = header0.length + header.length; %#ok<NODEF>
+            end
+            if isfield(header,'records') 
+                header0.records = header0.records + header.records;
+            end
         end         
     end
     
