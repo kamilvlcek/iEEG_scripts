@@ -36,11 +36,13 @@ function tf = contains(s, pattern)
     
     assert(ischar(s) || iscellstr(s),'prvni argument musi byt char nebo cellstr');
     index = false(size(s));
-    if ~iscell(pattern), pattern = {pattern}; end
-    for jj = 1:numel(pattern) %protoze contains umi hledat vic patternu najednou a ja to pouzivam
-        indexjj =  find(~cellfun('isempty',strfind(lower(s),lower(pattern{jj})))); %nahrazuju contains pomoci strfind
-        if numel(indexjj)>0
-            index(indexjj) = true;
+    if numel(s) > 0        
+        if ~iscell(pattern), pattern = {pattern}; end
+        for jj = 1:numel(pattern) %protoze contains umi hledat vic patternu najednou a ja to pouzivam
+            indexjj =  find(~cellfun('isempty',strfind(lower(s),lower(pattern{jj})))); %nahrazuju contains pomoci strfind
+            if numel(indexjj)>0
+                index(indexjj) = true;
+            end
         end
     end
     tf = index; %vraci logical index - rozmer jako s
