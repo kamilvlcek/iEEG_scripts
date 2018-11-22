@@ -166,6 +166,51 @@ classdef CStat
             filter_result = filtfilt(filterweights,1,dd);
             
         end
+        
+        function [AUC] = ROCKrivka(epochData,dd,katnames)
+            %11/2018 - spocita a vykresli roc krivku
+            %epochData - cellarray z CiEEGData
+            %dd - eegdata pro jeden channel a jeden sample
+            %sample - cislo sample
+            %katnames - jmena dvou kategorii, positive a negative
+            
+            labels = epochData(:,1);
+            scores = dd;
+            posclass = katnames{1}; %napr Scene
+            if numel(katnames) > 1
+                negclass = katnames{2}; %napr Face
+            else
+                negclass = 'all';
+            end
+            
+            %labels = cell array/int array nazvu kategorii - co radek to event, napr Scene, Object, Face
+            %scores = array se scores pro jednotlive - co radek to event - power - prumer nebo urcity cas
+            %posclass = string - Positive class label - nazev vyhodnocovane kategorie
+            %options - 'NegClass','versicolor' - negative class, default je all
+            
+            [X,Y,~,AUC] = perfcurve(labels,scores,posclass,'NegClass',negclass);
+            figure('Name',['ROC curve for ' posclass 'x' negclass ]);
+            subplot(1,2,1);
+            plot(X,Y);     
+            subplot(1,2,2);
+            posdata = dd(not(cellfun('isempty',strfind(epochData(:,1),posclass))));
+            negdata = dd(not(cellfun('isempty',strfind(epochData(:,1),negclass))));            
+            plot(rand(size(posdata))*0.5+1,posdata,'or');
+            hold on;
+            plot(rand(size(negdata))*0.5+2,negdata,'ob');
+            
+        end
+        function [AUC] = ROCAnalysis(E,ch,time,katnames)
+            %time je cas, ve kterem chci spocitat ROC ve vterinach
+            sample = round((time - E.epochtime(1))*E.fs);
+            
+            %musim vyradit spatne epochy
+            katnums = E.PsyData.CategoryNum(katnames);
+            [~,~,~,iEpP] = E.CategoryData(katnums(1),[],[],ch); %novy parametr iEp se seznamem vsech validnich epoch pro tento kanal
+            [~,~,~,iEpN] = E.CategoryData(katnums(2),[],[],ch);                                                           
+            
+            AUC = CStat.ROCKrivka(E.epochData(iEpP | iEpN,:),squeeze(E.d(sample,ch,iEpP | iEpN)),katnames);
+        end
     end
     
 end

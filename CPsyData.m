@@ -76,7 +76,7 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             end
         end
                        
-        function [kat katnum] = Category(obj,event)
+        function [kat, katnum] = Category(obj,event)
             %vrati 1 retezec s popisem kategorie eventu a 2. cislo kategorie
             katnum = obj.P.data(event,obj.P.sloupce.kategorie); %cislo kategorie
             kat = obj.P.strings.podminka{katnum+1};            
@@ -96,7 +96,7 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         end
         function [kat] = CategoryName(obj,katnum)
             %vraci jmeno kategorie z cisla, jmeno kategorie se pocita od 0
-            %muze byt i vic cisel kategorii
+            %muze byt i vic cisel kategorii, pak se jmena spoji do jednoho retezce pomoci +
             if numel(katnum) == 1
                 kat = obj.P.strings.podminka{katnum+1};
             else
@@ -110,7 +110,15 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 end
             end
         end
-                
+        function [katnum] = CategoryNum(obj,katname)
+            %vraci cislo kategorie podle jmena
+            %muze byt i nekolik jmen kategorii v cell array
+            katnum = nan(size(katname));
+            for k = 1:numel(katname)
+                ikat = not(cellfun('isempty',strfind(obj.P.strings.podminka(:,1),katname{k}))); %logical index, ale s jen jednim true
+                katnum(k) = obj.P.strings.podminka{ikat,2};
+            end
+        end
         function [blocks, srate, test, kategorie]= GetBlocks(obj)
             %vraci promenne pro bloky o stejne kategorii
             b1 = [find(obj.P.data(2:end,obj.P.sloupce.kategorie) ~= obj.P.data(1:end-1,obj.P.sloupce.kategorie)); size(obj.P.data,1)]; %konce bloku
