@@ -167,13 +167,13 @@ classdef CStat
             
         end
         
-        function [AUC] = ROCKrivka(epochData,dd,katnames)
+        function [AUC] = ROCKrivka(epochData,dd,katnames,kresli)
             %11/2018 - spocita a vykresli roc krivku
             %epochData - cellarray z CiEEGData
             %dd - eegdata pro jeden channel a jeden sample
             %sample - cislo sample
             %katnames - jmena dvou kategorii, positive a negative
-            
+            if ~exist('kresli','var'), kresli = 0; end
             labels = epochData(:,1);
             scores = dd;
             posclass = katnames{1}; %napr Scene
@@ -188,16 +188,18 @@ classdef CStat
             %posclass = string - Positive class label - nazev vyhodnocovane kategorie
             %options - 'NegClass','versicolor' - negative class, default je all
             
-            [X,Y,~,AUC] = perfcurve(labels,scores,posclass,'NegClass',negclass);
-            figure('Name',['ROC curve for ' posclass 'x' negclass ]);
-            subplot(1,2,1);
-            plot(X,Y);     
-            subplot(1,2,2);
-            posdata = dd(not(cellfun('isempty',strfind(epochData(:,1),posclass))));
-            negdata = dd(not(cellfun('isempty',strfind(epochData(:,1),negclass))));            
-            plot(rand(size(posdata))*0.5+1,posdata,'or');
-            hold on;
-            plot(rand(size(negdata))*0.5+2,negdata,'ob');
+            [X,Y,~,AUC] = perfcurve(labels,scores,posclass,'NegClass',negclass);            
+            if kresli
+                figure('Name',['ROC curve for ' posclass 'x' negclass ]);
+                subplot(1,2,1);
+                plot(X,Y);     
+                subplot(1,2,2);
+                posdata = dd(not(cellfun('isempty',strfind(epochData(:,1),posclass))));
+                negdata = dd(not(cellfun('isempty',strfind(epochData(:,1),negclass))));            
+                plot(rand(size(posdata))*0.5+1,posdata,'or');
+                hold on;
+                plot(rand(size(negdata))*0.5+2,negdata,'ob');
+            end
             
         end
         function [AUC] = ROCAnalysis(E,ch,time,katnames)
@@ -209,7 +211,41 @@ classdef CStat
             [~,~,~,iEpP] = E.CategoryData(katnums(1),[],[],ch); %novy parametr iEp se seznamem vsech validnich epoch pro tento kanal
             [~,~,~,iEpN] = E.CategoryData(katnums(2),[],[],ch);                                                           
             
-            AUC = CStat.ROCKrivka(E.epochData(iEpP | iEpN,:),squeeze(E.d(sample,ch,iEpP | iEpN)),katnames);
+            if numel(sample) == 1 %chci udela ROC krivku jen pro jeden bod v case
+                AUC = CStat.ROCKrivka(E.epochData(iEpP | iEpN,:),squeeze(E.d(sample,ch,iEpP | iEpN)),katnames,1);
+            else %udalam ROC krivku pro kazd
+                AUC = zeros(diff(sample)+1,1);
+                for s = sample(1):sample(2)
+                    AUC(s-sample(1)+1) = CStat.ROCKrivka(E.epochData(iEpP | iEpN,:),squeeze(E.d(s,ch,iEpP | iEpN)),katnames,0);                   
+                end
+                figure('Name', ['AUC waveform for '  katnames{1} 'x' katnames{2} ]);
+                
+                subplot(2,1,1); %prvni plot je AUC krivka
+                X = linspace(time(1),time(2),numel(AUC));
+                plot(X,AUC,'.-');
+                title('AUC');
+                
+                subplot(2,1,2); %do eruheho plot vykreslim prubeh power obou kategorii a jejich rozdil
+                title('power');
+                dataP = squeeze(E.d(sample(1):sample(2),ch,iEpP));
+                dataN = squeeze(E.d(sample(1):sample(2),ch,iEpN));
+                hold on;
+                %prvni kategorie
+                MP = mean(dataP,2);
+                Er= std(dataP,[],2)/sqrt(size(dataP,2)); %std err of mean                                             
+                ciplot(MP+Er, MP-Er, X,[1 .8 .8]); %funguje dobre pri kopii do corelu, ulozim handle na barevny pas
+                plot(X,MP,'.-r');  
+                
+                %druha kategorie
+                MN = mean(dataN,2);
+                Er = std(dataN,[],2)/sqrt(size(dataN,2)); %std err of mean
+                ciplot(MN+Er, MN-Er, X,[.8 .8 1]); %funguje dobre pri kopii do corelu, ulozim handle na barevny pas
+                plot(X,MN,'.-b');                              
+                                
+                plot(X,MP-MN,'o-g'); %zelene bude rozdil
+                
+                
+            end
         end
     end
     
