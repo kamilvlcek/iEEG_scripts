@@ -202,55 +202,72 @@ classdef CStat
             end
             
         end
-        function [AUC] = ROCAnalysis(E,ch,time,katnames)
+        function [AUCall] = ROCAnalysis(E,ch,time,kategories)
             %time je cas, ve kterem chci spocitat ROC ve vterinach
+            %kategories je seznam cisel kategorii, pro jejichz kombinace se ma vypocitat a vykreslit AUC krivka
+            
             sample = round((time - E.epochtime(1))*E.fs);
+            katnames = E.PsyData.CategoryName(kategories,[]);
             
-            %musim vyradit spatne epochy
-            katnums = E.PsyData.CategoryNum(katnames);
-            [~,~,~,iEpP] = E.CategoryData(katnums(1),[],[],ch); %novy parametr iEp se seznamem vsech validnich epoch pro tento kanal
-            [~,~,~,iEpN] = E.CategoryData(katnums(2),[],[],ch);                                                           
+            %barvy jako v PlotResponseCh
+            hue = 0.8;
+            colorskat = {[0 0 0],[0 1 0],[1 0 0],[0 0 1]; [hue hue hue],[hue 1 hue],[1 hue hue],[hue hue 1]}; % prvni radka - prumery, druha radka errorbars = svetlejsi            
+            colorkomb = [nan 2 1; 2 nan 4; 1 4 nan]; %index barvy kombinace kategorii
+            legendkomb = [nan 1 2 ; 1 nan 3 ; 2 3 nan ]; % do ktereho pole legendy se ma ukladat kombinace kategorii
+            fh = []; %zatim prazdny figure handle
             
-            if numel(sample) == 1 %chci udela ROC krivku jen pro jeden bod v case
-                AUC = CStat.ROCKrivka(E.epochData(iEpP | iEpN,:),squeeze(E.d(sample,ch,iEpP | iEpN)),katnames,1);
-            else %udalam ROC krivku pro kazd
-                AUC = zeros(diff(sample)+1,3); %auc hodnota + confidence intervals
-                for s = sample(1):sample(2)
-                    auc = CStat.ROCKrivka(E.epochData(iEpP | iEpN,:),squeeze(E.d(s,ch,iEpP | iEpN)),katnames,0);
-                    ci =  CStat.AUCconfI(auc,[sum(iEpP) sum(iEpN)],0.05);
-                    AUC(s-sample(1)+1,1:3) = [auc ci];
+            %musim vyradit spatne epochy            
+            AUCall = cell(numel(kategories));
+            legenda = cell(1,numel(kategories));
+            for k = 1:numel(kategories)-1
+            for l = k+1:numel(kategories)            
+                
+                [~,~,~,iEpP] = E.CategoryData(kategories(l),[],[],ch); %novy parametr iEp se seznamem vsech validnich epoch pro tento kanal
+                [~,~,~,iEpN] = E.CategoryData(kategories(k),[],[],ch); %chci mit tu nejdulezitejsi kategorii (l=vyssi cislo) jako prvni, aby se od ni odecitaly ostatni                                                        
+                legenda{legendkomb(k,l)} = [katnames{l} ' X ' katnames{k}];
+                
+                if numel(sample) == 1 %chci udela ROC krivku jen pro jeden bod v case
+                    AUC = CStat.ROCKrivka(E.epochData(iEpP | iEpN,:),squeeze(E.d(sample,ch,iEpP | iEpN)),{katnames{l},katnames{k}},1); %udela i graf
+                else %udelam ROC krivku pro ze vsech auc
+                    AUC = zeros(diff(sample)+1,3); %auc hodnota + confidence intervals
+                    for s = sample(1):sample(2)
+                        auc = CStat.ROCKrivka(E.epochData(iEpP | iEpN,:),squeeze(E.d(s,ch,iEpP | iEpN)),{katnames{l},katnames{k}},0); %zadny graf nedela
+                        ci =  CStat.AUCconfI(auc,[sum(iEpP) sum(iEpN)],0.05);
+                        AUC(s-sample(1)+1,1:3) = [auc ci];
+                    end
+                    if isempty(fh)
+                        fh = figure('Name', ['AUC waveform for ch ' num2str(ch) ]);
+                    end
+                    
+                    %kod podle PlotResponseCh, aby stejne barvy pro PPA test
+                    colorkat_kl = colorkomb(kategories(k), kategories(l));
+                    color_kl = cell2mat(colorskat(:,colorkat_kl));                    
+                      
+                    subplot(2,1,1); %prvni plot je AUC krivka
+                    X = linspace(time(1),time(2),size(AUC,1));
+                    hold on;
+                    %ciplot(AUC(:,2), AUC(:,3), X,color_kl(2,:)); %nepruhledny, ale jde okopirovat do corelu
+                    plotband(X, AUC(:,1), AUC(:,3) - AUC(:,1), color_kl(2,:)); %nejlepsi, je pruhledny, ale nejde kopirovat do corelu
+                    plot(X,AUC(:,1),'.-','Color',color_kl(1,:));
+                    line([X(1) X(end)],[.5 .5]);
+                    title('AUC');
+
+                    subplot(2,1,2); %do druheho plot vykreslim rozdil power obou kategorii
+                    title('power');
+                    dataP = squeeze(E.d(sample(1):sample(2),ch,iEpP));
+                    dataN = squeeze(E.d(sample(1):sample(2),ch,iEpN));
+                    hold on;
+                    
+                    %prvni a druha kategorie a jejich rozdil
+                    MP = mean(dataP,2);
+                    MN = mean(dataN,2);                                        
+                    plot(X,MP-MN,'o-','Color',color_kl(1,:)); %barvy podle PlotResponseCh 
+                    
                 end
-                figure('Name', ['AUC waveform for '  katnames{1} 'x' katnames{2} ]);
-                
-                subplot(2,1,1); %prvni plot je AUC krivka
-                X = linspace(time(1),time(2),size(AUC,1));
-                hold on;
-                ciplot(AUC(:,2), AUC(:,3), X,[.8 .8 1]);                
-                plot(X,AUC(:,1),'.-');
-                line([X(1) X(end)],[.5 .5]);
-                title('AUC');
-                
-                subplot(2,1,2); %do druheho plot vykreslim prubeh power obou kategorii a jejich rozdil
-                title('power');
-                dataP = squeeze(E.d(sample(1):sample(2),ch,iEpP));
-                dataN = squeeze(E.d(sample(1):sample(2),ch,iEpN));
-                hold on;
-                %prvni kategorie
-                MP = mean(dataP,2);
-                Er= std(dataP,[],2)/sqrt(size(dataP,2)); %std err of mean                                             
-                ciplot(MP+Er, MP-Er, X,[1 .8 .8]); %funguje dobre pri kopii do corelu, ulozim handle na barevny pas
-                plot(X,MP,'.-r');  
-                
-                %druha kategorie
-                MN = mean(dataN,2);
-                Er = std(dataN,[],2)/sqrt(size(dataN,2)); %std err of mean
-                ciplot(MN+Er, MN-Er, X,[.8 .8 1]); %funguje dobre pri kopii do corelu, ulozim handle na barevny pas
-                plot(X,MN,'.-b');                              
-                                
-                plot(X,MP-MN,'o-g'); %zelene bude rozdil
-                
-                
+                AUCall{k,l} = AUC;                
             end
+            end
+            legend(legenda);
         end
         function ci = AUCconfI(auc,n,p)
             % http://www.real-statistics.com/descriptive-statistics/roc-curve-classification-table/auc-confidence-interval/

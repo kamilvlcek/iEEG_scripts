@@ -94,12 +94,16 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 end
             end                
         end
-        function [kat] = CategoryName(obj,katnum)
+        function [kat] = CategoryName(obj,katnum,concat)
             %vraci jmeno kategorie z cisla, jmeno kategorie se pocita od 0
-            %muze byt i vic cisel kategorii, pak se jmena spoji do jednoho retezce pomoci +
+            %muze byt i vic cisel kategorii
+            % pak se jmena spoji do jednoho retezce pomoci parametru concat (default +)
+            % pokud je concat prazdne, vrati se cell array
+            
+            if ~exist('concat','var'), concat = '+'; end %defaulte se vice jmen kategorii spojuje pomoci +
             if numel(katnum) == 1
                 kat = obj.P.strings.podminka{katnum+1};
-            else
+            elseif ~isempty(concat)
                 kat = '';
                 for k = katnum
                     if numel(kat) == 0
@@ -107,6 +111,11 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     else
                         kat = [ kat '+' obj.P.strings.podminka{k+1}]; %#ok<AGROW>
                     end
+                end
+            else %chci jmena kategorii vratit jako cell array
+                kat = cell(1,numel(katnum));
+                for k  = 1:numel(katnum)
+                    kat{k} = obj.P.strings.podminka{katnum(k)+1};
                 end
             end
         end
