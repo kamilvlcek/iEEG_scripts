@@ -214,18 +214,23 @@ classdef CStat
             if numel(sample) == 1 %chci udela ROC krivku jen pro jeden bod v case
                 AUC = CStat.ROCKrivka(E.epochData(iEpP | iEpN,:),squeeze(E.d(sample,ch,iEpP | iEpN)),katnames,1);
             else %udalam ROC krivku pro kazd
-                AUC = zeros(diff(sample)+1,1);
+                AUC = zeros(diff(sample)+1,3); %auc hodnota + confidence intervals
                 for s = sample(1):sample(2)
-                    AUC(s-sample(1)+1) = CStat.ROCKrivka(E.epochData(iEpP | iEpN,:),squeeze(E.d(s,ch,iEpP | iEpN)),katnames,0);                   
+                    auc = CStat.ROCKrivka(E.epochData(iEpP | iEpN,:),squeeze(E.d(s,ch,iEpP | iEpN)),katnames,0);
+                    ci =  CStat.AUCconfI(auc,[sum(iEpP) sum(iEpN)],0.05);
+                    AUC(s-sample(1)+1,1:3) = [auc ci];
                 end
                 figure('Name', ['AUC waveform for '  katnames{1} 'x' katnames{2} ]);
                 
                 subplot(2,1,1); %prvni plot je AUC krivka
-                X = linspace(time(1),time(2),numel(AUC));
-                plot(X,AUC,'.-');
+                X = linspace(time(1),time(2),size(AUC,1));
+                hold on;
+                ciplot(AUC(:,2), AUC(:,3), X,[.8 .8 1]);                
+                plot(X,AUC(:,1),'.-');
+                line([X(1) X(end)],[.5 .5]);
                 title('AUC');
                 
-                subplot(2,1,2); %do eruheho plot vykreslim prubeh power obou kategorii a jejich rozdil
+                subplot(2,1,2); %do druheho plot vykreslim prubeh power obou kategorii a jejich rozdil
                 title('power');
                 dataP = squeeze(E.d(sample(1):sample(2),ch,iEpP));
                 dataN = squeeze(E.d(sample(1):sample(2),ch,iEpN));
@@ -246,6 +251,18 @@ classdef CStat
                 
                 
             end
+        end
+        function ci = AUCconfI(auc,n,p)
+            % http://www.real-statistics.com/descriptive-statistics/roc-curve-classification-table/auc-confidence-interval/
+            %n jsou velikosti dvou vzorku
+            %p = 0.05 napr
+            
+            q0 = auc*(1-auc);
+            q1 = auc/(2-auc)-auc^2;
+            q2 = 2*auc^2/(1+auc)-auc^2;
+            se = sqrt( (q0 + (n(1)-1)*q1 + (n(2)-1)*q2) / (n(1)*n(2)) );
+            zcrit = norminv(1-p/2); %two tailed z critical value from p value
+            ci = [auc - se*zcrit , auc + se*zcrit];
         end
     end
     
