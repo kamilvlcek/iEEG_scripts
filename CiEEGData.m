@@ -35,6 +35,7 @@ classdef CiEEGData < matlab.mixin.Copyable
         DE = {}; %trida objektu CEpiEvents - epilepticke eventy ziskane pomoci skriptu spike_detector_hilbert_v16_byISARG
         DatumCas = {}; %ruzne casove udaje, kdy bylo co spocitano. Abych mel historii vypoctu pro zpetnou referenci
         PL = {}; %objekt CPlots
+        CS = {}; %objekt CStat
     end
     
     methods (Access = public)
@@ -66,8 +67,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 end
                 [obj.samples,obj.channels, obj.epochs] = obj.DSize();
                 if exist('header','var')
-                    obj.header = header;
-                    
+                    obj.header = header;                    
                 else
                     obj.header = [];
                 end
@@ -75,7 +75,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 obj.epochLast = 1;
                 obj.reference = 'original';
                 obj.DatumCas.Created = datestr(now);
-                obj.RjEpochCh = false(obj.channels,1); %zatim nejsou zadne epochy
+                obj.RjEpochCh = false(obj.channels,1); %zatim nejsou zadne epochy              
                 disp('vytvoren objekt CiEEGData'); 
             end
             fprintf('epochs: %i, rejected %i (RjEpochCh %i), epochtime: [',obj.epochs,numel(obj.RjEpoch),sum(max(obj.RjEpochCh,[],1)));
@@ -106,7 +106,8 @@ classdef CiEEGData < matlab.mixin.Copyable
             else
                 disp('no Wilcox stats');
             end
-            obj.PL = CPlots();
+            obj.PL = CPlots(); %prazdny objekt na grafy
+            obj.CS = CStat; %prazdy objekt na statistiku
             end %(nargin ~= 0) 
         end
         
@@ -1880,6 +1881,9 @@ classdef CiEEGData < matlab.mixin.Copyable
                    sortorder0 = obj.CH.sortorder; %musi si ulozit stare razeni, abych potom nasel ten spravny kanal
                    obj.CH.NextSortChOrder();                   
                    obj.PlotResponseCh(find(obj.CH.sortorder==sortorder0(obj.plotRCh.ch))); %#ok<FNDSB> %takhle zustanu na tom stejnem kanale 
+               case 'r' %roc krivka
+                   obj.CS.AUCPlot(obj.plotRCh.ch,obj);
+                   figure(obj.plotRCh.fh); %dam puvodni obrazek dopredu
                otherwise
                    disp(['You just pressed: ' eventDat.Key]);
            end

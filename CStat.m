@@ -10,31 +10,49 @@ classdef CStat < handle
         function obj = CStat(~)
             obj.plotAUC.aucdata = struct('AUC',{},'AVG',{}); %empty struct array
         end
-        function [obj] = AUCPlot(obj,E,ch,time,kategories)
+        function [obj] = AUCPlot(obj,ch,E, time,kategories)
             %vykresli AUC krivku pro vybrany kanal. 
             %pouzije data z plotAUC, pokud je potreba zavola funkci ROCAnalysis
             if ch > numel(obj.plotAUC.aucdata) || isempty( obj.plotAUC.aucdata(ch).AUC)
-                 %assert(~isempty(E),['pro kanal' num2str(ch) 'nejsou spocitana data']);                 
+                 %assert(~isempty(E),['pro kanal' num2str(ch) 'nejsou spocitana data']);
+                 if ~exist('time','var'), time = []; end
+                 if ~exist('kategories','var'), kategories = []; end
                  [AUCall,AVGall] = obj.ROCAnalysis(E,ch,time,kategories);                 
+                 PsyData = E.PsyData;
+                 kategories = obj.plotAUC.kategories;
+                 time = obj.plotAUC.time;
             else
                 AUCall = obj.plotAUC.aucdata(ch).AUC;
                 AVGall = obj.plotAUC.aucdata(ch).AVG;
+                if ~exist('time','var') || isempty(time), time = obj.plotAUC.time; end
+                if ~exist('kategories','var') || isempty(kategories), kategories = obj.plotAUC.kategories; end
+                if ~exist('E','var') || isempty(E)
+                    PsyData = obj.plotAUC.PsyData; 
+                else
+                    PsyData = E.PsyData;
+                end                
             end
+            obj.plotAUC.ch = ch;
+            
             %barvy jako v PlotResponseCh
             hue = 0.8;
             colorskat = {[0 0 0],[0 1 0],[1 0 0],[0 0 1]; [hue hue hue],[hue 1 hue],[1 hue hue],[hue hue 1]}; % prvni radka - prumery, druha radka errorbars = svetlejsi            
             colorkomb = [nan 2 1; 2 nan 4; 1 4 nan]; %index barvy kombinace kategorii
-            legendkomb = [nan 1 2 ; 1 nan 3 ; 2 3 nan ]; % do ktereho pole legendy se ma ukladat kombinace kategorii
-            fh = []; %zatim prazdny figure handle            
-            katnames = E.PsyData.CategoryName(kategories,[]);
+            legendkomb = [nan 1 2 ; 1 nan 3 ; 2 3 nan ]; % do ktereho pole legendy se ma ukladat kombinace kategorii                     
+            katnames = PsyData.CategoryName(kategories,[]);
             legenda = cell(1,numel(kategories));
             
+            if isfield(obj.plotAUC,'fh') && (verLessThan('matlab','9.0') || isvalid(obj.plotAUC.fh)) %isvalid je od verze 2016
+                figure(obj.plotAUC.fh); %pouziju uz vytvoreny graf
+                clf(obj.plotAUC.fh); %graf vycistim
+            else               
+               figurename = ['AUC waveform for ch ' num2str(ch) ];               
+               obj.plotAUC.fh = figure('Name',figurename);
+            end
+                        
             for k = 1:numel(kategories)-1
             for l = k+1:numel(kategories)  
-                legenda{legendkomb(k,l)} = [katnames{l} ' X ' katnames{k}];
-                if isempty(fh)
-                    fh = figure('Name', ['AUC waveform for ch ' num2str(ch) ]);
-                end
+                legenda{legendkomb(k,l)} = [katnames{l} ' X ' katnames{k}];                
                 
                 AUC = AUCall{k,l};
                 MP = AVGall{k,l};                
@@ -51,10 +69,10 @@ classdef CStat < handle
                 plotband(X, AUC(:,1), AUC(:,3) - AUC(:,1), color_kl(2,:)); %nejlepsi, je pruhledny, ale nejde kopirovat do corelu
                 plot(X,AUC(:,1),'.-','Color',color_kl(1,:));
                 line([X(1) X(end)],[.5 .5]);
-                title('AUC');
+                title(['AUC for channel ' num2str(ch) '/' num2str(numel(obj.plotAUC.aucdata))]);
 
                 subplot(2,1,2); %do druheho plot vykreslim rozdil power obou kategorii
-                title('power');
+                title('porwer');
                 hold on;
 
                 %prvni a druha kategorie - jejich rozdil                
@@ -64,47 +82,62 @@ classdef CStat < handle
             end
             legend(legenda);
         end
-        function [AUCall,AVGall,obj] = ROCAnalysis(obj,E,ch,time,kategories)
+        function [AUCall,AVGall,obj] = ROCAnalysis(obj,E, channels,time,kategories)
             %vypocita ROC data a ulozi do  obj.plotAUC.aucdata
             %time je cas, ve kterem chci spocitat ROC ve vterinach
             %kategories je seznam cisel kategorii, pro jejichz kombinace se ma vypocitat a vykreslit AUC krivka
+            %ch je seznam kanalu k vyhodnoceni, pokud prazne, spocita pro vsechny kanaly                      
+                       
+            if ~exist('channels','var') || isempty(channels), channels = 1:E.channels; end
+            if ~exist('time','var') || isempty(time), time = [max(E.baseline(2),E.epochtime(1)) E.epochtime(2)]; end
+            if ~exist('kategorie','var') || isempty(kategorie), kategories = E.Wp(E.WpActive).kats; end
             
             sample = round((time - E.epochtime(1))*E.fs);
             katnames = E.PsyData.CategoryName(kategories,[]);
-                       
-            %musim vyradit spatne epochy            
-            AUCall = cell(numel(kategories)); %tam bud davat AUC data pro vsechny kombinace kategorii
-            AVGall = cell(numel(kategories)); %tam budou prumery rozdilu mezi kategoriemi
             
-            for k = 1:numel(kategories)-1
-            for l = k+1:numel(kategories)            
-                
-                [~,~,~,iEpP] = E.CategoryData(kategories(l),[],[],ch); %novy parametr iEp se seznamem vsech validnich epoch pro tento kanal
-                [~,~,~,iEpN] = E.CategoryData(kategories(k),[],[],ch); %chci mit tu nejdulezitejsi kategorii (l=vyssi cislo) jako prvni, aby se od ni odecitaly ostatni                                                        
-                
-                %prvni a druha kategorie - prumer power
-                dataP = squeeze(E.d(sample(1):sample(2),ch,iEpP));
-                dataN = squeeze(E.d(sample(1):sample(2),ch,iEpN));
-                MP = mean(dataP,2);
-                MN = mean(dataN,2);                   
-                
-                if numel(sample) == 1 %chci udela ROC krivku jen pro jeden bod v case
-                    AUC = CStat.ROCKrivka(E.epochData(iEpP | iEpN,:),squeeze(E.d(sample,ch,iEpP | iEpN)),{katnames{l},katnames{k}},1); %udela i graf
-                else %udelam ROC krivku pro ze vsech auc
-                    AUC = zeros(diff(sample)+1,3); %auc hodnota + confidence intervals
-                    for s = sample(1):sample(2)
-                        auc = CStat.ROCKrivka(E.epochData(iEpP | iEpN,:),squeeze(E.d(s,ch,iEpP | iEpN)),{katnames{l},katnames{k}},0); %zadny graf nedela
-                        ci =  CStat.AUCconfI(auc,[sum(iEpP) sum(iEpN)],0.05);
-                        AUC(s-sample(1)+1,1:3) = [auc ci];
-                    end                                                           
+            fprintf('computing AUC data for channels (of %u): ',numel(channels));
+            
+            obj.plotAUC.PsyData = E.PsyData;
+            obj.plotAUC.time = time;
+            obj.plotAUC.kategories = kategories;            
+            
+            for ch = channels %jde po sloupcich
+                fprintf('%u,',ch);
+                %musim vyradit spatne epochy            
+                AUCall = cell(numel(kategories)); %tam bud davat AUC data pro vsechny kombinace kategorii
+                AVGall = cell(numel(kategories)); %tam budou prumery rozdilu mezi kategoriemi
+
+                for k = 1:numel(kategories)-1
+                for l = k+1:numel(kategories)            
+
+                    [~,~,~,iEpP] = E.CategoryData(kategories(l),[],[],ch); %novy parametr iEp se seznamem vsech validnich epoch pro tento kanal
+                    [~,~,~,iEpN] = E.CategoryData(kategories(k),[],[],ch); %chci mit tu nejdulezitejsi kategorii (l=vyssi cislo) jako prvni, aby se od ni odecitaly ostatni                                                        
+
+                    %prvni a druha kategorie - prumer power
+                    dataP = squeeze(E.d(sample(1):sample(2),ch,iEpP));
+                    dataN = squeeze(E.d(sample(1):sample(2),ch,iEpN));
+                    MP = mean(dataP,2);
+                    MN = mean(dataN,2);                   
+
+                    if numel(sample) == 1 %chci udela ROC krivku jen pro jeden bod v case
+                        AUC = CStat.ROCKrivka(E.epochData(iEpP | iEpN,:),squeeze(E.d(sample,ch,iEpP | iEpN)),{katnames{l},katnames{k}},1); %udela i graf
+                    else %udelam ROC krivku pro ze vsech auc
+                        AUC = zeros(diff(sample)+1,3); %auc hodnota + confidence intervals
+                        for s = sample(1):sample(2)
+                            auc = CStat.ROCKrivka(E.epochData(iEpP | iEpN,:),squeeze(E.d(s,ch,iEpP | iEpN)),{katnames{l},katnames{k}},0); %zadny graf nedela
+                            ci =  CStat.AUCconfI(auc,[sum(iEpP) sum(iEpN)],0.05);
+                            AUC(s-sample(1)+1,1:3) = [auc ci];
+                        end                                                           
+                    end
+                    AUCall{k,l} = AUC; 
+                    AVGall{k,l} = MP; % pozitivni data - prvni kategorie
+                    AVGall{l,k} = MN; % negativni data - druha kategorie
                 end
-                AUCall{k,l} = AUC; 
-                AVGall{k,l} = MP; % pozitivni data - prvni kategorie
-                AVGall{l,k} = MN; % negativni data - druha kategorie
+                end
+                obj.plotAUC.aucdata(ch).AUC = AUCall;
+                obj.plotAUC.aucdata(ch).AVG = AVGall;
             end
-            end
-            obj.plotAUC.aucdata(ch).AUC = AUCall;
-            obj.plotAUC.aucdata(ch).AVG = AVGall;
+            fprintf('... done \n');
         end
     end
     methods (Static,Access = public)
