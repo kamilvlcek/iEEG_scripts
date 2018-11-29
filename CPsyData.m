@@ -115,7 +115,15 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             else %chci jmena kategorii vratit jako cell array
                 kat = cell(1,numel(katnum));
                 for k  = 1:numel(katnum)
-                    kat{k} = obj.P.strings.podminka{katnum(k)+1};
+                    if numel(cellval(katnum,k))>1
+                        katkat = cell(numel(katnum{k}),1);
+                        for kk = 1:numel(katnum{k})
+                            katkat{kk} = obj.P.strings.podminka{katnum{k}(kk)+1};
+                        end
+                        kat{k} = cell2str(katkat);
+                    else
+                        kat{k} = obj.P.strings.podminka{cellval(katnum,k)+1};
+                    end
                 end
             end
         end

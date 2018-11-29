@@ -1405,7 +1405,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                     plot(median(rt(:,k)),y,'o','Color',colorkatk(1,:)); %median
                 end
                 y = (ymax-ymin)*0.1  ; %pozice na ose y
-                text(0.04+obj.Wp(WpA).epochtime(1),y,['stat ' num2str(obj.WpActive) '/' num2str(numel(obj.Wp))]); %vypisu cislo aktivni statistiky
+                text(0.04+obj.Wp(WpA).epochtime(1),y,['stat ' num2str(obj.WpActive) '/' num2str(numel(obj.Wp)) '-'  cell2str(obj.PsyData.CategoryName(kategories,[])) ]); %vypisu cislo aktivni statistiky a jmena kategorii
                 for k= 1 : numel(kategories) %index 1-3
                     uistack(h_kat(k,1), 'top'); %dam krivky prumeru kategorii uplne dopredu
                     uistack(h_kat(k,2), 'bottom'); %dam krivky errorbars uplne dozadu

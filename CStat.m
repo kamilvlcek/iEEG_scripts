@@ -8,11 +8,25 @@ classdef CStat < handle
     
     methods (Access = public)
         function obj = CStat(~)
+            obj.AUCReset();
+        end
+        function obj = AUCReset(obj)
             obj.plotAUC.aucdata = struct('AUC',{},'AVG',{}); %empty struct array
         end
+        
         function [obj] = AUCPlot(obj,ch,E, time,kategories)
             %vykresli AUC krivku pro vybrany kanal. 
             %pouzije data z plotAUC, pokud je potreba zavola funkci ROCAnalysis
+            
+            %overim jestli se nezmenily parametry krivek - zatim mi staci kategorie, kvuli zmene statistiky
+            if isfield(obj.plotAUC,'kategories') 
+                if exist('kategories','var') && ~isempty(kategories) && ~isequal(obj.plotAUC.kategories,kategories)
+                    obj.AUCReset();               
+                elseif ~isequal(obj.plotAUC.kategories,E.Wp(E.WpActive).kats)
+                    obj.AUCReset();               
+                end               
+            end
+                        
             if ch > numel(obj.plotAUC.aucdata) || isempty( obj.plotAUC.aucdata(ch).AUC)
                  %assert(~isempty(E),['pro kanal' num2str(ch) 'nejsou spocitana data']);
                  if ~exist('time','var'), time = []; end
@@ -69,10 +83,10 @@ classdef CStat < handle
                 plotband(X, AUC(:,1), AUC(:,3) - AUC(:,1), color_kl(2,:)); %nejlepsi, je pruhledny, ale nejde kopirovat do corelu
                 plot(X,AUC(:,1),'.-','Color',color_kl(1,:));
                 line([X(1) X(end)],[.5 .5]);
-                title(['AUC for channel ' num2str(ch) '/' num2str(numel(obj.plotAUC.aucdata))]);
+                title(['AUC for channel ' num2str(ch) '/' num2str(obj.plotAUC.channels)]);
 
                 subplot(2,1,2); %do druheho plot vykreslim rozdil power obou kategorii
-                title('porwer');
+                title('power');
                 hold on;
 
                 %prvni a druha kategorie - jejich rozdil                
@@ -100,6 +114,7 @@ classdef CStat < handle
             obj.plotAUC.PsyData = E.PsyData;
             obj.plotAUC.time = time;
             obj.plotAUC.kategories = kategories;            
+            obj.plotAUC.channels = E.channels;  % pocet kanalu
             
             for ch = channels %jde po sloupcich
                 fprintf('%u,',ch);

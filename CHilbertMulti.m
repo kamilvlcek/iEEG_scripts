@@ -15,11 +15,9 @@ classdef CHilbertMulti < CHilbert
     
     methods (Access = public)  
         function obj = CHilbertMulti(filename)              
-            if exist('filename','var')
-                obj.Load(filename);
-            else
-                obj.RjEpoch = [];
-            end
+            if ~exist('filename','var'), filename = []; end                
+            obj@CHilbert(filename); %volani konstruktoru nemuze byt v if bloku - ani ve verzi 2016b                
+            obj.RjEpoch = [];            
         end
         
         function FILES = TestExtract(obj,filenames)
@@ -377,13 +375,22 @@ classdef CHilbertMulti < CHilbert
         %uklada se vcetne dat parenta CHilbert a pres nej taky CiEEGData        
         function obj = Save(obj,filename)
             if ~exist('filename','var')
-                filename = obj.mfilename;
+                if exist(obj.mfilename,'file')==2
+                    filename = obj.mfilename; %nazev a cesta, pod kterym naposled ulozeno
+                elseif exist(obj.hfilename,'file')==2
+                    filename = obj.hfilename; %tohle se uklada pøi Load jako naèitané jméno souboru
+                elseif exist(obj.filename,'file')==2
+                    filename = obj.filename; %nazev cieegdat
+                else
+                    error('where to save. Available paths are invalid');
+                end    
+                obj.mfilename = filename;
                 assert( ~isempty(filename), 'no filename given or saved before');
             else
                 obj.mfilename = filename;
             end            
             Save@CHilbert(obj,CHilbert.filenameH(filename));  %ulozim do prvniho souboru data z nadrazene tridy          
-            if ~isempty(obj.filenames)                
+            if ~isempty(obj.filenames)     %jmena na ctenych extraktu - cili to je opravdu CHilbertMulti soubor
                 filenames = obj.filenames;   %#ok<PROPLC,NASGU>
                 orig = obj.orig;         %#ok<PROPLC,NASGU> 
                 blokyprehazej = obj.blokyprehazej; %#ok<PROPLC,NASGU> 
