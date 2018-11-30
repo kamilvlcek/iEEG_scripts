@@ -9,9 +9,11 @@ classdef CStat < handle
     methods (Access = public)
         function obj = CStat(~)
             obj.AUCReset();
+            obj.plotAUC.katplot = ones(1,6); %vic kategorii nikdy nebude - ktera kombinace kategorii se maji kreslit
+            obj.plotAUC.corelplot = 0; %defaulte hezci plot, ale nemozny do corelu
         end
         function obj = AUCReset(obj)
-            obj.plotAUC.aucdata = struct('AUC',{},'AVG',{}); %empty struct array
+            obj.plotAUC.aucdata = struct('AUC',{},'AVG',{}); %empty struct array            
         end
         
         function [obj] = AUCPlot(obj,ch,E, time,kategories)
@@ -22,7 +24,7 @@ classdef CStat < handle
             if isfield(obj.plotAUC,'kategories') 
                 if exist('kategories','var') && ~isempty(kategories) && ~isequal(obj.plotAUC.kategories,kategories)
                     obj.AUCReset();               
-                elseif ~isequal(obj.plotAUC.kategories,E.Wp(E.WpActive).kats)
+                elseif exist('E','var') && ~isequal(obj.plotAUC.kategories,E.Wp(E.WpActive).kats)
                     obj.AUCReset();               
                 end               
             end
@@ -34,7 +36,7 @@ classdef CStat < handle
                  [AUCall,AVGall] = obj.ROCAnalysis(E,ch,time,kategories);                 
                  PsyData = E.PsyData;
                  kategories = obj.plotAUC.kategories;
-                 time = obj.plotAUC.time;
+                 time = obj.plotAUC.time;                 
             else
                 AUCall = obj.plotAUC.aucdata(ch).AUC;
                 AVGall = obj.plotAUC.aucdata(ch).AVG;
@@ -66,35 +68,45 @@ classdef CStat < handle
                         
             for k = 1:numel(kategories)-1
             for l = k+1:numel(kategories)  
-                legenda{legendkomb(k,l)} = [katnames{l} ' X ' katnames{k}];                
-                
-                AUC = AUCall{k,l};
-                MP = AVGall{k,l};                
-                MN = AVGall{l,k};
-                
-                %kod podle PlotResponseCh, aby stejne barvy pro PPA test
-                colorkat_kl = colorkomb(kategories(k), kategories(l));
-                color_kl = cell2mat(colorskat(:,colorkat_kl));                    
+                if obj.plotAUC.katplot(legendkomb(k,l)) > 0 %pokud se tahle kombinace kategorii ma kreslit
+                    legenda{legendkomb(k,l)} = [katnames{l} ' X ' katnames{k}];                
 
-                subplot(2,1,1); %prvni plot je AUC krivka
-                X = linspace(time(1),time(2),size(AUC,1));
-                hold on;
-                %ciplot(AUC(:,2), AUC(:,3), X,color_kl(2,:)); %nepruhledny, ale jde okopirovat do corelu
-                plotband(X, AUC(:,1), AUC(:,3) - AUC(:,1), color_kl(2,:)); %nejlepsi, je pruhledny, ale nejde kopirovat do corelu
-                plot(X,AUC(:,1),'.-','Color',color_kl(1,:));
-                line([X(1) X(end)],[.5 .5]);
-                title(['AUC for channel ' num2str(ch) '/' num2str(obj.plotAUC.channels)]);
+                    AUC = AUCall{k,l};
+                    MP = AVGall{k,l};                
+                    MN = AVGall{l,k};
 
-                subplot(2,1,2); %do druheho plot vykreslim rozdil power obou kategorii
-                title('power');
-                hold on;
+                    %kod podle PlotResponseCh, aby stejne barvy pro PPA test
+                    colorkat_kl = colorkomb(kategories(k), kategories(l));
+                    color_kl = cell2mat(colorskat(:,colorkat_kl));                    
 
-                %prvni a druha kategorie - jejich rozdil                
-                plot(X,MP-MN,'o-','Color',color_kl(1,:)); %barvy podle PlotResponseCh 
-                    
+                    %PRVNI plot je AUC krivka
+                    subplot(2,1,1); 
+                    X = linspace(time(1),time(2),size(AUC,1));
+                    hold on;
+                    if obj.plotAUC.corelplot ==1
+                        ciplot(AUC(:,2), AUC(:,3), X,color_kl(2,:)); %nepruhledny, ale jde okopirovat do corelu
+                    else
+                        plotband(X, AUC(:,1), AUC(:,3) - AUC(:,1), color_kl(2,:)); %nejlepsi, je pruhledny, ale nejde kopirovat do corelu
+                    end
+                    plot(X,AUC(:,1),'.-','Color',color_kl(1,:));
+                    line([X(1) X(end)],[.5 .5]);
+                    title(['AUC for channel ' num2str(ch) '/' num2str(obj.plotAUC.channels)]);
+                    ylim([0.4 1]);
+
+                    %do DRUHEHO plot vykreslim rozdil power obou kategorii
+                    subplot(2,1,2); 
+                    title('power');
+                    hold on;
+
+                    %prvni a druha kategorie - jejich rozdil                
+                    plot(X,MP-MN,'o-','Color',color_kl(1,:)); %barvy podle PlotResponseCh 
+                end
             end
             end
+            legenda = legenda(~cellfun('isempty',legenda)); %ymazu prazdne polozky, ktere se nevykresluji
             legend(legenda);
+           
+            set(obj.plotAUC.fh,'KeyPressFcn',@obj.hybejAUCPlot); 
         end
         function [AUCall,AVGall,obj] = ROCAnalysis(obj,E, channels,time,kategories)
             %vypocita ROC data a ulozi do  obj.plotAUC.aucdata
@@ -365,6 +377,22 @@ classdef CStat < handle
             zcrit = norminv(1-p/2); %two tailed z critical value from p value
             ci = [auc - se*zcrit , auc + se*zcrit];
         end
+    end
+    methods (Access = private)
+        function obj = hybejAUCPlot(obj,~,eventDat)
+            switch eventDat.Key
+                case {'f','g','h'}
+                    obj.plotAUC.katplot( eventDat.Key - 'f' + 1) = 1 - obj.plotAUC.katplot( eventDat.Key - 'f' + 1);
+                    obj.AUCPlot(obj.plotAUC.ch);
+                case {'j','k','l'}
+                    obj.plotAUC.katplot( eventDat.Key - 'f' ) = 1 - obj.plotAUC.katplot( eventDat.Key - 'f' );
+                    obj.AUCPlot(obj.plotAUC.ch);                       
+                case {'c'}
+                    obj.plotAUC.corelplot = 1 - obj.plotAUC.corelplot;
+                    obj.AUCPlot(obj.plotAUC.ch);                      
+            end
+            
+        end      
     end
     
 end

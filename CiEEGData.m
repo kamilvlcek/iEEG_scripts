@@ -1883,6 +1883,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                    obj.PlotResponseCh(find(obj.CH.sortorder==sortorder0(obj.plotRCh.ch))); %#ok<FNDSB> %takhle zustanu na tom stejnem kanale 
                case 'r' %roc krivka
                    obj.CS.AUCPlot(obj.plotRCh.ch,obj);
+%                    obj.CH.SaveAUCPlotHandle(@obj.CS.AUCPlot); %ulozim soucasne handle na AUCPlot funkci
                    figure(obj.plotRCh.fh); %dam puvodni obrazek dopredu
                otherwise
                    disp(['You just pressed: ' eventDat.Key]);

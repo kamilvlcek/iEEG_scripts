@@ -367,6 +367,9 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             set(obj.plotCh2D.fh,'KeyPressFcn',@obj.hybejPlot2D); 
             set(obj.plotCh2D.fh, 'WindowButtonDownFcn', @obj.hybejPlot2Dclick);
         end
+%         function obj = SaveAUCPlotHandle(obj,fh) 
+%             obj.plotCh2D.plotAUCH = fh; %ulozim handle na CStat.AUCPlot funkci,abych ji mohl volat z grafu ChannelPlot2D
+%         end
         function tag= PacientTag(obj)
             %vraci tag pacienta, napriklad p73
             if isfield(obj.H,'patientTag'), tag = obj.H.patientTag; else, tag=obj.H.subjName; end
@@ -638,7 +641,9 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                          obj.plotCh2D.background = 0;
                       end
                       obj.ChannelPlot2D();
-                      
+%                   case 'r' %zobrazi obrazek mozku s vybranych kanalem                   
+%                       obj.plotCh2D.plotAUCH(obj.plotCh2D.chsel); %vykreslim @obj.PlotResponseCh    %tady to hlasi error Undefined function or variable 'obj.CS.AUCPlot'. Jak to?                  
+%                       figure(obj.plotCh2D.fh); %dam puvodni obrazek dopredu     
               end              
           end
           function hybejPlot2Dclick(obj,h,~)
