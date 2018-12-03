@@ -9,8 +9,16 @@ classdef CStat < handle
     methods (Access = public)
         function obj = CStat(~)
             obj.AUCReset();
+            obj.AUCPlotIni();
+        end
+        function obj = AUCPlotIni(obj)
+            %nastavi defaultni hodnoty pro graf AUCPlot
             obj.plotAUC.katplot = ones(1,6); %vic kategorii nikdy nebude - ktera kombinace kategorii se maji kreslit
             obj.plotAUC.corelplot = 0; %defaulte hezci plot, ale nemozny do corelu
+            hue = 0.8;
+            obj.plotAUC.setup.colorskat = {[0 0 0],[0 1 0],[1 0 0],[0 0 1]; [hue hue hue],[hue 1 hue],[1 hue hue],[hue hue 1]}; % prvni radka - prumery, druha radka errorbars = svetlejsi            
+            obj.plotAUC.setup.colorkomb = [nan 2 1; 2 nan 4; 1 4 nan]; %index barvy kombinace kategorii
+            obj.plotAUC.setup.legendkomb = [nan 1 2 ; 1 nan 3 ; 2 3 nan ]; % do ktereho pole legendy se ma ukladat kombinace kategorii                     
         end
         function obj = AUCReset(obj)
             obj.plotAUC.aucdata = struct('AUC',{},'AVG',{}); %empty struct array            
@@ -50,11 +58,7 @@ classdef CStat < handle
             end
             obj.plotAUC.ch = ch;
             
-            %barvy jako v PlotResponseCh
-            hue = 0.8;
-            colorskat = {[0 0 0],[0 1 0],[1 0 0],[0 0 1]; [hue hue hue],[hue 1 hue],[1 hue hue],[hue hue 1]}; % prvni radka - prumery, druha radka errorbars = svetlejsi            
-            colorkomb = [nan 2 1; 2 nan 4; 1 4 nan]; %index barvy kombinace kategorii
-            legendkomb = [nan 1 2 ; 1 nan 3 ; 2 3 nan ]; % do ktereho pole legendy se ma ukladat kombinace kategorii                     
+            %barvy jako v PlotResponseCh            
             katnames = PsyData.CategoryName(kategories,[]);
             legenda = cell(1,numel(kategories));
             
@@ -68,16 +72,16 @@ classdef CStat < handle
                         
             for k = 1:numel(kategories)-1
             for l = k+1:numel(kategories)  
-                if obj.plotAUC.katplot(legendkomb(k,l)) > 0 %pokud se tahle kombinace kategorii ma kreslit
-                    legenda{legendkomb(k,l)} = [katnames{l} ' X ' katnames{k}];                
+                if obj.plotAUC.katplot(obj.plotAUC.setup.legendkomb(k,l)) > 0 %pokud se tahle kombinace kategorii ma kreslit
+                    legenda{obj.plotAUC.setup.legendkomb(k,l)} = [katnames{l} ' X ' katnames{k}];                
 
                     AUC = AUCall{k,l};
                     MP = AVGall{k,l};                
                     MN = AVGall{l,k};
 
                     %kod podle PlotResponseCh, aby stejne barvy pro PPA test
-                    colorkat_kl = colorkomb(kategories(k), kategories(l));
-                    color_kl = cell2mat(colorskat(:,colorkat_kl));                    
+                    colorkat_kl = obj.plotAUC.setup.colorkomb(kategories(k), kategories(l));
+                    color_kl = cell2mat(obj.plotAUC.setup.colorskat(:,colorkat_kl));                    
 
                     %PRVNI plot je AUC krivka
                     subplot(2,1,1); 
@@ -127,6 +131,8 @@ classdef CStat < handle
             obj.plotAUC.time = time;
             obj.plotAUC.kategories = kategories;            
             obj.plotAUC.channels = E.channels;  % pocet kanalu
+            obj.plotAUC.selCh = E.plotRCh.selCh; %vyber kanalu fghjkl * pocet kanalu
+            obj.plotAUC.Eh = E; %handle na celou strukturu, abych mohl volat ROCAnalysis z AUCPlotM
             
             for ch = channels %jde po sloupcich
                 fprintf('%u,',ch);
@@ -166,6 +172,37 @@ classdef CStat < handle
             end
             fprintf('... done \n');
         end
+        function obj = AUCPlotM(obj,channels)
+            %vykresli vic AUC krivek pres sebe z vybranych kanalu
+            figure('Name','AUC for multiple channels')
+            title(['AUC for channels ' num2str(channels,'%d ')]);
+            legenda = cell(1,numel(channels));
+            ColorSet = distinguishable_colors(numel(channels)); %ruzne barvy pro ruzne kanaly
+            ylim([0.4 1]);
+            for ch = 1:numel(channels)
+                legenda{ch} = ['ch' num2str(channels(ch))];
+                if channels(ch) > numel(obj.plotAUC.aucdata) || isempty( obj.plotAUC.aucdata(channels(ch)).AUC)                     
+                    obj.ROCAnalysis(obj.plotAUC.Eh,channels(ch),obj.plotAUC.time,obj.plotAUC.kategories);                                        
+                end
+                for k = 1:numel(obj.plotAUC.kategories)-1
+                for l = k+1:numel(obj.plotAUC.kategories)
+                    if obj.plotAUC.katplot(obj.plotAUC.setup.legendkomb(k,l)) > 0 ... %pokud se tahle kombinace kategorii ma kreslit
+                    && ~isempty( obj.plotAUC.aucdata(channels(ch)).AUC) %a AUC data existuji
+                        
+                        AUC = obj.plotAUC.aucdata(channels(ch)).AUC{k,l};
+                        X = linspace(obj.plotAUC.time(1),obj.plotAUC.time(2),size(AUC,1));                                             
+                        
+                        hold on;
+                        plot(X,AUC(:,1),'.-','Color',ColorSet(ch,:));  
+                        %kazdy kanal jinou barvou, pokud budu kreslit vic krivek pro jeden kanal, bude to asi zmatek
+                    end
+                end
+                end
+            end
+            line([X(1) X(end)],[.5 .5]); 
+            legenda = legenda(~cellfun('isempty',legenda)); %ymazu prazdne polozky, ktere se nevykresluji
+            legend(legenda);
+        end    
     end
     methods (Static,Access = public)
         
@@ -381,15 +418,16 @@ classdef CStat < handle
     methods (Access = private)
         function obj = hybejAUCPlot(obj,~,eventDat)
             switch eventDat.Key
-                case {'f','g','h'}
-                    obj.plotAUC.katplot( eventDat.Key - 'f' + 1) = 1 - obj.plotAUC.katplot( eventDat.Key - 'f' + 1);
-                    obj.AUCPlot(obj.plotAUC.ch);
-                case {'j','k','l'}
-                    obj.plotAUC.katplot( eventDat.Key - 'f' ) = 1 - obj.plotAUC.katplot( eventDat.Key - 'f' );
-                    obj.AUCPlot(obj.plotAUC.ch);                       
+                case {'u','i','o','p'} %jina pismena nez f-l, aby se to nepletlo                       
+                    ik = find('uiop'==eventDat.Key); %index 1-4
+                    obj.plotAUC.katplot( ik ) = 1 - obj.plotAUC.katplot(ik);
+                    obj.AUCPlot(obj.plotAUC.ch);                      
                 case {'c'}
                     obj.plotAUC.corelplot = 1 - obj.plotAUC.corelplot;
-                    obj.AUCPlot(obj.plotAUC.ch);                      
+                    obj.AUCPlot(obj.plotAUC.ch);
+                case {'f'}
+                    channels = find(obj.plotAUC.selCh(:,1))'; %cisla musi byt v radce
+                    obj.AUCPlotM(channels);
             end
             
         end      
