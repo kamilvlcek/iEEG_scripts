@@ -12,16 +12,17 @@ classdef CStat < handle
             obj.AUCPlotIni();
         end
         function obj = AUCPlotIni(obj)
-            %nastavi defaultni hodnoty pro graf AUCPlot
-            obj.plotAUC.katplot = ones(1,6); %vic kategorii nikdy nebude - ktera kombinace kategorii se maji kreslit
+            %nastavi defaultni hodnoty pro graf AUCPlot            
             obj.plotAUC.corelplot = 0; %defaulte hezci plot, ale nemozny do corelu
             hue = 0.8;
             obj.plotAUC.setup.colorskat = {[0 0 0],[0 1 0],[1 0 0],[0 0 1]; [hue hue hue],[hue 1 hue],[1 hue hue],[hue hue 1]}; % prvni radka - prumery, druha radka errorbars = svetlejsi            
             obj.plotAUC.setup.colorkomb = [nan 2 1; 2 nan 4; 1 4 nan]; %index barvy kombinace kategorii
-            obj.plotAUC.setup.legendkomb = [nan 1 2 ; 1 nan 3 ; 2 3 nan ]; % do ktereho pole legendy se ma ukladat kombinace kategorii                     
+            obj.plotAUC.setup.legendkomb = [nan 1 2 ; 1 nan 3 ; 2 3 nan ]; % do ktereho pole legendy se ma ukladat kombinace kategorii                                 
+            obj.plotAUC.katplot = ones(1,max(max(obj.plotAUC.setup.legendkomb))); %vic kategorii nikdy nebude - ktera kombinace kategorii se maji kreslit
         end
         function obj = AUCReset(obj)
             obj.plotAUC.aucdata = struct('AUC',{},'AVG',{}); %empty struct array            
+            obj.plotAUC.sig = [];
         end
         
         function [obj] = AUCPlot(obj,ch,E, time,kategories)
@@ -73,7 +74,8 @@ classdef CStat < handle
             for k = 1:numel(kategories)-1
             for l = k+1:numel(kategories)  
                 if obj.plotAUC.katplot(obj.plotAUC.setup.legendkomb(k,l)) > 0 %pokud se tahle kombinace kategorii ma kreslit
-                    legenda{obj.plotAUC.setup.legendkomb(k,l)} = [katnames{l} ' X ' katnames{k}];                
+                    sig = iff(obj.plotAUC.sig(ch,obj.plotAUC.setup.legendkomb(k,l)),'*',''); %hvezdicku pro signifikatni AUC krivku
+                    legenda{obj.plotAUC.setup.legendkomb(k,l)} = [katnames{l} ' X ' katnames{k} ' ' sig];                
 
                     AUC = AUCall{k,l};
                     MP = AVGall{k,l};                
@@ -95,7 +97,7 @@ classdef CStat < handle
                     plot(X,AUC(:,1),'.-','Color',color_kl(1,:));
                     line([X(1) X(end)],[.5 .5]);
                     title(['AUC for channel ' num2str(ch) '/' num2str(obj.plotAUC.channels)]);
-                    ylim([0.4 1]);
+                    ylim([0.3 1]);
 
                     %do DRUHEHO plot vykreslim rozdil power obou kategorii
                     subplot(2,1,2); 
@@ -121,7 +123,9 @@ classdef CStat < handle
             if ~exist('channels','var') || isempty(channels), channels = 1:E.channels; end
             if ~exist('time','var') || isempty(time), time = [max(E.baseline(2),E.epochtime(1)) E.epochtime(2)]; end
             if ~exist('kategorie','var') || isempty(kategorie), kategories = E.Wp(E.WpActive).kats; end
-            
+            if ~isfield(obj.plotAUC,'sig') || isempty(obj.plotAUC.sig)
+                obj.plotAUC.sig = zeros(E.channels,max(max(obj.plotAUC.setup.legendkomb))); %signifikance auc krivek - kanaly x kombinace kategorii
+            end
             sample = round((time - E.epochtime(1))*E.fs);
             katnames = E.PsyData.CategoryName(kategories,[]);
             
@@ -139,7 +143,7 @@ classdef CStat < handle
                 %musim vyradit spatne epochy            
                 AUCall = cell(numel(kategories)); %tam bud davat AUC data pro vsechny kombinace kategorii
                 AVGall = cell(numel(kategories)); %tam budou prumery rozdilu mezi kategoriemi
-
+                
                 for k = 1:numel(kategories)-1
                 for l = k+1:numel(kategories)            
 
@@ -163,6 +167,7 @@ classdef CStat < handle
                         end                                                           
                     end
                     AUCall{k,l} = AUC; 
+                    obj.plotAUC.sig(ch,obj.plotAUC.setup.legendkomb(k,l)) = any(AUC(:,2) > 0.5); %krivka AUC je signifikancni, pokud dolni CI prekroci 0.5 nekdy
                     AVGall{k,l} = MP; % pozitivni data - prvni kategorie
                     AVGall{l,k} = MN; % negativni data - druha kategorie
                 end
@@ -176,14 +181,17 @@ classdef CStat < handle
             %vykresli vic AUC krivek pres sebe z vybranych kanalu
             figure('Name','AUC for multiple channels')
             title(['AUC for channels ' num2str(channels,'%d ')]);
-            legenda = cell(1,numel(channels));
-            ColorSet = distinguishable_colors(numel(channels)); %ruzne barvy pro ruzne kanaly
-            ylim([0.4 1]);
-            for ch = 1:numel(channels)
-                legenda{ch} = ['ch' num2str(channels(ch))];
+            sig = obj.plotAUC.sig(channels,logical(obj.plotAUC.katplot)); %index kanalu se signifik auc krivkami ke kresleni
+            
+            legenda = cell(1,sum(sig));            
+            ileg = 1; %specialni index na signif kanaly - legendu a barvy
+            ColorSet = distinguishable_colors(sum(sig)); %ruzne barvy pro ruzne kanaly
+            ploth = zeros(1,sum(sig)); %handly na ploty, kvuli selektivni legende
+            
+            for ch = 1:numel(channels)                
                 if channels(ch) > numel(obj.plotAUC.aucdata) || isempty( obj.plotAUC.aucdata(channels(ch)).AUC)                     
                     obj.ROCAnalysis(obj.plotAUC.Eh,channels(ch),obj.plotAUC.time,obj.plotAUC.kategories);                                        
-                end
+                end                
                 for k = 1:numel(obj.plotAUC.kategories)-1
                 for l = k+1:numel(obj.plotAUC.kategories)
                     if obj.plotAUC.katplot(obj.plotAUC.setup.legendkomb(k,l)) > 0 ... %pokud se tahle kombinace kategorii ma kreslit
@@ -191,17 +199,24 @@ classdef CStat < handle
                         
                         AUC = obj.plotAUC.aucdata(channels(ch)).AUC{k,l};
                         X = linspace(obj.plotAUC.time(1),obj.plotAUC.time(2),size(AUC,1));                                             
+                        if obj.plotAUC.sig(channels(ch),obj.plotAUC.setup.legendkomb(k,l)) && sig(ch) %nechci mit true u dodatecne pocitanych kanalu (ROCAnalysis kousek vyse)                            
+                            legenda{ileg} = ['ch' num2str(channels(ch))];
+                            style = iff(any(AUC(:,2)>0.75),'o-','.-');
+                            ploth(ileg) = plot(X,AUC(:,1),style,'Color',ColorSet(ileg,:)); %kazdy kanal jinou barvou, pokud budu kreslit vic krivek pro jeden kanal, bude to asi zmatek
+                            ileg = ileg + 1;                            
+                        else                            
+                            plot(X,AUC(:,1),'.-','Color',[.5 .5 .5]);
+                        end
+                        hold on;                        
                         
-                        hold on;
-                        plot(X,AUC(:,1),'.-','Color',ColorSet(ch,:));  
-                        %kazdy kanal jinou barvou, pokud budu kreslit vic krivek pro jeden kanal, bude to asi zmatek
                     end
                 end
                 end
             end
             line([X(1) X(end)],[.5 .5]); 
             legenda = legenda(~cellfun('isempty',legenda)); %ymazu prazdne polozky, ktere se nevykresluji
-            legend(legenda);
+            legend(ploth,legenda);
+            ylim([0 1]);
         end    
     end
     methods (Static,Access = public)
@@ -425,8 +440,8 @@ classdef CStat < handle
                 case {'c'}
                     obj.plotAUC.corelplot = 1 - obj.plotAUC.corelplot;
                     obj.AUCPlot(obj.plotAUC.ch);
-                case {'f'}
-                    channels = find(obj.plotAUC.selCh(:,1))'; %cisla musi byt v radce
+                case {'f','g','h'}                    
+                    channels = find(obj.plotAUC.selCh(:,'fgh'==eventDat.Key))'; %cisla musi byt v radce
                     obj.AUCPlotM(channels);
             end
             
