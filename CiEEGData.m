@@ -198,12 +198,14 @@ classdef CiEEGData < matlab.mixin.Copyable
             RjEpoch = obj.RjEpoch;
             RjEpochCh = obj.RjEpochCh;                      
         end
-        function [selCh] = GetSelCh(obj)
+        function [selCh,selChNames] = GetSelCh(obj)
             %vraci cisla kanalu vybranych v grafu plotResponseCh, naprikla pro CBrainPLot
             if isprop(obj, 'plotRCh') && isfield(obj.plotRCh,'selCh')
-                 selCh = obj.plotRCh.selCh;    %ukladam kvuli selected channels, bez file handelu            
+                 selCh = obj.plotRCh.selCh;    %ukladam kvuli selected channels, bez file handelu   
+                 selChNames = obj.plotRCh.selChNames;    %ukladam kvuli selected channels, jejich jmena jednotlivych f-l 
             else
                  selCh = [];
+                 selChNames = [];
             end
         end
         function obj = SetSelCh(obj,selCh,markno)
@@ -1571,7 +1573,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             CH_filterMatrix = obj.CH.filterMatrix; %#ok<NASGU>  
             els = obj.els;                  %#ok<PROP,NASGU>
             plotES = obj.plotES;            %#ok<PROP,NASGU>
-            selCh = obj.GetSelCh();      %#ok<NASGU>
+            [selCh,selChNames] = obj.GetSelCh();      %#ok<NASGU>
             %plotH = obj.plotH;             %#ok<PROP,NASGU> %plotH je blbost ukladat, vytvori se novy, jen to brani vice grafum - 14.6.2016
             RjCh = obj.RjCh;                %#ok<PROP,NASGU>
             RjEpoch = obj.RjEpoch;          %#ok<PROP,NASGU>
@@ -1587,7 +1589,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             [pathstr,fname,ext] = CiEEGData.matextension(filename);        
             filename2 = fullfile(pathstr,[fname ext]);
             save(filename2,'d','tabs','tabs_orig','fs','header','sce','PsyDataP','PsyData','testname','epochtime','baseline','CH_H','els',...
-                    'plotES','selCh','RjCh','RjEpoch','RjEpochCh','epochTags','epochLast','reference','epochData','Wp','DE','DatumCas', 'label', ...
+                    'plotES','selCh','selChNames','RjCh','RjEpoch','RjEpochCh','epochTags','epochLast','reference','epochData','Wp','DE','DatumCas', 'label', ...
                     'CH_filterMatrix','-v7.3');  
             disp(['ulozeno do ' filename2]); 
         end
@@ -1666,6 +1668,11 @@ classdef CiEEGData < matlab.mixin.Copyable
             obj.plotES = plotES;            %#ok<CPROPLC,CPROP,PROP> 
             if ismember('selCh', {vars.name}) %nastaveni grafu PlotResponseCh
                 load(filename,'selCh'); obj.plotRCh.selCh = selCh;          %#ok<CPROPLC,CPROP,PROP> 
+            end
+            if ismember('selChNames', {vars.name}) %nastaveni grafu PlotResponseCh - jmena vyberu kanalu fghjkl
+                load(filename,'selChNames'); obj.plotRCh.selChNames = selChNames;          %#ok<CPROPLC,CPROP,PROP>
+            else
+                obj.plotRCh.selChNames = [];  
             end
             if isempty(obj.plotRCh.selCh) %kdyz to je prazdne, tak to pak zlobi, musi byt zeros
                 obj.SetSelCh([]); %nastavim prazdne - zadne vybrane kanaly
