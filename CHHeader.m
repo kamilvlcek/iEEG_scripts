@@ -218,6 +218,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             else
                 obj.plotCh2D.label = label;
             end
+            if ~isfield(obj.plotCh2D,'chseltop'), obj.plotCh2D.chseltop = 1; end %jestli se ma vybrany kanal zobrazovat na popredi ostatnych  - zlute kolecko
             
             %vytvoreni figure
             x = [obj.H.channels(:).MNI_x];
@@ -267,7 +268,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 end                              
             end
             if ~isempty(chsel) %pokud je vybrany nejaky kanal
-                plot(x(chsel),y(chsel),'o','MarkerSize',size_ch,'MarkerEdgeColor','y','MarkerFaceColor','y'); 
+                h_selection = plot(x(chsel),y(chsel),'o','MarkerSize',size_ch,'MarkerEdgeColor','y','MarkerFaceColor','y'); 
                 chstr = iff(isempty(obj.sortedby),num2str(chsel), [ num2str(obj.sortorder(chsel)) '(' obj.sortedby  num2str(chsel) ')' ]);
                 title( [ 'channel ' chstr ]);
                 
@@ -282,6 +283,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                    end
                 end
             end
+            if obj.plotCh2D.chseltop, uistack(h_selection, 'top'); end
             text(-70,70,'LEVA');
             text(55,70,'PRAVA');  
             axis equal;  
@@ -313,7 +315,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 end                
             end  
             if ~isempty(chsel) %pokud je vybrany nejaky kanal
-                plot(y(chsel),z(chsel),'o','MarkerSize',size_ch,'MarkerEdgeColor','y','MarkerFaceColor','y'); 
+                h_selection = plot(y(chsel),z(chsel),'o','MarkerSize',size_ch,'MarkerEdgeColor','y','MarkerFaceColor','y'); 
                 
                 text(x_text,110,[ obj.H.channels(1,chsel).name]);
                 text(x_text,100,[ obj.H.channels(1,chsel).neurologyLabel ',' obj.H.channels(1,chsel).ass_brainAtlas]);
@@ -351,6 +353,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     text(0,-90,['chshow:' obj.plotCh2D.chshowstr] ,'Color','red');
                 end
             end
+            if obj.plotCh2D.chseltop, uistack(h_selection, 'top'); end
             axis equal;
             if isfield(obj.plotCh2D,'grid') && obj.plotCh2D.grid==1
                 grid on;
@@ -641,6 +644,10 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                          obj.plotCh2D.background = 0;
                       end
                       obj.ChannelPlot2D();
+                  case 't' %vybrany kanal je zluty na popredi /pozadi
+                      obj.plotCh2D.chseltop = 1-obj.plotCh2D.chseltop;
+                      obj.ChannelPlot2D();
+                      
 %                   case 'r' %zobrazi obrazek mozku s vybranych kanalem                   
 %                       obj.plotCh2D.plotAUCH(obj.plotCh2D.chsel); %vykreslim @obj.PlotResponseCh    %tady to hlasi error Undefined function or variable 'obj.CS.AUCPlot'. Jak to?                  
 %                       figure(obj.plotCh2D.fh); %dam puvodni obrazek dopredu     
