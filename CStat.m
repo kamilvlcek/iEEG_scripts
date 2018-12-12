@@ -509,24 +509,27 @@ classdef CStat < handle
             end            
         end    
         function obj = hybejAUCPlotM(obj,~,eventDat)
-            switch eventDat.Key
+            kresli = 1;
+            switch eventDat.Key                
                 case 'uparrow' % dalsi kanal v poradi
-                    selch = max(1,obj.plotAUC_m.selch-1);
-                    obj.AUCPlotM([],[],selch);  
+                    selch = max(1,obj.plotAUC_m.selch-1);                     
                 case 'downarrow' %predchozi kanal v poradi
-                    selch = min(numel(obj.plotAUC_m.channels),obj.plotAUC_m.selch+1);
-                    obj.AUCPlotM([],[],selch);   
-                case 'home' % dalsi kanal v poradi                    
-                    obj.AUCPlotM([],[],1);    
-                case 'end' % dalsi kanal v poradi                    
-                    obj.AUCPlotM([],[],numel(obj.plotAUC_m.channels)); 
+                    selch = min(numel(obj.plotAUC_m.channels),obj.plotAUC_m.selch+1);                    
+                case 'home' % dalsi kanal v poradi   
+                    selch = 1;                    
+                case 'end' % dalsi kanal v poradi 
+                    selch = numel(obj.plotAUC_m.channels);                    
                 case 'pageup' % dalsi kanal v poradi
-                    selch = max(1,obj.plotAUC_m.selch-10);
-                    obj.AUCPlotM([],[],selch);  
+                    selch = max(1,obj.plotAUC_m.selch-10);                    
                 case 'pagedown' %predchozi kanal v poradi
-                    selch = min(numel(obj.plotAUC_m.channels),obj.plotAUC_m.selch+10);
-                    obj.AUCPlotM([],[],selch);  
-                    
+                    selch = min(numel(obj.plotAUC_m.channels),obj.plotAUC_m.selch+10);   
+                otherwise     
+                    kresli = 0;
+            end
+            if kresli 
+                obj.AUCPlotM([],[],selch); 
+                obj.plotAUC.Eh.PlotResponseCh(obj.plotAUC_m.channels(obj.plotAUC_m.chsort(selch)));
+                figure(obj.plotAUC_m.fh);
             end
         end
         
