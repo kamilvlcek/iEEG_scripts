@@ -108,13 +108,13 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             if ~exist('pohled','var') || isempty(pohled), pohled = ''; end
             if ~exist('labels','var') || isempty(labels), labels = 0; end
             if ~exist('chnvals','var') || isempty(chnvals), chnvals = zeros(1, numel(obj.H.channels)); end
-            nblocks = 64;
-            cmap = parula(nblocks+1);
+            nblocks = numel(chnvals); %pocet barev bude odpovidat poctu kanalu
+            cmap = parula(nblocks+1); %+1 protoze hodnoty se budou zaokrouhlovat nahoru nebo dolu
             chnvals = chnvals - min(chnvals); % normalization
             chnvals = chnvals / max(chnvals); % normalization
             chnvals(isnan(chnvals)) = 0; % in case of all zeros
             clrs = cmap(round(nblocks*chnvals)+1, :); % color values
-            sizes = 20+30*chnvals;
+            sizes = 20+200*chnvals;
             if isfield(obj.H.channels,'MNI_x')
                 figure('Name','ChannelPlot in MNI');                
                 [obj,chgroups] = obj.ChannelGroups();          
@@ -122,16 +122,13 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 %objekt se dobre uklada i pri poradi return values XYZ,obj
                 XYZ = struct('X',0,'Y',0,'Z',0);
                 for chg = 1:size(chgroups,2) 
-                    group = chgroups{chg}; 
-                    X = zeros(1,numel(group)); Y = X; Z = X;
-                    clr = zeros(1,numel(group));
+                    group = chgroups{chg};                     
                     X = [obj.H.channels(group).MNI_x];
                     Y = [obj.H.channels(group).MNI_y];
                     Z = [obj.H.channels(group).MNI_z];     
                     XYZ(chg) = struct('X',X,'Y',Y,'Z',Z);
                     plot3(X,Y,Z,'-','LineWidth',2);
-                    if chg==1, hold on; end     
-                    names = [];
+                    if chg==1, hold on; end                         
                     if labels
                         names = {obj.H.channels(group).neurologyLabel};
                     else
@@ -165,6 +162,8 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 text(0,-115,0,'VZADU');                 
                 load('GMSurfaceMesh.mat'); %seda hmota v MNI
                 scatter3(GMSurfaceMesh.node(:,1),GMSurfaceMesh.node(:,2),GMSurfaceMesh.node(:,3),'.','MarkerEdgeAlpha',.2);
+                if(max(chnvals)>0), colorbar; end %barevna skala, jen pokud jsou ruzne hodnoty kanalu
+                axis equal; 
                 %load('WMSurfaceMesh.mat');
                 %scatter3(WMSurfaceMesh.node(:,1),WMSurfaceMesh.node(:,2),WMSurfaceMesh.node(:,3),'.','MarkerEdgeAlpha',.1);
             else
