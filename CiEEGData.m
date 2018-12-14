@@ -1446,7 +1446,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             if isprop(obj,'label') && ~isempty(obj.label)
                 text(-0.1,ymax*.78,strrep(obj.label,'_','\_'), 'FontSize', 10,'Color','blue'); 
             end            
-            if ~isempty(obj.CH.plotCh2D) && ~isempty(obj.CH.plotCh2D.chshow) && ~isempty(obj.CH.plotCh2D.chshowstr) %% plot chshow
+            if isfield(obj.CH.plotCh2D,'chshow') && ~isempty(obj.CH.plotCh2D.chshow) && ~isempty(obj.CH.plotCh2D.chshowstr) %% plot chshow
                 text(-0.1,ymax*.72, ['show:  ' obj.CH.plotCh2D.chshowstr '=' mat2str(obj.CH.plotCh2D.chshow)], 'FontSize', 10);
             end
             methodhandle = @obj.hybejPlotCh;

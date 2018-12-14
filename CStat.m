@@ -114,7 +114,7 @@ classdef CStat < handle
             end
             end
             legenda = legenda(~cellfun('isempty',legenda)); %ymazu prazdne polozky, ktere se nevykresluji
-            legend(legenda);
+            if ~isempty(legenda), legend(legenda); end
             set(obj.plotAUC.fh,'KeyPressFcn',@obj.hybejAUCPlot); 
         end
         function [AUCall,AVGall,obj] = ROCAnalysis(obj,E, channels,time,kategories)
