@@ -102,11 +102,19 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             end
             ch = 0;
         end
-        function [XYZ,obj] = ChannelPlot(obj,pohled,labels,XYZ2)
+        function [XYZ,obj] = ChannelPlot(obj,pohled,labels,chnvals,XYZ2)
             %zobrazi 3D obrazek elektrod v MNI prostoru. Obrazek ma rozmery podle rozmeru mozku
             %pohled muze urcti smer pohledu s-sagital,c-coronal,h-horizontal
             if ~exist('pohled','var') || isempty(pohled), pohled = ''; end
             if ~exist('labels','var') || isempty(labels), labels = 0; end
+            if ~exist('chnvals','var') || isempty(chnvals), chnvals = zeros(1, numel(obj.H.channels)); end
+            nblocks = numel(chnvals); %pocet barev bude odpovidat poctu kanalu
+            cmap = parula(nblocks+1); %+1 protoze hodnoty se budou zaokrouhlovat nahoru nebo dolu
+            chnvals = chnvals - min(chnvals); % normalization
+            chnvals = chnvals / max(chnvals); % normalization
+            chnvals(isnan(chnvals)) = 0; % in case of all zeros
+            clrs = cmap(round(nblocks*chnvals)+1, :); % color values
+            sizes = 20+200*chnvals;
             if isfield(obj.H.channels,'MNI_x')
                 figure('Name','ChannelPlot in MNI');                
                 [obj,chgroups] = obj.ChannelGroups();          
@@ -114,29 +122,26 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 %objekt se dobre uklada i pri poradi return values XYZ,obj
                 XYZ = struct('X',0,'Y',0,'Z',0);
                 for chg = 1:size(chgroups,2) 
-                    group = chgroups{chg}; 
-                    X = zeros(1,numel(group)); Y = X; Z = X;
-                    for ich = 1:numel(group)                        
-                        X(ich) = obj.H.channels(group(ich)).MNI_x;
-                        Y(ich) = obj.H.channels(group(ich)).MNI_y;
-                        Z(ich) = obj.H.channels(group(ich)).MNI_z;                        
-                    end
+                    group = chgroups{chg};                     
+                    X = [obj.H.channels(group).MNI_x];
+                    Y = [obj.H.channels(group).MNI_y];
+                    Z = [obj.H.channels(group).MNI_z];     
                     XYZ(chg) = struct('X',X,'Y',Y,'Z',Z);
-                    plot3(X,Y,Z,'o-','MarkerSize',5,'MarkerEdgeColor','b','MarkerFaceColor','b','LineWidth',2);
-                    if chg==1, hold on; end                    
-                    for ich = 1:numel(group) 
-                        if labels
-                            th = text(X(ich),Y(ich),Z(ich)+3,obj.H.channels(group(ich)).neurologyLabel);
-                            th.FontSize = 8;
-                        else
-                            th = text(X(ich),Y(ich),Z(ich)+3,obj.H.channels(group(ich)).name);
-                        end
+                    plot3(X,Y,Z,'-','LineWidth',2);
+                    if chg==1, hold on; end                         
+                    if labels
+                        names = {obj.H.channels(group).neurologyLabel};
+                    else
+                        names = {obj.H.channels(group).name};
                     end
+                    iZ = mod([1:numel(Z)], 2); iZ(iZ == 0) = -1;
+                    text(X,Y,Z+iZ*2,names,'FontSize', 7);
                 end
+                % Plot with different colors and sizes based on chnvals
+                scatter3([XYZ.X],[XYZ.Y],[XYZ.Z],sizes([chgroups{:}]),clrs([chgroups{:}],:),'filled');
+
                 if exist('XYZ2','var')
-                    for chg = 1:numel(XYZ2)
-                        plot3(XYZ2(chg).X,XYZ2(chg).Y,XYZ2(chg).Z,'o-','MarkerSize',5,'MarkerEdgeColor','r','MarkerFaceColor','r','LineWidth',2);    
-                    end
+                    plot3([XYZ2.X],[XYZ2.Y],[XYZ2.Z],'o-','MarkerSize',5,'MarkerEdgeColor','r','MarkerFaceColor','r','LineWidth',2);    
                 end
                 xlabel('MNI X'); %levoprava souradnice
                 ylabel('MNI Y'); %predozadni souradnice
@@ -157,6 +162,8 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 text(0,-115,0,'VZADU');                 
                 load('GMSurfaceMesh.mat'); %seda hmota v MNI
                 scatter3(GMSurfaceMesh.node(:,1),GMSurfaceMesh.node(:,2),GMSurfaceMesh.node(:,3),'.','MarkerEdgeAlpha',.2);
+                if(max(chnvals)>0), colorbar; end %barevna skala, jen pokud jsou ruzne hodnoty kanalu
+                axis equal; 
                 %load('WMSurfaceMesh.mat');
                 %scatter3(WMSurfaceMesh.node(:,1),WMSurfaceMesh.node(:,2),WMSurfaceMesh.node(:,3),'.','MarkerEdgeAlpha',.1);
             else
@@ -497,18 +504,26 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             obj.SetFilterMatrix(filterMatrix); %uchovam si filterMatrix na pozdeji, kvuli prepoctu RjEpochCh
         end
         function obj = SortChannels(obj,by)
-            %seradi kanaly podle vybrane MNI souradnice a ulozi do sortorder
-            if ~exist('by','var')
-                obj.sortorder = 1:numel(obj.H.channels);
+            %seradi kanaly podle vybrane MNI souradnice a ulozi do sortorder                        
+            if isfield(obj.plotCh2D,'chshow') 
+                chshow = obj.plotCh2D.chshow; %indexy aktualne vybranych kanalu
+            else
+                chshow = 1:numel(obj.H.channels); %seznam vsech kanalu
+            end
+            if ~exist('by','var')                
+                obj.sortorder = chshow;                
                 obj.sortedby = '';
             elseif strcmp(by,'x')
-                [~,obj.sortorder]=sort([obj.H.channels(:).MNI_x]);                
+                [~,sortorder]=sort([obj.H.channels(chshow).MNI_x]);                
+                obj.sortorder = chshow(sortorder);
                 obj.sortedby = 'x';
             elseif strcmp(by,'y')
-                [~,obj.sortorder]=sort([obj.H.channels(:).MNI_y]);                
+                [~,sortorder]=sort([obj.H.channels(chshow).MNI_y]);                
+                obj.sortorder = chshow(sortorder);
                 obj.sortedby = 'y';
             elseif strcmp(by,'z')
-                [~,obj.sortorder]=sort([obj.H.channels(:).MNI_z]); 
+                [~,sortorder]=sort([obj.H.channels(chshow).MNI_z]); 
+                obj.sortorder = chshow(sortorder);
                 obj.sortedby = 'z';
             else
                 disp(['nezname razeni podle ' by]); 
@@ -540,10 +555,15 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     obj.plotCh2D.chshowstr = cell2str(chlabels);
                 end
                 obj.plotCh2D.chshow = find(iL); %vyber kanalu k zobrazeni       
+                obj.sortorder = obj.plotCh2D.chshow; %defaultni sort order pro tento vyber - nejsou tam cisla od 1 to n, ale cisla kanalu
+                disp(['zobrazeno ' num2str(numel(obj.plotCh2D.chshow)) ' kanalu']);
             else
                 obj.plotCh2D.chshow = 1:numel(obj.H.channels);
                 obj.plotCh2D.chshowstr = '';
+                obj.sortorder = 1:numel(obj.H.channels); %defaultni sort order pro vsechny kanaly
+                disp(['zobrazeny vsechny kanalu']);
             end
+            
         end
     end
     

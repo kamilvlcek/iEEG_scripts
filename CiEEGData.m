@@ -1191,7 +1191,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 obj.plotRCh.pvalue = pvalue;
             end
             if ~exist('ch','var')
-                if isfield(obj.plotRCh,'ch')
+                if isfield(obj.plotRCh,'ch') && ~isempty(obj.plotRCh.ch)
                     ch = obj.CH.sortorder(obj.plotRCh.ch); %vytahnu cislo kanalu podle ulozeneho indexu
                 else
                     ch = obj.CH.sortorder(1); %prvni kanal podle sortorder
@@ -1446,6 +1446,9 @@ classdef CiEEGData < matlab.mixin.Copyable
             if isprop(obj,'label') && ~isempty(obj.label)
                 text(-0.1,ymax*.78,strrep(obj.label,'_','\_'), 'FontSize', 10,'Color','blue'); 
             end            
+            if ~isempty(obj.CH.plotCh2D) && ~isempty(obj.CH.plotCh2D.chshow) && ~isempty(obj.CH.plotCh2D.chshowstr) %% plot chshow
+                text(-0.1,ymax*.72, ['show:  ' obj.CH.plotCh2D.chshowstr '=' mat2str(obj.CH.plotCh2D.chshow)], 'FontSize', 10);
+            end
             methodhandle = @obj.hybejPlotCh;
             set(obj.plotRCh.fh,'KeyPressFcn',methodhandle);          
         end        
@@ -1804,97 +1807,97 @@ classdef CiEEGData < matlab.mixin.Copyable
            end
         end
         function obj = hybejPlotCh(obj,~,eventDat)  
-           %reaguje na udalosti v grafu PlotResponseCh
-           switch eventDat.Key
-               case {'rightarrow','c'} %dalsi kanal
-                   obj.PlotResponseCh( min( [obj.plotRCh.ch + 1 , obj.channels]));
-               case 'pagedown' %skok o 10 kanalu dopred
-                   obj.PlotResponseCh( min( [obj.plotRCh.ch + 10 , obj.channels]));
-               case {'leftarrow','z'} %predchozi kanal
-                   obj.PlotResponseCh( max( [obj.plotRCh.ch - 1 , 1]));
-               case 'pageup' %skok 10 kanalu dozadu
-                   obj.PlotResponseCh( max( [obj.plotRCh.ch - 10 , 1]));
-               case 'home' %skok na prvni kanal
-                   obj.PlotResponseCh( 1);
-               case 'end' %skok na posledni kanal
-                   obj.PlotResponseCh( obj.channels);
-               case {'multiply','8'} %hvezdicka na numericke klavesnici, nebo hvezdicka nad osmickou
-                   %dialog na vlozeni minima a maxima osy y
-                   answ = inputdlg('Enter ymax and min:','Yaxis limits', [1 50],{num2str(obj.plotRCh.ylim)});
-                   if numel(answ)>0  %odpoved je vzdy cell 1x1 - pri cancel je to cell 0x0
-                       if isempty(answ{1}) || any(answ{1}=='*') %pokud vlozim hvezdicku nebo nic, chci znovy spocitat max a min
+            %reaguje na udalosti v grafu PlotResponseCh            
+            switch eventDat.Key
+                case {'rightarrow','c'} %dalsi kanal                    
+                    obj.PlotResponseCh( min( [obj.plotRCh.ch + 1 , numel(obj.CH.sortorder)]));                    
+                case 'pagedown' %skok o 10 kanalu dopred
+                    obj.PlotResponseCh( min( [obj.plotRCh.ch + 10 , numel(obj.CH.sortorder)]));                    
+                case {'leftarrow','z'} %predchozi kanal
+                    obj.PlotResponseCh( max( [obj.plotRCh.ch - 1 , 1]));                    
+                case 'pageup' %skok 10 kanalu dozadu
+                    obj.PlotResponseCh( max( [obj.plotRCh.ch - 10 , 1]));                    
+                case 'home' %skok na prvni kanal
+                    obj.PlotResponseCh( 1);                    
+                case 'end' %skok na posledni kanal
+                    obj.PlotResponseCh( numel(obj.CH.sortorder));                    
+                case {'multiply','8'} %hvezdicka na numericke klavesnici, nebo hvezdicka nad osmickou
+                    %dialog na vlozeni minima a maxima osy y
+                    answ = inputdlg('Enter ymax and min:','Yaxis limits', [1 50],{num2str(obj.plotRCh.ylim)});
+                    if numel(answ)>0  %odpoved je vzdy cell 1x1 - pri cancel je to cell 0x0
+                        if isempty(answ{1}) || any(answ{1}=='*') %pokud vlozim hvezdicku nebo nic, chci znovy spocitat max a min
                            obj.plotRCh.ylim = [];
-                       else %jinak predpokladam dve hodnoty
+                        else %jinak predpokladam dve hodnoty
                            data = str2num(answ{:});  %#ok<ST2NM>
                            if numel(data)>= 2 && data(1)< data(2) %pokud nejsou dve hodnoty, nedelam nic
                              obj.plotRCh.ylim = [data(1) data(2)];
                            end
-                       end
-                   end
-                   obj.PlotResponseCh( obj.plotRCh.ch); %prekreslim grafy
-               case {'divide','slash'} %lomeno na numericke klavesnici - automaticke meritko na ose y
-                   obj.plotRCh.ylim = obj.plotRCh.range; %spocitalo se pri volani PlotResponseCh
-                   obj.PlotResponseCh( obj.plotRCh.ch); %prekreslim grafy
-               case 'space' %zobrazi i prumerne krivky - vsechny epochy a vsechny frekvence
-                   if isa(obj,'CHilbert'), obj.PlotResponseFreq(obj.plotRCh.ch,obj.Wp(obj.WpActive).kats); end %vykreslim vsechna frekvencni pasma
-                   obj.PlotEpochs(obj.plotRCh.ch,obj.Wp(obj.WpActive).kats); %vykreslim prumery freq u vsech epoch
-                   figure(obj.plotRCh.fh); %dam puvodni obrazek dopredu
-               case 'return' %zobrazi obrazek mozku s vybranych kanalem                      
-                   if isprop(obj,'label') && ~isempty(obj.label), label = obj.label; else, label = ''; end
-                   obj.CH.ChannelPlot2D(obj.plotRCh.ch,obj.plotRCh,@obj.PlotResponseCh,label);  %vykreslim obrazek mozku s vybranym kanalem
-                   figure(obj.plotRCh.fh); %dam puvodni obrazek dopredu
-               case {'add' ,  'equal','f'}     % + oznaceni kanalu
-                   obj.SelChannel(obj.CH.sortorder(obj.plotRCh.ch));
-                   obj.PlotResponseCh( obj.plotRCh.ch); %prekreslim grafy
-               case {'g','h'}     % + oznaceni kanalu Mark 2-6
-                   obj.SelChannel(obj.CH.sortorder(obj.plotRCh.ch),eventDat.Key - 'f' +1 ); %g je 2, f je 1
-                   obj.PlotResponseCh( obj.plotRCh.ch); %prekreslim grafy
-               case {'j','k','l'}     % + oznaceni kanalu Mark 2-6
-                   obj.SelChannel(obj.CH.sortorder(obj.plotRCh.ch),eventDat.Key - 'f' ); %g je 2, f je 1
-                   obj.PlotResponseCh( obj.plotRCh.ch); %prekreslim grafy
-               case {'numpad6','d'}     % skok na dalsi oznaceny kanal   
-                   if isfield(obj.plotRCh,'selCh')
-                       selCh = find(any(obj.plotRCh.selCh,2)); %seznam cisel vybranych kanalu
-                       iselCh = find(ismember(obj.CH.sortorder,selCh)); %indexy vybranych kanalu v sortorder
-                       chn2 = iselCh(find(iselCh>obj.plotRCh.ch,1)); %dalsi vyznaceny kanal
-                       obj.PlotResponseCh( iff(isempty(chn2),obj.plotRCh.ch,chn2) ); %prekreslim grafy                        
-                   end                   
-               case {'numpad4','a'}     % skok na predchozi oznaceny kanal
-                   if isfield(obj.plotRCh,'selCh')
-                       selCh = find(any(obj.plotRCh.selCh,2)); %seznam cisel vybranych kanalu
-                       iselCh = find(ismember(obj.CH.sortorder,selCh)); %indexy vybranych kanalu v sortorder
-                       chn2 =  iselCh(find(iselCh < obj.plotRCh.ch,1,'last')) ;
-                       obj.PlotResponseCh( iff(isempty(chn2),obj.plotRCh.ch,chn2) ); %prekreslim grafy
-                   end
-               case {'numpad9','e'}     % skok na dalsi kanal s nejakou signifikanci
-                   chsignif = obj.ChannelsSignif();
-                   chn2 = chsignif(find(chsignif>obj.plotRCh.ch,1)); %nasledujici signif kanaly
-                   obj.PlotResponseCh( iff(isempty(chn2),obj.plotRCh.ch,chn2) ); %prekreslim grafy  
-               case {'numpad7','q'}     % skok na predchozi kanal s nejakou signifikanci
-                   chsignif = obj.ChannelsSignif(); %seznam  kanalu s nejakou signifikanci
-                   chn2 = chsignif(find(chsignif<obj.plotRCh.ch,1,'last')); %nasledujici signif kanaly
-                   obj.PlotResponseCh( iff(isempty(chn2),obj.plotRCh.ch,chn2) ); %prekreslim grafy 
-               case {'numpad8','w'}     % zvyseni cisla aktivni statistiky  
-                   if numel(obj.Wp)> obj.WpActive
-                       obj.WpActive = obj.WpActive + 1;
-                       obj.PlotResponseCh();                       
-                   end
-               case {'numpad5','s'}     % snizeni cisla aktivni statistiky 
-                   if obj.WpActive > 1
-                       obj.WpActive = obj.WpActive - 1;
-                       obj.PlotResponseCh();
-                   end
-               case 'period'     % prepinani razeni kanalu
-                   sortorder0 = obj.CH.sortorder; %musi si ulozit stare razeni, abych potom nasel ten spravny kanal
-                   obj.CH.NextSortChOrder();                   
-                   obj.PlotResponseCh(find(obj.CH.sortorder==sortorder0(obj.plotRCh.ch))); %#ok<FNDSB> %takhle zustanu na tom stejnem kanale 
+                        end
+                    end
+                    obj.PlotResponseCh( obj.plotRCh.ch); %prekreslim grafy
+                case {'divide','slash'} %lomeno na numericke klavesnici - automaticke meritko na ose y
+                    obj.plotRCh.ylim = obj.plotRCh.range; %spocitalo se pri volani PlotResponseCh
+                    obj.PlotResponseCh( obj.plotRCh.ch); %prekreslim grafy
+                case 'space' %zobrazi i prumerne krivky - vsechny epochy a vsechny frekvence
+                    if isa(obj,'CHilbert'), obj.PlotResponseFreq(obj.plotRCh.ch,obj.Wp(obj.WpActive).kats); end %vykreslim vsechna frekvencni pasma
+                    obj.PlotEpochs(obj.plotRCh.ch,obj.Wp(obj.WpActive).kats); %vykreslim prumery freq u vsech epoch
+                    figure(obj.plotRCh.fh); %dam puvodni obrazek dopredu
+                case 'return' %zobrazi obrazek mozku s vybranych kanalem                      
+                    if isprop(obj,'label') && ~isempty(obj.label), label = obj.label; else, label = ''; end
+                    obj.CH.ChannelPlot2D(obj.plotRCh.ch,obj.plotRCh,@obj.PlotResponseCh,label);  %vykreslim obrazek mozku s vybranym kanalem
+                    figure(obj.plotRCh.fh); %dam puvodni obrazek dopredu
+                case {'add' ,  'equal','f'}     % + oznaceni kanalu
+                    obj.SelChannel(obj.CH.sortorder(obj.plotRCh.ch));
+                    obj.PlotResponseCh( obj.plotRCh.ch); %prekreslim grafy
+                case {'g','h'}     % + oznaceni kanalu Mark 2-6
+                    obj.SelChannel(obj.CH.sortorder(obj.plotRCh.ch),eventDat.Key - 'f' +1 ); %g je 2, f je 1
+                    obj.PlotResponseCh( obj.plotRCh.ch); %prekreslim grafy
+                case {'j','k','l'}     % + oznaceni kanalu Mark 2-6
+                    obj.SelChannel(obj.CH.sortorder(obj.plotRCh.ch),eventDat.Key - 'f' ); %g je 2, f je 1
+                    obj.PlotResponseCh( obj.plotRCh.ch); %prekreslim grafy
+                case {'numpad6','d'}     % skok na dalsi oznaceny kanal   
+                    if isfield(obj.plotRCh,'selCh')
+                        selCh = find(any(obj.plotRCh.selCh,2)); %seznam cisel vybranych kanalu
+                        iselCh = find(ismember(obj.CH.sortorder,selCh)); %indexy vybranych kanalu v sortorder
+                        chn2 = iselCh(find(iselCh>obj.plotRCh.ch,1)); %dalsi vyznaceny kanal
+                        obj.PlotResponseCh( iff(isempty(chn2),obj.plotRCh.ch,chn2) ); %prekreslim grafy                        
+                    end                   
+                case {'numpad4','a'}     % skok na predchozi oznaceny kanal
+                    if isfield(obj.plotRCh,'selCh')
+                        selCh = find(any(obj.plotRCh.selCh,2)); %seznam cisel vybranych kanalu
+                        iselCh = find(ismember(obj.CH.sortorder,selCh)); %indexy vybranych kanalu v sortorder
+                        chn2 =  iselCh(find(iselCh < obj.plotRCh.ch,1,'last')) ;
+                        obj.PlotResponseCh( iff(isempty(chn2),obj.plotRCh.ch,chn2) ); %prekreslim grafy
+                    end
+                case {'numpad9','e'}     % skok na dalsi kanal s nejakou signifikanci
+                    chsignif = obj.ChannelsSignif();
+                    chn2 = chsignif(find(chsignif>obj.plotRCh.ch,1)); %nasledujici signif kanaly
+                    obj.PlotResponseCh( iff(isempty(chn2),obj.plotRCh.ch,chn2) ); %prekreslim grafy  
+                case {'numpad7','q'}     % skok na predchozi kanal s nejakou signifikanci
+                    chsignif = obj.ChannelsSignif(); %seznam  kanalu s nejakou signifikanci
+                    chn2 = chsignif(find(chsignif<obj.plotRCh.ch,1,'last')); %nasledujici signif kanaly
+                    obj.PlotResponseCh( iff(isempty(chn2),obj.plotRCh.ch,chn2) ); %prekreslim grafy 
+                case {'numpad8','w'}     % zvyseni cisla aktivni statistiky  
+                    if numel(obj.Wp)> obj.WpActive
+                        obj.WpActive = obj.WpActive + 1;
+                        obj.PlotResponseCh();                       
+                    end
+                case {'numpad5','s'}     % snizeni cisla aktivni statistiky 
+                    if obj.WpActive > 1
+                        obj.WpActive = obj.WpActive - 1;
+                        obj.PlotResponseCh();
+                    end
+                case 'period'     % prepinani razeni kanalu
+                    sortorder0 = obj.CH.sortorder; %musi si ulozit stare razeni, abych potom nasel ten spravny kanal
+                    obj.CH.NextSortChOrder();                   
+                    obj.PlotResponseCh(find(obj.CH.sortorder==sortorder0(obj.plotRCh.ch))); %#ok<FNDSB> %takhle zustanu na tom stejnem kanale 
                case 'r' %roc krivka
                    obj.CS.AUCPlot(obj.plotRCh.ch,obj);
 %                    obj.CH.SaveAUCPlotHandle(@obj.CS.AUCPlot); %ulozim soucasne handle na AUCPlot funkci
                    figure(obj.plotRCh.fh); %dam puvodni obrazek dopredu
-               otherwise
-                   disp(['You just pressed: ' eventDat.Key]);
-           end
+                otherwise
+                    disp(['You just pressed: ' eventDat.Key]);
+            end
         end
         
         function obj = hybejPlotEpochs(obj,~,eventDat)

@@ -406,7 +406,7 @@ classdef CHilbertMulti < CHilbert
             %parametr loadall se hodi pro FE data se vsemi ulozenymi epochami, ktere jsou giganticke
             
             if ~exist('onlyself','var') || onlyself == 0
-                assert(exist(CHilbert.filenameH(filename),'file')==2, ['soubor s daty CHilbert neexistuje:' char(10) CHilbert.filenameE(filename) char(10) 'mozna se jedna o data tridy CiEEGData?']);    
+                assert(exist(CHilbert.filenameH(filename),'file')==2, ['soubor s daty CHilbert neexistuje:' char(10) CHilbert.filenameH(filename) char(10) 'mozna se jedna o data tridy CiEEGData?']);    
                 Load@CHilbert(obj,CHilbert.filenameH(filename));  
             end
             if exist(CHilbertMulti.filenameM(filename),'file')                
