@@ -479,18 +479,26 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             obj.SetFilterMatrix(filterMatrix); %uchovam si filterMatrix na pozdeji, kvuli prepoctu RjEpochCh
         end
         function obj = SortChannels(obj,by)
-            %seradi kanaly podle vybrane MNI souradnice a ulozi do sortorder
-            if ~exist('by','var')
-                obj.sortorder = 1:numel(obj.H.channels);
+            %seradi kanaly podle vybrane MNI souradnice a ulozi do sortorder                        
+            if isfield(obj.plotCh2D,'chshow') 
+                chshow = obj.plotCh2D.chshow; %indexy aktualne vybranych kanalu
+            else
+                chshow = 1:numel(obj.H.channels); %seznam vsech kanalu
+            end
+            if ~exist('by','var')                
+                obj.sortorder = chshow;                
                 obj.sortedby = '';
             elseif strcmp(by,'x')
-                [~,obj.sortorder]=sort([obj.H.channels(:).MNI_x]);                
+                [~,sortorder]=sort([obj.H.channels(chshow).MNI_x]);                
+                obj.sortorder = chshow(sortorder);
                 obj.sortedby = 'x';
             elseif strcmp(by,'y')
-                [~,obj.sortorder]=sort([obj.H.channels(:).MNI_y]);                
+                [~,sortorder]=sort([obj.H.channels(chshow).MNI_y]);                
+                obj.sortorder = chshow(sortorder);
                 obj.sortedby = 'y';
             elseif strcmp(by,'z')
-                [~,obj.sortorder]=sort([obj.H.channels(:).MNI_z]); 
+                [~,sortorder]=sort([obj.H.channels(chshow).MNI_z]); 
+                obj.sortorder = chshow(sortorder);
                 obj.sortedby = 'z';
             else
                 disp(['nezname razeni podle ' by]); 
@@ -522,10 +530,15 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     obj.plotCh2D.chshowstr = cell2str(chlabels);
                 end
                 obj.plotCh2D.chshow = find(iL); %vyber kanalu k zobrazeni       
+                obj.sortorder = obj.plotCh2D.chshow; %defaultni sort order pro tento vyber - nejsou tam cisla od 1 to n, ale cisla kanalu
+                disp(['zobrazeno ' num2str(numel(obj.plotCh2D.chshow)) ' kanalu']);
             else
                 obj.plotCh2D.chshow = 1:numel(obj.H.channels);
                 obj.plotCh2D.chshowstr = '';
+                obj.sortorder = 1:numel(obj.H.channels); %defaultni sort order pro vsechny kanaly
+                disp(['zobrazeny vsechny kanalu']);
             end
+            
         end
     end
     

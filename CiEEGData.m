@@ -1185,10 +1185,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 obj.plotRCh.pvalue = pvalue;
             end
             if ~exist('ch','var')
-                if ~isempty(obj.CH.plotCh2D) && ~isempty(obj.CH.plotCh2D.chshow)
-                    ch = obj.CH.plotCh2D.chshow(1);
-                    obj.plotRCh.ch = ch;
-                elseif isfield(obj.plotRCh,'ch')
+                if isfield(obj.plotRCh,'ch') && ~isempty(obj.plotRCh.ch)
                     ch = obj.CH.sortorder(obj.plotRCh.ch); %vytahnu cislo kanalu podle ulozeneho indexu
                 else
                     ch = obj.CH.sortorder(1); %prvni kanal podle sortorder
@@ -1443,8 +1440,8 @@ classdef CiEEGData < matlab.mixin.Copyable
             if isprop(obj,'label') && ~isempty(obj.label)
                 text(-0.1,ymax*.78,strrep(obj.label,'_','\_'), 'FontSize', 10,'Color','blue'); 
             end            
-            if ~isempty(obj.CH.plotCh2D) && ~isempty(obj.CH.plotCh2D.chshow) %% plot chshow
-                text(-0.1,ymax*.72, strcat('show:  ', mat2str(obj.CH.plotCh2D.chshow)), 'FontSize', 10);
+            if ~isempty(obj.CH.plotCh2D) && ~isempty(obj.CH.plotCh2D.chshow) && ~isempty(obj.CH.plotCh2D.chshowstr) %% plot chshow
+                text(-0.1,ymax*.72, ['show:  ' obj.CH.plotCh2D.chshowstr '=' mat2str(obj.CH.plotCh2D.chshow)], 'FontSize', 10);
             end
             methodhandle = @obj.hybejPlotCh;
             set(obj.plotRCh.fh,'KeyPressFcn',methodhandle);          
@@ -1799,52 +1796,20 @@ classdef CiEEGData < matlab.mixin.Copyable
            end
         end
         function obj = hybejPlotCh(obj,~,eventDat)  
-           %reaguje na udalosti v grafu PlotResponseCh
-            indnow = 0;
-            if ~isempty(obj.CH.plotCh2D) && ~isempty(obj.CH.plotCh2D.chshow)
-                [~,indnow] = min(abs(obj.plotRCh.ch - obj.CH.plotCh2D.chshow)); % take the closest index
-            end
+            %reaguje na udalosti v grafu PlotResponseCh            
             switch eventDat.Key
-                case {'rightarrow','c'} %dalsi kanal
-                    if indnow ~= 0
-                        indnext = min([indnow + 1 , numel(obj.CH.plotCh2D.chshow)]);
-                        obj.PlotResponseCh(obj.CH.plotCh2D.chshow(indnext));
-                    else
-                        obj.PlotResponseCh( min( [obj.plotRCh.ch + 1 , obj.channels]));
-                    end
+                case {'rightarrow','c'} %dalsi kanal                    
+                    obj.PlotResponseCh( min( [obj.plotRCh.ch + 1 , numel(obj.CH.sortorder)]));                    
                 case 'pagedown' %skok o 10 kanalu dopred
-                    if indnow ~= 0
-                        indnext = min([indnow + 10 , numel(obj.CH.plotCh2D.chshow)]);
-                        obj.PlotResponseCh(obj.CH.plotCh2D.chshow(indnext));
-                    else
-                        obj.PlotResponseCh( min( [obj.plotRCh.ch + 10 , obj.channels]));
-                    end
+                    obj.PlotResponseCh( min( [obj.plotRCh.ch + 10 , numel(obj.CH.sortorder)]));                    
                 case {'leftarrow','z'} %predchozi kanal
-                    if indnow ~= 0
-                        indnext = max([indnow - 1 , 1]);
-                        obj.PlotResponseCh(obj.CH.plotCh2D.chshow(indnext));
-                    else
-                        obj.PlotResponseCh( max( [obj.plotRCh.ch - 1 , 1]));
-                    end
+                    obj.PlotResponseCh( max( [obj.plotRCh.ch - 1 , 1]));                    
                 case 'pageup' %skok 10 kanalu dozadu
-                    if indnow ~= 0
-                        indnext = max([indnow - 10, 1]);
-                        obj.PlotResponseCh(obj.CH.plotCh2D.chshow(indnext));
-                    else
-                        obj.PlotResponseCh( max( [obj.plotRCh.ch - 10 , 1]));
-                    end
+                    obj.PlotResponseCh( max( [obj.plotRCh.ch - 10 , 1]));                    
                 case 'home' %skok na prvni kanal
-                    if indnow ~= 0
-                        obj.PlotResponseCh(obj.CH.plotCh2D.chshow(1));
-                    else
-                        obj.PlotResponseCh( 1);
-                    end
+                    obj.PlotResponseCh( 1);                    
                 case 'end' %skok na posledni kanal
-                    if indnow ~= 0
-                        obj.PlotResponseCh(obj.CH.plotCh2D.chshow(end));
-                    else
-                        obj.PlotResponseCh( obj.channels);
-                    end
+                    obj.PlotResponseCh( numel(obj.CH.sortorder));                    
                 case {'multiply','8'} %hvezdicka na numericke klavesnici, nebo hvezdicka nad osmickou
                     %dialog na vlozeni minima a maxima osy y
                     answ = inputdlg('Enter ymax and min:','Yaxis limits', [1 50],{num2str(obj.plotRCh.ylim)});
