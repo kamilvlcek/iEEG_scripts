@@ -3,7 +3,7 @@ classdef CStat < handle
     %   Kamil Vlcek, FGU AVCR, since 2016 06
     
     properties   (Access = public) 
-        plotAUC % data k auc plotu
+        plotAUC % data k auc plotu , Eh je odkaz na celou instanci CiEEGData
         plotAUC_m; %data k aucplotM plotu
     end
     
@@ -280,10 +280,13 @@ classdef CStat < handle
             end
             [~,chsort] = sort(chmax, 'descend');
             obj.plotAUC_m.chsort = chsort;
+            obj.plotAUC_m.chmax = chmax; %ulozim i hodnoty, asi nemuzu ukladat pro vsechny kanaly, protoze pak by neplatilo chsort
+        end
+        function AUCPlotBrain(obj)
+            obj.plotAUC.Eh.CH.ChannelPlot('h',0,obj.plotAUC_m.chmax,obj.plotAUC_m.channels);
         end
     end
-    methods (Static,Access = public)
-        
+    methods (Static,Access = public)        
         function W = Wilcox2D(A,B,print,fdr,msg,RjEpChA,RjEpChB)
             %Wilcox2D(A,B,print,fdr,msg,RjEpChA,RjEpChB)
             %srovna dve 3D matice proti sobe, ohledne hodnot v poslednim rozmeru

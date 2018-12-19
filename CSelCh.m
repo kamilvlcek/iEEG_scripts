@@ -27,7 +27,7 @@ classdef CSelCh < matlab.mixin.Copyable
             if isa(selCh,'CiEEGData')
                 %muzu predat jako parametr celou tridu CM aj, data z nim ziskam sam
                 E = selCh;
-                selCh = E.GetSelCh();
+                selCh = E.GetSelCh(); %vraci E.plotRCh.selCh
                 filename = E.filename;
                 if isprop(E,'label')
                     katstr = E.label; 
@@ -138,7 +138,7 @@ classdef CSelCh < matlab.mixin.Copyable
             %nacte CM soubor a zobrazi vcetne BrainPlotu
             CM = CHilbertMulti(obj.selCh{n,1}); 
             CM.PlotResponseCh();
-            CM.CH.ChannelPlot2D(1,obj.selCh{n,2},@CM.PlotResponseCh,obj.selCh{n,3}); %vlozim i label jako posledni parametr
+            CM.CH.ChannelPlot2D(1,CM.plotRCh,@CM.PlotResponseCh,obj.selCh{n,3}); %vlozim i label jako posledni parametr
         end
         function [ChNames,ChVals,ChLabels,ChNum,Intervals] = GetTables(obj,selCh,chlabels,notchnlabels,sort,normalize)
             %TODO - k selCh to bude chtit jeste parametr katstr, abych mel data napr jen z SceneXFace nebo SceneXObject
