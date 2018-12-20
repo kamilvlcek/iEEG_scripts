@@ -211,8 +211,8 @@ classdef CStat < handle
             if isfield(obj.plotAUC_m,'fh') && (verLessThan('matlab','9.0') || isvalid(obj.plotAUC_m.fh)) %isvalid je od verze 2016
                figure(obj.plotAUC_m.fh); %pouziju uz vytvoreny graf
                clf(obj.plotAUC_m.fh); %graf vycistim
-               figurenew = 0;
-               selchReal = obj.plotAUC_m.chsort(selch); %je vybrany kanal podle velikosti AUC krivky
+               figurenew = 0;              
+               selchReal = obj.plotAUC_m.chsort(selch); %je vybrany kanal podle velikosti AUC krivky               
             else                                  
                obj.plotAUC_m.fh = figure('Name','AUC for multiple channels');
                figurenew = 1;
@@ -526,6 +526,9 @@ classdef CStat < handle
                     selch = max(1,obj.plotAUC_m.selch-10);                    
                 case 'pagedown' %predchozi kanal v poradi
                     selch = min(numel(obj.plotAUC_m.channels),obj.plotAUC_m.selch+10);   
+                case 'return' %zobrazeni mozku
+                    obj.AUCPlotBrain(); 
+                    selch = max(1,obj.plotAUC_m.selch); %musim neco priradit - puvodni kanal, ale ne 0
                 otherwise     
                     kresli = 0;
             end
