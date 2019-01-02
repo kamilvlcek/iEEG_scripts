@@ -234,7 +234,7 @@ classdef CStat < handle
                         AUC = obj.plotAUC.aucdata(channels(ch)).AUC{k,l};
                         X = linspace(obj.plotAUC.time(1),obj.plotAUC.time(2),size(AUC,1));                                             
                         if obj.plotAUC.sig(channels(ch),obj.plotAUC.setup.legendkomb(k,l)) && sig(ch) %nechci mit true u dodatecne pocitanych kanalu (ROCAnalysis kousek vyse)                            
-                            legenda{ileg} = ['ch' num2str(channels(ch))];
+                            legenda{ileg} = ['ch' num2str(channels(ch)) ' ' obj.plotAUC.Eh.CH.H.channels(channels(ch)).name];
                             style = iff(any(AUC(:,2)>0.75) || any(AUC(:,3)<0.25),'o-','.-');
                             LineWidth = iff(ch==selchReal,3,1); %vybrany kanal je nakresleny tluste
                             ploth(ileg) = plot(X,AUC(:,1),style,'Color',ColorSet(ileg,:),'LineWidth',LineWidth); %kazdy kanal jinou barvou, pokud budu kreslit vic krivek pro jeden kanal, bude to asi zmatek
@@ -283,7 +283,7 @@ classdef CStat < handle
             obj.plotAUC_m.chmax = chmax; %ulozim i hodnoty, asi nemuzu ukladat pro vsechny kanaly, protoze pak by neplatilo chsort
         end
         function AUCPlotBrain(obj)
-            obj.plotAUC.Eh.CH.ChannelPlot('h',0,obj.plotAUC_m.chmax,obj.plotAUC_m.channels);
+            obj.plotAUC.Eh.CH.ChannelPlot('h',0,abs(obj.plotAUC_m.chmax)+.5,obj.plotAUC_m.channels); %chmax jsou hodnoty -.5 az .5. Chci zobrazovat negativni rozliseni jako pozitivni
         end
     end
     methods (Static,Access = public)        

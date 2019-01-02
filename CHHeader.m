@@ -118,7 +118,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             for p=1:numel(params) %parametry, ktere se ukladaji do obj.plotCh3D
                 if ~exist(params{p},'var') || eval(['isempty(' params{p} ')'])
                     if isfield(obj.plotCh3D,params{p})
-                        eval([ params{p} ' = obj.plotCh3D.' params{p}]); 
+                        eval([ params{p} ' = obj.plotCh3D.' params{p} ';']); 
                     else
                         switch params{p}
                             case 'labels'
@@ -130,18 +130,18 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                         end
                     end
                 else
-                    eval(['obj.plotCh3D.' params{p} ' = ' params{p}]);
+                    eval(['obj.plotCh3D.' params{p} ' = ' params{p} ';']);
                 end
             end           
            
             assert(numel(chnvals) == numel(chnsel), 'unequal size of chnvals and chnsel');
             nblocks = numel(chnvals); %pocet barev bude odpovidat poctu kanalu
             cmap = parula(nblocks+1); %+1 protoze hodnoty se budou zaokrouhlovat nahoru nebo dolu
-            chnvals = chnvals - min(chnvals); % normalization
-            chnvals = chnvals / max(chnvals); % normalization
-            chnvals(isnan(chnvals)) = 0; % in case of all zeros
-            clrs = cmap(round(nblocks*chnvals)+1, :); % color values
-            sizes = 20+200*chnvals;
+            chnvalsN = chnvals - min(chnvals);
+            chnvalsN = chnvalsN/max(chnvalsN); % normalization            
+            chnvals(isnan(chnvalsN)) = 0; % in case of all zeros
+            clrs = cmap(round(nblocks*chnvalsN)+1, :); % color values
+            sizes = 20+200*chnvalsN;
             if isfield(obj.H.channels,'MNI_x')
                 if isfield(obj.plotCh3D,'fh') && ishandle(obj.plotCh3D.fh)
                     figure(obj.plotCh3D.fh); %pouziju uz vytvoreny graf
@@ -211,7 +211,10 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     scatter3(GMSurfaceMesh.node(:,1),GMSurfaceMesh.node(:,2),GMSurfaceMesh.node(:,3),'.','MarkerEdgeAlpha',.2);
                 end
                 
-                if(max(chnvals)>0), colorbar; end %barevna skala, jen pokud jsou ruzne hodnoty kanalu
+                if(max(chnvals)>0)
+                    colorbar; 
+                    caxis([min(chnvals) max(chnvals)]); 
+                end %barevna skala, jen pokud jsou ruzne hodnoty kanalu
                 axis equal; 
                 %load('WMSurfaceMesh.mat');
                 %scatter3(WMSurfaceMesh.node(:,1),WMSurfaceMesh.node(:,2),WMSurfaceMesh.node(:,3),'.','MarkerEdgeAlpha',.1);
@@ -626,7 +629,10 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             load('GMSurfaceMesh.mat');            
             for d = 1:3
                 stred = min(GMSurfaceMesh.node(:,d)) + range(GMSurfaceMesh.node(:,d))/2;                
-                if ~isfield(obj.plotCh3D,'BrainBoundaryXYZ') || isempty(obj.plotCh3D.BrainBoundaryXYZ(d))
+                if ~isfield(obj.plotCh3D,'BrainBoundaryXYZ') || numel(obj.plotCh3D.BrainBoundaryXYZ) < 3
+                    obj.plotCh3D.BrainBoundaryXYZ = cell(3,1);
+                end
+                if isempty(obj.plotCh3D.BrainBoundaryXYZ{d})
                     obj.plotCh3D.BrainBoundaryXYZ{d} = boundary(GMSurfaceMesh.node(:,dimenze(d,1)),GMSurfaceMesh.node(:,dimenze(d,2))); %spocitam si 3d hranici mozku                
                 end
                 XYZ = zeros(numel(obj.plotCh3D.BrainBoundaryXYZ{d}),3);
@@ -783,7 +789,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                   end
               end
               if ~isempty(chns_mni)
-                  [ch,d] = dsearchn(chns_mni,[x y]); %najde nejblizsi kanal a vzdalenost k nemu                   
+                  [ch,~] = dsearchn(chns_mni,[x y]); %najde nejblizsi kanal a vzdalenost k nemu                   
                   obj.ChannelPlot2D(find(obj.sortorder==ch)); %#ok<FNDSB>   
                   if isfield(obj.plotCh2D,'plotChH')
                     obj.plotCh2D.plotChH(obj.plotCh2D.chsel); %vykreslim @obj.PlotResponseCh  
