@@ -108,13 +108,14 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             end
             ch = 0;
         end
-        function [XYZ,obj] = ChannelPlot(obj,pohled,labels,chnvals,chnsel,XYZ2)
+        function [XYZ,obj] = ChannelPlot(obj,pohled,labels,chnvals,chnsel,selch,XYZ2)
             %zobrazi 3D obrazek elektrod v MNI prostoru. Obrazek ma rozmery podle rozmeru mozku
             %pohled muze urcti smer pohledu s-sagital,c-coronal,h-horizontal
             %chnsel jsou cisla kanalu, pokud chci jen jejich vyber
+            %selch je jedno zvyraznene cislo kanalu
             if ~exist('pohled','var') || isempty(pohled), pohled = ''; end            
             
-            params = {'labels','chnvals','chnsel'}; %zkusim hromadne zpracovani parametru touhle nedoporucovanou metodou
+            params = {'labels','chnvals','chnsel','selch'}; %zkusim hromadne zpracovani parametru touhle nedoporucovanou metodou
             for p=1:numel(params) %parametry, ktere se ukladaji do obj.plotCh3D
                 if ~exist(params{p},'var') || eval(['isempty(' params{p} ')'])
                     if isfield(obj.plotCh3D,params{p})
@@ -127,6 +128,8 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                                 chnvals = zeros(1, numel(obj.H.channels)); %default same nuly
                             case 'chnsel'
                                 chnsel = []; %default vsechny kanaly
+                            case 'selch'
+                                selch = []; %default vsechny kanaly
                         end
                     end
                 else
@@ -179,6 +182,9 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 end               
                 scatter3([XYZ.X],[XYZ.Y],[XYZ.Z],sizes(isizes),clrs(isizes,:),'filled'); %ruzne velke a barevne krouzky vsech kanalu najednou
                
+                if ~isempty(selch)
+                    scatter3(XYZ.X(selch),XYZ.Y(selch),XYZ.Z(selch),max(sizes),[0 0 0]);
+                end
                 if exist('XYZ2','var')
                     plot3([XYZ2.X],[XYZ2.Y],[XYZ2.Z],'o-','MarkerSize',5,'MarkerEdgeColor','r','MarkerFaceColor','r','LineWidth',2);    
                 end
@@ -190,6 +196,8 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     case ''
                         if isfield(obj.plotCh3D,'view')
                             view(obj.plotCh3D.view); 
+                        else
+                            view([0 0 1]); %shora - pokud neni zadny ulozeny
                         end
                     case 's' %sagital = levoprava
                         view([-1 0 0]); %zleva
@@ -215,9 +223,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     colorbar; 
                     caxis([min(chnvals) max(chnvals)]); 
                 end %barevna skala, jen pokud jsou ruzne hodnoty kanalu
-                axis equal; 
-                %load('WMSurfaceMesh.mat');
-                %scatter3(WMSurfaceMesh.node(:,1),WMSurfaceMesh.node(:,2),WMSurfaceMesh.node(:,3),'.','MarkerEdgeAlpha',.1);
+                axis equal;                 
                 
                 %rozhybani obrazku            
                 set(obj.plotCh3D.fh,'KeyPressFcn',@obj.hybejPlot3D);
@@ -696,6 +702,13 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                          obj.plotCh3D.boundary  = 1 - obj.plotCh3D.boundary;
                      else
                          obj.plotCh3D.boundary  = 1;
+                     end
+                     obj.ChannelPlot();
+                  case 'l'
+                     if isfield(obj.plotCh3D,'labels') %prepinac neurology labels v grafu
+                         obj.plotCh3D.labels  = 1 - obj.plotCh3D.labels;
+                     else
+                         obj.plotCh3D.labels  = 1;
                      end
                      obj.ChannelPlot();
               end

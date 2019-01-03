@@ -136,9 +136,13 @@ classdef CSelCh < matlab.mixin.Copyable
         end
         function CM = BrainPlot(obj,n)
             %nacte CM soubor a zobrazi vcetne BrainPlotu
-            CM = CHilbertMulti(obj.selCh{n,1}); 
+            CM = CHilbertMulti(obj.selCh{n,1});             
             CM.PlotResponseCh();
             CM.CH.ChannelPlot2D(1,CM.plotRCh,@CM.PlotResponseCh,obj.selCh{n,3}); %vlozim i label jako posledni parametr
+            disp([ 'loaded: ' obj.selCh{n,3} ]); %vypisu co jsem vlastne nahral
+        end
+        function GetInfo(obj,n)
+            fprintf('line %i with %i channels: %s \n', n, numel(obj.selCh{n,5}), obj.selCh{n,3} ); %vypisu co jsem vlastne nahral
         end
         function [ChNames,ChVals,ChLabels,ChNum,Intervals] = GetTables(obj,selCh,chlabels,notchnlabels,sort,normalize)
             %TODO - k selCh to bude chtit jeste parametr katstr, abych mel data napr jen z SceneXFace nebo SceneXObject

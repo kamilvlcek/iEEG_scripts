@@ -203,8 +203,7 @@ classdef CStat < handle
             end
             sig = obj.plotAUC.sig(channels,logical(obj.plotAUC.katplot)); %index kanalu se signifik auc krivkami ke kresleni
             
-            legenda = cell(1,sum(sig));            
-            ileg = 1; %specialni index na signif kanaly - legendu a barvy
+            legenda = cell(1,sum(sig));                        
             ColorSet = distinguishable_colors(sum(sig)); %ruzne barvy pro ruzne kanaly
             ploth = zeros(1,sum(sig)); %handly na ploty, kvuli selektivni legende            
                         
@@ -221,7 +220,8 @@ classdef CStat < handle
             
             if exist('chSelection','var'), ChSelText = [' chnls: ' cell2str(obj.plotAUC.selChNames{chSelection}) ]; else, ChSelText = ''; end
             figuretitle= ['AUCPlotM kontrast: ' obj.plotAUC.katnames{find(obj.plotAUC.katplot)}  ChSelText   ]; %#ok<FNDSB>
-            if figurenew, disp(figuretitle); end
+            if figurenew, disp(figuretitle); end            
+            ileg = 1; %specialni index na signif kanaly - legendu a barvy            
             for ch = 1:numel(channels)                
                 if channels(ch) > numel(obj.plotAUC.aucdata) || isempty( obj.plotAUC.aucdata(channels(ch)).AUC)                     
                     obj.ROCAnalysis(obj.plotAUC.Eh,channels(ch),obj.plotAUC.time,obj.plotAUC.kategories);                                        
@@ -238,15 +238,14 @@ classdef CStat < handle
                             style = iff(any(AUC(:,2)>0.75) || any(AUC(:,3)<0.25),'o-','.-');
                             LineWidth = iff(ch==selchReal,3,1); %vybrany kanal je nakresleny tluste
                             ploth(ileg) = plot(X,AUC(:,1),style,'Color',ColorSet(ileg,:),'LineWidth',LineWidth); %kazdy kanal jinou barvou, pokud budu kreslit vic krivek pro jeden kanal, bude to asi zmatek
-                            if ch==selchReal, selchH = ploth(ileg); end
-                            ileg = ileg + 1;                            
-                        else  
-                            style = iff(ch==selchReal,'.-','.:'); %ybrany kanal neni teckovane
-                            ph = plot(X,AUC(:,1),style,'Color',[.5 .5 .5]);
+                            if ch==selchReal, selchH = ploth(ileg); end                                                        
+                            ileg = ileg + 1;
+                        else  %nesignif  auc krivka
+                            style = iff(ch==selchReal,'.-','.:'); %ybrany kanal neni teckovane, ostani ano
+                            ph = plot(X,AUC(:,1),style,'Color',[.5 .5 .5]); %seda barva
                             if ch==selchReal, selchH = ph; end
                         end
-                        hold on;                        
-                        
+                        hold on;                                                
                     end
                 end
                 end
@@ -254,7 +253,9 @@ classdef CStat < handle
             line([X(1) X(end)],[.5 .5]);             
             if selch>0 %kdyz poprve graf vykreslim, neni zadny vybrany kanal
                 uistack(selchH, 'top');  %vybrany kanal dam na popredi
-                text(.05,.9,['ch: ' num2str(channels(selchReal)) '(' num2str(selch) ')']);
+                txt = sprintf('ch: %i(%i), %s: %s, %s',channels(selchReal),selch, obj.plotAUC.Eh.CH.H.channels(channels(selchReal)).name, ...
+                    obj.plotAUC.Eh.CH.H.channels(channels(selchReal)).neurologyLabel,obj.plotAUC.Eh.CH.H.channels(channels(selchReal)).ass_brainAtlas );
+                text(.05,.1,txt);
             end
             legenda = legenda(~cellfun('isempty',legenda)); %ymazu prazdne polozky, ktere se nevykresluji
             legend(ploth,legenda);
@@ -282,8 +283,9 @@ classdef CStat < handle
             obj.plotAUC_m.chsort = chsort;
             obj.plotAUC_m.chmax = chmax; %ulozim i hodnoty, asi nemuzu ukladat pro vsechny kanaly, protoze pak by neplatilo chsort
         end
-        function AUCPlotBrain(obj)
-            obj.plotAUC.Eh.CH.ChannelPlot('h',0,abs(obj.plotAUC_m.chmax)+.5,obj.plotAUC_m.channels); %chmax jsou hodnoty -.5 az .5. Chci zobrazovat negativni rozliseni jako pozitivni
+        function AUCPlotBrain(obj,selch)
+            obj.plotAUC.Eh.CH.ChannelPlot([],0,abs(obj.plotAUC_m.chmax)+.5,obj.plotAUC_m.channels,... %chmax jsou hodnoty -.5 az .5. Chci zobrazovat negativni rozliseni jako pozitivni
+                obj.plotAUC_m.channels(obj.plotAUC_m.chsort(selch))); 
         end
     end
     methods (Static,Access = public)        
@@ -527,8 +529,8 @@ classdef CStat < handle
                 case 'pagedown' %predchozi kanal v poradi
                     selch = min(numel(obj.plotAUC_m.channels),obj.plotAUC_m.selch+10);   
                 case 'return' %zobrazeni mozku
-                    obj.AUCPlotBrain(); 
                     selch = max(1,obj.plotAUC_m.selch); %musim neco priradit - puvodni kanal, ale ne 0
+                    obj.AUCPlotBrain(selch);                     
                 otherwise     
                     kresli = 0;
             end
