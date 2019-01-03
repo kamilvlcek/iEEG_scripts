@@ -462,6 +462,62 @@ classdef CBrainPlot < matlab.mixin.Copyable
             xlsname = ['./logs/StructFind PAC_' testname '_' cell2str(struktura,1) '_' cell2str(label,1) '.xlsx'];
             writetable(struct2table(PAC), xlsname); %ulozimvysledek taky do xls
         end
+        function PAC = MNIFind(XYZ,distance,testname,reference)
+            if ~exist('testname','var') || isempty(testname), testname = 'aedist'; end %defaultni test
+            if ~exist('reference','var') || isempty(reference), reference = []; end %defaultni test  
+            [ pacienti, setup ] = pacienti_setup_load( testname );
+            PAC = {};
+            iPAC = 1;
+            for p = 1:numel(pacienti)
+                disp(['* ' pacienti(p).folder ' - ' pacienti(p).header ' *']);
+                hfilename = [setup.basedir pacienti(p).folder '\' pacienti(p).header];                
+                if exist(hfilename,'file')==2
+                    load(hfilename);
+                else
+                    disp(['header ' hfilename ' neexistuje']);
+                    continue; %zkusim dalsiho pacienta, abych vypsal, ktere vsechny headery neexistujou
+                end  
+                if ~isempty(reference)
+                    CH = CHHeader(H);
+                    CH.RejectChannels( pacienti(p).rjch); %musim vyradit vyrazene kanaly, protoze ty se vyrazuji v bipolarni referenci
+                    CH.ChangeReference(reference); %nove od 18.1.2018
+                    H = CH.H;
+                end
+                
+                % VLASTNI HLEDANI KANALU PRO AKTUALNIHO PACIENTA
+                MNI = [H.channels.MNI_x; H.channels.MNI_y; H.channels.MNI_z]';
+                V1 = bsxfun(@minus, MNI, XYZ); %odectu hledane souradnice od vektoru tohoto pacienta 
+                D1 = sqrt(sum(V1.^2, 2)); %vektor vzdalednosti
+                XYZ2 = [-XYZ(1) XYZ(2)  XYZ(3) ]; %druhy bod na druhe levoprave strane mozku                
+                V2 = bsxfun(@minus, MNI, XYZ2); %odectu hledane souradnice od vektoru tohoto pacienta 
+                D2 = sqrt(sum(V2.^2, 2)); %vektor vzdalednosti
+                
+                index = find(D1<distance | D2<distance); %index nalezenych kanalu v ramci tohoto pacienta
+                
+                %pokud jsem kanaly nevyradil uz pri zmene reference - vyrazuji se jen pri bipolarni
+                if isempty(reference) || reference ~= 'b' 
+                    indexvyradit = ismember(index, pacienti(p).rjch); %vyrazene kanaly tady nechci
+                    index(indexvyradit)=[]; 
+                end
+                
+                %vrati indexy radku ze struct array, ktere obsahuji v sloupci neurologyLabel substring struktura
+                for ii = 1:numel(index)                
+                    PAC(iPAC).pacient = pacienti(p).folder; %#ok<AGROW>
+                    PAC(iPAC).ch = index(ii); %#ok<AGROW>
+                    PAC(iPAC).name = H.channels(index(ii)).name; %#ok<AGROW>
+                    PAC(iPAC).neurologyLabel = H.channels(index(ii)).neurologyLabel; %#ok<AGROW>
+                    PAC(iPAC).ass_brainAtlas = H.channels(index(ii)).ass_brainAtlas;%#ok<AGROW>
+                    PAC(iPAC).ass_cytoarchMap = H.channels(index(ii)).ass_cytoarchMap; %#ok<AGROW>
+                    PAC(iPAC).MNI_x = H.channels(index(ii)).MNI_x; %#ok<AGROW>
+                    PAC(iPAC).MNI_y = H.channels(index(ii)).MNI_y; %#ok<AGROW>
+                    PAC(iPAC).MNI_z = H.channels(index(ii)).MNI_z; %#ok<AGROW>
+                    PAC(iPAC).MNIdist = min(D1(index(ii)),D2(index(ii))); %#ok<AGROW>
+                    iPAC = iPAC + 1;
+                end                
+            end
+            xlsname = ['./logs/MNIFind PAC_' testname '_mni' num2str(XYZ,'(%3.1f %3.1f %3.1f)') '_dist' num2str(distance) '.xlsx'];
+            writetable(struct2table(PAC), xlsname); %ulozimvysledek taky do xls
+        end
         function PAC = StructFindLoad(xlsfile,sheet)
             %nacteni struktury PAC z existujiciho xls souboru, napr po editaci radku            
              if ~exist('sheet','var'), sheet = 1; end %defaultni je prvni list

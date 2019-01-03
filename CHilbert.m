@@ -21,7 +21,7 @@ classdef CHilbert < CiEEGData
         function obj = CHilbert(d,tabs,fs,mults,header)            
             if ~exist('header','var'), header = []; end %nejakou hodnotu dat musim
             if ~exist('mults','var'),  mults = []; end %nejakou hodnotu dat musim
-            if ~exist('d','var') %konstruktor uplne bez parametru - kvuli CHilbertMulti
+            if ~exist('d','var') || isempty(d) %konstruktor uplne bez parametru - kvuli CHilbertMulti
                 d = []; tabs = []; fs = [];
             elseif ischar(d) && ~exist('fs','var') %pokud je prvni parametr retezec, tak ho beru jako nazev souboru, ktery nactu
                 fs = []; 

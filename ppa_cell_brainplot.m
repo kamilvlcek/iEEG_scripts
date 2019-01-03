@@ -20,8 +20,8 @@ PAC = CB.StructFind({},labelstofind,testname,iff(strcmp(reference,'refBipo'),'b'
 %% 2. PRACE S EXTRAKTY 
 CM = CHilbertMulti; %vytvorim tridu
 frekvence = '50-150Hz'; %15-31 
-label = 'PHGent'; % nazev exktraktu, pripoji s filename
-datum = '2018-09-14'; %dnesni datum - tak se pojmenuju vystupni souhrnny soubor
+label = 'ppaMNIBast'; % nazev exktraktu, pripoji s filename
+datum = '2019-01-03'; %dnesni datum - tak se pojmenuju vystupni souhrnny soubor
 datumEP = '2018-08'; %datum v nazvu nacitaneho souboru, napriklad Ep2018-08
 epochtime = '-0.2-0.8'; %'-0.5-1.2'
 M = containers.Map({'ppa','aedist','menrot'},{'PPA','Menrot','Aedist'});

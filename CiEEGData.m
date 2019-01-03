@@ -106,9 +106,10 @@ classdef CiEEGData < matlab.mixin.Copyable
             else
                 disp('no Wilcox stats');
             end
+            end %(nargin ~= 0)
+            %tyhle objekty potrebuju inicializovat i pokud je objekt prazdny - CHilbertMulti
             obj.PL = CPlots(); %prazdny objekt na grafy
-            obj.CS = CStat; %prazdy objekt na statistiku
-            end %(nargin ~= 0) 
+            obj.CS = CStat(); %prazdy objekt na statistiku             
         end
         
         function [samples, channels, epochs] = DSize(obj)
@@ -212,9 +213,11 @@ classdef CiEEGData < matlab.mixin.Copyable
             %nastaveni vsechny vybrane kanaly najednou
             if ~exist('markno','var'), markno = 1; end
             if isempty(selCh)
-                obj.plotRCh.selCh = zeros(obj.channels,6);                
+                obj.plotRCh.selCh = zeros(obj.channels,6);
+                obj.plotRCh.selChNames = cell(1,6); %potrebuju mit jmena alespon prazdna
             elseif selCh(end) >=999 %kdy zadam 999 nebo vyssi cislo, tak se vyberou vsechny kanaly
                 obj.plotRCh.selCh = zeros(obj.channels,6);
+                obj.plotRCh.selChNames = cell(1,6);
                 obj.plotRCh.selCh(:,1) = ones(obj.channels,1); %prvni mark nastavim vsude 1
             elseif selCh(1) <= -1
                 obj.plotRCh.selCh = double(~ obj.plotRCh.selCh); %zeros dela taky double type

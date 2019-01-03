@@ -112,7 +112,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             %zobrazi 3D obrazek elektrod v MNI prostoru. Obrazek ma rozmery podle rozmeru mozku
             %pohled muze urcti smer pohledu s-sagital,c-coronal,h-horizontal
             %chnsel jsou cisla kanalu, pokud chci jen jejich vyber
-            %selch je jedno zvyraznene cislo kanalu
+            %selch je jedno zvyraznene cislo kanalu - index v poli chnsel
             if ~exist('pohled','var') || isempty(pohled), pohled = ''; end            
             
             params = {'labels','chnvals','chnsel','selch'}; %zkusim hromadne zpracovani parametru touhle nedoporucovanou metodou
