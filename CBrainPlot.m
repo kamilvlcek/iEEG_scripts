@@ -201,17 +201,13 @@ classdef CBrainPlot < matlab.mixin.Copyable
             obj.EpiInfo = cell(size(BPD.EPI));
             for int = 1:size(BPD.EPI,1) %intervaly
                 for kat = 1:size(BPD.EPI,2) %kategorie   
-                    %tohle cele kvuli tomu, ze u nekterych kanalu neni ve struct ani 0 ani 1 ale [];
-                    seizureOnset = {BPD.EPI{int,kat}.seizureOnset}'; %prevedu na cell array, kde muze byt [] a je empty - pri prevodu na double se [] chybne preskoci
-                    interictalOften = {BPD.EPI{int,kat}.interictalOften}';
-                    inan = find(cellfun(@isempty,seizureOnset)); % kanaly u kterych neni epiinfo (kvuli tomu ze chybi v header)
-                    if ~isempty(inan) %u cell array se asi neda pouzit prazdny index
-                        seizureOnset{inan} = 0; %musim dat 0, protoze or | nefunguje pro nan 
-                        interictalOften{inan} = 0;
-                    end
-                    epiinfo = double(cell2mat(seizureOnset) | cell2mat(interictalOften)); %prevedu na double, protoze do logical se neda ulozit nan
-                    epiinfo(inan) = nan;
-                    obj.EpiInfo{int,kat} = epiinfo; %vrati 1 pokud je jedno nebo druhe 1                    
+                    obj.EpiInfo{int,kat} = nan(numel(BPD.EPI{int,kat}),1); %nan zustanou u tech, ktere nemaji epiinfo v headeru
+                    %po kanalech musim kvuli tomu, ze u nekterych kanalu neni ve struct ani 0 ani 1 ale [];
+                    for ch = 1:numel(BPD.EPI{int,kat})
+                        if ~isempty(BPD.EPI{int,kat}(ch).seizureOnset) % kanaly u kterych je epiinfo (nechybi v header)
+                            obj.EpiInfo{int,kat}(ch) = double(BPD.EPI{int,kat}(ch).seizureOnset | BPD.EPI{int,kat}(ch).interictalOften); %vrati 1 pokud je jedno nebo druhe 1   
+                        end
+                    end                   
                 end
             end
             obj.filename = BPD.filename;
