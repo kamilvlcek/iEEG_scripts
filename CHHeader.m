@@ -288,7 +288,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 obj.plotCh2D.label = label;
             end
             if ~isfield(obj.plotCh2D,'chseltop'), obj.plotCh2D.chseltop = 1; end %jestli se ma vybrany kanal zobrazovat na popredi ostatnych  - zlute kolecko
-            
+            if ~isfield(obj.plotCh2D,'names'), obj.plotCh2D.names = 1; end %jestli se maji vypisovat jmena kanalu
             %------------------------- vytvoreni figure -----------------------------------
             x = [obj.H.channels(:).MNI_x];
             y = [obj.H.channels(:).MNI_y];
@@ -331,9 +331,11 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             
             for ie = 1:numel(els)                
                 plot(x(els0(ie):els(ie)),y(els0(ie):els(ie)),'-o'); %plot kontaktu jedne elektrody
+                if obj.plotCh2D.names
                 for ch = els0(ie):els(ie)
-                    th = text(x(ch),y(ch),num2str(ch)); %cislo kazdeho kanalu
-                    th.FontSize = 8;
+                        th = text(x(ch),y(ch),num2str(ch)); %cislo kazdeho kanalu
+                        th.FontSize = 8;
+                end
                 end                              
             end
             if ~isempty(chsel) %pokud je vybrany nejaky kanal
@@ -378,10 +380,12 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             hold on;     
             for ie = 1:numel(els)                 
                 plot(y(els0(ie):els(ie)),z(els0(ie):els(ie)),'-o'); %plot kontaktu jedne elektrody
+                if obj.plotCh2D.names
                 for ch = els0(ie):els(ie)
                     th = text(y(ch),z(ch),num2str(ch));
                     th.FontSize = 8;
                 end                
+                end
             end  
             if ~isempty(chsel) %pokud je vybrany nejaky kanal
                 h_selection = plot(y(chsel),z(chsel),'o','MarkerSize',size_ch,'MarkerEdgeColor','y','MarkerFaceColor','y'); 
@@ -778,7 +782,9 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                   case 't' %vybrany kanal je zluty na popredi /pozadi
                       obj.plotCh2D.chseltop = 1-obj.plotCh2D.chseltop;
                       obj.ChannelPlot2D();
-                      
+                  case 'n' %vybrany kanal je zluty na popredi /pozadi
+                      obj.plotCh2D.names = 1-obj.plotCh2D.names;
+                      obj.ChannelPlot2D();    
 %                   case 'r' %zobrazi obrazek mozku s vybranych kanalem                   
 %                       obj.plotCh2D.plotAUCH(obj.plotCh2D.chsel); %vykreslim @obj.PlotResponseCh    %tady to hlasi error Undefined function or variable 'obj.CS.AUCPlot'. Jak to?                  
 %                       figure(obj.plotCh2D.fh); %dam puvodni obrazek dopredu     
