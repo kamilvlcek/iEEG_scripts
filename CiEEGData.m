@@ -664,18 +664,18 @@ classdef CiEEGData < matlab.mixin.Copyable
                disp(['neni vypocitana statistika']);
            end
         end
-        function [prumery, MNI,names,intervaly,katsnames,neurologyLabels] = IntervalyResp(obj, intervaly,channels,signum, dofig)
+        function [prumery, MNI,names,intervaly,katsnames,neurologyLabels,channelsOut] = IntervalyResp(obj, intervaly,channels,signum, dofig)
             %vypocita hodnoty v jednotlivych intervalech casu pro jednotlive kategorie i pro celkovy prumer       
             %vykresli graf pro kazdy interval do spolecneho plotu
             %vraci prumery [channels x intervaly x kategorie] a MNI(channels)    
-            %signum  = jestli chci jen kat1>kat2 (1), nebo obracene (-1), nebo vsechny (0)
+            %signum  = jestli chci jen vyssi kat> nizsi kat (1), nebo obracene (-1), nebo vsechny (0), podle poradi v kombinace a taky katsnames 4-6
             assert(isfield(obj.Wp(obj.WpActive), 'kats'),'musi byt definovany kategorie podnetu');
             assert(isfield(obj.Wp(obj.WpActive), 'WpKatBaseline'),'musi byt spocitana statistika kategorii');
             if ~exist('intervaly','var') || isempty(intervaly), intervaly = [0.1 obj.epochtime(2)]; end %defaultni epocha je cely interval
             if ~exist('channels','var') || isempty(channels) , channels = 1:obj.channels; end
             if ~exist('signum','var') || isempty(signum) , signum = 0; end %defaultne vraci hodnoty vetsi i mensi v prvni kat
             if ~exist('dofig','var'), dofig = 1; end %defaultne delam obrazek
-            [katsnames,kombinace,kats] = obj.GetKatsNames();                                
+            [katsnames,kombinace,kats] = obj.GetKatsNames();    %kombinace maji v kazdem radku vyssi cislo kategorie driv
 
             %spocitam dynamicky permutace vsech kategorii, pro ktere mam spocitanou statistiku                       
             prumery = zeros(numel(channels),size(intervaly,1),numel(kats)+size(kombinace,1));   % channels x intervaly x kategorie - celkova data a jednotlive kategorie            
@@ -732,7 +732,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 
                 yKombinace = ceil(max(Pmax)+0.5);
                 for kat = 1:size(kombinace,1) %cyklus pres vsechny kombinace kategorii
-                    [katdata1, ~, RjEpCh1] = obj.CategoryData(cellval(kats,kombinace(kat,1))); %time x channels x epochs 
+                    [katdata1, ~, RjEpCh1] = obj.CategoryData(cellval(kats,kombinace(kat,1))); %time x channels x epochs - prvni hlavni kategorie s vyssim cislem (diky poradi v kombinace)
                     [katdata2, ~, RjEpCh2] = obj.CategoryData(cellval(kats,kombinace(kat,2))); %druha vyssi kategorie, ktera se bude odecitat od te prvni
                     WpK = obj.Wp(obj.WpActive).WpKat{kombinace(kat,2),kombinace(kat,1)}(iintervalyStat(1):iintervalyStat(2),:); %statistika vsech kanalu
                     WpB = obj.Wp(obj.WpActive).WpKatBaseline{kombinace(kat,1),1}(iintervalyStat(1):iintervalyStat(2),:); %rozdil prvni kategorie vuci baseline
@@ -800,7 +800,8 @@ classdef CiEEGData < matlab.mixin.Copyable
                
             end 
             MNI = obj.CH.GetMNI(channels);
-            [names,neurologyLabels] = obj.CH.GetChNames(channels);            
+            [names,neurologyLabels] = obj.CH.GetChNames(channels); 
+            channelsOut = channels;
             assert(numel(MNI)==size(prumery,1),'MNI a prumery maji jiny pocet kanalu');
         end
         function SelChannelStat(obj,kategorie,marks,add,signum)

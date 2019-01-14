@@ -7,6 +7,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
         MNI;  %souhrnna MNI data pres vsechny pacienty - cell(intervaly x kategorie)
         NAMES; %souhrnna jmena elektrod pres vsechny pacienty - cell(intervaly x kategorie)
         NLabels; %jmena neurologyLabels z Headeru
+        EpiInfo; %info o epilepsii z Headeru
         intervals; % intervaly z funkce IntervalyResp
         katstr; %jmena kategorii
         brainsurface; %ulozeny isosurface z main_brainPlot
@@ -32,8 +33,11 @@ classdef CBrainPlot < matlab.mixin.Copyable
             %spoji vsechno dohromady
             %vrati vysledky ve formatu pro SEEE-vizualization
             %napr CB.IntervalyResp('aedist',[0.2 0.8],'AEdist CHilbert 50-120 refBipo Ep2017-11_CHilb.mat');
+            %contrast - cislo statistiky, kterou chci pouzit
             %signum = jestli chci jen kat1>kat2 (1), nebo obracene (-1), nebo vsechny (0)
+            
             if ~exist('contrast','var'), contrast = 1; end; %defaultni je prvni kontrast            
+            if ~exist('signum','var'), signum = 0; end; %defaultne chci oba smery rozdilu mezi kategoriemi
             if strcmp(testname,'aedist')
                 pacienti = pacienti_aedist(); %nactu celou strukturu pacientu    
             elseif strcmp(testname,'ppa')
@@ -44,7 +48,8 @@ classdef CBrainPlot < matlab.mixin.Copyable
                 error('neznamy typ testu');
             end
             obj.testname = testname;
-            obj.intervals = intervals; 
+            assert(size(intervals,2)==2,'musi byt prave dve hodnoty v kazdem intervalu');
+            obj.intervals = intervals;             
             obj.filename = filename;
             elcount = []; %jen inicializace            
             P = {}; M = {}; N = {}; %jen inicializace
@@ -62,7 +67,8 @@ classdef CBrainPlot < matlab.mixin.Copyable
                         continue;
                     end
                     E.SetStatActive(contrast); %nastavi jeden z ulozenych statistickych kontrastu
-                    [prumery, MNI,names,~,katstr,neurologyLabels] = E.IntervalyResp( intervals,[],signum,0);   %#ok<PROPLC> %no figure, funkce z CiEEGData                           
+                    [prumery, MNI,names,~,katstr,neurologyLabels,channels] = E.IntervalyResp( intervals,[],signum,0);   %#ok<PROPLC> %no figure, funkce z CiEEGData                           
+                    epiInfo = E.CH.GetChEpiInfo(channels);
                     obj.pacients{p} = pacienti(p).folder;
                     obj.GetPAC(prumery,E.CH.H,pacienti(p).folder);
                     obj.reference = E.reference;
@@ -79,6 +85,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
                         M = cell([numel(pacienti),size(prumery,2),size(prumery,3)+1]); % souhrnne MNI koordinaty pro vsechny pacienty
                         N = cell([numel(pacienti),size(prumery,2),size(prumery,3)+1]); % souhrnne names pro vsechny pacienty
                         NL = cell([numel(pacienti),size(prumery,2),size(prumery,3)+1]); % souhrnne neurologyLabels
+                        EPI = cell([numel(pacienti),size(prumery,2),size(prumery,3)+1]); % souhrnne neurologyLabels
                             %+1 je pro obrazek vsech elektrod i tech bez odpovedi
                     end
                     obj.katstr_pacients(p,:) = katstr; %#ok<PROPLC> %jsou kategorie u vsech pacientu ve stejnem poradi?
@@ -89,7 +96,8 @@ classdef CBrainPlot < matlab.mixin.Copyable
                                 P{p,interval,kat}=prumery(ip,interval, kat); %#ok<AGROW>
                                 M{p,interval,kat}=MNI(ip); %#ok<AGROW,PROPLC>>
                                 N{p,interval,kat} = strcat(cellstr(repmat([pacienti(p).folder(1:4) '_'],sum(ip),1)),names(ip)); %#ok<AGROW>
-                                NL{p,interval,kat}= strcat(cellstr(repmat([pacienti(p).folder(1:4) '_'],sum(ip),1)),neurologyLabels(ip)); %#ok<AGROW>
+                                NL{p,interval,kat}= strcat(cellstr(repmat([pacienti(p).folder(1:4) '_'],sum(ip),1)),neurologyLabels(ip)); 
+                                EPI{p,interval,kat}= epiInfo(ip); 
                                 elcount(interval,kat) = elcount(interval,kat) + sum(ip); %#ok<AGROW>
                                 obj.numelP(p,interval,kat)=sum(ip);
                             else %kategorie jakoby navic pro vykresleni jen pozice elekrod
@@ -97,7 +105,8 @@ classdef CBrainPlot < matlab.mixin.Copyable
                                 P{p,interval,kat}=zeros(channels,1); %#ok<AGROW> % 0 pro kazdy kanal - vsechny stejnou barvou
                                 M{p,interval,kat}=MNI; %#ok<AGROW,PROPLC>>
                                 N{p,interval,kat} = strcat(cellstr(repmat([pacienti(p).folder(1:4) '_'],channels,1)),names); %#ok<AGROW>
-                                NL{p,interval,kat}= strcat(cellstr(repmat([pacienti(p).folder(1:4) '_'],channels,1)),neurologyLabels); %#ok<AGROW>
+                                NL{p,interval,kat}= strcat(cellstr(repmat([pacienti(p).folder(1:4) '_'],channels,1)),neurologyLabels); 
+                                EPI{p,interval,kat}= epiInfo; 
                                 elcount(interval,kat) = elcount(interval,kat) + channels; %#ok<AGROW>                                
                                 obj.numelP(p,interval,kat)=channels;
                             end
@@ -110,6 +119,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
             obj.MNI = cell(size(elcount)); 
             obj.NAMES = cell(size(elcount)); 
             obj.NLabels = cell(size(elcount)); 
+            obj.EpiInfo = cell(size(elcount)); 
             obj.selCh = cell(size(elcount));  %prazdny vyber elektrod           
             if sum([pacienti.todo])>0 
                 for interval = 1:size(prumery,2) 
@@ -118,6 +128,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
                           obj.MNI{interval,kat} = struct('MNI_x',{},'MNI_y',{},'MNI_z',{});
                           obj.NAMES{interval,kat}   = cell(elcount(interval,kat),1);
                           obj.NLabels{interval,kat} = cell(elcount(interval,kat),1);
+                          obj.EpiInfo{interval,kat} = zeros(elcount(interval,kat),1);
                           iVALS = 1;
                           for p = 1:numel(pacienti) 
                               if pacienti(p).todo
@@ -126,6 +137,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
                                   obj.MNI{interval,kat}  (iVALS:iVALS+n-1)=M{p,interval,kat};
                                   obj.NAMES{interval,kat}(iVALS:iVALS+n-1)  =N{p,interval,kat};
                                   obj.NLabels{interval,kat}(iVALS:iVALS+n-1)=NL{p,interval,kat};
+                                  obj.EpiInfo{interval,kat}(iVALS:iVALS+n-1)=EPI{p,interval,kat};
                                   iVALS = iVALS + n;
                               end
                           end
@@ -186,6 +198,22 @@ classdef CBrainPlot < matlab.mixin.Copyable
             if isfield(BPD,'signum')
                 obj.plotBrain3Dcfg.signum = BPD.signum;
             end
+            obj.EpiInfo = cell(size(BPD.EPI));
+            for int = 1:size(BPD.EPI,1) %intervaly
+                for kat = 1:size(BPD.EPI,2) %kategorie   
+                    %tohle cele kvuli tomu, ze u nekterych kanalu neni ve struct ani 0 ani 1 ale [];
+                    seizureOnset = {BPD.EPI{int,kat}.seizureOnset}'; %prevedu na cell array, kde muze byt [] a je empty - pri prevodu na double se [] chybne preskoci
+                    interictalOften = {BPD.EPI{int,kat}.interictalOften}';
+                    inan = find(cellfun(@isempty,seizureOnset)); % kanaly u kterych neni epiinfo (kvuli tomu ze chybi v header)
+                    if ~isempty(inan) %u cell array se asi neda pouzit prazdny index
+                        seizureOnset{inan} = 0; %musim dat 0, protoze or | nefunguje pro nan 
+                        interictalOften{inan} = 0;
+                    end
+                    epiinfo = double(cell2mat(seizureOnset) | cell2mat(interictalOften)); %prevedu na double, protoze do logical se neda ulozit nan
+                    epiinfo(inan) = nan;
+                    obj.EpiInfo{int,kat} = epiinfo; %vrati 1 pokud je jedno nebo druhe 1                    
+                end
+            end
             obj.filename = BPD.filename;
             obj.label = BPD.label; %label z CHilbertMulti, napr PPA_PHGent_50-150Hz
             disp(['data importovana ze souboru "' BPD.filename '"']);
@@ -233,6 +261,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
             %TODO je mozne ty signif vyexportovat a pak je nacist zase do CHilbertMulti?
             %TODO do vystupni tabulky nejak dostat anatomickou lokalizaci?
             assert(~isempty(obj.VALS),'zadna data VALS');
+            assert(~isempty(obj.plotBrain3Dcfg),'zadna konfigurace - je nutne volat PlotBrain3DConfig');
             plotSetup = {};
             if ~exist('kategorie','var') || isempty(kategorie) , kategorie = 1:size(obj.VALS,2); end %muzu chtit jen nektere kategorie
             signum = obj.plotBrain3Dcfg.signum; 
@@ -368,22 +397,25 @@ classdef CBrainPlot < matlab.mixin.Copyable
                 ChNames = obj.NAMES{1,end}; %seznam vsech kanalu pres vsechny elektrody                
                 ChLabels = obj.NLabels{1,end}; %seznam vsech Neurol lokalizaci pres vsechny elektrody  
                 ChMNI = obj.MNI{1,end};
+                ChEpiInfo = num2cell(obj.EpiInfo{1,end});
             else
-                ChNames = {}; ChLabels = {};
+                ChNames = {}; ChLabels = {}; ChEpiInfo = {};
                 for k = 1:numel(obj.NAMES) %cyklus pres vsechny intervaly a kategorie
                     ChNames = union(ChNames,obj.NAMES{k});
                     ChLabels = union(ChLabels,obj.NLabels{k});
                     ChMNI = union(ChMNI,obj.MNI{k});
+                    ChEpiInfo = union(ChEpiInfo,obj.EpiInfo{k});
                 end
             end
-            ChNames = cat(2,ChNames,ChLabels,{ChMNI.MNI_x}',{ChMNI.MNI_y}',{ChMNI.MNI_z}'); %budu mit v jednom cellarray vic sloupcu
+            ChEpiInfo(isnan(cell2mat(ChEpiInfo))) = {'NaN'}; %excel neumi zapsat nan hodnoty, musi to byt string
+            ChNames = cat(2,ChNames,ChLabels,ChEpiInfo,{ChMNI.MNI_x}',{ChMNI.MNI_y}',{ChMNI.MNI_z}'); %budu mit v jednom cellarray vic sloupcu
             ChMap = zeros(numel(ChNames),numel(obj.katstr),size(obj.intervals,1)); %tam budu  ukladat odpovedi pro jednotlive kanaly, kategorie a intervaly          
         end  
         function ChannelMap2Xls(obj,ChNames,ChMap,xlsfilename)
             %zapise ChMap do xls tabulky spolu se jmeny a nlabely kanalu
             %pro kazdou kategorii bere maximalni absolutni hodnotu pres vsechny intervaly
             tablexls = cell(size(ChNames,1)+1,size(ChMap,2)+size(ChNames,2)+1); %sloupce navic - ChNames (+ ChLabels+MINxyz) + AnyKat
-            tablexls(1,:) = cat(2,{'channel','nlabel','MNI_x','MNI_y','MNI_z','anykat'},obj.katstr);
+            tablexls(1,:) = cat(2,{'channel','nlabel','epileptic','MNI_x','MNI_y','MNI_z','anykat'},obj.katstr);
             for iCh = 1:size(ChNames,1)
                 [~,im]=max(abs(ChMap(iCh,:,:)),[],3); %indexy maximalnich absolutnich hodnot pres cas
                 M = ChMap(sub2ind(size(ChMap),iCh*ones(1,numel(im)),1:numel(im),im)); %vyzvednu ty maximalni hodnoty pomoci absolutniho indexovani - pro kazdou polozku im jeden index
