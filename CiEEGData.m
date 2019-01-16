@@ -119,12 +119,13 @@ classdef CiEEGData < matlab.mixin.Copyable
             epochs = size(obj.d,3);
         end    
               
-        function obj = GetHHeader(obj,H)
+        function obj = GetHHeader(obj,H,filename)
             %nacte header z promenne H - 25.5.2016
+            if ~exist('filename','var'), filename = []; end %chci si ukladat jmeno pri referenci
             if isfield(H,'selCh_H'),  H_channels = size(H.selCh_H,2); else, H_channels = 0; end
             assert(H_channels == size(obj.d,2) || size(H.channels,2)==size(obj.d,2), ...
                  ['nesouhlasi pocet elektrod (data:' num2str(size(obj.d,2)) ',H_channels:' num2str(H_channels) ', header' num2str(size(H.channels,2)) ') - spatny header?']);
-            obj.CH = CHHeader(H); %vypocita i selCh_H
+            obj.CH = CHHeader(H,filename); %vypocita i selCh_H
             [~, ~, obj.els] = obj.CH.ChannelGroups();  
             assert(max(obj.els)<=size(obj.d,2),['nesouhlasi pocet elektrod (data:' num2str(size(obj.d,2)) ',header:' num2str(max(obj.els)) ') - spatny header?']);
             
@@ -462,6 +463,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             obj.Wp(WpA).DiEpCh = iEpCh & ~obj.RjEpochCh; %index zpracovanych epochCh, pro ruzne kanaly budou ruzna data je u tridy CHilbertMulti 
             obj.Wp(WpA).epochtime = obj.epochtime;
             obj.Wp(WpA).baseline = obj.baseline; %pro zpetnou kontrolu, zaloha parametru
+            obj.Wp(WpA).iepochtime = [ibaseline; abs(iepochtime(1)-ibaseline(2))+1 obj.samples ; iepochtime ]; %15.1.2019 - pro zpetnou kontrolu - statistika je pocitana podle indexu druheho radku
             
             if exist('opakovani','var') && ~isempty(opakovani) && iscell(opakovani)
                 assert(numel(opakovani)<=4,'kategorie opakovani mohou byt maximalne ctyri');
@@ -686,11 +688,9 @@ classdef CiEEGData < matlab.mixin.Copyable
                 legendstr = cell(1,max(numel(kats),size(kombinace,1)));
                 if dofig, subplot(min(2,size(intervaly,1)),ceil(size(intervaly,1) /2),int);  end %pro kazdy interval jiny subplot
                 %spocitam prumery celkove i za kazdou kategorii v kazdem casovem intervalu
-                % dve cisla v kazdem sloupci - od do ve vterinach   
-                iintervalyData = min(round((intervaly(int,:)-obj.epochtime(1)).*obj.fs),size(obj.d,1)); % pro katdata kde je na zacatku baseline             
-                iintervalyStat = min(round(intervaly(int,:).*obj.fs) , size(obj.Wp(obj.WpActive).WpKat{1,2},1)); % pro statistiku obj.Wp.WpKat, kde na zacatku neni baseline
-                iintervalyStat(1) = iintervalyStat(1) + (diff(iintervalyStat)-diff(iintervalyData)); %korekce zaokrouhlovani, posunu zacatek iintervalyStat aby stejne dlouhe jako iintervalyData
-                if iintervalyStat(1)<=0, iintervalyStat = iintervalyStat + diff([iintervalyStat(1) 1]); end %aby od 1, kvuli vzorkovani d-size 51 vzorku je 0.7969s
+                % dve cisla v kazdem sloupci - od do ve vterinach                   
+                iintervalyData = obj.Wp(obj.WpActive).iepochtime(2,:); %indexy statistiky ulozene v ResponseSearch
+                iintervalyStat = [1 diff(iintervalyData)+1];                
                 
                 colorskat = {[0 0 0],[0 1 0],[1 0 0],[0 0 1],[1 1 0],[0 1 1],[1 0 1]}; %barvy jako v PlotResponseCh, black, green, red, blue, yellow, aqua, fuchsia
                 colorkombinace = {0,1,2,4;0 0 3 5;0 0 0 6};

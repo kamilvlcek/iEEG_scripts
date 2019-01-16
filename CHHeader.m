@@ -14,12 +14,16 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         sortedby; %podle ceho jsou kanaly serazeny
         plotCh2D; %udaje o 2D grafu kanalu ChannelPlot2D, hlavne handle
         plotCh3D; %udaje o 3D grafu kanalu ChannelPlot, hlavne handle
+        
     end
     %#ok<*PROPLC>
     methods (Access = public)
-        function obj = CHHeader(H)
+        function obj = CHHeader(H,filename)
             %konstruktor
             obj.H = H;     
+            if exist('filename','var') && ~isempty(filename)
+               obj.H.filename = filename;
+            end
               %nefunguje protoze name je napriklad RG12 a ne jen RG, takze neni unikatni pro kazdou elektrodu
 %             E = cell(size(H.electrodes,2),1); %#ok<*PROP>
 %             for iE= 1:size(H.electrodes,2)
@@ -33,6 +37,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
              obj = obj.SelChannels(); 
              obj.sortorder = 1:numel(obj.H.channels); %defaultni sort order
              obj.sortedby = '';
+             
         end
         
         function [obj, chgroups, els] = ChannelGroups(obj,chnsel)
