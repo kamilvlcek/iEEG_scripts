@@ -21,7 +21,7 @@ classdef CHilbert < CiEEGData
         function obj = CHilbert(d,tabs,fs,mults,header)            
             if ~exist('header','var'), header = []; end %nejakou hodnotu dat musim
             if ~exist('mults','var'),  mults = []; end %nejakou hodnotu dat musim
-            if ~exist('d','var') %konstruktor uplne bez parametru - kvuli CHilbertMulti
+            if ~exist('d','var') || isempty(d) %konstruktor uplne bez parametru - kvuli CHilbertMulti
                 d = []; tabs = []; fs = [];
             elseif ischar(d) && ~exist('fs','var') %pokud je prvni parametr retezec, tak ho beru jako nazev souboru, ktery nactu
                 fs = []; 
@@ -518,10 +518,10 @@ classdef CHilbert < CiEEGData
             
             BPD = struct;                                   
             if ~exist('signum','var') || isempty(dofig) , signum = 0; end %jestli chci jen kat1>kat2 (1), nebo obracene (-1), nebo vsechny (0)
-            if ~exist('dofig','var'), dofig = 0; end %jestli chci jen kat1>kat2 (1), nebo obracene (-1), nebo vsechny (0)
+            if ~exist('dofig','var'), dofig = 0; end %jestli chci obrazek z IntervalyResp
             BPD.signum = signum; %jen abych mel info v datech
             if isprop(obj,'label')
-                [~,intervaly,~] = CHilbertMulti.GetLabelInfo(obj.label);
+                [~,intervaly,~] = CHilbertMulti.GetLabelInfo(obj.label); %zjisti interval z label, pokud label existuje
                 if ~isnumeric(intervaly) %muze to byt retezec s nazvem oblasti
                    intervaly = [0.1 obj.epochtime(2)]; 
                 end
@@ -570,7 +570,7 @@ classdef CHilbert < CiEEGData
                     if isfield(obj.CH.H.channels,'seizureOnset')                        
                         BPD.EPI{int,kat} = struct('seizureOnset',{obj.CH.H.channels(ich).seizureOnset},'interictalOften',{obj.CH.H.channels(ich).interictalOften},'rejected',{obj.CH.H.channels(ich).interictalOften});
                     else
-                        BPD.EPI{int,kat} = struct('seizureOnset',{},'interictalOften',{},'rejected',{});
+                        BPD.EPI{int,kat} = struct('seizureOnset',{nan(numel(ich),1)},'interictalOften',{nan(numel(ich),1)},'rejected',{nan(numel(ich),1)});
                     end
                     if isprop(obj,'plotRCh')  && isfield(obj.plotRCh,'selCh') && sum(sum(obj.plotRCh.selCh))>0
                         BPD.selCh{int,kat} = obj.plotRCh.selCh(ich,:); %novy format z 22.8.2018 - kanaly x marks

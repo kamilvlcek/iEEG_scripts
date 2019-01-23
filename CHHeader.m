@@ -12,13 +12,18 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         filterMatrix; %kopie filterMatrix, vytvari se pri zmene reference
         sortorder; %index serazenych kanalu
         sortedby; %podle ceho jsou kanaly serazeny
-        plotCh2D; %udaje o 2D grafu kanalu, hlavne handle
+        plotCh2D; %udaje o 2D grafu kanalu ChannelPlot2D, hlavne handle
+        plotCh3D; %udaje o 3D grafu kanalu ChannelPlot, hlavne handle
+        
     end
     %#ok<*PROPLC>
     methods (Access = public)
-        function obj = CHHeader(H)
+        function obj = CHHeader(H,filename)
             %konstruktor
             obj.H = H;     
+            if exist('filename','var') && ~isempty(filename)
+               obj.H.filename = filename;
+            end
               %nefunguje protoze name je napriklad RG12 a ne jen RG, takze neni unikatni pro kazdou elektrodu
 %             E = cell(size(H.electrodes,2),1); %#ok<*PROP>
 %             for iE= 1:size(H.electrodes,2)
@@ -32,21 +37,27 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
              obj = obj.SelChannels(); 
              obj.sortorder = 1:numel(obj.H.channels); %defaultni sort order
              obj.sortedby = '';
+             
         end
         
-        function [obj, chgroups, els] = ChannelGroups(obj)
+        function [obj, chgroups, els] = ChannelGroups(obj,chnsel)
             %vraci skupiny kanalu (cisla vsech channels na elekrode) + cisla nejvyssiho kanalu v na kazde elektrode v poli els
-            if isempty(obj.chgroups)
-                chgroups = getChannelGroups_kisarg(obj.H,'perElectrode');
-                els = zeros(1,numel(chgroups));
-                for j = 1:numel(chgroups)
-                    els(j)=max(chgroups{j});
+            if ~exist('chnsel','var') || isempty(chnsel)
+                if isempty(obj.chgroups)
+                    chgroups = getChannelGroups_kisarg(obj.H,'perElectrode');
+                    els = zeros(1,numel(chgroups));
+                    for j = 1:numel(chgroups)
+                        els(j)=max(chgroups{j});
+                    end
+                    els = sort(els);
+                    obj.chgroups = chgroups; 
+                    obj.els = els;
+                else
+                    chgroups = obj.chgroups; 
+                    els = obj.els;
                 end
-                els = sort(els);
-                obj.chgroups = chgroups; 
-                obj.els = els;
             else
-                chgroups = obj.chgroups; 
+                chgroups = {chnsel}; %pokud mam vyber kanalu, zatim to nechci resit a vsechny v jedne skupine - bez ohledu na elektrody, jako cellarray
                 els = obj.els;
             end
         end
@@ -102,47 +113,97 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             end
             ch = 0;
         end
-        function [XYZ,obj] = ChannelPlot(obj,pohled,labels,XYZ2)
+        function [XYZ,obj] = ChannelPlot(obj,pohled,labels,chnvals,chnsel,selch,XYZ2)
             %zobrazi 3D obrazek elektrod v MNI prostoru. Obrazek ma rozmery podle rozmeru mozku
             %pohled muze urcti smer pohledu s-sagital,c-coronal,h-horizontal
-            if ~exist('pohled','var') || isempty(pohled), pohled = ''; end
-            if ~exist('labels','var') || isempty(labels), labels = 0; end
+            %chnsel jsou cisla kanalu, pokud chci jen jejich vyber
+            %selch je jedno zvyraznene cislo kanalu - index v poli chnsel
+            if ~exist('pohled','var') || isempty(pohled), pohled = ''; end            
+            
+            params = {'labels','chnvals','chnsel','selch'}; %zkusim hromadne zpracovani parametru touhle nedoporucovanou metodou
+            for p=1:numel(params) %parametry, ktere se ukladaji do obj.plotCh3D
+                if ~exist(params{p},'var') || eval(['isempty(' params{p} ')'])
+                    if isfield(obj.plotCh3D,params{p})
+                        eval([ params{p} ' = obj.plotCh3D.' params{p} ';']); 
+                    else
+                        switch params{p}
+                            case 'labels'
+                                labels = 0;  %defaultne se nezobrazuji neurology labels, ale jmena kanalu
+                            case 'chnvals'
+                                chnvals = zeros(1, numel(obj.H.channels)); %default same nuly
+                            case 'chnsel'
+                                chnsel = []; %default vsechny kanaly
+                            case 'selch'
+                                selch = []; %default vsechny kanaly
+                        end
+                    end
+                else
+                    eval(['obj.plotCh3D.' params{p} ' = ' params{p} ';']);
+                end
+            end           
+           
+            assert(numel(chnvals) == numel(chnsel), 'unequal size of chnvals and chnsel');
+            nblocks = numel(chnvals); %pocet barev bude odpovidat poctu kanalu
+            cmap = parula(nblocks+1); %+1 protoze hodnoty se budou zaokrouhlovat nahoru nebo dolu
+            chnvalsN = chnvals - min(chnvals);
+            chnvalsN = chnvalsN/max(chnvalsN); % normalization            
+            chnvals(isnan(chnvalsN)) = 0; % in case of all zeros
+            clrs = cmap(round(nblocks*chnvalsN)+1, :); % color values
+            sizes = 20+200*chnvalsN;
             if isfield(obj.H.channels,'MNI_x')
-                figure('Name','ChannelPlot in MNI');                
-                [obj,chgroups] = obj.ChannelGroups();          
+                if isfield(obj.plotCh3D,'fh') && ishandle(obj.plotCh3D.fh)
+                    figure(obj.plotCh3D.fh); %pouziju uz vytvoreny graf
+                    clf(obj.plotCh3D.fh); %graf vycistim
+                else
+                    obj.plotCh3D.fh = figure('Name','ChannelPlot 3D in MNI');                     
+                end          
+                               
+                [obj,chgroups] = obj.ChannelGroups(chnsel); %rozdeli kanaly po elektrodach do skupin. Pokud chnsel, jsou vsecny v jedne skupine         
                 
                 %objekt se dobre uklada i pri poradi return values XYZ,obj
                 XYZ = struct('X',0,'Y',0,'Z',0);
                 for chg = 1:size(chgroups,2) 
-                    group = chgroups{chg}; 
-                    X = zeros(1,numel(group)); Y = X; Z = X;
-                    for ich = 1:numel(group)                        
-                        X(ich) = obj.H.channels(group(ich)).MNI_x;
-                        Y(ich) = obj.H.channels(group(ich)).MNI_y;
-                        Z(ich) = obj.H.channels(group(ich)).MNI_z;                        
-                    end
+                    group = chgroups{chg};                     
+                    X = [obj.H.channels(group).MNI_x];
+                    Y = [obj.H.channels(group).MNI_y];
+                    Z = [obj.H.channels(group).MNI_z];     
                     XYZ(chg) = struct('X',X,'Y',Y,'Z',Z);
-                    plot3(X,Y,Z,'o-','MarkerSize',5,'MarkerEdgeColor','b','MarkerFaceColor','b','LineWidth',2);
-                    if chg==1, hold on; end                    
-                    for ich = 1:numel(group) 
-                        if labels
-                            th = text(X(ich),Y(ich),Z(ich)+3,obj.H.channels(group(ich)).neurologyLabel);
-                            th.FontSize = 8;
-                        else
-                            th = text(X(ich),Y(ich),Z(ich)+3,obj.H.channels(group(ich)).name);
-                        end
+                    linestyle = iff(isempty(chnsel),'-','.'); %cara bude jina pokud je pouzite chnsel
+                    plot3(X,Y,Z,linestyle,'LineWidth',2);
+                    if chg==1, hold on; end                         
+                    if labels
+                        names = {obj.H.channels(group).neurologyLabel};
+                    else
+                        names = {obj.H.channels(group).name};
                     end
+                    iZ = mod([1:numel(Z)], 2); iZ(iZ == 0) = -1;
+                    text(X,Y,Z+iZ*2,names,'FontSize', 7);
+                end
+                % Plot with different colors and sizes based on chnvals
+                if isempty(chnvals) 
+                    isizes = 1:obj.H.channels;
+                else
+                    isizes = find(chnsel==[chgroups{:}]); %indexy v poli chnsel pro pouziti v poli sizes, find pracuje i hromadne
+                end               
+                scatter3([XYZ.X],[XYZ.Y],[XYZ.Z],sizes(isizes),clrs(isizes,:),'filled'); %ruzne velke a barevne krouzky vsech kanalu najednou
+               
+                if ~isempty(selch)
+                    scatter3(XYZ.X(selch),XYZ.Y(selch),XYZ.Z(selch),max(sizes),[0 0 0]);
                 end
                 if exist('XYZ2','var')
-                    for chg = 1:numel(XYZ2)
-                        plot3(XYZ2(chg).X,XYZ2(chg).Y,XYZ2(chg).Z,'o-','MarkerSize',5,'MarkerEdgeColor','r','MarkerFaceColor','r','LineWidth',2);    
-                    end
+                    plot3([XYZ2.X],[XYZ2.Y],[XYZ2.Z],'o-','MarkerSize',5,'MarkerEdgeColor','r','MarkerFaceColor','r','LineWidth',2);    
                 end
                 xlabel('MNI X'); %levoprava souradnice
                 ylabel('MNI Y'); %predozadni souradnice
                 zlabel('MNI Z'); %hornodolni
                 
                 switch pohled
+                    case ''
+                        if isfield(obj.plotCh3D,'view')
+                            view(obj.plotCh3D.view); 
+                        else
+                            view([0 0 1]); %shora - pokud neni zadny ulozeny
+                        end
                     case 's' %sagital = levoprava
                         view([-1 0 0]); %zleva
                     case 'c' %coronal = predozadni
@@ -150,22 +211,35 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     case 'h' %horizontal = hornodolni   
                         view([0 0 1]); %shora
                 end
-                axis([-75 75 -120 70 -50 90]); %zhruba velikost mozku        
+                axis([-75 75 -120 80 -75 85]); %zhruba velikost mozku        
                 text(-70,0,0,'LEVA');        
                 text(70,0,0,'PRAVA');   
                 text(0,65,0,'VPREDU');        
-                text(0,-115,0,'VZADU');                 
-                load('GMSurfaceMesh.mat'); %seda hmota v MNI
-                scatter3(GMSurfaceMesh.node(:,1),GMSurfaceMesh.node(:,2),GMSurfaceMesh.node(:,3),'.','MarkerEdgeAlpha',.2);
-                %load('WMSurfaceMesh.mat');
-                %scatter3(WMSurfaceMesh.node(:,1),WMSurfaceMesh.node(:,2),WMSurfaceMesh.node(:,3),'.','MarkerEdgeAlpha',.1);
+                text(0,-115,0,'VZADU');                                 
+               
+                if isfield(obj.plotCh3D,'boundary') && obj.plotCh3D.boundary
+                    obj.Plot3DBoundary();
+                else
+                    load('GMSurfaceMesh.mat'); %seda hmota v MNI
+                    scatter3(GMSurfaceMesh.node(:,1),GMSurfaceMesh.node(:,2),GMSurfaceMesh.node(:,3),'.','MarkerEdgeAlpha',.2);
+                end
+                
+                if(max(chnvals)>0)
+                    colorbar; 
+                    caxis([min(chnvals) max(chnvals)]); 
+                end %barevna skala, jen pokud jsou ruzne hodnoty kanalu
+                axis equal;                 
+                
+                %rozhybani obrazku            
+                set(obj.plotCh3D.fh,'KeyPressFcn',@obj.hybejPlot3D);
             else
                 disp('No MNI data');
             end
         end
         function ChannelPlot2D(obj,chsel,plotRCh,plotChH,label)
             %vstupni promenne
-            if ~exist('chsel','var')%promenna na jeden cerveny kanal
+            %plotRCh - cela struktura plotRCh z CiEEGData
+            if ~exist('chsel','var') %promenna na jeden cerveny kanal
                 if isfield(obj.plotCh2D,'chsel')
                     chsel = obj.plotCh2D.chsel;
                 else
@@ -218,8 +292,9 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             else
                 obj.plotCh2D.label = label;
             end
-            
-            %vytvoreni figure
+            if ~isfield(obj.plotCh2D,'chseltop'), obj.plotCh2D.chseltop = 1; end %jestli se ma vybrany kanal zobrazovat na popredi ostatnych  - zlute kolecko
+            if ~isfield(obj.plotCh2D,'names'), obj.plotCh2D.names = 1; end %jestli se maji vypisovat jmena kanalu
+            %------------------------- vytvoreni figure -----------------------------------
             x = [obj.H.channels(:).MNI_x];
             y = [obj.H.channels(:).MNI_y];
             z = [obj.H.channels(:).MNI_z];            
@@ -250,7 +325,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             end
             
             subplot(1,2,1);
-            %axialni plot            
+            % ----------------- axialni plot   ---------------------------           
             if isfield(obj.plotCh2D,'boundary') && obj.plotCh2D.boundary
                 %defaultne budu vykreslovat scatter, ale kvuli kopirovani se bude hodit i jen boundary
                 plot(GMSurfaceMesh.node(obj.plotCh2D.BrainBoundaryXY,1),GMSurfaceMesh.node(obj.plotCh2D.BrainBoundaryXY,2));
@@ -261,13 +336,15 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             
             for ie = 1:numel(els)                
                 plot(x(els0(ie):els(ie)),y(els0(ie):els(ie)),'-o'); %plot kontaktu jedne elektrody
+                if obj.plotCh2D.names
                 for ch = els0(ie):els(ie)
-                    th = text(x(ch),y(ch),num2str(ch)); %cislo kazdeho kanalu
-                    th.FontSize = 8;
+                        th = text(x(ch),y(ch),num2str(ch)); %cislo kazdeho kanalu
+                        th.FontSize = 8;
+                end
                 end                              
             end
             if ~isempty(chsel) %pokud je vybrany nejaky kanal
-                plot(x(chsel),y(chsel),'o','MarkerSize',size_ch,'MarkerEdgeColor','y','MarkerFaceColor','y'); 
+                h_selection = plot(x(chsel),y(chsel),'o','MarkerSize',size_ch,'MarkerEdgeColor','y','MarkerFaceColor','y'); 
                 chstr = iff(isempty(obj.sortedby),num2str(chsel), [ num2str(obj.sortorder(chsel)) '(' obj.sortedby  num2str(chsel) ')' ]);
                 title( [ 'channel ' chstr ]);
                 
@@ -282,6 +359,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                    end
                 end
             end
+            if obj.plotCh2D.chseltop, uistack(h_selection, 'top'); end
             text(-70,70,'LEVA');
             text(55,70,'PRAVA');  
             axis equal;  
@@ -298,7 +376,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             end
            
             subplot(1,2,2);
-            %sagitalni plot            
+            % ----------------- sagitalni plot ---------------------------
             if isfield(obj.plotCh2D,'boundary') && obj.plotCh2D.boundary
                 plot(GMSurfaceMesh.node(obj.plotCh2D.BrainBoundaryYZ,2),GMSurfaceMesh.node(obj.plotCh2D.BrainBoundaryYZ,3));
             else
@@ -307,13 +385,15 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             hold on;     
             for ie = 1:numel(els)                 
                 plot(y(els0(ie):els(ie)),z(els0(ie):els(ie)),'-o'); %plot kontaktu jedne elektrody
+                if obj.plotCh2D.names
                 for ch = els0(ie):els(ie)
                     th = text(y(ch),z(ch),num2str(ch));
                     th.FontSize = 8;
                 end                
+                end
             end  
             if ~isempty(chsel) %pokud je vybrany nejaky kanal
-                plot(y(chsel),z(chsel),'o','MarkerSize',size_ch,'MarkerEdgeColor','y','MarkerFaceColor','y'); 
+                h_selection = plot(y(chsel),z(chsel),'o','MarkerSize',size_ch,'MarkerEdgeColor','y','MarkerFaceColor','y'); 
                 
                 text(x_text,110,[ obj.H.channels(1,chsel).name]);
                 text(x_text,100,[ obj.H.channels(1,chsel).neurologyLabel ',' obj.H.channels(1,chsel).ass_brainAtlas]);
@@ -334,7 +414,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                            plot(y(ch),z(ch),'o','MarkerSize',size_selCh,'MarkerEdgeColor',barvy(m),'MarkerFaceColor',barvy(m));
                            th = text(x_text+m*10,-90,klavesy(m), 'FontSize', 15,'Color',barvy(m)); %legenda k barvam kanalu dole pod mozkem
                            th.BackgroundColor = [.6 .6 .6];
-                           if ~isempty(selChNames{m})
+                           if ~isempty(selChNames) && ~isempty(selChNames{m})
                              text(x_text+70,-60-m*7,cell2str(selChNames{m}), 'FontSize', 9,'Color',barvy(m)); %popisy znacek f-l                           
                            end
                        end
@@ -351,6 +431,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     text(0,-90,['chshow:' obj.plotCh2D.chshowstr] ,'Color','red');
                 end
             end
+            if obj.plotCh2D.chseltop, uistack(h_selection, 'top'); end
             axis equal;
             if isfield(obj.plotCh2D,'grid') && obj.plotCh2D.grid==1
                 grid on;
@@ -367,6 +448,9 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             set(obj.plotCh2D.fh,'KeyPressFcn',@obj.hybejPlot2D); 
             set(obj.plotCh2D.fh, 'WindowButtonDownFcn', @obj.hybejPlot2Dclick);
         end
+%         function obj = SaveAUCPlotHandle(obj,fh) 
+%             obj.plotCh2D.plotAUCH = fh; %ulozim handle na CStat.AUCPlot funkci,abych ji mohl volat z grafu ChannelPlot2D
+%         end
         function tag= PacientTag(obj)
             %vraci tag pacienta, napriklad p73
             if isfield(obj.H,'patientTag'), tag = obj.H.patientTag; else, tag=obj.H.subjName; end
@@ -396,6 +480,17 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 end
             end
         end
+        function [epiInfo]=GetChEpiInfo(obj,channels)
+            %vrati info epilepsii v kanalech - 1vs0vsNaN - seizureOnset a interictalOften dohromady
+            if ~exist('channels','var'), channels = 1:size(obj.H.channels,2); end
+            if isfield(obj.H.channels,'seizureOnset')
+                epiInfo = double([obj.H.channels(channels).seizureOnset]' |  [obj.H.channels(channels).interictalOften]'); %vrati 1 pokud je jedno nebo druhe 1
+            else
+                epiInfo = nan(numel(channels),1); %neznam epiinfo
+                warning(['no epiinfo in the header: ' obj.H.subjName]);
+            end
+        end
+            
         function tch = GetTriggerCh(obj)
             %ziska cislo trigerovaciho kanalu, pokud existuje
             tch = find(strcmp({obj.H.channels.signalType}, 'triggerCh')==1);         
@@ -491,18 +586,26 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             obj.SetFilterMatrix(filterMatrix); %uchovam si filterMatrix na pozdeji, kvuli prepoctu RjEpochCh
         end
         function obj = SortChannels(obj,by)
-            %seradi kanaly podle vybrane MNI souradnice a ulozi do sortorder
-            if ~exist('by','var')
-                obj.sortorder = 1:numel(obj.H.channels);
+            %seradi kanaly podle vybrane MNI souradnice a ulozi do sortorder                        
+            if isfield(obj.plotCh2D,'chshow') 
+                chshow = obj.plotCh2D.chshow; %indexy aktualne vybranych kanalu
+            else
+                chshow = 1:numel(obj.H.channels); %seznam vsech kanalu
+            end
+            if ~exist('by','var')                
+                obj.sortorder = chshow;                
                 obj.sortedby = '';
             elseif strcmp(by,'x')
-                [~,obj.sortorder]=sort([obj.H.channels(:).MNI_x]);                
+                [~,sortorder]=sort([obj.H.channels(chshow).MNI_x]);                
+                obj.sortorder = chshow(sortorder);
                 obj.sortedby = 'x';
             elseif strcmp(by,'y')
-                [~,obj.sortorder]=sort([obj.H.channels(:).MNI_y]);                
+                [~,sortorder]=sort([obj.H.channels(chshow).MNI_y]);                
+                obj.sortorder = chshow(sortorder);
                 obj.sortedby = 'y';
             elseif strcmp(by,'z')
-                [~,obj.sortorder]=sort([obj.H.channels(:).MNI_z]); 
+                [~,sortorder]=sort([obj.H.channels(chshow).MNI_z]); 
+                obj.sortorder = chshow(sortorder);
                 obj.sortedby = 'z';
             else
                 disp(['nezname razeni podle ' by]); 
@@ -534,10 +637,37 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     obj.plotCh2D.chshowstr = cell2str(chlabels);
                 end
                 obj.plotCh2D.chshow = find(iL); %vyber kanalu k zobrazeni       
+                obj.sortorder = obj.plotCh2D.chshow; %defaultni sort order pro tento vyber - nejsou tam cisla od 1 to n, ale cisla kanalu
+                disp(['zobrazeno ' num2str(numel(obj.plotCh2D.chshow)) ' kanalu']);
             else
                 obj.plotCh2D.chshow = 1:numel(obj.H.channels);
                 obj.plotCh2D.chshowstr = '';
+                obj.sortorder = 1:numel(obj.H.channels); %defaultni sort order pro vsechny kanaly
+                disp('zobrazeny vsechny kanalu');
             end
+            
+        end
+        function obj = Plot3DBoundary(obj)
+            %vykresli obrys mozku ve vsech rozmerech do 3d grafu
+            %pokud boundary neni vypocitana, spocita ji a ulozi do obj.plotCh3D.BrainBoundaryXYZ
+            %netvori graf, kresli do existujiciho a aktivniho ChannelPlot, a predpoklada hold on;
+            dimenze = [2 3; 1 3; 2 1]; %xy, xz a yz 
+            load('GMSurfaceMesh.mat');            
+            for d = 1:3
+                stred = min(GMSurfaceMesh.node(:,d)) + range(GMSurfaceMesh.node(:,d))/2;                
+                if ~isfield(obj.plotCh3D,'BrainBoundaryXYZ') || numel(obj.plotCh3D.BrainBoundaryXYZ) < 3
+                    obj.plotCh3D.BrainBoundaryXYZ = cell(3,1);
+                end
+                if isempty(obj.plotCh3D.BrainBoundaryXYZ{d})
+                    obj.plotCh3D.BrainBoundaryXYZ{d} = boundary(GMSurfaceMesh.node(:,dimenze(d,1)),GMSurfaceMesh.node(:,dimenze(d,2))); %spocitam si 3d hranici mozku                
+                end
+                XYZ = zeros(numel(obj.plotCh3D.BrainBoundaryXYZ{d}),3);
+                XYZ(:,d) = repmat(stred,size(XYZ,1),1);
+                XYZ(:,dimenze(d,1)) = GMSurfaceMesh.node(obj.plotCh3D.BrainBoundaryXYZ{d},dimenze(d,1));
+                XYZ(:,dimenze(d,2)) = GMSurfaceMesh.node(obj.plotCh3D.BrainBoundaryXYZ{d},dimenze(d,2));                                    
+                plot3(XYZ(:,1),XYZ(:,2),XYZ(:,3));               
+            end
+            
         end
     end
     
@@ -575,6 +705,33 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     bl = [bl '?'];
                 end
             end
+          end
+          function obj = hybejPlot3D(obj,~,eventDat)
+              switch eventDat.Key
+                  case 's'                                           
+                      obj.plotCh3D.view =  [1 0 0]; %zprava
+                      view(obj.plotCh3D.view); 
+                  case {'c','f'} %coronal = predozadni, frontal                      
+                      obj.plotCh3D.view =  [0 -1 0];%zepredu
+                      view(obj.plotCh3D.view); %zleva
+                  case {'h','a'} %horizontal = hornodolni nebo axial                        
+                      obj.plotCh3D.view =  [0 0 1]; %shora
+                      view(obj.plotCh3D.view); 
+                  case 'space'
+                     if isfield(obj.plotCh3D,'boundary') %prepinam v grafu cely scatter s jen hranici mozku - hlavne kvuli kopirovani do corelu
+                         obj.plotCh3D.boundary  = 1 - obj.plotCh3D.boundary;
+                     else
+                         obj.plotCh3D.boundary  = 1;
+                     end
+                     obj.ChannelPlot();
+                  case 'l'
+                     if isfield(obj.plotCh3D,'labels') %prepinac neurology labels v grafu
+                         obj.plotCh3D.labels  = 1 - obj.plotCh3D.labels;
+                     else
+                         obj.plotCh3D.labels  = 1;
+                     end
+                     obj.ChannelPlot();
+              end
           end
           function obj = hybejPlot2D(obj,~,eventDat) 
               switch eventDat.Key
@@ -638,7 +795,15 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                          obj.plotCh2D.background = 0;
                       end
                       obj.ChannelPlot2D();
-                      
+                  case 't' %vybrany kanal je zluty na popredi /pozadi
+                      obj.plotCh2D.chseltop = 1-obj.plotCh2D.chseltop;
+                      obj.ChannelPlot2D();
+                  case 'n' %vybrany kanal je zluty na popredi /pozadi
+                      obj.plotCh2D.names = 1-obj.plotCh2D.names;
+                      obj.ChannelPlot2D();    
+%                   case 'r' %zobrazi obrazek mozku s vybranych kanalem                   
+%                       obj.plotCh2D.plotAUCH(obj.plotCh2D.chsel); %vykreslim @obj.PlotResponseCh    %tady to hlasi error Undefined function or variable 'obj.CS.AUCPlot'. Jak to?                  
+%                       figure(obj.plotCh2D.fh); %dam puvodni obrazek dopredu     
               end              
           end
           function hybejPlot2Dclick(obj,h,~)
@@ -659,7 +824,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                   end
               end
               if ~isempty(chns_mni)
-                  [ch,d] = dsearchn(chns_mni,[x y]); %najde nejblizsi kanal a vzdalenost k nemu                   
+                  [ch,~] = dsearchn(chns_mni,[x y]); %najde nejblizsi kanal a vzdalenost k nemu                   
                   obj.ChannelPlot2D(find(obj.sortorder==ch)); %#ok<FNDSB>   
                   if isfield(obj.plotCh2D,'plotChH')
                     obj.plotCh2D.plotChH(obj.plotCh2D.chsel); %vykreslim @obj.PlotResponseCh  

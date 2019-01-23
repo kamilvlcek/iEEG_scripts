@@ -79,7 +79,7 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             end
         end
                        
-        function [kat katnum] = Category(obj,event)
+        function [kat, katnum] = Category(obj,event)
             %vrati 1 retezec s popisem kategorie eventu a 2. cislo kategorie
             katnum = obj.P.data(event,obj.P.sloupce.kategorie); %cislo kategorie
             kat = obj.P.strings.podminka{katnum+1};            
@@ -97,12 +97,16 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 end
             end                
         end
-        function [kat] = CategoryName(obj,katnum)
+        function [kat] = CategoryName(obj,katnum,concat)
             %vraci jmeno kategorie z cisla, jmeno kategorie se pocita od 0
             %muze byt i vic cisel kategorii
+            % pak se jmena spoji do jednoho retezce pomoci parametru concat (default +)
+            % pokud je concat prazdne, vrati se cell array
+            
+            if ~exist('concat','var'), concat = '+'; end %defaulte se vice jmen kategorii spojuje pomoci +
             if numel(katnum) == 1
                 kat = obj.P.strings.podminka{katnum+1};
-            else
+            elseif ~isempty(concat)
                 kat = '';
                 for k = katnum
                     if numel(kat) == 0
@@ -111,9 +115,30 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                         kat = [ kat '+' obj.P.strings.podminka{k+1}]; %#ok<AGROW>
                     end
                 end
+            else %chci jmena kategorii vratit jako cell array
+                kat = cell(1,numel(katnum));
+                for k  = 1:numel(katnum)
+                    if numel(cellval(katnum,k))>1
+                        katkat = cell(numel(katnum{k}),1);
+                        for kk = 1:numel(katnum{k})
+                            katkat{kk} = obj.P.strings.podminka{katnum{k}(kk)+1};
+                        end
+                        kat{k} = cell2str(katkat);
+                    else
+                        kat{k} = obj.P.strings.podminka{cellval(katnum,k)+1};
+                    end
+                end
             end
         end
-                
+        function [katnum] = CategoryNum(obj,katname)
+            %vraci cislo kategorie podle jmena
+            %muze byt i nekolik jmen kategorii v cell array
+            katnum = nan(size(katname));
+            for k = 1:numel(katname)
+                ikat = not(cellfun('isempty',strfind(obj.P.strings.podminka(:,1),katname{k}))); %logical index, ale s jen jednim true
+                katnum(k) = obj.P.strings.podminka{ikat,2};
+            end
+        end
         function [blocks, srate, test, kategorie]= GetBlocks(obj)
             %vraci promenne pro bloky o stejne kategorii
             b1 = [find(obj.P.data(2:end,obj.P.sloupce.kategorie) ~= obj.P.data(1:end-1,obj.P.sloupce.kategorie)); size(obj.P.data,1)]; %konce bloku

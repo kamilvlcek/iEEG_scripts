@@ -14,14 +14,14 @@ PAC = CB.StructFind({},labelstofind,testname,iff(strcmp(reference,'refBipo'),'b'
 %ted pole PAC projdu a vymazu radky, ktere tam nepatri  (protoze muze nazev struktury obsahovat napr ent aj.     
 %% 1.1b nacteni drive ulozeneho seznamu
 % NEBO - strukturu PAC si muzu zkopirovat do excelu (vcetne nazvu sloupcu) a pak si ji takhle znovu nacist
-xlsfile = 'd:\eeg\motol\pacienti\0sumarne\structfind_mat.xlsx'; %viz structfind_mat.xlsx na drive
-PAC = CB.StructFindLoad(xlsfile,2); 
+%xlsfile = 'd:\eeg\motol\pacienti\0sumarne\structfind_mat.xlsx'; %viz structfind_mat.xlsx na drive
+%PAC = CB.StructFindLoad(xlsfile,2); 
 
 %% 2. PRACE S EXTRAKTY 
 CM = CHilbertMulti; %vytvorim tridu
 frekvence = '50-150Hz'; %15-31 
-label = 'PHGent'; % nazev exktraktu, pripoji s filename
-datum = '2018-09-14'; %dnesni datum - tak se pojmenuju vystupni souhrnny soubor
+label = 'AllEl'; % nazev exktraktu, pripoji s filename % ppaMNIBast
+datum = '2019-01-03'; %dnesni datum - tak se pojmenuju vystupni souhrnny soubor
 datumEP = '2018-08'; %datum v nazvu nacitaneho souboru, napriklad Ep2018-08
 epochtime = '-0.2-0.8'; %'-0.5-1.2'
 M = containers.Map({'ppa','aedist','menrot'},{'PPA','Menrot','Aedist'});
@@ -78,5 +78,5 @@ CM.SetStatActive(stat);
 BPD = CM.ExtractBrainPlotData(); %vytvori data pro import do CBrainPlot
 CB.ImportData(BPD); %naimportuje data z CHilbertMulti
 %% 3.3 - vyrobim obrazky
-CB.PlotBrain3DConfig(struct('Names',1,'NoNames',0,'signum',signum,'overwrite',1)); %nahraje defaultni konfiguraci
+CB.PlotBrain3DConfig(struct('Names',0,'NoNames',0,'signum',signum,'overwrite',1)); %nahraje defaultni konfiguraci
 CB.PlotBrain3D(); %vykresli obrazek mozku
