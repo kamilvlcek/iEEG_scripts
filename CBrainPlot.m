@@ -395,14 +395,19 @@ classdef CBrainPlot < matlab.mixin.Copyable
                 ChMNI = obj.MNI{1,end};
                 ChEpiInfo = num2cell(obj.EpiInfo{1,end});
             else
-                ChNames = {}; ChLabels = {}; ChEpiInfo = {};
+                ChNames = {}; ChLabels = {}; ChMNI = struct('MNI_x',{},'MNI_y',{},'MNI_z',{}); ChEpiInfo = [];
                 for k = 1:numel(obj.NAMES) %cyklus pres vsechny intervaly a kategorie
-                    ChNames = union(ChNames,obj.NAMES{k});
-                    ChLabels = union(ChLabels,obj.NLabels{k});
-                    ChMNI = union(ChMNI,obj.MNI{k});
-                    ChEpiInfo = union(ChEpiInfo,obj.EpiInfo{k});
+                    ChNames = cat(1,ChNames,obj.NAMES{k}); % vynecha duplikaty, seradi
+                    ChLabels = cat(1,ChLabels,obj.NLabels{k});
+                    ChMNI = cat(1,ChMNI, obj.MNI{k}'); %#ok<AGROW>
+                    ChEpiInfo = cat(1,ChEpiInfo,obj.EpiInfo{k}); %epiinfo je double
                 end
+                [ChNames,iChNames] = unique(ChNames); % chci polozky seradit
+                ChLabels = ChLabels(iChNames);
+                ChMNI = ChMNI(iChNames);
+                ChEpiInfo = ChEpiInfo(iChNames);
             end
+            ChEpiInfo = num2cell(ChEpiInfo); %kvuli exportu do excelu potrebuju cell array
             ChEpiInfo(isnan(cell2mat(ChEpiInfo))) = {'NaN'}; %excel neumi zapsat nan hodnoty, musi to byt string
             ChNames = cat(2,ChNames,ChLabels,ChEpiInfo,{ChMNI.MNI_x}',{ChMNI.MNI_y}',{ChMNI.MNI_z}'); %budu mit v jednom cellarray vic sloupcu
             ChMap = zeros(numel(ChNames),numel(obj.katstr),size(obj.intervals,1)); %tam budu  ukladat odpovedi pro jednotlive kanaly, kategorie a intervaly          
