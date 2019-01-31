@@ -23,6 +23,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
         selCh; %vyber kanalu, ktere zobrazit
         plotBrain3Dcfg; %struktura s nastavenim plotBrain3D
         label; %label importovan z BPD dat
+        signum; %kopie signum z IntervalyResp
     end
     
     methods (Access = public)        
@@ -57,6 +58,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
             obj.pacients = cell(numel(pacienti),1); 
             obj.katstr_pacients = []; %musim to smazat, nize testuju, jestil to je prazdne
             obj.numelP = [];  %tam budu ukladat pocty elektrod pro kazdy pacient x interval x kategorie
+            obj.signum = signum; %zavadim kvuli CMlabel
             for p = 1:numel(pacienti) % cyklus pacienti
                 if pacienti(p).todo 
                     disp(['***   ' pacienti(p).folder '   ***']);
@@ -157,6 +159,12 @@ classdef CBrainPlot < matlab.mixin.Copyable
             else
                 disp('zadny soubor nenalezen');
             end
+        end
+        function label = CMLabel(obj,intv,kat)
+            %vrati standardni label pro CM.ExtractData, ve tvaru katstr_(intervalstring)_sigX, format podle BatchExtracts
+            %zatim pouze po CB.IntervalyResp
+            intvstr = sprintf('(%1.1f-%1.1f)',obj.intervals(intv,:)); %pojmenovani intervalu
+            label = [ obj.katstr{intv,kat} '_' intvstr '_sig' num2str(obj.signum)];
         end
         function [obj] = GetPAC(obj,prumery,H,pac_folder)
             %vytvori a ulozi PAC data do obj.PAC pro jednoho pacienta z prumery a headeru
@@ -393,7 +401,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
                 ChNames = obj.NAMES{1,end}; %seznam vsech kanalu pres vsechny elektrody                
                 ChLabels = obj.NLabels{1,end}; %seznam vsech Neurol lokalizaci pres vsechny elektrody  
                 ChMNI = obj.MNI{1,end};
-                ChEpiInfo = num2cell(obj.EpiInfo{1,end});
+                ChEpiInfo = obj.EpiInfo{1,end}; %potrebuju double, protoze cast za else mi taky poskytuje double
             else
                 ChNames = {}; ChLabels = {}; ChMNI = struct('MNI_x',{},'MNI_y',{},'MNI_z',{}); ChEpiInfo = [];
                 for k = 1:numel(obj.NAMES) %cyklus pres vsechny intervaly a kategorie

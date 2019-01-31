@@ -438,6 +438,7 @@ classdef CHilbertMulti < CHilbert
             
             pacienti = unique({PAC.pacient}); %trik po delsim usili vygooglovany, jak ziskat ze struct jedno pole
             filenames = cell(numel(pacienti),1);
+            nextr = 0;
             
             for p = 1:numel(pacienti)                                
                 ipacienti = strcmp({PAC.pacient}, pacienti{p})==1; %indexy ve strukture PAC pro tohoto pacienta
@@ -447,10 +448,12 @@ classdef CHilbertMulti < CHilbert
                     filenames{p,1} = filename_extract;
                     disp(['*** OK: ' pacienti{p} ': chns ' num2str([PAC(ipacienti).ch],'%i ') ', ' basefilename_extract]);
                     fprintf('\n'); 
+                    nextr = nextr + 1;
                 else
                     disp(['*** nenalezen: ' pacienti{p} ]);
                 end                  
-            end            
+            end
+            disp(['extrahovano ' num2str(nextr) ' souboru']);
         end
         function filenames = FindExtract(testname,label,filename)
             %filenames = FindExtract(testname,label,filename) 

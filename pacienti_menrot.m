@@ -5,7 +5,7 @@ function [ pacienti ] = pacienti_menrot()
 
 pacienti = struct;
 p = 1;
-pacienti(p).todo = 0;
+pacienti(p).todo = 0; %rozdeleno na dve casti, je nutne spojit, p073_menrot neni
 pacienti(p).folder = 'p073 Pech VT6';
 pacienti(p).data = 'VT6_INV Test Vlcek1_X_menrot.mat'; %'VT6_INV Test Vlcek1_X_menrot.mat';
 pacienti(p).header = 'p73_headerX.mat'; % p73_header.mat je ten nejnovejsi od Jirky - 26.5.2017 'p73_header_kamil.mat';
@@ -25,7 +25,7 @@ pacienti(p).epievents = 'p079_menrot_epievents.mat'; %2017
 pacienti(p).rjch = [47 64 114]; 
 
 p=p+1;
-pacienti(p).todo = 0; %docasne, ma vic vzorku 512 nez ostatni 256, nejde do CHilbertMulti
+pacienti(p).todo = 1; %docasne, ma vic vzorku 512 nez ostatni 256, nejde do CHilbertMulti
 pacienti(p).folder = 'p082 Vov VT9';
 pacienti(p).data = 'VT9_2015-04-21_09-46_001_concat_X_menrot.mat';
 pacienti(p).header = 'P82_header.mat';
@@ -152,7 +152,7 @@ pacienti(p).rjch = [47,74]; %74 (50 procent vyrazanych epoch)
 % % pacienti(p).rjch = []; 
 % 
 p=p+1; %kamil 6.9.2017
-pacienti(p).todo = 0; %vyrazeno kvuli WIFI hlavici a frekvenci 500Hz 
+pacienti(p).todo = 1; %vyrazeno kvuli WIFI hlavici a frekvenci 500Hz 
 pacienti(p).folder = 'p142 Nam VT22';
 pacienti(p).data = 'VT22_2017-04-5_10-31_002_concat_500Hz_menrot.mat';
 pacienti(p).header = 'p142_64ch_header.mat'; %mereni s wifi
@@ -223,7 +223,7 @@ pacienti(p).epievents = 'p170_menrot_epievents.mat'; %2018
 pacienti(p).rjch = [47 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 34 35 36 37 38 39 40 45 46 48 49 50 51 52 53 54 55 56 57 58 59 60 81 82 83 91];
 
 p=p+1; %kamil 25.5.2018
-pacienti(p).todo = 0; %vyrazn protoze ma jinou frekvenci 500Hz
+pacienti(p).todo = 1; %vyrazn protoze ma jinou frekvenci 500Hz
 pacienti(p).folder = 'p099 Hos VT33';
 pacienti(p).data = 'VT33_2018-03-27_10-21_001_500hz_concat_f1Hz_menrot.mat';
 pacienti(p).header = 'p099_64ch_header.mat';

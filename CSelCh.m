@@ -121,7 +121,7 @@ classdef CSelCh < matlab.mixin.Copyable
             obj.n = n; %#ok<CPROPLC>
             obj.selCh = selCh; %#ok<CPROPLC>
             obj.filename = filename;
-            obj.reference = ref;
+            if exist('ref','var') obj.reference = ref; else obj.reference = 'nan'; end
             disp(['nacten soubor ' filename]); 
         end
         function obj = SortByLabel(obj)
