@@ -332,9 +332,9 @@ classdef CiEEGData < matlab.mixin.Copyable
             %vraci eegdata epoch ve kterych podnet byl kategorie/podminky=katnum + reakcni casy - s uz globalne vyrazenymi epochami
             %Pokud rt>0, vraci epochy serazene podle reakcniho casu 
             %pokud opak>0, vraci jen jedno opakovani obrazku - hlavne kvuli PPA test 
-            %vraci i epochy k vyrazeni pro kazdy kanal (uz s globalne vyrazenymi epochami)
+            %RjEpCh (Channels x Epochs) - vraci i epochy k vyrazeni pro kazdy kanal (uz s globalne vyrazenymi epochami)
             %  vyradit rovnou je nemuzu, protoze pocet epoch v d pro kazdy kanal musi by stejny
-            %ch ovlivujen jen RjRpCh, d obsahuje vzdy vsechny kanaly, samply a prislusne epochy
+            %  ch ovlivujen jen RjRpCh (v radcich jsou jen kanaly v ch) , d obsahuje vzdy vsechny kanaly, samply a prislusne epochy
             assert(obj.epochs > 1,'data not yet epoched'); %vyhodi chybu pokud data nejsou epochovana            
             assert(obj.channels == size(obj.RjEpochCh,1),'RjEpochCh: spatny pocet kanalu');
             if exist('opak','var') && ~isempty(opak)
@@ -646,9 +646,9 @@ classdef CiEEGData < matlab.mixin.Copyable
                kats = obj.Wp(obj.WpActive).kats; 
                [katnum, katstr] = obj.PsyData.Categories();
                kombinace = combinator(length(kats),2,'p'); %permutace bez opakovani z poctu kategorii
-               kombinace = kombinace(kombinace(:,1)>kombinace(:,2),:); %vyberu jen perumtace, kde prvni cislo je vetsi nez druhe   
-               katsnames =  cell(1,numel(kats)+ size(kombinace,1));
-               for kat = 1: numel(kats)
+               kombinace = kombinace(kombinace(:,1)>kombinace(:,2),:); %vyberu jen permutace, kde prvni cislo je vetsi nez druhe   
+               katsnames =  cell(1,numel(kats)+ size(kombinace,1)); %tam jsou kats + jejich kombinace
+               for kat = 1: numel(kats) %v PRVNIM cyklu naplnim jmena samotnych kategorii
                     if iscell(kats(kat)) %mame tu vic kategorii proti vice - na jedne strane kontrastu
                         kknames = cell(1,numel(kats{kat})); %jmena individualnich kategorii na jedne strane kontrastu
                         for kk = 1: numel(kats{kat})
@@ -659,7 +659,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                         katsnames{kat} = katstr{katnum==kats(kat)}; %jde to udelat najednou bez for cyklu?
                     end
                end
-               for kat = 1:size(kombinace,1) %cyklus pres vsechny kombinace kategorii
+               for kat = 1:size(kombinace,1) %v DRUHEM cyklu naplnim kombinace kategorii, jejich jmena uz beru z katsnames
                    katsnames{kat+numel(kats)} = [katsnames{kombinace(kat,1)} 'X' katsnames{kombinace(kat,2)} ];
                end
            else
@@ -689,7 +689,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 if dofig, subplot(min(2,size(intervaly,1)),ceil(size(intervaly,1) /2),int);  end %pro kazdy interval jiny subplot
                 %spocitam prumery celkove i za kazdou kategorii v kazdem casovem intervalu
                 % dve cisla v kazdem sloupci - od do ve vterinach                   
-                iintervalyData = obj.Wp(obj.WpActive).iepochtime(2,:); %indexy statistiky ulozene v ResponseSearch
+                iintervalyData = obj.Wp(obj.WpActive).iepochtime(2,:); %16.1.2019 - indexy statistiky ulozene v ResponseSearch 
                 iintervalyStat = [1 diff(iintervalyData)+1];                
                 
                 colorskat = {[0 0 0],[0 1 0],[1 0 0],[0 0 1],[1 1 0],[0 1 1],[1 0 1]}; %barvy jako v PlotResponseCh, black, green, red, blue, yellow, aqua, fuchsia
@@ -815,33 +815,33 @@ classdef CiEEGData < matlab.mixin.Copyable
             if ~exist('marks','var') || isempty(marks) , marks = 1:numel(kategorie); end %kterym maji kategorie odpovidat znackam
             if ~exist('add','var') || isempty(add) , add = 0; end %defaultne prepise stare znaceni 
             assert(numel(kategorie)==numel(marks), 'CiEEGData.SelChannelStat: pocet kategorie a marks musi byt stejny');
-            [prumery, ~,~,~,katsnames,~] = obj.IntervalyResp([],[],signum, 0);
-            selCh = iff(add,obj.GetSelCh(),zeros(size(prumery,1),6));
-            pocty = zeros(1,numel(kategorie));
-            katname = cell(1,numel(kategorie));
+            [prumery, ~,~,~,katsnames,~] = obj.IntervalyResp([],[],signum, 0); %prumery jsou  channels x intervaly x kategorie 
+            selCh = iff(add,obj.GetSelCh(),zeros(size(prumery,1),6)); %selCh je channels x 6 oznaceni fghjkl
+            pocty = zeros(1,numel(kategorie)); %pocty vybranych kanalu v kategoriich, jen kvuli vypisu na obrazovku
+            katname = cell(1,numel(kategorie)); %nazvy kategorii a jejich kombinaci. Tam kde ma kategorie vice prvku, bude mi ti katname vice prvku. Ale serazene podle marks
             
             for kat = 1:numel(kategorie)
                 if iscell(kategorie)
                     K = kategorie{kat};    %cisla kategorii
-                    KN = cell(1,numel(K)); %KategoryNames - bude tu vic kategorii
+                    KN = cell(1,numel(K)); %KategoryNames - bude tu vic kategorii, jmena z katsnames
                 else
                     K = kategorie(kat);   
-                    KN = katsnames{kategorie(kat)}; %KategoryNames - jmeno tehle kategorie
+                    KN = katsnames{kategorie(kat)}; %KategoryNames - jmeno tehle kategorie z katsnames
                 end
                 for iK = 1:numel(K) %pro vsechny prvky tehle kategorie - muze jich byt vic pokud kategorie je cellarray
                     %K(iK) je ted cislo kategorie
-                    if(K(iK)<=size(prumery,3)) && marks(kat) <= 6
-                        iP = prumery(:,1,K(iK))~=0;                    
-                        selCh(iP,marks(kat)) = 1;
-                        pocty(kat)=pocty(kat) + sum(iP); %kolik vybrano v teto kategorii kanalu
+                    if(K(iK)<=size(prumery,3)) && marks(kat) <= 6 %pokud je cislo kategorie v poradku
+                        iP = prumery(:,1,K(iK))~=0; %index kanalu se signif rozdilem v tehle kategorii - v prumery jsou nesignif hodnoty 0                   
+                        selCh(iP,marks(kat)) = 1; %timhle udelam oznaceni signif kanalu pro tuhle kategorii. Pokud selCh nebylo prazne (add~=0) udela se vlastne OR
+                        pocty(kat)=pocty(kat) + sum(iP); %kolik vybrano v teto kategorii kanalu, scitam kvuli tomu kdyz je kategorie cell array
                         if iscell(KN) 
                             KN(iK) = katsnames(K(iK));
                         end
                     end
                 end  
-                katname(kat) = iff(numel(KN) > 1,{KN},KN);                
+                katname(kat) = iff(numel(KN) > 1,{KN},KN); %nazvy kategorii a jejich kombinacim, kvuli popiskum do grafu               
             end
-            obj.SetSelCh(selCh);
+            obj.SetSelCh(selCh); %ulozim oznaceni kanalu 
             marks_str = 'fghjkl';    
             [marks,im] = sort(marks); %seradim znadky
             katname = katname(im); %seracim kategorie podle znacek
