@@ -109,7 +109,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             end %(nargin ~= 0)
             %tyhle objekty potrebuju inicializovat i pokud je objekt prazdny - CHilbertMulti
             obj.PL = CPlots(); %prazdny objekt na grafy
-            obj.CS = CStat(); %prazdy objekt na statistiku             
+            if ~isprop(obj,'CS'), obj.CS = CStat(); end %prazdy objekt na statistiku, ale mozna uz byl nacteny pomoci load             
         end
         
         function [samples, channels, epochs] = DSize(obj)
@@ -1469,9 +1469,9 @@ classdef CiEEGData < matlab.mixin.Copyable
                 hold on;
                 plot(find(isignif),obj.Wp(WpA).D1(isignif),'o','MarkerSize',8,'MarkerEdgeColor','r','MarkerFaceColor','r');
                 ylim([0 0.1]);
-                view(-90, 90); %# Swap the axes
-                set(gca, 'ydir', 'reverse'); %# Reverse the y-axis 
-                set(gca, 'xdir', 'reverse'); %# Reverse the x-axis 
+                view(-90, 90); % Swap the axes
+                set(gca, 'ydir', 'reverse'); % Reverse the y-axis 
+                set(gca, 'xdir', 'reverse'); % Reverse the x-axis 
                 for e = 1:numel(obj.els) %hranice elektrod a jmeno posledniho kontaktu
                     line([obj.els(e)+0.5 obj.els(e)+0.5],[0 0.1],'color',[.5 0.5 0.5]);
                     text(obj.els(e)-1,-0.01,obj.CH.H.channels(1,obj.els(e)).name);
@@ -1577,10 +1577,17 @@ classdef CiEEGData < matlab.mixin.Copyable
             epochtime = obj.epochtime;      %#ok<PROP,NASGU>
             baseline = obj.baseline;        %#ok<PROP,NASGU>
             CH_H=obj.CH.H;                  %#ok<NASGU>            
+            CH_plots = {obj.CH.plotCh2D obj.CH.plotCh3D}; % ulozeni parametru plotu mozku             
+            if isfield(CH_plots{1}, 'fh' ), CH_plots{1} = rmfield(CH_plots{1}, {'fh'}); end  %potrebuju odstranit figure handly
+            if isfield(CH_plots{2}, 'fh' ), CH_plots{2} = rmfield(CH_plots{2}, {'fh'}); end  %#ok<NASGU>
+            CS_plots = {obj.CS.plotAUC obj.CS.plotAUC_m}; % ulozeni parametru plotu AUC krivek
+            if isfield(CS_plots{1}, 'fh' ), CS_plots{1} = rmfield(CS_plots{1},  {'fh','Eh','PsyData'}); end %potrebuju odstranit figure handly a jine tridy
+            if isfield(CS_plots{2}, 'fh' ), CS_plots{2} = rmfield(CS_plots{2}, {'fh'}); end  %#ok<NASGU>
+            
             CH_filterMatrix = obj.CH.filterMatrix; %#ok<NASGU>  
             els = obj.els;                  %#ok<PROP,NASGU>
             plotES = obj.plotES;            %#ok<PROP,NASGU>
-            [selCh,selChNames] = obj.GetSelCh();      %#ok<NASGU>
+            [selCh,selChNames] = obj.GetSelCh();       %#ok<ASGLU>
             %plotH = obj.plotH;             %#ok<PROP,NASGU> %plotH je blbost ukladat, vytvori se novy, jen to brani vice grafum - 14.6.2016
             RjCh = obj.RjCh;                %#ok<PROP,NASGU>
             RjEpoch = obj.RjEpoch;          %#ok<PROP,NASGU>
@@ -1595,7 +1602,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             if isa(obj,'CHilbertMulti'), label = obj.label; else label = []; end %#ok<NASGU>
             [pathstr,fname,ext] = CiEEGData.matextension(filename);        
             filename2 = fullfile(pathstr,[fname ext]);
-            save(filename2,'d','tabs','tabs_orig','fs','header','sce','PsyDataP','PsyData','testname','epochtime','baseline','CH_H','els',...
+            save(filename2,'d','tabs','tabs_orig','fs','header','sce','PsyDataP','PsyData','testname','epochtime','baseline','CH_H','CH_plots', 'CS_plots','els',...
                     'plotES','selCh','selChNames','RjCh','RjEpoch','RjEpochCh','epochTags','epochLast','reference','epochData','Wp','DE','DatumCas', 'label', ...
                     'CH_filterMatrix','-v7.3');  
             disp(['ulozeno do ' filename2]); 
@@ -1680,6 +1687,17 @@ classdef CiEEGData < matlab.mixin.Copyable
                 load(filename,'selChNames'); obj.plotRCh.selChNames = selChNames;          %#ok<CPROPLC,CPROP,PROP>
             else
                 obj.plotRCh.selChNames = [];  
+            end
+            if ismember('CH_plots', {vars.name}) %nastaveni obou grafu mozku v CHHeader
+                load(filename,'CH_plots'); 
+                obj.CH.plotCh2D = CH_plots{1};   %#ok<USENS>
+                obj.CH.plotCh3D = CH_plots{2};  %#ok<USENS>
+            end
+            if ismember('CS_plots', {vars.name}) %nastaveni obou grafu AUC v CStat
+                load(filename,'CS_plots'); 
+                obj.CS = CStat();
+                obj.CS.plotAUC = CS_plots{1};   %#ok<USENS>
+                obj.CS.plotAUC_m = CS_plots{2};  %#ok<USENS>
             end
             if isempty(obj.plotRCh.selCh) %kdyz to je prazdne, tak to pak zlobi, musi byt zeros
                 obj.SetSelCh([]); %nastavim prazdne - zadne vybrane kanaly

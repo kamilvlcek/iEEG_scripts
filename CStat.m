@@ -59,6 +59,10 @@ classdef CStat < handle
                  kategories = obj.plotAUC.kategories;
                  time = obj.plotAUC.time;                 
             else
+                if ~isfield(obj.plotAUC,'Eh') %pokud jsem nacetl CS.plotAUC ze souboru, nejsou v nem pole Eh a PsyData
+                    obj.plotAUC.Eh = E;
+                    obj.plotAUC.PsyData = E.PsyData;
+                end
                 AUCall = obj.plotAUC.aucdata(ch).AUC;
                 AVGall = obj.plotAUC.aucdata(ch).AVG;
                 if ~exist('time','var') || isempty(time), time = obj.plotAUC.time; end
@@ -210,7 +214,7 @@ classdef CStat < handle
                             
             chantodo = channels(channels>numel(obj.plotAUC.aucdata)); %spocitam si nespocitane kanaly predem najednou. Zatim neresim spocitani i tech chybejicich kanalu
             if ~isempty(chantodo)
-                obj.ROCAnalysis(obj.plotAUC.Eh,chantodo,obj.plotAUC.time,obj.plotAUC.kategories);    
+                obj.ROCAnalysis(obj.plotAUC.Eh,chantodo,obj.plotAUC.time,obj.plotAUC.kategories); 
             end
             sig = obj.plotAUC.sig(channels,logical(obj.plotAUC.katplot)); %index kanalu se signifik auc krivkami ke kresleni
             
