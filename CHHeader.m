@@ -113,19 +113,20 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             end
             ch = 0;
         end
-        function [XYZ,obj] = ChannelPlot(obj,pohled,labels,chnvals,chnsel,selch,XYZ2)
+        function [XYZ,obj] = ChannelPlot(obj,pohled,labels,chnvals,chnsel,selch,roi)
             %zobrazi 3D obrazek elektrod v MNI prostoru. Obrazek ma rozmery podle rozmeru mozku
             %pohled muze urcti smer pohledu s-sagital,c-coronal,h-horizontal
             %chnsel jsou cisla kanalu, pokud chci jen jejich vyber
             %selch je jedno zvyraznene cislo kanalu - index v poli chnsel
+            %roi je zvyraznena krychlova oblast [ x y z edge]
             if ~exist('pohled','var') || isempty(pohled), pohled = ''; end            
             
-            params = {'labels','chnvals','chnsel','selch'}; %zkusim hromadne zpracovani parametru touhle nedoporucovanou metodou
+            params = {'labels','chnvals','chnsel','selch','roi'}; %zkusim hromadne zpracovani parametru touhle nedoporucovanou metodou
             for p=1:numel(params) %parametry, ktere se ukladaji do obj.plotCh3D
-                if ~exist(params{p},'var') || eval(['isempty(' params{p} ')'])
-                    if isfield(obj.plotCh3D,params{p})
-                        eval([ params{p} ' = obj.plotCh3D.' params{p} ';']); 
-                    else
+                if ~exist(params{p},'var') || eval(['isempty(' params{p} ')']) %pokud neni vstupni promenna nebo je prazdna
+                    if isfield(obj.plotCh3D,params{p}) %pokud ale existuje ulozena hodnota
+                        eval([ params{p} ' = obj.plotCh3D.' params{p} ';']); %tak ji pouziju
+                    else 
                         switch params{p}
                             case 'labels'
                                 labels = 0;  %defaultne se nezobrazuji neurology labels, ale jmena kanalu
@@ -135,10 +136,13 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                                 chnsel = []; %default vsechny kanaly
                             case 'selch'
                                 selch = []; %default vsechny kanaly
+                            case 'roi'
+                                roi = []; %default zadne
                         end
+                        eval(['obj.plotCh3D.' params{p} ' = ' params{p} ';']); %nastavim ulozenou hodnotu na default
                     end
                 else
-                    eval(['obj.plotCh3D.' params{p} ' = ' params{p} ';']);
+                    eval(['obj.plotCh3D.' params{p} ' = ' params{p} ';']); %podle vstupni promenne zmeni ulozenou hodnotu
                 end
             end           
            
@@ -190,9 +194,11 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 if ~isempty(selch)
                     scatter3(XYZ.X(selch),XYZ.Y(selch),XYZ.Z(selch),max(sizes),[0 0 0]);
                 end
-                if exist('XYZ2','var')
-                    plot3([XYZ2.X],[XYZ2.Y],[XYZ2.Z],'o-','MarkerSize',5,'MarkerEdgeColor','r','MarkerFaceColor','r','LineWidth',2);    
+                
+                if ~isempty(roi) && numel(roi)>=4 %[x y z edge]
+                    plotcube([roi(4) roi(4) roi(4)],roi(1:3),0,[0 0 0]); %ROI jako kostka
                 end
+                
                 xlabel('MNI X'); %levoprava souradnice
                 ylabel('MNI Y'); %predozadni souradnice
                 zlabel('MNI Z'); %hornodolni
@@ -228,8 +234,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     colorbar; 
                     caxis([min(chnvals) max(chnvals)]); 
                 end %barevna skala, jen pokud jsou ruzne hodnoty kanalu
-                axis equal;                 
-                
+                axis equal;                               
                 %rozhybani obrazku            
                 set(obj.plotCh3D.fh,'KeyPressFcn',@obj.hybejPlot3D);
             else
@@ -731,6 +736,20 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                          obj.plotCh3D.labels  = 1;
                      end
                      obj.ChannelPlot();
+                  case 'r'
+                     %dialog na vlozeni souradnic roi hodnoty
+                    answ = inputdlg('Enter x,y,z a edge size:','define ROI', [1 50],{num2str(obj.plotCh3D.roi)});
+                    if numel(answ)>0  %odpoved je vzdy cell 1x1 - pri cancel je to cell 0x0
+                        if isempty(answ{1}) || any(answ{1}=='*') %pokud vlozim hvezdicku nebo nic, chci znovy spocitat max a min
+                           obj.plotCh3D.roi = [];
+                        else %jinak predpokladam 4 hodnoty
+                           data = str2num(answ{:});  %#ok<ST2NM>
+                           if numel(data)>= 4 %pokud nejsou 4 hodnoty, nedelam nic
+                             obj.plotCh3D.roi = [data(1) data(2) data(3) data(4)];
+                           end
+                        end
+                    end
+                    obj.ChannelPlot();
               end
           end
           function obj = hybejPlot2D(obj,~,eventDat) 
