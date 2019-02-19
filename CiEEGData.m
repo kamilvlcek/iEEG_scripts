@@ -109,7 +109,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             end %(nargin ~= 0)
             %tyhle objekty potrebuju inicializovat i pokud je objekt prazdny - CHilbertMulti
             obj.PL = CPlots(); %prazdny objekt na grafy
-            if ~isprop(obj,'CS'), obj.CS = CStat(); end %prazdy objekt na statistiku, ale mozna uz byl nacteny pomoci load             
+            if ~isprop(obj,'CS') || ~isa(obj.CS,'CStat') , obj.CS = CStat(); end %prazdy objekt na statistiku, ale mozna uz byl nacteny pomoci load             
         end
         
         function [samples, channels, epochs] = DSize(obj)

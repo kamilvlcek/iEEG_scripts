@@ -196,7 +196,10 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 end
                 
                 if ~isempty(roi) && numel(roi)>=4 %[x y z edge]
-                    plotcube([roi(4) roi(4) roi(4)],roi(1:3),0,[0 0 0]); %ROI jako kostka
+                    for r = 1:size(roi,1)                    
+                        plotcube([roi(r,4) roi(r,4) roi(r,4)], roi(r,1:3),0,[0 0 0]); %ROI jako kostka
+                        text(roi(r,1)+roi(r,4)/2,  roi(r,2)+roi(r,4)/2 , roi(r,3)+roi(r,4)/2, num2str(r),'FontSize', 10, 'Color',[1 0 0]);
+                    end
                 end
                 
                 xlabel('MNI X'); %levoprava souradnice
@@ -738,14 +741,14 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                      obj.ChannelPlot();
                   case 'r'
                      %dialog na vlozeni souradnic roi hodnoty
-                    answ = inputdlg('Enter x,y,z a edge size:','define ROI', [1 50],{num2str(obj.plotCh3D.roi)});
+                    answ = inputdlg('Enter x,y,z a edge size:','define ROIs', [2 50],{num2str(obj.plotCh3D.roi)});
                     if numel(answ)>0  %odpoved je vzdy cell 1x1 - pri cancel je to cell 0x0
-                        if isempty(answ{1}) || any(answ{1}=='*') %pokud vlozim hvezdicku nebo nic, chci znovy spocitat max a min
+                        if isempty(answ{1}) %pokud vlozim hvezdicku nebo nic, chci znovy spocitat max a min
                            obj.plotCh3D.roi = [];
                         else %jinak predpokladam 4 hodnoty
                            data = str2num(answ{:});  %#ok<ST2NM>
-                           if numel(data)>= 4 %pokud nejsou 4 hodnoty, nedelam nic
-                             obj.plotCh3D.roi = [data(1) data(2) data(3) data(4)];
+                           if size(data,2) == 4 && size(data,1) > 0 %pokud nejsou 4 hodnoty ve sloupcich, nedelam nic. Alespon 1 radek
+                             obj.plotCh3D.roi = data;
                            end
                         end
                     end
