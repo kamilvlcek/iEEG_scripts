@@ -1577,12 +1577,9 @@ classdef CiEEGData < matlab.mixin.Copyable
             epochtime = obj.epochtime;      %#ok<PROP,NASGU>
             baseline = obj.baseline;        %#ok<PROP,NASGU>
             CH_H=obj.CH.H;                  %#ok<NASGU>            
-            CH_plots = {obj.CH.plotCh2D obj.CH.plotCh3D}; % ulozeni parametru plotu mozku             
-            if isfield(CH_plots{1}, 'fh' ), CH_plots{1} = rmfield(CH_plots{1}, {'fh'}); end  %potrebuju odstranit figure handly
-            if isfield(CH_plots{2}, 'fh' ), CH_plots{2} = rmfield(CH_plots{2}, {'fh'}); end  %#ok<NASGU>
-            CS_plots = {obj.CS.plotAUC obj.CS.plotAUC_m}; % ulozeni parametru plotu AUC krivek
-            if isfield(CS_plots{1}, 'fh' ), CS_plots{1} = rmfield(CS_plots{1},  {'fh','Eh','PsyData'}); end %potrebuju odstranit figure handly a jine tridy
-            if isfield(CS_plots{2}, 'fh' ), CS_plots{2} = rmfield(CS_plots{2}, {'fh'}); end  %#ok<NASGU>
+            CH_plots = {obj.CH.plotCh2D obj.CH.plotCh3D}; % ulozeni parametru plotu mozku                        
+            CS_plots = {obj.CS.plotAUC obj.CS.plotAUC_m}; % ulozeni parametru plotu AUC krivek            
+            [CH_plots,CS_plots] = obj.SaveRemoveFh(CH_plots,CS_plots);  %#ok<ASGLU> %smazu vsechny handely na obrazky 
             
             CH_filterMatrix = obj.CH.filterMatrix; %#ok<NASGU>  
             els = obj.els;                  %#ok<PROP,NASGU>
@@ -1606,6 +1603,16 @@ classdef CiEEGData < matlab.mixin.Copyable
                     'plotES','selCh','selChNames','RjCh','RjEpoch','RjEpochCh','epochTags','epochLast','reference','epochData','Wp','DE','DatumCas', 'label', ...
                     'CH_filterMatrix','-v7.3');  
             disp(['ulozeno do ' filename2]); 
+        end
+        function [CH_plots,CS_plots,obj] = SaveRemoveFh(obj,CH_plots,CS_plots)  %smazu vsechny handely na obrazky 
+            %{obj.CH.plotCh2D obj.CH.plotCh3D}
+            if isfield(CH_plots{1}, 'fh' ), CH_plots{1} = rmfield(CH_plots{1}, {'fh'}); end  %potrebuju odstranit figure handly
+            if isfield(CH_plots{1}, 'plotChH' ), CH_plots{1} = rmfield(CH_plots{1}, {'plotChH'}); end  %potrebuju odstranit figure handly
+            if isfield(CH_plots{2}, 'fh' ), CH_plots{2} = rmfield(CH_plots{2}, {'fh'}); end  
+            
+            %{obj.CS.plotAUC obj.CS.plotAUC_m};
+            if isfield(CS_plots{1}, 'fh' ), CS_plots{1} = rmfield(CS_plots{1},  {'fh','Eh','PsyData'}); end %potrebuju odstranit figure handly a jine tridy
+            if isfield(CS_plots{2}, 'fh' ), CS_plots{2} = rmfield(CS_plots{2}, {'fh'}); end  
         end
         function obj = Load(obj,filename,~,~)
             % nacte veskere promenne tridy ze souboru

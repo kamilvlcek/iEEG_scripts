@@ -284,7 +284,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     obj.plotCh2D.selChNames = selChNames;                    
                 end
             end
-            if exist('plotChH','var')  %handlet na funkci z CiEEGData @obj.PlotResponseCh
+            if exist('plotChH','var')  %handle na funkci z CiEEGData @obj.PlotResponseCh
                 obj.plotCh2D.plotChH = plotChH;
             end
             if ~isfield(obj.plotCh2D,'marks')  %handle na funkci z CiEEGData @obj.PlotResponseCh
