@@ -57,7 +57,11 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     els = obj.els;
                 end
             else
-                chgroups = {chnsel}; %pokud mam vyber kanalu, zatim to nechci resit a vsechny v jedne skupine - bez ohledu na elektrody, jako cellarray
+                if obj.plotCh3D.allpoints %pokud chci zobrazovat i ostatni kanal jako tecky
+                   chgroups = {chnsel,setdiff(obj.H.selCh_H,chnsel)}; %do druhe skupiny dam ostatni kanaly
+                else
+                   chgroups = {chnsel}; %pokud mam vyber kanalu, zatim to nechci resit a vsechny v jedne skupine - bez ohledu na elektrody, jako cellarray
+                end
                 els = obj.els;
             end
         end
@@ -145,7 +149,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     eval(['obj.plotCh3D.' params{p} ' = ' params{p} ';']); %podle vstupni promenne zmeni ulozenou hodnotu
                 end
             end           
-           
+            if ~isfield(obj.plotCh3D,'allpoints'), obj.plotCh3D.allpoints = 0; end
             assert(numel(chnvals) == numel(chnsel), 'unequal size of chnvals and chnsel');
             nblocks = numel(chnvals); %pocet barev bude odpovidat poctu kanalu
             cmap = parula(nblocks+1); %+1 protoze hodnoty se budou zaokrouhlovat nahoru nebo dolu
@@ -162,7 +166,8 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     obj.plotCh3D.fh = figure('Name','ChannelPlot 3D in MNI');                     
                 end          
                                
-                [obj,chgroups] = obj.ChannelGroups(chnsel); %rozdeli kanaly po elektrodach do skupin. Pokud chnsel, jsou vsecny v jedne skupine         
+                [obj,chgroups] = obj.ChannelGroups(chnsel); %rozdeli kanaly po elektrodach do skupin. 
+                 %Pokud chnsel, jsou vsecny v jedne skupine. Ale pokud obj.plotCh3D.allpoints, ve druhe skupine jsou ostatni kanaly
                 
                 %objekt se dobre uklada i pri poradi return values XYZ,obj
                 XYZ = struct('X',0,'Y',0,'Z',0);
@@ -171,7 +176,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     X = [obj.H.channels(group).MNI_x];
                     Y = [obj.H.channels(group).MNI_y];
                     Z = [obj.H.channels(group).MNI_z];     
-                    XYZ(chg) = struct('X',X,'Y',Y,'Z',Z);
+                   
                     linestyle = iff(isempty(chnsel),'-','.'); %cara bude jina pokud je pouzite chnsel
                     plot3(X,Y,Z,linestyle,'LineWidth',2);
                     if chg==1, hold on; end                         
@@ -180,12 +185,17 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     else
                         names = {obj.H.channels(group).name};
                     end
-                    iZ = mod([1:numel(Z)], 2); iZ(iZ == 0) = -1;
-                    text(X,Y,Z+iZ*2,names,'FontSize', 7);
+                    iZ = mod([1:numel(Z)], 2); iZ(iZ == 0) = -1;                    
+                    if chg==1 || isempty(chnsel) || ~obj.plotCh3D.allpoints %druhou skupinu chci do kulicek jen pokud zobrazuju vsechny (chnsel je prazdne) nebo pokud nejsou v druhe skupine ostatni kanaly
+                        XYZ(chg) = struct('X',X,'Y',Y,'Z',Z); %export pro scatter3 nize, ktery zobrazi ruzne velke a barevne kulicky
+                        text(X,Y,Z+iZ*2,names,'FontSize', 7);
+                    end
                 end
                 % Plot with different colors and sizes based on chnvals
                 if isempty(chnvals) 
                     isizes = 1:obj.H.channels;
+                elseif obj.plotCh3D.allpoints 
+                    isizes = find(chnsel==[chgroups{1}]); %indexy v poli chnsel pro pouziti v poli sizes, find pracuje i hromadne
                 else
                     isizes = find(chnsel==[chgroups{:}]); %indexy v poli chnsel pro pouziti v poli sizes, find pracuje i hromadne
                 end               
@@ -243,7 +253,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             else
                 disp('No MNI data');
             end
-        end
+        end        
         function ChannelPlot2D(obj,chsel,plotRCh,plotChH,label)
             %vstupni promenne
             %plotRCh - cela struktura plotRCh z CiEEGData
@@ -751,6 +761,14 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                              obj.plotCh3D.roi = data;
                            end
                         end
+                    end
+                    obj.ChannelPlot();
+                  case 'p'
+                    %zobrazeni pozic vsech kanalu jako tecek
+                    if isfield(obj.plotCh3D,'allpoints') %prepinac neurology labels v grafu
+                       obj.plotCh3D.allpoints  = 1 - obj.plotCh3D.allpoints;
+                    else
+                       obj.plotCh3D.allpoints  = 1;
                     end
                     obj.ChannelPlot();
               end
