@@ -322,8 +322,8 @@ classdef CStat < handle
                         
                         [amax, idx] = max(AUC(:,1));
                         tmax = X(idx);
-                        ci_p = AUC(idx, 2);
-                        ci_m = AUC(idx, 3);
+                        ci_p = AUC(idx, 3);
+                        ci_m = AUC(idx, 2);
                         
                         %TODO: signal je mezi (0,1) - co delat s krivkami < 0.5?
                         
