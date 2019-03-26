@@ -303,6 +303,8 @@ classdef CStat < handle
                 obj.plotAUC_m.chsort(selch)); 
         end
         
+
+       
         function AUC2XLS(obj)
             channels = obj.plotAUC_m.channels;   %XXX: predpokladam, ze obj.plotAUC_m.channels uz obsahuje vsechny spocitane kanaly
             
@@ -320,15 +322,13 @@ classdef CStat < handle
                         AUC = obj.plotAUC.aucdata(channels(ch)).AUC{k,l};
                         X = linspace(obj.plotAUC.time(1),obj.plotAUC.time(2),size(AUC,1));
                         
-                        [amax, idx] = max(AUC(:,1));
+                        [amax, idx, idxHalf] = cMax(AUC(:,1));
                         tmax = X(idx);
-                        ci_p = AUC(idx, 3);
-                        ci_m = AUC(idx, 2);
+                        thalf = X(idxHalf);
                         
-                        %TODO: signal je mezi (0,1) - co delat s krivkami < 0.5?
+                        ci_u = AUC(idx, 3);
+                        ci_l = AUC(idx, 2);
                         
-                        idx_half = find(AUC(:,1) > (amax+0.5)/2, 1, 'first'); % prvni vyskyt poloviny maxima
-                        thalf = X(idx_half);
 
                         sig = obj.plotAUC.sig(channels(ch), obj.plotAUC.setup.legendkomb(k,l));
                         
@@ -345,8 +345,8 @@ classdef CStat < handle
                                 tmax, ...
                                 thalf, ...
                                 amax, ...
-                                ci_p, ...
-                                ci_m, ...
+                                ci_u, ...
+                                ci_l, ...
                                 sig ...
                             };
                                             
@@ -377,14 +377,13 @@ classdef CStat < handle
             
             %TODO: Identifikace nazvu souboru?
             kat = strrep([obj.plotAUC.katnames{find(obj.plotAUC.katplot)}], ' ', '_');
-            chnls = regexprep(cell2str(obj.plotAUC.selChNames{obj.plotAUC_m.chSelection}), '[ \[\]]', '_');
+            chnls = strrep(cell2str(obj.plotAUC.selChNames{obj.plotAUC_m.chSelection}), ' ', '_');
             [~,mfilename,~] = fileparts(obj.plotAUC.Eh.hfilename);
             mfilename = strrep(mfilename, ' ', '_');
-            logfilename = ['AUCPlotM_' kat '_chnls_' chnls '_file_' mfilename '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') ];  
+            logfilename = ['AUCPlotM_' kat '_chnls_' chnls '_' mfilename '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') ];  
             xlsfilename = fullfile('logs', [logfilename '.xls']);
             writetable(tablelog, xlsfilename); %zapisu do xls tabulky
             disp([ 'xls tables saved: ' xlsfilename]);
-           
         end
     end
     methods (Static,Access = public)        
