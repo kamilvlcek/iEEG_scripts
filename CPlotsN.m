@@ -316,53 +316,6 @@ classdef CPlotsN < handle
             obj.plotEpochData();
         end   
         
-        function [itpc, itpc_p, itpc_pmean, itpc_min, n_epoch] = CalculateITPC(obj, conditions, channels)
-            % itpc = ch x condition x time x fq
-            % itpc_p ch x condition x time x fq - p values
-            % itpc_pmean ch x condition x time - p values z mean itpc pres frekvence
-            if ~exist('channels', 'var') 
-                channels = 1:obj.E.channels; 
-            end
-            if ~exist('conditions', 'var')
-                conditions = [obj.E.PsyData.P.strings.podminka{:,2}];
-            end
-            n_fq = length(obj.E.Hf);
-            n_cond = length(conditions);
-            itpc = zeros(obj.E.channels,n_cond,obj.E.samples, n_fq);
-            itpc_p = zeros(obj.E.channels,n_cond,obj.E.samples, n_fq); % p-value vsetkych frekvencii
-            itpc_pmean = zeros(obj.E.channels,n_cond,obj.E.samples); % p-value priemeru cez vsetky frekvencie
-            n_epoch = zeros(1,n_cond);
-            
-            itpc_min.pval = nan(obj.E.channels,n_cond,obj.E.samples);
-            itpc_min.val = nan(obj.E.channels,n_cond,obj.E.samples);
-            itpc_min.iFq = nan(obj.E.channels,n_cond);
-            
-            for channel = channels
-                %display(['Channel ' num2str(channel)]);
-                for cond = 1:length(conditions)
-                    if iscell(conditions)
-                        icondition = conditions{cond};
-                    else
-                        icondition = conditions(cond);    
-                    end
-                    iEp = obj.CorrectEpochs(channel, icondition);
-                    n_epoch(cond) = length(iEp);
-                    for fq = 1:n_fq
-                        itpc(channel, cond, :, fq) = abs(mean(exp(1i*squeeze(obj.E.fphaseEpochs(:,channel,fq,iEp))),2));
-                        itpc_p(channel, cond, :, fq) = exp(-n_epoch(cond) * squeeze(itpc(channel, cond,:,fq)).^2);  %hladina siginifikance je zavisla na poctu epoch
-                        
-                    end
-                    itpc_pmean(channel, cond, :) = exp(-n_epoch(cond) * mean(squeeze(itpc(channel, cond,:,:)),2).^2);
-                    
-                    [~,i] = min(mean(squeeze(itpc_p(channel,cond,:,:)),1));
-                    
-                    itpc_min.pval(channel, cond, :) = itpc_p(channel, cond, :, i);
-                    itpc_min.val(channel, cond, :) = itpc(channel, cond, :, i);
-                    itpc_min.iFq(channel, cond) = i;
-                end
-            end
-        end
-        
         function [ditpc, ditpc_p, ditpc_pmean] = CalculateITPCdiffs(obj, diffs,itpc, channels) %#ok<INUSL>
             %stejne jako CalculateITPC ale pro rozdil 
             if ~exist('channels', 'var') || isempty(channels)
@@ -396,13 +349,73 @@ classdef CPlotsN < handle
             end
         end
         
-        function [citpc, citpc_p, citpc_pmean, citpc_min, combinations] = CalculateITPCcontrasts(obj, contrasts, itpc, n, channels)
+        function [itpc, itpc_p, itpc_mean, itpc_min, n_epoch] = CalculateITPC(obj, conditions, channels)
+            % conditions v itpc rozmere cond su vratene v poradi ako boli
+            % zadane v conditions
+            % itpc = ch x condition x time x fq
+            % itpc_p ch x condition x time x fq - p values
+            % itpc_pmean ch x condition x time - p values z mean itpc pres frekvence
+            if ~exist('channels', 'var') 
+                channels = 1:obj.E.channels; 
+            end
+            if ~exist('conditions', 'var')
+                conditions = [obj.E.PsyData.P.strings.podminka{:,2}];
+            end
+            n_fq = length(obj.E.Hf);
+            n_cond = length(conditions);
+            itpc = zeros(obj.E.channels,n_cond,obj.E.samples, n_fq);
+            itpc_p = zeros(obj.E.channels,n_cond,obj.E.samples, n_fq); % p-value vsetkych frekvencii
+            itpc_mean.val = zeros(obj.E.channels,n_cond,obj.E.samples); % p-value priemeru cez vsetky frekvencie
+            itpc_mean.pval = zeros(obj.E.channels,n_cond,obj.E.samples); % p-value priemeru cez vsetky frekvencie
+            n_epoch = zeros(1,n_cond);
+            
+            itpc_min.pval = nan(obj.E.channels,n_cond,obj.E.samples);
+            itpc_min.val = nan(obj.E.channels,n_cond,obj.E.samples);
+            itpc_min.iFq = nan(obj.E.channels,n_cond);
+            
+            for channel = channels
+                %display(['Channel ' num2str(channel)]);
+                for cond = 1:length(conditions)
+                    if iscell(conditions)
+                        condition = conditions{cond};
+                    else
+                        condition = conditions(cond); % condition code, not index
+                    end
+                    iEp = obj.CorrectEpochs(channel, condition);
+                    n_epoch(cond) = length(iEp);
+                    
+                    itpc(channel, cond, :, :) = abs(mean(exp(1i*squeeze(obj.E.fphaseEpochs(:,channel,:,iEp))),3)); % obj.ClusterCorrect(obj, exp(1i*squeeze(obj.E.fphaseEpochs(:,channel,fq,iEp))));%
+%                     itpc(channel, cond, :, :) = obj.ClusterCorrect(exp(1i*squeeze(obj.E.fphaseEpochs(:,channel,:,iEp)))); % time x freq x epoch
+                    [~, ~, adj_p]=fdr_bh(exp(-n_epoch(cond) * squeeze(itpc(channel, cond,:,:)).^2),0.05,'pdep','no'); %dep je striktnejsi nez pdep
+                    itpc_p(channel, cond, :, :) = movmean(adj_p,5,1);  %hladina siginifikance je zavisla na poctu epoch
+                   
+                    
+                    itpc_mean.val(channel, cond, :) = mean(squeeze(itpc(channel, cond, :, :)),2);
+                    itpc_mean.pval(channel, cond, :) = mean(squeeze(itpc_p(channel, cond, :, :)),2);
+                    %exp(-n_epoch(cond) * squeeze(itpc_mean.val(channel, cond,:)).^2);
+                    
+                    [~,i] = min(mean(squeeze(itpc_p(channel,cond,:,:)),1)); % frekvencia s minimalnym priemernym itpc_p, takze maximalnym prem. itpc
+                    
+                    itpc_min.pval(channel, cond, :) = itpc_p(channel, cond, :, i);
+                    itpc_min.val(channel, cond, :) = itpc(channel, cond, :, i);
+                    itpc_min.iFq(channel, cond) = i;
+                end
+            end
+        end
+        
+        function [citpc, citpc_p, citpc_mean, citpc_min, iCombinations] = CalculateITPCcontrasts(obj, contrasts, itpc, n, channels)
             %{ 
+             vracia kombinacie v poradi podla contrasts
+            
              contrasts is either an array or cell array
              [0 1 2] or {2 [1 2] [2 1 0]} etc.
              citpc = ch x contrast1 x contrast2 x time x fq
              citpc_p ch x contrast1 x contrast2 x time x fq - p values
              citpc_pmean ch x contrast1 x contrast2 x time - p values z mean itpc pres frekvence
+            
+             iCombinations - indexy kombinacii, pre [2 3 1] by to bolo 
+             [1 2] [1 3] [2 3] , takze vlastne [2 3] [2 1] [3 1]
+              
             %}
             if ~exist('channels', 'var') 
                 channels = 1:obj.E.channels; 
@@ -415,26 +428,49 @@ classdef CPlotsN < handle
             end
             
             contrasts_num = length(contrasts);
-            combinations = nchoosek(1:contrasts_num,2); % returns all combinations of 2 values from 1:length(contrasts)
+            iCombinations = nchoosek(1:contrasts_num,2); % returns all combinations of 2 values from 1:length(contrasts)
                                                         % = the indexes of contrast combinations to be calculated
                                                       
             citpc = nan(obj.E.channels,contrasts_num,contrasts_num,obj.E.samples, length(obj.E.Hf));
             citpc_p = nan(obj.E.channels,contrasts_num,contrasts_num,obj.E.samples, length(obj.E.Hf)); % p-value vsetkych frekvencii
-            citpc_pmean = nan(obj.E.channels,contrasts_num,contrasts_num,obj.E.samples); % p-value priemeru cez vsetky frekvencie
+            citpc_mean.val = nan(obj.E.channels,contrasts_num,contrasts_num,obj.E.samples); 
+            citpc_mean.pval = nan(obj.E.channels,contrasts_num,contrasts_num,obj.E.samples);% p-value priemeru cez vsetky frekvencie
             citpc_min.pval = nan(obj.E.channels,contrasts_num,contrasts_num,obj.E.samples);
             citpc_min.val = nan(obj.E.channels,contrasts_num,contrasts_num,obj.E.samples);
             citpc_min.iFq = nan(obj.E.channels,contrasts_num,contrasts_num);
                         
             for channel = channels
                 %display(['Channel ' num2str(channel)]);
-                for comb = 1:size(combinations,1)
+                for comb = 1:size(iCombinations,1)
                                         
-                    cond1 = combinations(comb,1); % index of the first element in the contrast
-                    cond2 = combinations(comb,2); % index of the second element in the contrast
-                    citpc(channel, cond1, cond2, :, :) = squeeze(itpc(channel, cond1, :, :) - itpc(channel, cond2, :, :)); % time x freq
+                    cond1 = iCombinations(comb,1); % index of the first element in the contrast
+                    cond2 = iCombinations(comb,2); % index of the second element in the contrast
+                    citpc(channel, cond1, cond2, :, :) = squeeze(itpc(channel, cond2, :, :) - itpc(channel, cond1, :, :)); % time x freq vracia rozdiel aj minusovy
+                    % odcitavam DRUHE minus PRVE, takze rozdiel bude
+                    % pozitivny, ak je to duhe vacsie!!!
                     
-                    citpc_p(channel, cond1, cond2, :, :) = 2*normpdf(abs(atanh(squeeze(citpc(channel, cond1, cond2, :, :)))/sqrt((1/(n(cond1)-3))+(1/(n(cond2)-3)))));
-                    citpc_pmean(channel, cond1, cond2, :) = 2*normpdf(abs(atanh(mean(squeeze(citpc(channel, cond1, cond2, :, :)),2))/sqrt((1/(n(cond1)-3))+(1/(n(cond2)-3)))));
+                    [~, ~, adj_p]=fdr_bh(2*normpdf(abs(atanh(squeeze(citpc(channel, cond1, cond2, :, :)))/sqrt((1/(n(cond1)-3))+(1/(n(cond2)-3))))));
+                    citpc_p(channel, cond1, cond2, :, :) = movmean(adj_p,5,1);
+%                     citpc_mean.val(channel, cond1, cond2, :) = mean(squeeze(citpc(channel, cond1, cond2, :, :)),2);
+%                     citpc_mean.pval(channel, cond1, cond2, :) = mean(squeeze(citpc_p(channel, cond1, cond2, :, :)),2);
+%                   namiesto priemeru vsetkych hodnot iba priemer
+%                   signifikantnych hodnot
+                    citpc_temp = squeeze(citpc(channel, cond1, cond2, :, :));
+                    citpc_ptemp = squeeze(citpc_p(channel, cond1, cond2, :, :));
+                    citpc_mean.val(channel, cond1, cond2, :) = mean(citpc_temp,2);
+                    % priemer je vsetkych hodnot zatial, priemer p je len
+                    % zo signifikantnych
+                    p_val = 0.05;
+                    for temp = 1:size(citpc_ptemp,1)
+                       sum_p = sum(citpc_ptemp(temp,citpc_ptemp(temp,:)<p_val)); 
+                       num_p = sum(citpc_ptemp(temp,:)<p_val);
+                       if num_p > 0
+                            citpc_mean.pval(channel, cond1, cond2, temp) = sum_p/num_p;
+                       else 
+                           citpc_mean.pval(channel, cond1, cond2, temp) = 1;
+                       end
+                    end
+                    %2*normpdf(abs(atanh(citpc_mean.val(channel, cond1, cond2, :))/sqrt((1/(n(cond1)-3))+(1/(n(cond2)-3)))));
                     
                     [~,i] = min(mean(squeeze(citpc_p(channel,cond1, cond2,:,:)),1));
                     
@@ -444,6 +480,60 @@ classdef CPlotsN < handle
                 end
             end
             
+        end
+        
+        function zmapthresh = ClusterCorrect(obj, eegphase)
+            % eegphase = time x freq x epoch
+            voxel_pval   = 0.05;
+            cluster_pval = 0.05;
+            
+            n_permutes = 100;
+            
+            % eegphase ma mat rozmer freq x time x epoch
+            eegphase = permute(eegphase, [2 1 3]);
+            timepoints = size(eegphase, 2);
+            num_frex = size(eegphase, 1);
+            
+            realitpc = squeeze(abs(mean(eegphase,3)));
+            
+            permuted_vals    = zeros(n_permutes,num_frex,timepoints);
+            max_clust_info   = zeros(n_permutes,1);
+            
+            for permi=1:n_permutes
+                cutpoint = randsample(2:timepoints-2,1);
+                permuted_vals(permi,:,:) = squeeze(abs(mean(eegphase(:,[cutpoint:end 1:cutpoint-1],:),3)));
+            end
+
+            zmap = (realitpc-squeeze(mean(permuted_vals))) ./ squeeze(std(permuted_vals));
+            
+
+            for permi = 1:n_permutes
+                % for cluster correction, apply uncorrected threshold and get maximum cluster sizes
+                fakecorrsz = squeeze((permuted_vals(permi,:,:)-mean(permuted_vals,1)) ./ std(permuted_vals,[],1) );
+                fakecorrsz(abs(fakecorrsz)<norminv(1-voxel_pval))=0;
+
+                % get number of elements in largest supra-threshold cluster
+                clustinfo = bwconncomp(fakecorrsz);
+                max_clust_info(permi) = max([ 0 cellfun(@numel,clustinfo.PixelIdxList) ]); % the zero accounts for empty maps
+                % using cellfun here eliminates the need for a slower loop over cells
+            end
+            % apply cluster-level corrected threshold
+            zmapthresh = realitpc;
+            % uncorrected pixel-level threshold
+            zmapthresh(abs(zmap)<norminv(1-voxel_pval))=0;
+            % find islands and remove those smaller than cluster size threshold
+            clustinfo = bwconncomp(zmapthresh);
+            clust_info = cellfun(@numel,clustinfo.PixelIdxList);
+            clust_threshold = prctile(max_clust_info,100-cluster_pval*100);
+
+            % identify clusters to remove
+            whichclusters2remove = find(clust_info<clust_threshold);
+
+            % remove clusters
+            for i=1:length(whichclusters2remove)
+                zmapthresh(clustinfo.PixelIdxList{whichclusters2remove(i)})=0;
+            end
+            zmapthresh = realitpc';%zmapthresh';
         end
         
         function fig = PlotITPCcontrasts(obj, contrasts)
@@ -501,67 +591,118 @@ classdef CPlotsN < handle
 %             close(obj.plotData.f);
 
         end
+        
+        function [catNames, catNumbers, icats] = GetCategoryIndexes(obj, cats)
+            if ~exist('cats', 'var') 
+                cats = []; % pre allo-ego
+            end
+            numAllCats = size(obj.E.PsyData.P.strings.podminka,1); % kolko je kategorii celkovo 
+            catNames = repmat("",numAllCats,1); % nazvy vsetkych kategorii
+            catNumbers = nan(numAllCats,1); % cisla vsetkych kategorii
+            
+            icats = nan(length(cats),1); % indexy vybranych kategorii
+
+            for i = 1:numAllCats 
+                catName = string(obj.E.PsyData.P.strings.podminka{i,1});
+                catNames(i) = catName;
+                catNumbers(i) = obj.E.PsyData.P.strings.podminka{i,2};
+            end
+            
+            for i = 1:length(cats)
+               icats(i) = find(catNumbers==cats(i)); 
+            end
+        end
             
             
-        function fig = PlotITPCsig(obj, ch, sig, diffs)
+        function fig = PlotITPCsig(obj, ch, cats, sig) % kanal, kategorie co chcem vykreslit a ci to je time x freq (0), alebo mean a sig (1)
             % itpc (ch, cond, time, fq)
             % itpc_p (ch, cond, time)
-            
-            if ~exist('diffs', 'var') 
-                diffs = [[0 1]; [0 2]; [1 2]]; 
+            % cats oznacuju ciselne kody kategorii podla druheho stlpca v obj.E.PsyData.P.strings.podminka
+            if ~exist('cats', 'var') 
+                cats = [0 1 2]; % pre allo-ego
             end
+            
             p_val = 0.05;
+            
             names = {obj.E.CH.H.channels.ass_brainAtlas}; %cast mozgu
             labels = {obj.E.CH.H.channels.neurologyLabel}; %neurology label
             electrodes = {obj.E.CH.H.channels.name}; %nazov elektrody
             time = linspace(obj.E.epochtime(1), obj.E.epochtime(2), size(obj.E.fphaseEpochs,1));
             
-            fig = figure; colormap(jet)
-            [itpc, ~, p] = obj.CalculateITPC(ch);
-            [ditpc, ~, dp] = obj.CalculateITPCdiffs(ch, diffs);
+            fig = figure; %colormap(jet)
+            myColorMap = jet(256);
+            myColorMap(1,:) = 1;
+            colormap(myColorMap);
+%             [itpc, ~, p] = obj.CalculateITPC(ch);
+%             [ditpc, ~, dp] = obj.CalculateITPCdiffs(ch, diffs);
+
+%             conditions = [obj.E.PsyData.P.strings.podminka{:,2}];
             
-            conditions = [obj.E.PsyData.P.strings.podminka{:,2}];
-            numCond = length(conditions);
-            for cond = 1:numCond
+            [itpc, itpc_p, itpc_mean, ~, n] = CalculateITPC(obj, cats);
+            [citpc, citpc_p, citpc_mean, ~, iContrasts] = CalculateITPCcontrasts(obj,cats, itpc, n, ch);
+            numContrasts = length(iContrasts);
+            
+            [catNames, catNumbers, icats] = GetCategoryIndexes(obj,cats); % dostanem z kategorii ich indexy v icats
+            
+            for contrast = 1:numContrasts
+                
                 % subplot individual conditions
-                subplot(2,numCond, cond);
+                subplot(2,numContrasts, contrast);
                 if ~sig % subplot time x frequency for every condition
-                    imagesc(time, obj.E.Hf, squeeze(itpc(ch, cond, :, :))');
+                    % find only significant values -> plot nonsignificant
+                    % with white colour
+                    
+                    itpc_plot = squeeze(itpc(ch, contrast, :, :));
+                    iNonSig = squeeze(itpc_p(ch, contrast,:,:)>p_val); % zakomentovat ak chcem vykreslit aj nesignifikantne
+                    itpc_plot(iNonSig) = 0; % zakomentovat ak chcem vykreslit aj nesignifikantne
+                    itpc_plot =  itpc_plot';
+                    imagesc(time, obj.E.Hf, itpc_plot);
                     xlabel('Time (s)'); ylabel('Frequency (Hz)'); colorbar;
                     set(gca,'YDir','normal'); caxis([0 0.7]);
-                    title([obj.E.PsyData.P.strings.podminka{cond,1}]);
+                    title(catNames(icats(contrast))); % nazov kategorie na pozicii odpovedajucej cats
                     hold on;
+%                     subplot(2,numCond, cond+numCond);
+%                     plot(time, mean(squeeze(itpc(ch, cond, :, :))'));
+%                     axis([-0.2 0.8 0 0.8]);
                 else % subplot time x (p-value of mean itpc across frequencies) for every condition
-                    plot(time, mean(squeeze(itpc(ch, cond, :, :)),2), 'g');
+                    plot(time, squeeze(itpc_mean.val(ch, contrast, :)), 'g'); % priemer cez frekvencie
                     hold on;
-                    plot(time,squeeze(p(ch, cond, :)));
+                    plot(time,squeeze(itpc_mean.pval(ch, contrast, :))); % p-hodnota priemeru
                     ylim([0 1]);
                     xlabel('Time (s)'); ylabel('ITPC p-value');
-                    title([obj.E.PsyData.P.strings.podminka{cond,1} '(' num2str(length(obj.CorrectEpochs(ch, obj.E.PsyData.P.strings.podminka{cond,2}))) ')']);
+                    title([catNames(icats(contrast)) num2str(length(obj.CorrectEpochs(ch, cats(contrast))))]); % do correct epochs ide kod kategorie, nie index
                     hold on;
                     plot(time, p_val*ones(size(time)),'r');
                     hold on;
                 end
             end
             
-            for diff = 1:size(diffs, 1)
-                subplot(2, numCond, diff + numCond);
+            for contrast = 1:numContrasts
+                myColorMap(128,:) = 1;
+                myColorMap(129,:) = 1;
+                colormap(myColorMap);
+                subplot(2, numContrasts, contrast + numContrasts);
                 if ~sig % subplot time x frequency for condition differences
-                    imagesc(time, obj.E.Hf, abs(squeeze(ditpc(ch, diff, :, :)))');
+                    citpc_plot = squeeze(citpc(ch, iContrasts(contrast,1), iContrasts(contrast,2), :, :));
+                    iNonSig = squeeze(citpc_p(ch, iContrasts(contrast,1), iContrasts(contrast,2),:,:)>p_val); % zakomentovat ak chcem vykreslit aj nesignifikantne
+                    citpc_plot(iNonSig) = 0; % zakomentovat ak chcem vykreslit aj nesignifikantne
+                    citpc_plot =  citpc_plot';
+                    imagesc(time, obj.E.Hf, citpc_plot);
                     xlabel('Time (s)'); ylabel('Frequency (Hz)'); colorbar;
-                    set(gca,'YDir','normal'); caxis([0 0.3]);
-                    title([obj.E.PsyData.P.strings.podminka{diffs(diff,1)+1,1} '-' obj.E.PsyData.P.strings.podminka{diffs(diff,2)+1,1}]);
+                    set(gca,'YDir','normal'); caxis([-0.5 0.5]); % potrebujem nazov z iContrast
+                    title(catNames(find(catNumbers == cats(iContrasts(contrast,2)))) + '-' + catNames(find(catNumbers == cats(iContrasts(contrast,1)))));
                     hold on;
                 else % subplot time x (p-value of mean itpc across frequencies) for every condition difference
-                    plot(time,abs(mean(squeeze(ditpc(ch, diff, :, :)),2)), 'g'); hold on;
-                    plot(time,squeeze(dp(ch, diff, :))); ylim([0 1]);
+                    plot(time,squeeze(citpc_mean.val(ch, iContrasts(contrast,1), iContrasts(contrast,2), :)), 'g'); hold on;
+                    plot(time,squeeze(citpc_mean.pval(ch, iContrasts(contrast,1), iContrasts(contrast,2), :))); ylim([-0.5 1]);
                     xlabel('Time (s)'); ylabel('ITPC p-value');
-                    title([obj.E.PsyData.P.strings.podminka{diffs(diff,1)+1,1} '-' obj.E.PsyData.P.strings.podminka{diffs(diff,2)+1,1}]);
+                    title(catNames(find(catNumbers == cats(iContrasts(contrast,2)))) + '-' + catNames(find(catNumbers == cats(iContrasts(contrast,1)))));
                     hold on;
                     plot(time, p_val*ones(size(time)),'r');
                     hold on;
                 end
             end
+            hold off;
             mtit(sprintf('%s - Channel %d; %s - %s \n', electrodes{ch}, ch, labels{ch}, names{ch}));
             
         end
@@ -784,7 +925,7 @@ classdef CPlotsN < handle
            end
         end
         
-        function iEp = CorrectEpochs(obj, channel, iconditions)
+        function iEp = CorrectEpochs(obj, channel, conditions)
             %pouzite v PlotFrequencyPower
             %vrati indexy vsetkych spravnych epoch pre dany channel a condition
             %napr. aedist condition 0=cervena, 1=vy, 2=znacka, 9=all
@@ -795,8 +936,8 @@ classdef CPlotsN < handle
             end
             iEp = find(squeeze(iEp(channel,:))); %indexy nenulovych prvkov na vyradenie
 
-            if iconditions(1,1) ~= 9 %ak chceme len jednu konkretnu condition
-                iEp = intersect(iEp,find(ismember(obj.E.PsyData.P.data(:,obj.E.PsyData.P.sloupce.kategorie)',iconditions)));
+            if conditions(1,1) ~= 9 %ak chceme len jednu konkretnu condition
+                iEp = intersect(iEp,find(ismember(obj.E.PsyData.P.data(:,obj.E.PsyData.P.sloupce.kategorie)',conditions)));
             end
 
             iEp = setdiff(iEp, find(obj.E.RjEpochCh(channel,:)));

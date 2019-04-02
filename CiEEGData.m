@@ -35,7 +35,7 @@ classdef CiEEGData < matlab.mixin.Copyable
         DE = {}; %trida objektu CEpiEvents - epilepticke eventy ziskane pomoci skriptu spike_detector_hilbert_v16_byISARG
         DatumCas = {}; %ruzne casove udaje, kdy bylo co spocitano. Abych mel historii vypoctu pro zpetnou referenci
         PL = {}; %objekt CPlots
-        itpc_calc; %jestli jsou ulozne itpc hodnoty misto power dat. Plni se v CHilbert.GetITPC
+        itpc_calc = true; %jestli jsou ulozne itpc hodnoty misto power dat. Plni se v CHilbert.GetITPC
         CS = {}; %objekt CStat
         dMulti; %cell array pro ruzne d - pouziva se zatim jen pro ITPC hodnoty pro ruzne statistiky
     end
@@ -331,7 +331,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             obj.RjEpoch = unique([obj.RjEpoch find(rjepoch)]); %pridam dalsi vyrazene epochy k dosud vyrazenym            
             disp(['resampled ' num2str(obj.epochs) ' epochs to ' num2str(newepochtime) ', rejected new epochs: ' num2str(numel(setdiff(find(rjepoch),obj.RjEpoch)))]);
         end
-        function [d,psy_rt,RjEpCh,iEpochy]= CategoryData(obj, katnum,rt,opak,ch)
+        function [d,psy_rt,RjEpCh,iEpochy]= CategoryData(obj, katnum,rt,opak,ch, katitpc)
             if ~exist('katitpc','var'); katitpc = []; end %kategorie pro itpc, odpovida cislu epochy. 
             %vraci eegdata epoch ve kterych podnet byl kategorie/podminky=katnum + reakcni casy - s uz globalne vyrazenymi epochami
             %Pokud rt>0, vraci epochy serazene podle reakcniho casu 
@@ -419,7 +419,28 @@ classdef CiEEGData < matlab.mixin.Copyable
         end
 
         function [iEpCh]=GetEpochsExclude(obj,channels)
-            %vraci iEpCh (ch x epoch) = index epoch k vyhodnoceni - bez chyb, treningu a rucniho vyrazeni - pro kazdy kanal zvlast            
+%             %vraci iEpCh (ch x epoch) = index epoch k vyhodnoceni - bez chyb, treningu a rucniho vyrazeni - pro kazdy kanal zvlast            
+%             %muzu pouzit parametr channels, pokud chci jen nektere kanaly - ostatni jsou pak prazdne
+%             if ~exist('channels','var'), channels = 1:obj.channels; end
+%             iEpCh = zeros(obj.channels,obj.epochs);             
+%             PsyData = obj.PsyData.copy();  %nechci menit puvodni tridu
+%             for ch = 1:numel(channels) 
+%                 if (isa(obj.PsyData,'CPsyDataMulti') &&  obj.PsyData.nS > 1) || ch==1 %pokud je to prvni kanal nebo se jedna o data CHilbertMulti s ruznymi subjektu a tedy ruznymi pocty chyb aj                                        
+%                     %tohle se nema delat pokud jen ruzne statistiky pro jeden subjekt a itpc data - tam je taky CPsyDataMulti
+%                     PsyData.SubjectChange(find(obj.els >= channels(ch),1)); 
+%                     chyby = PsyData.GetErrorTrials();                    
+%                     epochsEx = [chyby , zeros(size(chyby,1),1) ]; %pridam dalsi prazdny sloupec
+%                     epochsEx(obj.RjEpoch,5)=1; %rucne vyrazene epochy podle EEG  - pro tento kanal 
+%                     if size(epochsEx,1) < size(iEpCh,2) %pokud ruzny pocet epoch u ruznych subjektu
+%                         epochsEx = cat(1,epochsEx,ones(size(iEpCh,2) - size(epochsEx,1),5));
+%                     end
+%                     iEpCh(channels(ch),:) = all(epochsEx==0,2)'; %index epoch k pouziti                
+%                 else
+%                     iEpCh(channels(ch),:) = iEpCh(channels(ch-1),:); %pokud se jedna o CPsyData s jednim subjektem, pro vsechny kanaly to bude stejne
+%                 end
+%             end
+
+%vraci iEpCh (ch x epoch) = index epoch k vyhodnoceni - bez chyb, treningu a rucniho vyrazeni - pro kazdy kanal zvlast            
             %muzu pouzit parametr channels, pokud chci jen nektere kanaly - ostatni jsou pak prazdne
             if ~exist('channels','var'), channels = 1:obj.channels; end
             iEpCh = zeros(obj.channels,obj.epochs);             
@@ -527,7 +548,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                     obj.ResponseSearch(timewindow,stat_kats{WpA},opakovani,method);
                 end
             else
-                obj.E.ResponseSearch(timewindow,stat_kats, opakovani,method);
+                obj.ResponseSearch(timewindow,stat_kats, opakovani,method);
             end
         end
         function obj = SetStatActive(obj,WpActive)
@@ -544,7 +565,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 obj.PsyData.StatChange(obj.WpActive);
                 obj.epochs = length(obj.Wp(obj.WpActive).kats); 
                 obj.epochData = obj.PsyData.P.strings.podminka;
-                obj.d = obj.dMulti{obj.WpActive};
+%                 obj.d = obj.dMulti{obj.WpActive};
                 obj.RejectEpochs([],[]);
                 obj.RjEpoch = [];
             end
@@ -686,7 +707,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                disp(['neni vypocitana statistika']);
            end
         end
-        function [prumery, MNI,names,intervaly,katsnames,neurologyLabels,channelsOut] = IntervalyResp(obj, intervaly,channels,signum, dofig)
+        function [subb, prumery, MNI,names,intervaly,katsnames,neurologyLabels,channelsOut] = IntervalyResp(obj, intervaly,channels,signum, dofig)
             %vypocita hodnoty v jednotlivych intervalech casu pro jednotlive kategorie i pro celkovy prumer       
             %vykresli graf pro kazdy interval do spolecneho plotu
             %vraci prumery [channels x intervaly x kategorie] a MNI(channels)    
@@ -701,7 +722,8 @@ classdef CiEEGData < matlab.mixin.Copyable
 
             %spocitam dynamicky permutace vsech kategorii, pro ktere mam spocitanou statistiku                       
             prumery = zeros(numel(channels),size(intervaly,1),numel(kats)+size(kombinace,1));   % channels x intervaly x kategorie - celkova data a jednotlive kategorie            
-           
+            subb = zeros(numel(channels),size(intervaly,1),numel(kats)+size(kombinace,1));           
+            
             if dofig, figure('Name','IntervalyResp'); end
             ploth = zeros(1,max(numel(kats),size(kombinace,1))); %handles na jednotlive ploty, kvuli legende
             for int = 1:size(intervaly,1) 
@@ -739,7 +761,8 @@ classdef CiEEGData < matlab.mixin.Copyable
                     end                                      
                     %ted ziskam ty maximalni hodnoty pro vsechny kanaly:
                     ind = sub2ind(size(data),sub,1:size(data,2)); %predelam indexovani na absolutni = ne time x channels, ale 1-n
-                    prumery(iCh,int,kat) = data(ind); %max nebo min hodnota z kazdeho kanalu                    
+                    prumery(iCh,int,kat) = data(ind); %max nebo min hodnota z kazdeho kanalu     
+                    subb(iCh,int,kat) = sub;
                     P = squeeze(prumery(:,int,kat));  %max/min z kazdeho kanalu                  
                     Pmax(kat) = max(P); %maximum pro kategorii pres vsechny kanaly
                     if dofig
@@ -756,14 +779,14 @@ classdef CiEEGData < matlab.mixin.Copyable
                 
                 yKombinace = ceil(max(Pmax)+0.5);
                 for kat = 1:size(kombinace,1) %cyklus pres vsechny kombinace kategorii
-                    [katdata1, ~, RjEpCh1] = obj.CategoryData(cellval(kats,kombinace(kat,1)),[],[],1:obj.channels,kat); %time x channels x epochs 
-                    [katdata2, ~, RjEpCh2] = obj.CategoryData(cellval(kats,kombinace(kat,2)),[],[],1:obj.channels,kat); %druha vyssi kategorie, ktera se bude odecitat od te prvni
+                    [katdata1, ~, RjEpCh1] = obj.CategoryData(cellval(kats,kombinace(kat,1)),[],[],1:obj.channels,cellval(kats,kombinace(kat,1))); %time x channels x epochs 
+                    [katdata2, ~, RjEpCh2] = obj.CategoryData(cellval(kats,kombinace(kat,2)),[],[],1:obj.channels,cellval(kats,kombinace(kat,2))); %druha vyssi kategorie, ktera se bude odecitat od te prvni
                     WpK = obj.Wp(obj.WpActive).WpKat{kombinace(kat,2),kombinace(kat,1)}(iintervalyStat(1):iintervalyStat(2),:); %statistika vsech kanalu
                     WpB = obj.Wp(obj.WpActive).WpKatBaseline{kombinace(kat,1),1}(iintervalyStat(1):iintervalyStat(2),:); %rozdil prvni kategorie vuci baseline
                     dataK = zeros(diff(iintervalyData)+1,obj.channels); %tam budu davat rozdil mezi dvema kategoriemi
                     for ch = 1:obj.channels
                         if obj.itpc_calc
-                            dataK(:,ch) = katdata1(iintervalyData(1):iintervalyData(2),ch) - squeeze(katdata2(iintervalyData(1):iintervalyData(2),ch));
+                            dataK(:,ch) = ones(size(WpK,1),1) - WpK(:,ch);%katdata1(iintervalyData(1):iintervalyData(2),ch) - squeeze(katdata2(iintervalyData(1):iintervalyData(2),ch));
                         else
                             dataK(:,ch) = mean(katdata1(iintervalyData(1):iintervalyData(2),ch,~RjEpCh1(ch,:)),3) - mean(katdata2(iintervalyData(1):iintervalyData(2),ch,~RjEpCh2(ch,:)),3);                    
                         end
@@ -787,6 +810,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                     %ted ziskam ty maximalni hodnoty pro vsechny kanaly:
                     ind = sub2ind(size(data),sub,1:size(data,2)); %predelam indexovani na absolutni = ne time x channels, ale 1-n
                     prumery(iCh,int,kat+numel(kats)) = data(ind); %max nebo min hodnota z kazdeho kanalu
+                    subb(iCh,int,kat+numel(kats)) = sub;
                     P = squeeze(prumery(:,int,kat+numel(kats)));  %max/min z kazdeho kanalu    
                                 
                     colorindex = colorkombinace{kombinace(kat,2),kombinace(kat,1)};
@@ -1352,7 +1376,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                     colorkatk = [colorskat{1,kk+1} ; colorskat{2,kk+1}]; %dve barvy, na caru a stderr plochu kolem
                     if exist('opakovani','var') && ~isempty(opakovani)
                         opaknum = kategories{k}; %v kategories jsou opakovani k vykresleni, a je to cell array
-                        [katdata,~,RjEpCh] = obj.CategoryData(KATNUM,[],opaknum,ch); %eegdata - epochy pro tato opakovani
+                        [katdata,~,RjEpCh] = obj.CategoryData(KATNUM,[],opaknum,ch,k); %eegdata - epochy pro tato opakovani
                     elseif iscell(kategories) %iff tady nefunguje, to by bylo samozrejme lepsi85858
                         katnum = kategories{k}; %cislo kategorie, muze byt cell, pokud vice kategorii proti jedne
                         [katdata,~,RjEpCh] = obj.CategoryData(katnum,[],[],ch,k); %eegdata - epochy jedne kategorie
@@ -1632,12 +1656,14 @@ classdef CiEEGData < matlab.mixin.Copyable
             Wp = obj.Wp;                    %#ok<PROP,NASGU>
             DE = obj.DE;                    %#ok<PROP,NASGU>
             DatumCas = obj.DatumCas;        %#ok<PROP,NASGU>
+            dMulti = obj.dMulti;            %#ok<PROP,NASGU>
+            itpc_calc = obj.itpc_calc;      %#ok<PROP,NASGU>
             if isa(obj,'CHilbertMulti'), label = obj.label; else label = []; end %#ok<NASGU>
             [pathstr,fname,ext] = CiEEGData.matextension(filename);        
             filename2 = fullfile(pathstr,[fname ext]);
             save(filename2,'d','tabs','tabs_orig','fs','header','sce','PsyDataP','PsyData','testname','epochtime','baseline','CH_H','els',...
                     'plotES','selCh','selChNames','RjCh','RjEpoch','RjEpochCh','epochTags','epochLast','reference','epochData','Wp','DE','DatumCas', 'label', ...
-                    'CH_filterMatrix','-v7.3');  
+                    'CH_filterMatrix','dMulti','itpc_calc','-v7.3');  
             disp(['ulozeno do ' filename2]); 
         end
         function obj = Load(obj,filename,~,~)
@@ -1712,7 +1738,17 @@ classdef CiEEGData < matlab.mixin.Copyable
             else
                 obj.RjEpochCh = false(obj.channels,obj.epochs); %zatim zadne vyrazene epochy
             end
-            obj.els = els;                  %#ok<CPROPLC,CPROP,PROP> 
+            if ismember('dMulti', {vars.name}) %7.4.2017
+                load(filename,'dMulti');      obj.dMulti = dMulti; %#ok<CPROPLC,CPROP,PROP>
+            else
+                obj.dMulti = {};
+            end
+            if ismember('itpc_calc', {vars.name}) %7.4.2017
+                load(filename,'itpc_calc');      obj.itpc_calc = itpc_calc; %#ok<CPROPLC,CPROP,PROP>
+            else
+                obj.itpc_calc = false;
+            end
+            obj.els = els;                  %#ok<CPROPLC,CPROP,PROP>
             obj.plotES = plotES;            %#ok<CPROPLC,CPROP,PROP> 
             if ismember('selCh', {vars.name}) %nastaveni grafu PlotResponseCh
                 load(filename,'selCh'); obj.plotRCh.selCh = selCh;          %#ok<CPROPLC,CPROP,PROP> 
@@ -2002,14 +2038,14 @@ classdef CiEEGData < matlab.mixin.Copyable
                 else
                     ymax = 0; ymin = 0;
                     for k=1:numel(kategories)
-                        if iscell(kategories) %tady iff nefunguje, vraci mi to chybu
+                        if obj.itpc_calc
+                           katdata = obj.d(:,:,k); 
+                        elseif iscell(kategories) %tady iff nefunguje, vraci mi to chybu
                             katdata = obj.CategoryData(kategories{k}); %pokud je kategorii spolecne vic
                         else
                             katdata = obj.CategoryData(kategories(k)); %epochy jedne kategorie
                         end
-                        if obj.itpc_calc
-                           katdata = obj.d(:,:,k); 
-                        end
+                        
                         channels = 1:obj.channels; %#ok<PROP>
                         channels(ismember(channels, [obj.RjCh obj.CH.GetTriggerCh()]))=[]; %#ok<PROP> %vymazu rejectovana a triggerovane channels 
                         ymax = max([ ymax max(mean(katdata(:,channels,:),3))]); %#ok<PROP>

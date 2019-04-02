@@ -4,6 +4,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
     
     properties
         VALS; %souhrnne prumery elektrod pres vsechny pacienty - cell(intervaly x kategorie)
+        S;
         MNI;  %souhrnna MNI data pres vsechny pacienty - cell(intervaly x kategorie)
         NAMES; %souhrnna jmena elektrod pres vsechny pacienty - cell(intervaly x kategorie)
         NLabels; %jmena neurologyLabels z Headeru
@@ -52,7 +53,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
             obj.intervals = intervals;             
             obj.filename = filename;
             elcount = []; %jen inicializace            
-            P = {}; M = {}; N = {}; %jen inicializace
+            P = {}; S = {}; M = {}; N = {}; %jen inicializace
             obj.PAC = [];
             obj.pacients = cell(numel(pacienti),1); 
             obj.katstr_pacients = []; %musim to smazat, nize testuju, jestil to je prazdne
@@ -67,7 +68,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
                         continue;
                     end
                     E.SetStatActive(contrast); %nastavi jeden z ulozenych statistickych kontrastu
-                    [prumery, MNI,names,~,katstr,neurologyLabels,channels] = E.IntervalyResp( intervals,[],signum,0);   %#ok<PROPLC> %no figure, funkce z CiEEGData                           
+                    [subb, prumery, MNI,names,~,katstr,neurologyLabels,channels] = E.IntervalyResp( intervals,[],signum,0);   %#ok<PROPLC> %no figure, funkce z CiEEGData                           
                     epiInfo = E.CH.GetChEpiInfo(channels);
                     obj.pacients{p} = pacienti(p).folder;
                     obj.GetPAC(prumery,E.CH.H,pacienti(p).folder);
@@ -82,6 +83,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
                         obj.numelP = zeros(numel(pacienti),size(intervals,1),numel(katstr)+1); %#ok<PROPLC> %tam budu ukladat pocty elektrod pro kazdy interval a pacienta
                         elcount = zeros(size(prumery,2),size(prumery,3)+1); %pocet elektrod pro kazdy casovy interval a kategorii - interval x kategorie
                         P = cell([numel(pacienti),size(prumery,2),size(prumery,3)+1]); % souhrnne prumery pro vsechny pacienty: pacient*interval*kategorie
+                        S = cell([numel(pacienti),size(prumery,2),size(prumery,3)+1]);
                         M = cell([numel(pacienti),size(prumery,2),size(prumery,3)+1]); % souhrnne MNI koordinaty pro vsechny pacienty
                         N = cell([numel(pacienti),size(prumery,2),size(prumery,3)+1]); % souhrnne names pro vsechny pacienty
                         NL = cell([numel(pacienti),size(prumery,2),size(prumery,3)+1]); % souhrnne neurologyLabels
@@ -94,6 +96,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
                             if kat <= size(prumery,3) %obvykle kategorie
                                 ip = prumery(:,interval, kat) ~= 0; % chci i zaporny rozdil ; aby tam neco bylo 
                                 P{p,interval,kat}=prumery(ip,interval, kat); %#ok<AGROW>
+                                S{p,interval,kat}=subb(ip,interval, kat);  %#ok<AGROW>
                                 M{p,interval,kat}=MNI(ip); %#ok<AGROW,PROPLC>>
                                 N{p,interval,kat} = strcat(cellstr(repmat([pacienti(p).folder(1:4) '_'],sum(ip),1)),names(ip)); %#ok<AGROW>
                                 NL{p,interval,kat}= strcat(cellstr(repmat([pacienti(p).folder(1:4) '_'],sum(ip),1)),neurologyLabels(ip)); 
@@ -103,6 +106,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
                             else %kategorie jakoby navic pro vykresleni jen pozice elekrod
                                 channels = size(prumery,1);
                                 P{p,interval,kat}=zeros(channels,1); %#ok<AGROW> % 0 pro kazdy kanal - vsechny stejnou barvou
+                                S{p,interval,kat}=zeros(channels,1);
                                 M{p,interval,kat}=MNI; %#ok<AGROW,PROPLC>>
                                 N{p,interval,kat} = strcat(cellstr(repmat([pacienti(p).folder(1:4) '_'],channels,1)),names); %#ok<AGROW>
                                 NL{p,interval,kat}= strcat(cellstr(repmat([pacienti(p).folder(1:4) '_'],channels,1)),neurologyLabels); 
@@ -116,6 +120,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
             end
             %ted z P M a N rozdelenych po pacientech udelam souhrnna data
             obj.VALS = cell(size(elcount)); %souhrnne prumery - interval * kategorie
+            obj.S = cell(size(elcount));
             obj.MNI = cell(size(elcount)); 
             obj.NAMES = cell(size(elcount)); 
             obj.NLabels = cell(size(elcount)); 
@@ -125,6 +130,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
                 for interval = 1:size(prumery,2) 
                     for kat = 1:size(prumery,3)+1                   
                           obj.VALS{interval,kat} = zeros(elcount(interval,kat),1);
+                          obj.S{interval,kat} = zeros(elcount(interval,kat),1);
                           obj.MNI{interval,kat} = struct('MNI_x',{},'MNI_y',{},'MNI_z',{});
                           obj.NAMES{interval,kat}   = cell(elcount(interval,kat),1);
                           obj.NLabels{interval,kat} = cell(elcount(interval,kat),1);
@@ -134,6 +140,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
                               if pacienti(p).todo
                                   n = numel(P{p,interval,kat});
                                   obj.VALS{interval,kat} (iVALS:iVALS+n-1)=P{p,interval,kat};
+                                  obj.S{interval,kat} (iVALS:iVALS+n-1)=S{p,interval,kat};
                                   obj.MNI{interval,kat}  (iVALS:iVALS+n-1)=M{p,interval,kat};
                                   obj.NAMES{interval,kat}(iVALS:iVALS+n-1)  =N{p,interval,kat};
                                   obj.NLabels{interval,kat}(iVALS:iVALS+n-1)=NL{p,interval,kat};
@@ -186,6 +193,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
         function obj = ImportData(obj,BPD)
             %vlozi data, ktera jsem vytvoril pomoci CHilbert.ExtractBrainPlotData
             obj.VALS = BPD.VALS;
+            obj.S = BPD.S;
             obj.MNI = BPD.MNI;
             obj.NAMES = BPD.NAMES;
             obj.NLabels = BPD.NLABELS;
@@ -228,7 +236,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
             if isstruct(cfg) && isfield(cfg,'outputDir')
                 obj.plotBrain3Dcfg.outputDir = cfg.outputDir;
             else
-                obj.plotBrain3Dcfg.outputDir = 'd:\eeg\motol\CBrainPlot\';
+                obj.plotBrain3Dcfg.outputDir = 'e:\eeg\motol\CBrainPlot\';
             end
             if isstruct(cfg) && isfield(cfg,'overwrite')
                 obj.plotBrain3Dcfg.overwrite = cfg.overwrite;
@@ -320,6 +328,9 @@ classdef CBrainPlot < matlab.mixin.Copyable
                     if numel(obj.VALS{interval,kat}(iV)) > 0
                         
                         vals_channels = obj.VALS{interval,kat}(iV); %parametr  main_brainPlot
+%                         vals_channels = obj.S{interval,kat}(iV)/51*0.8;
+%                         odkomentovat namiesto povodneho pre vykreslenie
+%                         casu odpovede -> prepisat do parametrov?
                         if signum ~= 0
                             vals_channels = vals_channels*signum; %u zapornych hodnot prehodim znamenko
                         end
@@ -407,8 +418,9 @@ classdef CBrainPlot < matlab.mixin.Copyable
                 ChMNI = ChMNI(iChNames);
                 ChEpiInfo = ChEpiInfo(iChNames);
             end
+            nans = isnan(cell2mat(ChEpiInfo));
             ChEpiInfo = num2cell(ChEpiInfo); %kvuli exportu do excelu potrebuju cell array
-            ChEpiInfo(isnan(cell2mat(ChEpiInfo))) = {'NaN'}; %excel neumi zapsat nan hodnoty, musi to byt string
+            ChEpiInfo(nans) = {'NaN'}; %excel neumi zapsat nan hodnoty, musi to byt string
             ChNames = cat(2,ChNames,ChLabels,ChEpiInfo,{ChMNI.MNI_x}',{ChMNI.MNI_y}',{ChMNI.MNI_z}'); %budu mit v jednom cellarray vic sloupcu
             ChMap = zeros(numel(ChNames),numel(obj.katstr),size(obj.intervals,1)); %tam budu  ukladat odpovedi pro jednotlive kanaly, kategorie a intervaly          
         end  

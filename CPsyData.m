@@ -125,7 +125,7 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                         end
                         kat{k} = cell2str(katkat);
                     else
-                        kat{k} = obj.P.strings.podminka{cellval(katnum,k)+1};
+                        kat{k} = obj.P.strings.podminka{cellval(katnum,k)};
                     end
                 end
             end

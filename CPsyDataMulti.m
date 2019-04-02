@@ -51,7 +51,7 @@ classdef CPsyDataMulti < CPsyData
             obj.DoplnZpetnavazba(); %pokud neni v puvodnich datech, doplnim sloupec zpetnavazba
             obj.Pmulti(obj.iStat,obj.iS+1) = obj.P;
             obj.nS = obj.nS + 1;
-            obj.SubjectChange(obj.iS + 1, obj.iStat); %inkrementuju subjekt a aktivuju jeho data
+            obj.SubjectChange(obj.iS + 1); %inkrementuju subjekt a aktivuju jeho data
         end   
         
         function [obj]= GetStatData(obj,psy)
