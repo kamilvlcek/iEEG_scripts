@@ -1706,7 +1706,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 obj.CS.plotAUC = CS_plots{1};   %#ok<USENS>
                 obj.CS.plotAUC_m = CS_plots{2};  %#ok<USENS>
             end
-            if isempty(obj.plotRCh.selCh) %kdyz to je prazdne, tak to pak zlobi, musi byt zeros
+            if ~isfield(obj.plotRCh,'selCh') || isempty(obj.plotRCh.selCh) %kdyz to je prazdne, tak to pak zlobi, musi byt zeros
                 obj.SetSelCh([]); %nastavim prazdne - zadne vybrane kanaly
             end
             %obj.plotH = plotH;             %#ok<CPROPLC,CPROP,PROP> 

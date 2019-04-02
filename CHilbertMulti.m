@@ -62,7 +62,7 @@ classdef CHilbertMulti < CHilbert
             obj.blokyprehazej = {};
             obj.subjNames = {};
             obj.label = {};
-            obj.mfilename = {};            
+            obj.mfilename = [];            
             
             obj.plotF = {};
             obj.plotRCh = {};
@@ -552,7 +552,7 @@ classdef CHilbertMulti < CHilbert
                 return;
             end
             fslash = strfind(filename,'\');
-            str = filename(fslash(end-2)+1:end); %dve casti path pred basename
+            str = filename(fslash(end-3)+1:end); %tri casti casti path pred basename - aby bylo i jmeno pacienta
         end
         function [RjEpochCh] = RjEpoch2Ch(RjEpoch,RjEpochCh)
             %prevede RjEpoch do RjEpochCh - rozkopiruje na vsechny kanaly
