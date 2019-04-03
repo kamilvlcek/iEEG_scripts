@@ -283,7 +283,7 @@ classdef CStat < handle
                 obj.AUCPlotMMax(channels);    %spocitam si razeni kanalu podle maxima AUC krivek            
             end
             set(obj.plotAUC_m.fh,'KeyPressFcn',@obj.hybejAUCPlotM); 
-        end
+        end   
         function [chsort] = AUCPlotMMax(obj,channels)
             %chci ziskat poradi kanalu podle maxima AUC krivky
             chmax = zeros(numel(channels),1);
@@ -301,89 +301,6 @@ classdef CStat < handle
         function AUCPlotBrain(obj,selch)
             obj.plotAUC.Eh.CH.ChannelPlot([],0,abs(obj.plotAUC_m.chmax)+.5,obj.plotAUC_m.channels,... %chmax jsou hodnoty -.5 az .5. Chci zobrazovat negativni rozliseni jako pozitivni
                 obj.plotAUC_m.chsort(selch)); 
-        end
-        
-
-       
-        function AUC2XLS(obj)
-            channels = obj.plotAUC_m.channels;   %XXX: predpokladam, ze obj.plotAUC_m.channels uz obsahuje vsechny spocitane kanaly
-            
-            cellout = cell(numel(channels),15); % z toho bude vystupni xls tabulka s prehledem vysledku
-            
-            for ch = 1:numel(channels)  %XXX: iterace pres kanaly, predpokladam, ze je jen jedna platna kombinace {k,l} nize!
-            
-                channelHeader = obj.plotAUC.Eh.CH.H.channels(channels(ch));
-                
-                for k = 1:numel(obj.plotAUC.kategories)-1
-                for l = k+1:numel(obj.plotAUC.kategories)
-                    if obj.plotAUC.katplot(obj.plotAUC.setup.legendkomb(k,l)) > 0 ... %pokud se tahle kombinace kategorii ma kreslit
-                    && ~isempty( obj.plotAUC.aucdata(channels(ch)).AUC) %a AUC data existuji
-                        
-                        AUC = obj.plotAUC.aucdata(channels(ch)).AUC{k,l};
-                        X = linspace(obj.plotAUC.time(1),obj.plotAUC.time(2),size(AUC,1));
-                        
-                        [amax, idx, idxHalf] = cMax(AUC(:,1));
-                        tmax = X(idx);
-                        thalf = X(idxHalf);
-                        
-                        ci_u = AUC(idx, 3);
-                        ci_l = AUC(idx, 2);
-                        
-
-                        sig = obj.plotAUC.sig(channels(ch), obj.plotAUC.setup.legendkomb(k,l));
-                        
-                        cellout(ch, :) = { ...
-                                channels(ch), ...
-                                channelHeader.name, ...
-                                channelHeader.neurologyLabel, ...
-                                channelHeader.MNI_x, ...
-                                channelHeader.MNI_y, ...
-                                channelHeader.MNI_z, ...
-                                channelHeader.seizureOnset, ...
-                                channelHeader.interictalOften, ...
-                                mat2str(channelHeader.rejected), ...
-                                tmax, ...
-                                thalf, ...
-                                amax, ...
-                                ci_u, ...
-                                ci_l, ...
-                                sig ...
-                            };
-                                            
-                    end
-                end
-                end
-                
-            end
-            
-            tablelog = cell2table(cellout, ...
-                'VariableNames', { ...
-                    'channel' ...
-                    'name' ...
-                    'neurologyLabel' ...
-                    'MNI_x' ...
-                    'MNI_y' ...
-                    'MNI_z' ...
-                    'seizureOnset' ...
-                    'interictalOften' ...
-                    'rejected' ...
-                    'tmax' ...
-                    'thalf' ...
-                    'max' ...
-                    'ci_u' ...
-                    'ci_l' ...
-                    'significance'  ...
-                });
-            
-            %TODO: Identifikace nazvu souboru?
-            kat = strrep([obj.plotAUC.katnames{find(obj.plotAUC.katplot)}], ' ', '_');
-            chnls = strrep(cell2str(obj.plotAUC.selChNames{obj.plotAUC_m.chSelection}), ' ', '_');
-            [~,mfilename,~] = fileparts(obj.plotAUC.Eh.hfilename);
-            mfilename = strrep(mfilename, ' ', '_');
-            logfilename = ['AUCPlotM_' kat '_chnls_' chnls '_' mfilename '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') ];  
-            xlsfilename = fullfile('logs', [logfilename '.xls']);
-            writetable(tablelog, xlsfilename); %zapisu do xls tabulky
-            disp([ 'xls tables saved: ' xlsfilename]);
         end
     end
     methods (Static,Access = public)        
@@ -628,10 +545,7 @@ classdef CStat < handle
                     selch = min(numel(obj.plotAUC_m.channels),obj.plotAUC_m.selch+10);   
                 case 'return' %zobrazeni mozku
                     selch = max(1,obj.plotAUC_m.selch); %musim neco priradit - puvodni kanal, ale ne 0
-                    obj.AUCPlotBrain(selch);
-                case 'x'
-                    obj.AUC2XLS();
-                    kresli = 0;
+                    obj.AUCPlotBrain(selch);                     
                 otherwise     
                     kresli = 0;
             end
