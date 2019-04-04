@@ -536,7 +536,8 @@ classdef CStat < handle
             %sample - cislo sample
             %katnames - jmena dvou kategorii, positive a negative
             if ~exist('kresli','var'), kresli = 0; end
-            labels = epochData(:,1);
+            %labels = epochData(:,1);
+            labels = CStat.epochData2Labels(epochData,katnames);
             scores = dd;
             posclass = katnames{1}; %napr Scene
             if numel(katnames) > 1
@@ -563,6 +564,19 @@ classdef CStat < handle
                 plot(rand(size(negdata))*0.5+2,negdata,'ob');
             end
             
+        end
+        function [labels]= epochData2Labels(epochData,katnames)
+            %pokud je v katnames vice kategorii, musim k tomu uzpusobit i katnames 
+            labels = epochData(:,1);
+            if iscell(katnames) && strcmp(katnames{1}(1:2),'{[') %pokud se jedna o dvojici kategorii
+                for k = 1:numel(katnames)
+                    for l = 1:numel(labels)
+                        if strfind(katnames{k},labels{l})
+                           labels{l} = katnames{k};
+                        end
+                    end
+                end
+            end
         end
         
         function ci = AUCconfI(auc,n,p)
