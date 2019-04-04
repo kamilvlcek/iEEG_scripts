@@ -1213,7 +1213,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 elseif isfield(obj.plotRCh,'kategories')
                     kategories = obj.plotRCh.kategories; %hodnoty drive pouzite v grafu, ty maji prednost pred statistikou
                 elseif ~isempty(obj.Wp) && isfield(obj.Wp(WpA),'kats')
-                    kategories = obj.Wp(WpA).kats; %hodnoty pouzite ve statistice
+                    kategories = obj.Wp(WpA).kats; %hodnoty pouzite ve statistice, 0-n, odpovida cislum v oobj.PsyData.P.strings.podminka
                 else
                    if numel(obj.PsyData.Categories())<=4 %uz muzu pouzivat 4 kategorie, kvuli Menrot
                      kategories = obj.PsyData.Categories(); %pokud neni vic nez 3 kategorie, vezmu vsechny
@@ -1407,11 +1407,14 @@ classdef CiEEGData < matlab.mixin.Copyable
                     end
                     %cara reakcnich casu pro tuhle kategorii
                     y=ymax-(ymax-ymin)*0.07*k;
-                    line([quantile(rt(:,k),0.25) quantile(rt(:,k),0.75)],[y y],'Color',colorkatk(1,:)); %cara kvantilu 
-                    plot(median(rt(:,k)),y,'o','Color',colorkatk(1,:)); %median
+                    rtkatnum = reshape(rt(:,katnum+1),[],1); %chci vsechny hodnoty z obou kategorii dohromady
+                    line([quantile(rtkatnum,0.25) quantile(rtkatnum,0.75)],[y y],'Color',colorkatk(1,:)); %cara kvantilu 
+                    plot(median(rtkatnum),y,'o','Color',colorkatk(1,:)); %median
                 end
                 y = (ymax-ymin)*0.1  ; %pozice na ose y
-                text(0.04+obj.Wp(WpA).epochtime(1),y,['stat ' num2str(obj.WpActive) '/' num2str(numel(obj.Wp)) '-'  cell2str(obj.PsyData.CategoryName(kategories,[])) ]); %vypisu cislo aktivni statistiky a jmena kategorii
+                if ~isempty(obj.Wp) %jen pokud je spocitana statistika , vypisu cislo aktivni statistiky a jmena kategorii
+                    text(0.04+obj.Wp(WpA).epochtime(1),y,['stat ' num2str(obj.WpActive) '/' num2str(numel(obj.Wp)) '-'  cell2str(obj.PsyData.CategoryName(kategories,[])) ]); 
+                end
                 for k= 1 : numel(kategories) %index 1-3
                     uistack(h_kat(k,1), 'top'); %dam krivky prumeru kategorii uplne dopredu
                     uistack(h_kat(k,2), 'bottom'); %dam krivky errorbars uplne dozadu

@@ -460,13 +460,13 @@ classdef CHilbertMulti < CHilbert
                 disp(['nenalezeno :' cell2str(nenalezeno)]);
             end
         end
-        function filenames = FindExtract(testname,label,filename)
+        function filenames = FindExtract(testname,filename,label)
             %filenames = FindExtract(testname,label,filename) 
             %najde existujici extrakty dat podle label            
             if ~exist('filename','var') || isempty(filename) , filename = '*'; end %filename nemusim zadat, pak hledam cokoliv s timto label
             if ~exist('label','var') || isempty(label) , label = '*'; end 
             [pacienti,setup] = pacienti_setup_load( testname );
-            filename = strrep(filename,'_CHilb.mat',''); %funkce ExtractData pro zmenu vyzaduje tuhle priponu
+            filename = strrep(filename,'_CHilb.mat',''); %funkce ExtractData pro zmenu vyzaduje tuhle priponu            
             filenames = cell(0,4); %budu vrace vsechny nalezene udaje, nejen filename, kvuli prehledu
             for p = 1:numel(pacienti)
                path = [setup.basedir pacienti(p).folder filesep setup.subfolder filesep 'Extracts' filesep];

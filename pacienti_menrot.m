@@ -25,7 +25,7 @@ pacienti(p).epievents = 'p079_menrot_epievents.mat'; %2017
 pacienti(p).rjch = [47 64 114]; 
 
 p=p+1;
-pacienti(p).todo = 1; %docasne, ma vic vzorku 512 nez ostatni 256, nejde do CHilbertMulti
+pacienti(p).todo = 0; %docasne, ma vic vzorku 512 nez ostatni 256, nejde do CHilbertMulti
 pacienti(p).folder = 'p082 Vov VT9';
 pacienti(p).data = 'VT9_2015-04-21_09-46_001_concat_X_menrot.mat';
 pacienti(p).header = 'P82_header.mat';
