@@ -336,7 +336,7 @@ classdef CStat < handle
             
             tablelog = cell2table(cellout, ...
                 'VariableNames', {'channel' 'name'  'neurologyLabel'  'MNI_x'  'MNI_y'  'MNI_z'  'seizureOnset'  'interictalOften'  ...
-                    'rejected'  'tmax'  'thalf'  'max'  'ci_u'  'ci_l'  'significance'   
+                    'rejected'  'tmax'  'thalf'  'aucmax'  'ci_u'  'ci_l'  'significance'   
                 });
             
             %TODO: Identifikace nazvu souboru? 
@@ -591,7 +591,7 @@ classdef CStat < handle
                 case 'pagedown' %predchozi kanal v poradi
                     selch = min(numel(obj.plotAUC_m.channels),obj.plotAUC_m.selch+10);   
                 case 'return' %zobrazeni mozku
-                    selch = max(1,obj.plotAUC_m.selch); %musim neco priradit - puvodni kanal, ale ne 0
+                    selch = max(1,obj.plotAUC_m.selch); %cislo jednoho vybraneho kanalu: musim neco priradit - puvodni kanal, ale ne 0
                     obj.AUCPlotBrain(selch);
                 case 'x' %export kanalu do xls tabulky
                     obj.AUC2XLS(); 
