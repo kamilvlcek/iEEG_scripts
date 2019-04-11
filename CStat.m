@@ -298,8 +298,13 @@ classdef CStat < handle
             obj.plotAUC_m.chsort = chsort;
             obj.plotAUC_m.chmax = chmax; %ulozim i hodnoty, asi nemuzu ukladat pro vsechny kanaly, protoze pak by neplatilo chsort
         end
-        function AUCPlotBrain(obj,selch)
-            obj.plotAUC.Eh.CH.ChannelPlot([],0,abs(obj.plotAUC_m.chmax)+.5,... %param chnvals - chmax jsou hodnoty -.5 az .5. Chci zobrazovat negativni rozliseni jako pozitivni
+        function AUCPlotBrain(obj,selch,vals)
+            %volam funkci na vykresleni 3D obrazku mozku ChannelPlot
+            %vals - muzu dodat hodnoty na vykresleni, defaultne jsou pouzite maxima AUC krivek. 
+            if ~exist('vals','var')
+                vals = abs(obj.plotAUC_m.chmax)+.5; %chmax jsou hodnoty -.5 az .5. Chci zobrazovat negativni rozliseni jako pozitivni
+            end 
+            obj.plotAUC.Eh.CH.ChannelPlot([],0,vals,... %param chnvals
                 obj.plotAUC_m.channels,... %chnsel jsou cisla kanalu, pokud chci jen jejich vyber
                 obj.plotAUC_m.chsort(selch)); %selch je jedno zvyraznene cislo kanalu - index v poli chnsel
         end       
@@ -338,7 +343,7 @@ classdef CStat < handle
                 'VariableNames', {'channel' 'name'  'neurologyLabel'  'MNI_x'  'MNI_y'  'MNI_z'  'seizureOnset'  'interictalOften'  ...
                     'rejected'  'tmax'  'thalf'  'aucmax'  'ci_u'  'ci_l'  'significance'   
                 });
-            
+            obj.plotAUC_m.xlsvals = cell2mat(cellout(:,10:12)); %ulozim hodnoty tmax, thalf a aucmax
             %TODO: Identifikace nazvu souboru? 
             kat = strrep([obj.plotAUC.katnames{find(obj.plotAUC.katplot)}], ' ', '_'); %#ok<FNDSB>
             chnls = regexprep(cell2str(obj.plotAUC.selChNames{obj.plotAUC_m.chSelection}), {' ','[',']'}, {'_','(',')'}); %writetable cant use [] in filenames
