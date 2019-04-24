@@ -42,6 +42,10 @@ classdef CStat < handle
             %kategories jsou E.Wp.kats (cisla kategorii ve statistice), ale parametr se nikdy v kodu nepouziva, bere se z E            
             
             %overim jestli se nezmenily parametry krivek - zatim mi staci kategorie, kvuli zmene statistiky
+            if exist('time','var') && numel(time) == 1 %chci jen vykreslit jednu ROC krivku projeden bod
+                obj.ROCAnalysis(E,ch,time,kategories); 
+                return;
+            end
             if isfield(obj.plotAUC,'kategories') 
                 if exist('kategories','var') && ~isempty(kategories) && ~isequal(obj.plotAUC.kategories,kategories)
                     obj.AUCReset();               
@@ -49,7 +53,6 @@ classdef CStat < handle
                     obj.AUCReset();               
                 end               
             end
-                        
             if ch > numel(obj.plotAUC.aucdata) || isempty( obj.plotAUC.aucdata(ch).AUC)
                  %assert(~isempty(E),['pro kanal' num2str(ch) 'nejsou spocitana data']);
                  if ~exist('time','var'), time = []; end
@@ -140,7 +143,7 @@ classdef CStat < handle
                        
             if ~exist('channels','var') || isempty(channels), channels = 1:E.channels; end
             if ~exist('time','var') || isempty(time), time = [max(E.baseline(2),E.epochtime(1)) E.epochtime(2)]; end
-            if ~exist('kategorie','var') || isempty(kategorie), kategories = E.Wp(E.WpActive).kats; end
+            if ~exist('kategories','var') || isempty(kategories), kategories = E.Wp(E.WpActive).kats; end
             if ~isfield(obj.plotAUC,'sig') || isempty(obj.plotAUC.sig)
                 obj.plotAUC.sig = zeros(E.channels,max(max(obj.plotAUC.setup.legendkomb))); %signifikance auc krivek - kanaly x kombinace kategorii
             end
@@ -148,15 +151,15 @@ classdef CStat < handle
             katnames = E.PsyData.CategoryName(kategories,[]); %do lengendy grafu
             
             fprintf('computing AUC data for channels (of %u): ',numel(channels));
-            
-            obj.plotAUC.PsyData = E.PsyData;
-            obj.plotAUC.time = time;
-            obj.plotAUC.kategories = kategories;            
-            obj.plotAUC.channels = E.channels;  % pocet kanalu
-            obj.plotAUC.selCh = E.plotRCh.selCh; %vyber kanalu fghjkl * pocet kanalu
-            obj.plotAUC.selChNames = E.plotRCh.selChNames; %vyber kanalu fghjkl * pocet kanalu
-            obj.plotAUC.Eh = E; %handle na celou strukturu, abych mohl volat ROCAnalysis z AUCPlotM
-            
+            if(numel(sample)>1)
+                obj.plotAUC.PsyData = E.PsyData;
+                obj.plotAUC.time = time;
+                obj.plotAUC.kategories = kategories;            
+                obj.plotAUC.channels = E.channels;  % pocet kanalu
+                obj.plotAUC.selCh = E.plotRCh.selCh; %vyber kanalu fghjkl * pocet kanalu
+                obj.plotAUC.selChNames = E.plotRCh.selChNames; %vyber kanalu fghjkl * pocet kanalu
+                obj.plotAUC.Eh = E; %handle na celou strukturu, abych mohl volat ROCAnalysis z AUCPlotM
+            end
             for ch = channels %jde po sloupcich
                 fprintf('%u,',ch);
                 %musim vyradit spatne epochy            
@@ -170,13 +173,21 @@ classdef CStat < handle
                     [~,~,~,iEpN] = E.CategoryData(kategories(k),[],[],ch); %.... chci mit tu nejdulezitejsi kategorii (l=vyssi cislo) jako prvni, aby se od ni odecitaly ostatni                                                        
 
                     %prvni a druha kategorie - prumer power
-                    dataP = squeeze(E.d(sample(1):sample(2),ch,iEpP));
-                    dataN = squeeze(E.d(sample(1):sample(2),ch,iEpN));
+                    if(numel(sample)>1)
+                        dataP = squeeze(E.d(sample(1):sample(2),ch,iEpP));
+                        dataN = squeeze(E.d(sample(1):sample(2),ch,iEpN));
+                    else %chci mit zachovanou moznot vyplotit ROC krivku pro jeden sample
+                        dataP = squeeze(E.d(sample(1),ch,iEpP));
+                        dataN = squeeze(E.d(sample(1),ch,iEpN));
+                    end
                     MP = mean(dataP,2); %prumer pres epochy - zustavaji samples jako rozmer
                     MN = mean(dataN,2);                   
 
                     if numel(sample) == 1 %chci udela ROC krivku jen pro jeden bod v case
-                        AUC = CStat.ROCKrivka(E.epochData(iEpP | iEpN,:),squeeze(E.d(sample,ch,iEpP | iEpN)),{katnames{l},katnames{k}},1); %udela i graf
+                        auc = CStat.ROCKrivka(E.epochData(iEpP | iEpN,:),squeeze(E.d(sample,ch,iEpP | iEpN)),{katnames{l},katnames{k}},1); %udela i graf
+                        ci =  CStat.AUCconfI(auc,[sum(iEpP) sum(iEpN)],0.05);
+                        %AUC = [auc ci];
+                        disp(['AUC = ' num2str(auc) '+-' num2str(auc-ci(1)) '=[' num2str(ci(1)) ';' num2str(ci(2)) ']']);
                     else %udelam ROC krivku pro ze vsech auc
                         AUC = zeros(diff(sample)+1,3); %samples x auc hodnota + confidence intervals
                         for s = sample(1):sample(2)
@@ -184,15 +195,17 @@ classdef CStat < handle
                             ci =  CStat.AUCconfI(auc,[sum(iEpP) sum(iEpN)],0.05);
                             AUC(s-sample(1)+1,1:3) = [auc ci];
                         end                                                           
-                    end
-                    AUCall{k,l} = AUC; %samples x [auc, dolni ci, horni ci]                   
-                    obj.plotAUC.sig(ch,obj.plotAUC.setup.legendkomb(k,l)) = any( all(AUC(:,2:3)>0.5,2) | all(AUC(:,2:3)<0.5,2) ); %krivka AUC je signifikancni, pokud oba CI prekroci 0.5 jednom nebo druhym smerem
-                    AVGall{k,l} = MP; % pozitivni data - prvni vyssi kategorie - l
-                    AVGall{l,k} = MN; % negativni data - druha nizsi kategorie - k
+                        AUCall{k,l} = AUC; %samples x [auc, dolni ci, horni ci]                   
+                        obj.plotAUC.sig(ch,obj.plotAUC.setup.legendkomb(k,l)) = any( all(AUC(:,2:3)>0.5,2) | all(AUC(:,2:3)<0.5,2) ); %krivka AUC je signifikancni, pokud oba CI prekroci 0.5 jednom nebo druhym smerem                    
+                        AVGall{k,l} = MP; % pozitivni data - prvni vyssi kategorie - l
+                        AVGall{l,k} = MN; % negativni data - druha nizsi kategorie - k
+                    end                    
                 end
                 end
-                obj.plotAUC.aucdata(ch).AUC = AUCall;
-                obj.plotAUC.aucdata(ch).AVG = AVGall;
+                if(numel(sample)>1)
+                    obj.plotAUC.aucdata(ch).AUC = AUCall;
+                    obj.plotAUC.aucdata(ch).AVG = AVGall;
+                end
             end
             fprintf('... done \n');
         end
@@ -516,7 +529,7 @@ classdef CStat < handle
             
         end
         
-        function [AUC] = ROCKrivka(epochData,dd,katnames,kresli)
+        function [AUC,X,Y] = ROCKrivka(epochData,dd,katnames,kresli)
             %11/2018 - spocita a vykresli roc krivku
             %epochData - cellarray z CiEEGData
             %dd - eegdata pro jeden channel a jeden sample

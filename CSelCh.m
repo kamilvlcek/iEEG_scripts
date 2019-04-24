@@ -1,6 +1,6 @@
 classdef CSelCh < matlab.mixin.Copyable 
     %CSelCh Trida uchovavajici a poskutujici seznamy vybranych kanalu pro soubory CHIlbertMulti aj
-    %   pred frekvence, kontrasty aj
+    %   pres frekvence, kontrasty aj
     
     properties (Access = public)
         selCh;
