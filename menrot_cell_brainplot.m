@@ -7,8 +7,9 @@ reference = 'refBipo'; %'refBipo', refHead, refEle
 CB = CBrainPlot; %vytvorim tridu
 %% 1.1a najdu v headerech strukturu 
 labelstofind = {'PHG','parah','ent','subi'}; %ktere neurology label chci zahrnout - staci cast (entorhinal), bez ohledu na velikost pismen
-labelsNOTfind = {'centralis'}; %ktere neurology label nechci zahrnout 
-PAC = CB.StructFind({},labelstofind,testname,iff(strcmp(reference,'refBipo'),'b',[]),labelsNOTfind); %#ok<NASGU> %hledam parahipp a entorhinal gyrus + subiculum
+labelsNOTfind = {}; %ktere neurology label nechci zahrnout 
+PacTodo = 1; %jestli se maji brat jen pacienti s todo=1
+PAC = CB.StructFind({},labelstofind,testname,iff(strcmp(reference,'refBipo'),'b',[]),labelsNOTfind,PacTodo); %hledam parahipp a entorhinal gyrus + subiculum
         % pouzivam pouze Martinovy zkratky
         
 %ted pole PAC projdu a vymazu radky, ktere tam nepatri  (protoze muze nazev struktury obsahovat napr ent aj.     
@@ -22,11 +23,13 @@ PAC = CB.StructFind({},labelstofind,testname,iff(strcmp(reference,'refBipo'),'b'
 %% 2. PRACE S EXTRAKTY 
 CM = CHilbertMulti; %vytvorim tridu
 %% nastavim promenne
-frekvence = '50-150'; %15-31 
-label = 'AllEl'; % nazev exktraktu, pripoji s filename
 datum = '2018-05-30'; %dnesni datum - tak se pojmenuju vystupni souhrnny soubor
+label = 'PHG-ent'; % nazev exktraktu, pripoji s filename
+
+%podle nasledujicich tri promennych se sestavi jmeno nacitaneho souboru, napriklad Menrot CHilbert 50-150Hz -1.0-1.5 refBipo Ep2018-01_CHilb.mat
+frekvence = '50-150Hz'; %15-31 
 datumEP = '2018-01'; %datum v nazvu nacitaneho souboru
-epochtime = '-1.0-1.5';
+epochtime = '-1.0-1.5'; 
 M = containers.Map({'ppa','menrot','aedist'},{'PPA','Menrot','Aedist'});
 filename = [M(testname) ' CHilbert ' frekvence ' ' epochtime ' ' reference ' Ep' datumEP '_CHilb.mat']; %nazev souboru CHilbert, ze kterych se maji delat extrakty
 
@@ -58,15 +61,16 @@ setup = eval(['setup_' testname]); %nactu nastaveni
 signum = 1; %1=chci jen odpovedi vyssi nez baseline, nebo druha kategorie, 0= vsechny signif rozdily
 CM.ResponseSearchMulti(0.1,setup.stat_kats);
 %nastavim oznaceni kanalu podle signifikance odpovedi
-CM.SetStatActive(2); %pridam k prvnimu oznaceni
+CM.SetStatActive(2); %pridam k prvnimu oznaceni - cislo statistiky podle setup.stat_kats
 CM.SelChannelStat({3},1,0,signum); % k = {'znacka-2D+znacka-3D X vy-2D+vy-3D'}
-CM.SetStatActive(3); %jeste pridam k oznaceni
+CM.SetStatActive(3); %jeste pridam k oznaceni   - cislo statistiky podle setup.stat_kats
 CM.SelChannelStat({3},2,1,signum); % l = { 'vy-3D+znacka-3D X vy-2D+znacka-2D'}
 CM.SetStatActive(1); %nove oznaceni
 CM.SelChannelStat({1, 2, 3, 4},[3 4 5 6],1,signum); % fghj = 'vy-2D' 'vy-3D' 'znacka-2D' 'znacka-3D'
 
 %% 2.5 vyslednou sumarni tridu si ulozim, podobne jako kdyz ukladam data tridy CHilbert
-CM.Save(['d:\eeg\motol\pacienti\0sumarne\CM ' M(testname) ' ' label ' ' frekvence ' ' reference ' ' epochtime ' Ep' datumEP ' '  datum]);
+CM.Save([ setup.basedir '0sumarne\CM ' M(testname) ' ' label ' ' frekvence ' ' reference ' ' epochtime ' Ep' datumEP ' '  datum]);
+%TODO folder
 
 %% 2.6 sumarni graf odpovedi
 CM.IntervalyResp(); %graf velikosti odpovedi pres vsechny kanaly
@@ -74,11 +78,11 @@ CM.IntervalyResp(); %graf velikosti odpovedi pres vsechny kanaly
 CM.PlotResponseCh(); %odpoved pro kazdy kanal zvlast 
 %TODO - zobrazeni reakcnich casu pro kazdeho pacienta i v sumarnim souboru
 %% 2.6b nactu starsi data
-CM.Load(['d:\eeg\motol\pacienti\0sumarne\CM ' M(testname) ' ' label ' ' frekvence ' ' reference ' ' epochtime ' Ep' datumEP ' '  datum '_CHilb.mat']);
+CM.Load([ setup.basedir '0sumarne\CM ' M(testname) ' ' label ' ' frekvence ' ' reference ' ' epochtime ' Ep' datumEP ' '  datum '_CHilb.mat']);
 
 %% 3 OBRAZEK MOZKU 
 %  3.1 nastavim statistiku
-statToDo = [2 3]; %ze kterych statistiky chci udelat obrazky
+statToDo = [2 3]; %ze kterych statistiky chci udelat obrazky, 2=vy vs znacka
 stat = statToDo(1); %tohle musim rucne editova - nejdriv 1, pak 2. Muzu take kliknout na cislo a pravym tlacitkem mysi zvolit Increment Value and Run Section
 CM.SetStatActive(stat); 
 %% 3.2 nactu data

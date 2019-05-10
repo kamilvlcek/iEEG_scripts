@@ -6,9 +6,9 @@ podilcasuodpovedi =0;
 %% nejdriv normalni analyzu s razenim podle podnetu
 if podnet
     disp(' ++++ ANALYZA 1 - RAZENI PODLE PODNETU ++++');
-    %pacienti = {'p138'}; 
+    pacienti = {'VT40','VT39'}; 
     cfg = struct('hybernovat',0,'suffix','Ep2018-08');
-    %cfg.pacienti = pacienti; %kdyz to tam vlozim rovnou, tak se mi udela struct array
+    cfg.pacienti = pacienti; %kdyz to tam vlozim rovnou, tak se mi udela struct array
     %cfg.overwrite=1; %vyjimecne
     filenames = BatchHilbert('ppa',cfg);    
 end
