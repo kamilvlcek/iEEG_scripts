@@ -49,8 +49,10 @@ figure('Name','Synchronizace');
 %       break; %kdyz uz delkou presahuju konec zaznamu, ukoncim cyklus
 %    end
 x = start;
+yrange = [-3000 3000];
+
     plot( x:1/fs:x+delka-1/fs,  d(x*fs:(x+delka)*fs-1,channel) .* mults(1,channel));
-    axis([x x+delka -3000 3000])
+    axis([x x+delka yrange])
     sekund_zac = x; % cas v sekundach,cisla s desetinnymi teckami se do grafu na osu x nevejdou
     sekund_konec = (x+delka);
     %sekund_delka = delka/fs;
@@ -62,7 +64,7 @@ x = start;
         for a = 1:numel(annotations.starttime)
             if annotations.starttime(a)>sekund_zac && annotations.starttime(a)<sekund_konec
                 anotace_index = annotations.starttime(a);
-                line([anotace_index anotace_index],[-3000 3000],'Color','red');
+                line([anotace_index anotace_index],yrange,'Color','red');
                 text(anotace_index,2900-zobrazenych*80,annotations.event{a},'Color','red');
                 zobrazenych = zobrazenych+1;
             end
@@ -72,7 +74,7 @@ x = start;
         for a = 1:numel(evts)
             secs = find(tabs >= datenum(evts(a).dateStr),1) / fs; %v kolika vterichan od zacatku tabs
             if ~isempty(secs) && secs>sekund_zac && secs<sekund_konec && isfield(evts(a),'annotation') && ~isempty(evts(a).annotation)                
-                line([secs secs],[-3000 3000],'Color','red');
+                line([secs secs],yrange,'Color','red');
                 text(secs,2900-zobrazenych*80,evts(a).annotation,'Color','red');
                 text(secs,2000-zobrazenych*80, evts(a).dateStr,'Color','magenta');
                 zobrazenych = zobrazenych+1;
@@ -82,17 +84,17 @@ x = start;
     if exist('Events','var') && isstruct(Events)
         for k = 1:numel(Events.c.timestamps)
             secs = find(tabs >= Events.c.timestamps(k),1) / fs;
-            line([secs secs],[-3000 3000],'Color','black');
+            line([secs secs],yrange,'Color','black');
             text(secs,100,['c' num2str(k)],'Color','black');
         end
         for k = 1:numel(Events.g.timestamps)
             secs = find(tabs >= Events.g.timestamps(k),1) / fs;
-            line([secs secs],[-3000 3000],'Color','red');
+            line([secs secs],yrange,'Color','red');
             text(secs,200,['g' num2str(k)],'Color','red');
         end
         for k = 1:numel(Events.e.timestamps)
             secs = find(tabs >= Events.e.timestamps(k),1) / fs;
-            line([secs secs],[-3000 3000],'Color','magenta');
+            line([secs secs],yrange,'Color','magenta');
             text(secs,300,'e','Color','magenta');
         end
     end

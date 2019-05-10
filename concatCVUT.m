@@ -21,7 +21,7 @@ end
 for j = 1:numel(spojit)
     disp([ num2str(j) '/' num2str(numel(spojit)) ': ' adresar spojit{j}]);
     load([adresar spojit{j}]);
-    disp(['delka ' num2str(size(tabs,1))]); %#ok<NODEF>
+    disp(['delka ' num2str(size(tabs,1)) ' vzorku']); %#ok<NODEF>   
     if j == 1 
         tabs0 = tabs;
         clear tabs;
@@ -34,7 +34,8 @@ for j = 1:numel(spojit)
             clear mults;
         end
         if exist('fs','var') 
-            fs0 = fs; %#ok<NODEF>
+            disp(['fs=' num2str(fs)]); %#ok<NODEF>
+            fs0 = fs; 
             clear fs;
         end  
         if exist('evts','var')

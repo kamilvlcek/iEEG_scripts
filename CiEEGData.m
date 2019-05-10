@@ -364,7 +364,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 d = d(:,:,isorted); 
             end   
             iEpochy = all(iEpochy,2) & ~obj.RjEpochCh(ch,:)' & iEpCh(ch,:)'; %jeste pripravim k vystup seznam validnich epoch pro tento kanal - bez vyrazenych 
-            % epochy podle podminky &~ epochy s epiaktivitou & epochy bez treningu, chyb a rucniho vyrazeni (RjEpoch)
+            % epochy podle podminky (jeden sloupec) &~ epochy s epiaktivitou (sloupcu jako kanalu) & epochy bez treningu, chyb a rucniho vyrazeni (RjEpoch) 
         end      
         
         function obj = ChangeReference(obj,ref)            

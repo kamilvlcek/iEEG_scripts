@@ -25,7 +25,12 @@ if  isempty(ext)
 else
     %zpracovavam jeden soubor
     %prvni pulka souboru - s celym najednou se spatne pracuje
-    load(filename);     
+    load(filename);  
+    if size(d,1)<2
+        disp(['zaznam prilis kratky: ' num2str(size(d,1)) ' vzorku' ]);
+        delka = numel(tabs);
+        return;
+    end
     if exist('mults', 'var')
         load(filename,'mults'); %pokud existuji, roznasobim to mults - decimate pracuje jen s double
         d = bsxfun(@times,double(d), mults); %#ok<NODEF> %rovnou to roznasobim mults
@@ -58,8 +63,13 @@ else
     disp('second half of d ...');
     load(filename,'d'); %maly soubor, nactu jen d
     if exist('mults', 'var') 
-        d = bsxfun(@times,double(d), mults); %rovnou to roznasobim mults - decimate pracuje jen s double
+        d = bsxfun(@times,double(d), mults); %rovnou to roznasobim mults - decimate pracuje jen s double          
+    elseif ~isfloat(d)
+        disp('d neni float type a neexistuje mults');
+        delka = numel(tabs);
+        return;
     end
+    
     d(1:dpul,:)=[]; %smazu prvni pulku souboru
 
     dc2 = zeros(ceil(size(d,1)/podil),els);

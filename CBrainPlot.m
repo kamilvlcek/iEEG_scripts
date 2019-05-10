@@ -578,6 +578,16 @@ classdef CBrainPlot < matlab.mixin.Copyable
              PAC = cell2struct(raw(2:end,:),raw(1,:),2)';  %originalni PAC struktura z StructFind ma rozmer 1 x N, takze transponuju z excelu
              disp( [ basename(xlsfile) ': soubor nacten']);
         end
+        function PAC = MergePAC(PAC1,PAC2,varargin)
+            %funkce spoji nekolik PAC struktur dohromady, variabilni seznam argumentu >= 2
+            PAC = [PAC1,PAC2];
+            for n = 1:numel(varargin)
+                PAC = [PAC,varargin{n}]; %#ok<AGROW>
+            end
+            T = struct2table(PAC); %prevedu na table, aby fungovalo uniue            
+            T = unique(T,'rows'); %cele unikatni radky
+            PAC = table2struct(T)'; %chci mit prvni rozmer 1 a radky ve druhem rozmeru, jako jsou vsechny PAC
+        end
 %         function PAC2Bipolar(PAC)
 %             %kdyz nemam strukturu PAC bipolarne a potrebuju ji
 %             PACpac = unique({PAC.pacient});
