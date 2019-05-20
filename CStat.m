@@ -325,9 +325,11 @@ classdef CStat < handle
         function AUC2XLS(obj)
             %vypise seznam kanalu z grafu AUCPlotM do xls souboru 
             %vola se pomoci x z grafu
-            channels = obj.plotAUC_m.channels;   %XXX: predpokladam, ze obj.plotAUC_m.channels uz obsahuje vsechny spocitane kanaly            
-            cellout = cell(numel(channels),15); % z toho bude vystupni xls tabulka s prehledem vysledku            
-            for ch = 1:numel(channels)  %XXX: iterace pres kanaly, predpokladam, ze je jen jedna platna kombinace {k,l} nize!            
+            percent = inputdlg('Trigger percentage:', 'XLS Export', [1 8], {'50'});
+            fraction = str2double(percent{1})/100;
+            channels = obj.plotAUC_m.channels;   %XXX: predpokladam, ze obj.plotAUC_m.channels uz obsahuje vsechny spocitane kanaly
+            cellout = cell(numel(channels),15); % z toho bude vystupni xls tabulka s prehledem vysledku
+            for ch = 1:numel(channels)  %XXX: iterace pres kanaly, predpokladam, ze je jen jedna platna kombinace {k,l} nize!
                 channelHeader = obj.plotAUC.Eh.CH.H.channels(channels(ch));                
                 for k = 1:numel(obj.plotAUC.kategories)-1
                 for l = k+1:numel(obj.plotAUC.kategories)
@@ -337,7 +339,7 @@ classdef CStat < handle
                         AUC = obj.plotAUC.aucdata(channels(ch)).AUC{k,l};
                         X = linspace(obj.plotAUC.time(1),obj.plotAUC.time(2),size(AUC,1));
                         
-                        [amax, idx, idxHalf] = cMax(AUC(:,1));
+                        [amax, idx, idxHalf] = cMax(AUC(:,1), fraction);
                         tmax = X(idx);
                         thalf = X(idxHalf);                        
                         ci_u = AUC(idx, 3);
@@ -354,7 +356,7 @@ classdef CStat < handle
             
             tablelog = cell2table(cellout, ...
                 'VariableNames', {'channel' 'name'  'neurologyLabel'  'MNI_x'  'MNI_y'  'MNI_z'  'seizureOnset'  'interictalOften'  ...
-                    'rejected'  'tmax'  'thalf'  'aucmax'  'ci_u'  'ci_l'  'significance'   
+                    'rejected'  'tmax'  ['t' percent{1}]  'aucmax'  'ci_u'  'ci_l'  'significance'   
                 });
             obj.plotAUC_m.xlsvals = cell2mat(cellout(:,10:12)); %ulozim hodnoty tmax, thalf a aucmax
             %TODO: Identifikace nazvu souboru? 
