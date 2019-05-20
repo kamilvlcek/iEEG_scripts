@@ -1,5 +1,5 @@
 function [  ] = headers_reload( testname,filename )
-%UNTITLED2 funkce vymeni headery ve vsech souborech za aktualni
+%HEADERS_RELOAD funkce vymeni headery ve vsech souborech za aktualni
 %   zkontroluje, jestli je header stejny
 [ pacienti, setup  ] = pacienti_setup_load( testname );
 

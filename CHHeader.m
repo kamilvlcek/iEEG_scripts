@@ -57,7 +57,11 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     els = obj.els;
                 end
             else
-                chgroups = {chnsel}; %pokud mam vyber kanalu, zatim to nechci resit a vsechny v jedne skupine - bez ohledu na elektrody, jako cellarray
+                if obj.plotCh3D.allpoints %pokud chci zobrazovat i ostatni kanal jako tecky
+                   chgroups = {chnsel,setdiff(obj.H.selCh_H,chnsel)}; %do druhe skupiny dam ostatni kanaly
+                else
+                   chgroups = {chnsel}; %pokud mam vyber kanalu, zatim to nechci resit a vsechny v jedne skupine - bez ohledu na elektrody, jako cellarray
+                end
                 els = obj.els;
             end
         end
@@ -145,7 +149,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     eval(['obj.plotCh3D.' params{p} ' = ' params{p} ';']); %podle vstupni promenne zmeni ulozenou hodnotu
                 end
             end           
-           
+            if ~isfield(obj.plotCh3D,'allpoints'), obj.plotCh3D.allpoints = 0; end
             assert(numel(chnvals) == numel(chnsel), 'unequal size of chnvals and chnsel');
             nblocks = numel(chnvals); %pocet barev bude odpovidat poctu kanalu
             cmap = parula(nblocks+1); %+1 protoze hodnoty se budou zaokrouhlovat nahoru nebo dolu
@@ -162,7 +166,8 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     obj.plotCh3D.fh = figure('Name','ChannelPlot 3D in MNI');                     
                 end          
                                
-                [obj,chgroups] = obj.ChannelGroups(chnsel); %rozdeli kanaly po elektrodach do skupin. Pokud chnsel, jsou vsecny v jedne skupine         
+                [obj,chgroups] = obj.ChannelGroups(chnsel); %rozdeli kanaly po elektrodach do skupin. 
+                 %Pokud chnsel, jsou vsecny v jedne skupine. Ale pokud obj.plotCh3D.allpoints, ve druhe skupine jsou ostatni kanaly
                 
                 %objekt se dobre uklada i pri poradi return values XYZ,obj
                 XYZ = struct('X',0,'Y',0,'Z',0);
@@ -171,7 +176,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     X = [obj.H.channels(group).MNI_x];
                     Y = [obj.H.channels(group).MNI_y];
                     Z = [obj.H.channels(group).MNI_z];     
-                    XYZ(chg) = struct('X',X,'Y',Y,'Z',Z);
+                   
                     linestyle = iff(isempty(chnsel),'-','.'); %cara bude jina pokud je pouzite chnsel
                     plot3(X,Y,Z,linestyle,'LineWidth',2);
                     if chg==1, hold on; end                         
@@ -180,12 +185,17 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     else
                         names = {obj.H.channels(group).name};
                     end
-                    iZ = mod([1:numel(Z)], 2); iZ(iZ == 0) = -1;
-                    text(X,Y,Z+iZ*2,names,'FontSize', 7);
+                    iZ = mod([1:numel(Z)], 2); iZ(iZ == 0) = -1;                    
+                    if chg==1 || isempty(chnsel) || ~obj.plotCh3D.allpoints %druhou skupinu chci do kulicek jen pokud zobrazuju vsechny (chnsel je prazdne) nebo pokud nejsou v druhe skupine ostatni kanaly
+                        XYZ(chg) = struct('X',X,'Y',Y,'Z',Z); %export pro scatter3 nize, ktery zobrazi ruzne velke a barevne kulicky
+                        text(X,Y,Z+iZ*2,names,'FontSize', 7);
+                    end
                 end
                 % Plot with different colors and sizes based on chnvals
                 if isempty(chnvals) 
                     isizes = 1:obj.H.channels;
+                elseif obj.plotCh3D.allpoints 
+                    isizes = find(chnsel==[chgroups{1}]); %indexy v poli chnsel pro pouziti v poli sizes, find pracuje i hromadne
                 else
                     isizes = find(chnsel==[chgroups{:}]); %indexy v poli chnsel pro pouziti v poli sizes, find pracuje i hromadne
                 end               
@@ -243,7 +253,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             else
                 disp('No MNI data');
             end
-        end
+        end        
         function ChannelPlot2D(obj,chsel,plotRCh,plotChH,label)
             %vstupni promenne
             %plotRCh - cela struktura plotRCh z CiEEGData
@@ -257,7 +267,8 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             else
                 obj.plotCh2D.chsel = chsel;
             end
-            chsel = obj.sortorder(chsel); %jeden kanal, ktery je zobrazeny v PlotResponseCh
+            chselo = obj.sortorder(chsel); %jeden kanal, ktery je zobrazeny v PlotResponseCh
+                                           %chsel je index v sortorder, chselo je skutecne cislo kanalu
             if ~exist('plotRCh','var') 
                 if isfield(obj.plotCh2D,'selCh') %promenna na vic oznacenych kanalu f-l, podle obj.PlotRCh.SelCh
                     selCh = obj.plotCh2D.selCh;
@@ -300,7 +311,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             else
                 obj.plotCh2D.label = label;
             end
-            if ~isfield(obj.plotCh2D,'chseltop'), obj.plotCh2D.chseltop = 1; end %jestli se ma vybrany kanal zobrazovat na popredi ostatnych  - zlute kolecko
+            if ~isfield(obj.plotCh2D,'chseltop'), obj.plotCh2D.chseltop = 0; end %jestli se ma vybrany kanal zobrazovat na popredi ostatnych  - zlute kolecko
             if ~isfield(obj.plotCh2D,'names'), obj.plotCh2D.names = 1; end %jestli se maji vypisovat jmena kanalu
             %------------------------- vytvoreni figure -----------------------------------
             x = [obj.H.channels(:).MNI_x];
@@ -351,8 +362,8 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 end
                 end                              
             end
-            if ~isempty(chsel) %pokud je vybrany nejaky kanal
-                h_selection = plot(x(chsel),y(chsel),'o','MarkerSize',size_ch,'MarkerEdgeColor','y','MarkerFaceColor','y'); 
+            if ~isempty(chsel) %pokud je vybrany nejaky kanal                
+                h_selection = plot(x(chselo),y(chselo),'o','MarkerSize',size_ch,'MarkerEdgeColor','y','MarkerFaceColor','y'); 
                 chstr = iff(isempty(obj.sortedby),num2str(chsel), [ num2str(obj.sortorder(chsel)) '(' obj.sortedby  num2str(chsel) ')' ]);
                 title( [ 'channel ' chstr ]);
                 
@@ -401,12 +412,12 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 end
             end  
             if ~isempty(chsel) %pokud je vybrany nejaky kanal
-                h_selection = plot(y(chsel),z(chsel),'o','MarkerSize',size_ch,'MarkerEdgeColor','y','MarkerFaceColor','y'); 
+                h_selection = plot(y(chselo),z(chselo),'o','MarkerSize',size_ch,'MarkerEdgeColor','y','MarkerFaceColor','y'); 
                 
-                text(x_text,110,[ obj.H.channels(1,chsel).name]);
-                text(x_text,100,[ obj.H.channels(1,chsel).neurologyLabel ',' obj.H.channels(1,chsel).ass_brainAtlas]);
+                text(x_text,110,[ obj.H.channels(1,chselo).name]);
+                text(x_text,100,[ obj.H.channels(1,chselo).neurologyLabel ',' obj.H.channels(1,chselo).ass_brainAtlas]);
                 if  isfield(obj.H.channels,'MNI_x') %vypisu MNI souradnice
-                    text(x_text,90,[ 'MNI: ' num2str(round(obj.H.channels(1,chsel).MNI_x)) ', ' num2str(round(obj.H.channels(1,chsel).MNI_y )) ', ' num2str(round(obj.H.channels(1,chsel).MNI_z))]);
+                    text(x_text,90,[ 'MNI: ' num2str(round(obj.H.channels(1,chselo).MNI_x)) ', ' num2str(round(obj.H.channels(1,chselo).MNI_y )) ', ' num2str(round(obj.H.channels(1,chselo).MNI_z))]);
                 else
                     text(x_text,90,'no MNI');
                 end                
@@ -428,9 +439,9 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                        end
                     end
                 end
-                if any(selCh(chsel,:),2)==1 %pokud je aktualni kanal jeden z vybranych                
+                if any(selCh(chselo,:),2)==1 %pokud je aktualni kanal jeden z vybranych                
                     klavesy = 'fghjkl'; %abych mohl vypsat primo nazvy klaves vedle hvezdicky podle selCh
-                    text(x_text,80,['*' klavesy(logical(selCh(chsel,:)))], 'FontSize', 12,'Color','red');
+                    text(x_text,80,['*' klavesy(logical(selCh(chselo,:)))], 'FontSize', 12,'Color','red');
                 end
                 if ~isempty(label)
                     text(x_text,-75,strrep(label,'_','\_'), 'FontSize', 10,'Color','blue' );
@@ -636,9 +647,9 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             %vyberu podle neurologylabel jen nektere kanaly k zobrazeni
             if exist('chlabels','var') && ~isempty(chlabels)
                 ChLabels = {obj.H.channels(:).neurologyLabel}';
-                iL = contains(ChLabels,chlabels);
+                iL = contains(lower(ChLabels),lower(chlabels)); %prevedu oboji na mala pismena
                 if exist('notchnlabels','var') && numel(notchnlabels) > 0
-                    iLx = contains(ChLabels,notchnlabels);
+                    iLx = contains(lower(ChLabels),lower(notchnlabels));
                     iL = iL & ~iLx;
                     obj.plotCh2D.chshowstr = [ cell2str(chlabels) ' not:' cell2str(notchnlabels)];
                 else
@@ -753,6 +764,14 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                         end
                     end
                     obj.ChannelPlot();
+                  case 'p'
+                    %zobrazeni pozic vsech kanalu jako tecek
+                    if isfield(obj.plotCh3D,'allpoints') %prepinac neurology labels v grafu
+                       obj.plotCh3D.allpoints  = 1 - obj.plotCh3D.allpoints;
+                    else
+                       obj.plotCh3D.allpoints  = 1;
+                    end
+                    obj.ChannelPlot();
               end
           end
           function obj = hybejPlot2D(obj,~,eventDat) 
@@ -836,18 +855,23 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
               width = pos(3);
               subp = xy(1) > width/2; 
               chns_mni = [];
+              if isfield(obj.plotCh2D,'chshow') && numel(obj.plotCh2D.chshow) < numel(obj.H.channels) 
+                  chshow = obj.plotCh2D.chshow;
+              else
+                  chshow = 1:numel(obj.H.channels);
+              end
               if subp == 0  %axialni graf, subplot 1
                   if x > -70 && x < 70 && y > -120 && y < 90
-                    chns_mni = [[obj.H.channels(:).MNI_x]' , [obj.H.channels(:).MNI_y]'];                  
+                    chns_mni = [[obj.H.channels(chshow).MNI_x]' , [obj.H.channels(chshow).MNI_y]'];                  
                   end
               else         %sagitalni graf, subplot 2
                   if x > -100 && x < 70 && y > -100 && y < 90
-                    chns_mni = [[obj.H.channels(:).MNI_y]' , [obj.H.channels(:).MNI_z]'];   
+                    chns_mni = [[obj.H.channels(chshow).MNI_y]' , [obj.H.channels(chshow).MNI_z]'];   
                   end
               end
               if ~isempty(chns_mni)
                   [ch,~] = dsearchn(chns_mni,[x y]); %najde nejblizsi kanal a vzdalenost k nemu                   
-                  obj.ChannelPlot2D(find(obj.sortorder==ch)); %#ok<FNDSB>   
+                  obj.ChannelPlot2D(find(obj.sortorder==chshow(ch))); %#ok<FNDSB>   
                   if isfield(obj.plotCh2D,'plotChH')
                     obj.plotCh2D.plotChH(obj.plotCh2D.chsel); %vykreslim @obj.PlotResponseCh  
                     figure(obj.plotCh2D.fh); %dam puvodni obrazek dopredu

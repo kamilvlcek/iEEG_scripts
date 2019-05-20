@@ -1,4 +1,4 @@
-function [menrot] = menrot_data(pacientid,U1,U2,tabs,eegfile)
+function [menrot] = menrot_data(pacientid,U1,U2,tabs,eegfile, vynechat)
 %AEDIST_DATA vytvori a vraci strukturu s udalostmi experimentu AEdist
 % pacientid - id pacienta, napriklad p85, podle pojmenovani vystupni tabulky AEdistData.php.
 % U1 a U2 vystup z udalosti2() - casy synchropulsu k podnedu a odpovedi
@@ -6,7 +6,9 @@ function [menrot] = menrot_data(pacientid,U1,U2,tabs,eegfile)
 dir = Constants.menrot_psychopydata_dir;
 %tabulka odpovedi pacienta
 data = load([dir pacientid '_menrot.txt']);
-
+if exist('vynechat','var') && ~isempty(vynechat)
+   data(vynechat,:) = []; %novy parametr pro vynechani nejake udalosti v datech - 22.3.2019
+end
 %musim ze dvou sloupcu [0 1] udelat jeden sloupec [0 1 2 3]
 data(:,9) = data(:,7)*2+data(:,8); %kategorie vy/znacka a 2D/3D
 data(:,7:8) = [];

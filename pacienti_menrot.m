@@ -25,7 +25,7 @@ pacienti(p).epievents = 'p079_menrot_epievents.mat'; %2017
 pacienti(p).rjch = [47 64 114]; 
 
 p=p+1;
-pacienti(p).todo = 1; %docasne, ma vic vzorku 512 nez ostatni 256, nejde do CHilbertMulti
+pacienti(p).todo = 0; %docasne, ma vic vzorku 512 nez ostatni 256, nejde do CHilbertMulti
 pacienti(p).folder = 'p082 Vov VT9';
 pacienti(p).data = 'VT9_2015-04-21_09-46_001_concat_X_menrot.mat';
 pacienti(p).header = 'P82_header.mat';
@@ -241,5 +241,25 @@ pacienti(p).psychopy = 'p173_menrot.mat';
 pacienti(p).rjepoch = 'p173_menrot_rjepoch.mat';
 pacienti(p).epievents = 'p173_menrot_epievents.mat'; %2018 
 pacienti(p).rjch = [47]; %#ok<NBRAK>
+
+p=p+1; %kamil 22.3.2019, 500Hz
+pacienti(p).todo = 1; 
+pacienti(p).folder = 'p180 Van VT35';
+pacienti(p).data = 'VT35_2018-05-22_19-35_001_500hz_concat_menrot.mat';
+pacienti(p).header = 'p180_64ch_header.mat';
+pacienti(p).psychopy = 'p180_menrot.mat';
+pacienti(p).rjepoch = 'p180_menrot_rjepoch.mat';
+pacienti(p).epievents = 'p180_menrot_epievents.mat'; 
+pacienti(p).rjch = [33]; %#ok<NBRAK>
+
+p=p+1; %kamil 22.3.2019, 512Hz
+pacienti(p).todo = 1; 
+pacienti(p).folder = 'p181 Tis VT36';
+pacienti(p).data = 'VT36_2018-06-02_10-34_001_concat_menrot.mat';
+pacienti(p).header = 'p181_header.mat';
+pacienti(p).psychopy = 'p181_menrot.mat';
+pacienti(p).rjepoch = 'p181_menrot_rjepoch.mat';
+pacienti(p).epievents = 'p181_menrot_epievents.mat';  
+pacienti(p).rjch = []; %#ok<NBRAK>
 end
 

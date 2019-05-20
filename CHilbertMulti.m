@@ -22,6 +22,7 @@ classdef CHilbertMulti < CHilbert
         
         function FILES = TestExtract(obj,filenames)
             FILES = cell(size(filenames,1),2);
+            channelsNum = 0;
              for fileno = 1:size(filenames,1)
                 filename = filenames{fileno,1}; %cell array, zatim to musi byt plna cesta                
                 if exist(filename,'file') 
@@ -33,11 +34,13 @@ classdef CHilbertMulti < CHilbert
                     d = d(:,:,test);
                     %disp(['  velikost d (samples x channels x epochs):' num2str(size(d))]); 
                     FILES(fileno,:) = {obj.basename(filename), [ 'd: ' num2str(size(d),'%i ') ', fs: ' num2str(fs)]};
+                    channelsNum = channelsNum + size(d,2);
                 else
                     disp(['soubor neexistuje ' filename]);
                     FILES(fileno,:) = {obj.basename(filename), 'soubor neexistuje'};
                 end
              end
+             disp(['Total channels: ' num2str(channelsNum) ]);
         end
         function obj = Clear(obj)
             %smaze data objektu, kvuli volani z ImportExtract, jinak je mozna jednodussi znova objekt vytvorit
@@ -62,7 +65,7 @@ classdef CHilbertMulti < CHilbert
             obj.blokyprehazej = {};
             obj.subjNames = {};
             obj.label = {};
-            obj.mfilename = {};            
+            obj.mfilename = [];            
             
             obj.plotF = {};
             obj.plotRCh = {};
@@ -146,6 +149,7 @@ classdef CHilbertMulti < CHilbert
             
             tabs = tabs(:,test); %velikost tabs se odviji od velikosti d, takze nemusim overovat            
             RjEpochCh = RjEpochCh(:,test);
+            epochData = epochData(test,:); %testove trialy odstranim i z epochData
             Psy = CPsyData(P);%vytvorim objekt CPsyData 
             Psy.RemoveTraining(); %odstranim treninkove trialy
             P = Psy.P; %zase vytahnu strukturu P ven            
@@ -256,7 +260,7 @@ classdef CHilbertMulti < CHilbert
             %porovna poradi bloku v puvodnich souborej a novem souboru
             %pokud je jine, vytvori pole blokyprehazej, ktere se pak pouzije v PrehazejEpochy
             if ~exist('poprehozenibloku','var'), poprehozenibloku = 0; end
-            if poprehozenibloku 
+            if poprehozenibloku %funkce se vola dvakrat pro kazdy extract, po druhe po prehazeni epoch se prehazena epochData jen ulozi
                 if ~isempty(obj.blokyprehazej)
                     obj.epochData = epochData;                    
                 end
@@ -268,8 +272,8 @@ classdef CHilbertMulti < CHilbert
                     obj.blokyprehazej = []; %nebudu nic prehazovat
                 else
                     assert(size(obj.epochData,1)<=size(epochData,1), 'pocet podminek v epochData musi byt stejny nebo mensi v prvnim souboru');                                                 
-                    bloky0 = obj.GetBlocks(obj.epochData); 
-                    bloky1 = obj.GetBlocks(epochData); 
+                    bloky0 = obj.GetBlocks(obj.epochData); % predchozi bloky
+                    bloky1 = obj.GetBlocks(epochData);     % bloky z aktualniho souboru
                     assert(size(bloky0,1)<=size(bloky1,1),'pocet bloku musi byt stejny, nebo mensi v prvnim souboru');
                     prehazet = []; %v kterych blocich jsou jine podminky
                     for b = 1:size(bloky0,1) %pres vsechny bloky
@@ -460,13 +464,13 @@ classdef CHilbertMulti < CHilbert
                 disp(['nenalezeno :' cell2str(nenalezeno)]);
             end
         end
-        function filenames = FindExtract(testname,label,filename)
+        function filenames = FindExtract(testname,filename,label)
             %filenames = FindExtract(testname,label,filename) 
             %najde existujici extrakty dat podle label            
             if ~exist('filename','var') || isempty(filename) , filename = '*'; end %filename nemusim zadat, pak hledam cokoliv s timto label
             if ~exist('label','var') || isempty(label) , label = '*'; end 
             [pacienti,setup] = pacienti_setup_load( testname );
-            filename = strrep(filename,'_CHilb.mat',''); %funkce ExtractData pro zmenu vyzaduje tuhle priponu
+            filename = strrep(filename,'_CHilb.mat',''); %funkce ExtractData pro zmenu vyzaduje tuhle priponu            
             filenames = cell(0,4); %budu vrace vsechny nalezene udaje, nejen filename, kvuli prehledu
             for p = 1:numel(pacienti)
                path = [setup.basedir pacienti(p).folder filesep setup.subfolder filesep 'Extracts' filesep];
@@ -552,7 +556,7 @@ classdef CHilbertMulti < CHilbert
                 return;
             end
             fslash = strfind(filename,'\');
-            str = filename(fslash(end-2)+1:end); %dve casti path pred basename
+            str = filename(fslash(end-3)+1:end); %tri casti casti path pred basename - aby bylo i jmeno pacienta
         end
         function [RjEpochCh] = RjEpoch2Ch(RjEpoch,RjEpochCh)
             %prevede RjEpoch do RjEpochCh - rozkopiruje na vsechny kanaly
