@@ -6,7 +6,7 @@ reference = 'refBipo'; %'refBipo', refHead, refEle
 %% 1. HLEDANI V HEADERECH
 CB = CBrainPlot; %vytvorim tridu
 %% 1.1a najdu v headerech strukturu 
-labelstofind = {'PHG','parah','ent','subi'}; %ktere neurology label chci zahrnout - staci cast (entorhinal), bez ohledu na velikost pismen
+labelstofind = {}; %ktere neurology label chci zahrnout - staci cast (entorhinal), bez ohledu na velikost pismen
 labelsNOTfind = {}; %ktere neurology label nechci zahrnout 
 PacTodo = 1; %jestli se maji brat jen pacienti s todo=1
 PAC = CB.StructFind({},labelstofind,testname,iff(strcmp(reference,'refBipo'),'b',[]),labelsNOTfind,PacTodo); %hledam parahipp a entorhinal gyrus + subiculum
@@ -23,18 +23,18 @@ PAC = CB.StructFind({},labelstofind,testname,iff(strcmp(reference,'refBipo'),'b'
 %% 2. PRACE S EXTRAKTY 
 CM = CHilbertMulti; %vytvorim tridu
 %% nastavim promenne
-datum = '2018-05-30'; %dnesni datum - tak se pojmenuju vystupni souhrnny soubor
-label = 'PHG-ent'; % nazev exktraktu, pripoji s filename
+datum = '2019-05-15'; %dnesni datum - tak se pojmenuju vystupni souhrnny soubor
+label = 'AllEl'; % nazev exktraktu, pripoji s filename
 
 %podle nasledujicich tri promennych se sestavi jmeno nacitaneho souboru, napriklad Menrot CHilbert 50-150Hz -1.0-1.5 refBipo Ep2018-01_CHilb.mat
-frekvence = '50-150Hz'; %15-31 
-datumEP = '2018-01'; %datum v nazvu nacitaneho souboru
+frekvence = '50-150'; %15-31 
+datumEP = '2018-07'; %datum v nazvu nacitaneho souboru
 epochtime = '-1.0-1.5'; 
 M = containers.Map({'ppa','menrot','aedist'},{'PPA','Menrot','Aedist'});
 filename = [M(testname) ' CHilbert ' frekvence ' ' epochtime ' ' reference ' Ep' datumEP '_CHilb.mat']; %nazev souboru CHilbert, ze kterych se maji delat extrakty
 
 %% 2.1a vytvoreni extraktu s vybranymi kanaly pro kazdeho pacienta
-overwrite = 0; %0= no overwrite - existujici soubory to preskoci 
+overwrite = 1; %0= no overwrite - existujici soubory to preskoci 
 filenames = CM.ExtractData(PAC,testname,filename,label, overwrite); %#ok<NASGU> 
 
 %% 2.1b nalezeni existujicich extraktu 
