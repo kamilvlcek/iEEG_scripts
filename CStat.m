@@ -28,13 +28,21 @@ classdef CStat < handle
             obj.plotAUC.setup.colorskat = {[0 0 0],[0 1 0],[1 0 0],[0 0 1]; [hue hue hue],[hue 1 hue],[1 hue hue],[hue hue 1]}; % prvni radka - prumery, druha radka errorbars = svetlejsi            
             obj.plotAUC.setup.colorkomb = [nan 2 1; 2 nan 4; 1 4 nan]; %index barvy kombinace kategorii
             obj.plotAUC.setup.legendkomb = [nan 1 2 ; 1 nan 3 ; 2 3 nan ]; % do ktereho pole legendy se ma ukladat kombinace kategorii                                 
-            obj.plotAUC.katplot = ones(1,max(max(obj.plotAUC.setup.legendkomb))); %vic kategorii nikdy nebude - ktera kombinace kategorii se maji kreslit
+            obj.plotAUC.katplot = ones(1,max(max(obj.plotAUC.setup.legendkomb))); %vic kategorii nikdy nebude - ktera kombinace kategorii se maji kreslit            
         end
         function obj = AUCReset(obj)
             obj.plotAUC.aucdata = struct('AUC',{},'AVG',{}); %empty struct array            
             obj.plotAUC.sig = [];
         end
-        
+        function c = ColorKomb(obj,kat1,kat2) 
+            %nova funkce kvuli jinym kategoriim nez u PPA plotu. U Menrot jsou treba kategorie od 0
+            if min([kat1 kat2])==0
+                kategorie = [kat1 kat2]+1;
+                kat1 = kategorie(1:numel(kat1));
+                kat2 = kategorie(numel(kat1)+1:end);
+            end
+            c = obj.plotAUC.setup.colorkomb(kat1(1), kat2(1)); %pokud jsou kat1 a kat2 arrays, vratim jen prvni hodnotu
+        end
         function [obj] = AUCPlot(obj,ch,E, time,kategories)
             %vykresli AUC krivku pro vybrany kanal. 
             %pouzije data z plotAUC, pokud je potreba zavola funkci ROCAnalysis
@@ -104,7 +112,7 @@ classdef CStat < handle
                     MN = AVGall{l,k};
 
                     %kod podle PlotResponseCh, aby stejne barvy pro PPA test
-                    colorkat_kl = obj.plotAUC.setup.colorkomb(kategories(k), kategories(l));
+                    colorkat_kl = obj.ColorKomb(cellval(kategories,k), cellval(kategories,l));
                     color_kl = cell2mat(obj.plotAUC.setup.colorskat(:,colorkat_kl));                    
 
                     %PRVNI plot je AUC krivka
