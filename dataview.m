@@ -10,15 +10,15 @@ elseif ~exist('channel','var') || isempty(channel) %muzu zadat kanal se synchron
     channel = size(d,2)-2; %synchronizace byva 2 kanaly pred koncem - pred EKG
 end  
 if ~exist('start','var') || start == 0
-    start = 1;
+    start = 0;
     iStart = 1; %index v poli tabs
 else
     iStart = round(start*fs); %index v poli tabs
 end
 zaznamvterin = (tabs(end)-tabs(1))*24*3600; %delka zaznamu ve vterinach
 if ~exist('konec','var') || konec == 0
-    konec = round(zaznamvterin); 
-    delka = round(zaznamvterin) -start;  %23.6.2015 - kdyz neudam delku, zobrazuje cely zaznam
+    konec = floor(zaznamvterin); 
+    delka = konec -start;  %23.6.2015 - kdyz neudam delku, zobrazuje cely zaznam
     iKonec = size(tabs,1);%index v poli tabs
 else
     delka = konec - start;
@@ -51,7 +51,7 @@ figure('Name','Synchronizace');
 x = start;
 yrange = [-3000 3000];
 
-    plot( x:1/fs:x+delka-1/fs,  d(x*fs:(x+delka)*fs-1,channel) .* mults(1,channel));
+    plot( x:1/fs:x+delka-1/fs,  d(x*fs+1:(x+delka)*fs,channel) .* mults(1,channel));
     axis([x x+delka yrange])
     sekund_zac = x; % cas v sekundach,cisla s desetinnymi teckami se do grafu na osu x nevejdou
     sekund_konec = (x+delka);
@@ -98,7 +98,7 @@ yrange = [-3000 3000];
             text(secs,300,'e','Color','magenta');
         end
     end
-    iSTART = x*fs; %index zacatku v poli d a tabs
+    iSTART = x*fs+1; %index zacatku v poli d a tabs
     tsSTART = tabs(iSTART); %timestamp zacatku
     disp( ['zacatek: ' num2str(x) 's, timestamp: ' datestr(tsSTART,'dd-mmm-yyyy HH:MM:SS.FFF') ', iSTART: ' num2str(iSTART)]);
     iEND = konec*fs; %index konce v poli d a tabs
