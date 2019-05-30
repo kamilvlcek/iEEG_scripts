@@ -28,13 +28,21 @@ classdef CStat < handle
             obj.plotAUC.setup.colorskat = {[0 0 0],[0 1 0],[1 0 0],[0 0 1]; [hue hue hue],[hue 1 hue],[1 hue hue],[hue hue 1]}; % prvni radka - prumery, druha radka errorbars = svetlejsi            
             obj.plotAUC.setup.colorkomb = [nan 2 1; 2 nan 4; 1 4 nan]; %index barvy kombinace kategorii
             obj.plotAUC.setup.legendkomb = [nan 1 2 ; 1 nan 3 ; 2 3 nan ]; % do ktereho pole legendy se ma ukladat kombinace kategorii                                 
-            obj.plotAUC.katplot = ones(1,max(max(obj.plotAUC.setup.legendkomb))); %vic kategorii nikdy nebude - ktera kombinace kategorii se maji kreslit
+            obj.plotAUC.katplot = ones(1,max(max(obj.plotAUC.setup.legendkomb))); %vic kategorii nikdy nebude - ktera kombinace kategorii se maji kreslit            
         end
         function obj = AUCReset(obj)
             obj.plotAUC.aucdata = struct('AUC',{},'AVG',{}); %empty struct array            
             obj.plotAUC.sig = [];
         end
-        
+        function c = ColorKomb(obj,kat1,kat2) 
+            %nova funkce kvuli jinym kategoriim nez u PPA plotu. U Menrot jsou treba kategorie od 0
+            if min([kat1 kat2])==0
+                kategorie = [kat1 kat2]+1;
+                kat1 = kategorie(1:numel(kat1));
+                kat2 = kategorie(numel(kat1)+1:end);
+            end
+            c = obj.plotAUC.setup.colorkomb(kat1(1), kat2(1)); %pokud jsou kat1 a kat2 arrays, vratim jen prvni hodnotu
+        end
         function [obj] = AUCPlot(obj,ch,E, time,kategories)
             %vykresli AUC krivku pro vybrany kanal. 
             %pouzije data z plotAUC, pokud je potreba zavola funkci ROCAnalysis
@@ -104,7 +112,7 @@ classdef CStat < handle
                     MN = AVGall{l,k};
 
                     %kod podle PlotResponseCh, aby stejne barvy pro PPA test
-                    colorkat_kl = obj.plotAUC.setup.colorkomb(kategories(k), kategories(l));
+                    colorkat_kl = obj.ColorKomb(cellval(kategories,k), cellval(kategories,l));
                     color_kl = cell2mat(obj.plotAUC.setup.colorskat(:,colorkat_kl));                    
 
                     %PRVNI plot je AUC krivka
@@ -120,8 +128,10 @@ classdef CStat < handle
                     line([X(1) X(end)],[.5 .5]);
                     title(['AUC for channel ' num2str(ch) '/' num2str(obj.plotAUC.channels)]);
                     ylim([0.3 1]);
-
-                    %do DRUHEHO plot vykreslim rozdil power obou kategorii
+                    contrastKeys = 'uiop';
+                    text(0.1,0.9,contrastKeys(logical(obj.plotAUC.katplot)));
+                    
+                    %do DRUHEHO plotu vykreslim rozdil power obou kategorii
                     subplot(2,1,2); 
                     title('power');
                     hold on;
@@ -131,7 +141,7 @@ classdef CStat < handle
                 end
             end
             end
-            legenda = legenda(~cellfun('isempty',legenda)); %ymazu prazdne polozky, ktere se nevykresluji
+            legenda = legenda(~cellfun('isempty',legenda)); %vymazu prazdne polozky, ktere se nevykresluji
             if ~isempty(legenda), legend(legenda); end
             set(obj.plotAUC.fh,'KeyPressFcn',@obj.hybejAUCPlot); 
         end
@@ -169,8 +179,8 @@ classdef CStat < handle
                 for k = 1:numel(kategories)-1 %index nizsi kategorie
                 for l = k+1:numel(kategories) %index vyssi kategorie - jsou serazene ve statistice tak, ze dulezitejsi maji vyssi cisla, napr 2=Face x 3=Object x 1=Scene = [2 3 1]
 
-                    [~,~,~,iEpP] = E.CategoryData(kategories(l),[],[],ch); %ziskam parametr iEp se seznamem vsech validnich epoch pro tento kanal
-                    [~,~,~,iEpN] = E.CategoryData(kategories(k),[],[],ch); %.... chci mit tu nejdulezitejsi kategorii (l=vyssi cislo) jako prvni, aby se od ni odecitaly ostatni                                                        
+                    [~,~,~,iEpP] = E.CategoryData(cellval(kategories,l),[],[],ch); %ziskam parametr iEp se seznamem vsech validnich epoch pro tento kanal
+                    [~,~,~,iEpN] = E.CategoryData(cellval(kategories,k),[],[],ch); %.... chci mit tu nejdulezitejsi kategorii (l=vyssi cislo) jako prvni, aby se od ni odecitaly ostatni                                                        
 
                     %prvni a druha kategorie - prumer power
                     if(numel(sample)>1)
@@ -218,7 +228,7 @@ classdef CStat < handle
             
             params = {'channels','chSelection','selch'}; %zkusim hromadne zpracovani parametru 
             for p = 1:numel(params)            
-                if ~exist(params{p},'var')  || eval(['isempty(' params{p} ')'])
+                if ~exist(params{p},'var')  || eval(['isempty(' params{p} ')']) 
                     eval([params{p} '=' 'obj.plotAUC_m.' params{p} ';']); %touhle velmi nedoporucovanou metodou
                 else
                     eval(['obj.plotAUC_m.' params{p} '='  params{p} ';']  );            
@@ -536,7 +546,8 @@ classdef CStat < handle
             %sample - cislo sample
             %katnames - jmena dvou kategorii, positive a negative
             if ~exist('kresli','var'), kresli = 0; end
-            labels = epochData(:,1);
+            %labels = epochData(:,1);
+            labels = CStat.epochData2Labels(epochData,katnames);
             scores = dd;
             posclass = katnames{1}; %napr Scene
             if numel(katnames) > 1
@@ -564,6 +575,19 @@ classdef CStat < handle
             end
             
         end
+        function [labels]= epochData2Labels(epochData,katnames)
+            %pokud je v katnames vice kategorii, musim k tomu uzpusobit i katnames 
+            labels = epochData(:,1);
+            if iscell(katnames) && strcmp(katnames{1}(1:2),'{[') %pokud se jedna o dvojici kategorii
+                for k = 1:numel(katnames)
+                    for l = 1:numel(labels)
+                        if strfind(katnames{k},labels{l})
+                           labels{l} = katnames{k};
+                        end
+                    end
+                end
+            end
+        end
         
         function ci = AUCconfI(auc,n,p)
             % http://www.real-statistics.com/descriptive-statistics/roc-curve-classification-table/auc-confidence-interval/
@@ -583,7 +607,9 @@ classdef CStat < handle
             switch eventDat.Key
                 case {'u','i','o','p'} %jina pismena nez f-l, aby se to nepletlo                       
                     ik = find('uiop'==eventDat.Key); %index 1-4
-                    obj.plotAUC.katplot( ik ) = 1 - obj.plotAUC.katplot(ik);
+                    if ik <= numel(obj.plotAUC.katplot) %pokud je dost kontrastu mezi kategoriemi k zobrazeni
+                        obj.plotAUC.katplot( ik ) = 1 - obj.plotAUC.katplot(ik);
+                    end    
                     obj.AUCPlot(obj.plotAUC.ch);                      
                 case {'c'}
                     obj.plotAUC.corelplot = 1 - obj.plotAUC.corelplot;

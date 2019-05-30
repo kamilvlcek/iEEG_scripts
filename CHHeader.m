@@ -839,7 +839,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                   case 't' %vybrany kanal je zluty na popredi /pozadi
                       obj.plotCh2D.chseltop = 1-obj.plotCh2D.chseltop;
                       obj.ChannelPlot2D();
-                  case 'n' %vybrany kanal je zluty na popredi /pozadi
+                  case 'n' %moznost vypnout / zapnout zobrazeni jmen kanalu
                       obj.plotCh2D.names = 1-obj.plotCh2D.names;
                       obj.ChannelPlot2D();    
 %                   case 'r' %zobrazi obrazek mozku s vybranych kanalem                   

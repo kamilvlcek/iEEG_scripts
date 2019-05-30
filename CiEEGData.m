@@ -335,6 +335,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             %RjEpCh (Channels x Epochs) - vraci i epochy k vyrazeni pro kazdy kanal (uz s globalne vyrazenymi epochami)
             %  vyradit rovnou je nemuzu, protoze pocet epoch v d pro kazdy kanal musi by stejny
             %  ch ovlivujen jen RjRpCh (v radcich jsou jen kanaly v ch) , d obsahuje vzdy vsechny kanaly, samply a prislusne epochy
+            %  katnum je 1-n cisel kategorii.
             assert(obj.epochs > 1,'data not yet epoched'); %vyhodi chybu pokud data nejsou epochovana            
             assert(obj.channels == size(obj.RjEpochCh,1),'RjEpochCh: spatny pocet kanalu');
             if exist('opak','var') && ~isempty(opak)
@@ -344,8 +345,8 @@ classdef CiEEGData < matlab.mixin.Copyable
                 iOpak = true(obj.epochs,1);  %vsechny epochy              
             end
             if ~exist('ch','var'), ch = 1:obj.channels; end 
-            iEpCh = obj.GetEpochsExclude(ch); %seznam epoch k vyhodnoceni (bez chyb, treningu a rucniho vyrazeni=obj.RjEpoch),channels x epochs ; pro CM data to bude ruzne pro kazdy kanal, jinak stejne pro kazdy kanal
-            iEpochy = [ ismember(cell2mat(obj.epochData(:,2)),katnum) , iOpak]; %seznam epoch pro tuto kategorii a toto opakovani - k vyhodnoceni
+            iEpCh = obj.GetEpochsExclude(ch); %seznam epoch k vyhodnoceni (bez chyb, treningu a rucniho vyrazeni=obj.RjEpoch),channels x epochs ; pro CM data to bude ruzne pro kazdy kanal, jinak stejne pro kazdy kanal            
+            iEpochy = [ ismember(cell2mat(obj.epochData(:,2)),katnum) , iOpak]; %seznam epoch pro tuto kategorii a toto opakovani - k vyhodnoceni                                    
             d = obj.d(:,:,all(iEpochy,2)); %epochy z teto kategorie a tohoto opakovani = maji ve vsech sloupcich 1            
             RjEpCh = obj.RjEpochCh(ch,all(iEpochy,2)) | ~iEpCh(ch,all(iEpochy,2)); %epochy k vyrazeni u kazdeho kanalu - jen pro epochy teto kategorie katnum - odpovidaji poli d       
             
