@@ -62,11 +62,11 @@ signum = 1; %1=chci jen odpovedi vyssi nez baseline, nebo druha kategorie, 0= vs
 CM.ResponseSearchMulti(0.1,setup.stat_kats);
 %nastavim oznaceni kanalu podle signifikance odpovedi
 CM.SetStatActive(2); %pridam k prvnimu oznaceni - cislo statistiky podle setup.stat_kats
-CM.SelChannelStat({3},1,0,signum); % k = {'znacka-2D+znacka-3D X vy-2D+vy-3D'}
+CM.SelChannelStat({3},1,0,signum); % {'znacka-2D+znacka-3D X vy-2D+vy-3D'} = k
 CM.SetStatActive(3); %jeste pridam k oznaceni   - cislo statistiky podle setup.stat_kats
-CM.SelChannelStat({3},2,1,signum); % l = { 'vy-3D+znacka-3D X vy-2D+znacka-2D'}
+CM.SelChannelStat({3},2,1,signum); % {'vy-3D+znacka-3D X vy-2D+znacka-2D'} = l
 CM.SetStatActive(1); %nove oznaceni
-CM.SelChannelStat({1, 2, 3, 4},[3 4 5 6],1,signum); % fghj = 'vy-2D' 'vy-3D' 'znacka-2D' 'znacka-3D'
+CM.SelChannelStat({1, 2, 3, 4},[3 4 5 6],1,signum); % 'vy-2D' 'vy-3D' 'znacka-2D' 'znacka-3D' = fghj
 
 %% 2.5 vyslednou sumarni tridu si ulozim, podobne jako kdyz ukladam data tridy CHilbert
 CM.Save([ setup.basedir '0sumarne\CM ' M(testname) ' ' label ' ' frekvence ' ' reference ' ' epochtime ' Ep' datumEP ' '  datum]);

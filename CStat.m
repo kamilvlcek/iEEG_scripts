@@ -128,8 +128,10 @@ classdef CStat < handle
                     line([X(1) X(end)],[.5 .5]);
                     title(['AUC for channel ' num2str(ch) '/' num2str(obj.plotAUC.channels)]);
                     ylim([0.3 1]);
-
-                    %do DRUHEHO plot vykreslim rozdil power obou kategorii
+                    contrastKeys = 'uiop';
+                    text(0.1,0.9,contrastKeys(logical(obj.plotAUC.katplot)));
+                    
+                    %do DRUHEHO plotu vykreslim rozdil power obou kategorii
                     subplot(2,1,2); 
                     title('power');
                     hold on;
@@ -139,7 +141,7 @@ classdef CStat < handle
                 end
             end
             end
-            legenda = legenda(~cellfun('isempty',legenda)); %ymazu prazdne polozky, ktere se nevykresluji
+            legenda = legenda(~cellfun('isempty',legenda)); %vymazu prazdne polozky, ktere se nevykresluji
             if ~isempty(legenda), legend(legenda); end
             set(obj.plotAUC.fh,'KeyPressFcn',@obj.hybejAUCPlot); 
         end
@@ -226,7 +228,7 @@ classdef CStat < handle
             
             params = {'channels','chSelection','selch'}; %zkusim hromadne zpracovani parametru 
             for p = 1:numel(params)            
-                if ~exist(params{p},'var')  || eval(['isempty(' params{p} ')'])
+                if ~exist(params{p},'var')  || eval(['isempty(' params{p} ')']) 
                     eval([params{p} '=' 'obj.plotAUC_m.' params{p} ';']); %touhle velmi nedoporucovanou metodou
                 else
                     eval(['obj.plotAUC_m.' params{p} '='  params{p} ';']  );            
@@ -605,7 +607,9 @@ classdef CStat < handle
             switch eventDat.Key
                 case {'u','i','o','p'} %jina pismena nez f-l, aby se to nepletlo                       
                     ik = find('uiop'==eventDat.Key); %index 1-4
-                    obj.plotAUC.katplot( ik ) = 1 - obj.plotAUC.katplot(ik);
+                    if ik <= numel(obj.plotAUC.katplot) %pokud je dost kontrastu mezi kategoriemi k zobrazeni
+                        obj.plotAUC.katplot( ik ) = 1 - obj.plotAUC.katplot(ik);
+                    end    
                     obj.AUCPlot(obj.plotAUC.ch);                      
                 case {'c'}
                     obj.plotAUC.corelplot = 1 - obj.plotAUC.corelplot;
