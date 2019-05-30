@@ -179,8 +179,8 @@ classdef CStat < handle
                 for k = 1:numel(kategories)-1 %index nizsi kategorie
                 for l = k+1:numel(kategories) %index vyssi kategorie - jsou serazene ve statistice tak, ze dulezitejsi maji vyssi cisla, napr 2=Face x 3=Object x 1=Scene = [2 3 1]
 
-                    [~,~,~,iEpP] = E.CategoryData(kategories(l),[],[],ch); %ziskam parametr iEp se seznamem vsech validnich epoch pro tento kanal
-                    [~,~,~,iEpN] = E.CategoryData(kategories(k),[],[],ch); %.... chci mit tu nejdulezitejsi kategorii (l=vyssi cislo) jako prvni, aby se od ni odecitaly ostatni                                                        
+                    [~,~,~,iEpP] = E.CategoryData(cellval(kategories,l),[],[],ch); %ziskam parametr iEp se seznamem vsech validnich epoch pro tento kanal
+                    [~,~,~,iEpN] = E.CategoryData(cellval(kategories,k),[],[],ch); %.... chci mit tu nejdulezitejsi kategorii (l=vyssi cislo) jako prvni, aby se od ni odecitaly ostatni                                                        
 
                     %prvni a druha kategorie - prumer power
                     if(numel(sample)>1)
