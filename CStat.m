@@ -657,13 +657,16 @@ classdef CStat < handle
             %disp(displayedChannels(closestChannel).name)
             x = coordinates(1,closestChannel); y = coordinates(2,closestChannel); z = coordinates(3,closestChannel);
             if isfield(obj.plotAUC.Eh.CH.plotCh3D, 'selHandle') % smazu predchozi oznaceni, pokud nejake bylo
-              delete(obj.plotAUC.Eh.CH.plotCh3D.selHandle)
+                delete(obj.plotAUC.Eh.CH.plotCh3D.selHandle)
+                delete(obj.plotAUC.Eh.CH.plotCh3D.selNameHandle)
             end
             obj.plotAUC.Eh.CH.plotCh3D.selHandle = scatter3(x, y, z, 200, 'r', 'fill'); % oznacim vybrany kanal na 3D grafu
-            obj.AUCPlotM([],[],closestChannel); % oznacim vybrany kanal v AUC plotu
+            obj.plotAUC.Eh.CH.plotCh3D.selNameHandle = annotation('textbox',[0 1 0 0],'String',displayedChannels(closestChannel).name,'FitBoxToText','on');
+            obj.AUCPlotM([],[],find(obj.plotAUC_m.chsort == closestChannel, 1)); % oznacim vybrany kanal v AUC plotu
           else  % pokud se zadny kanal nenasel (kliknuti mimo)
              if isfield(obj.plotAUC.Eh.CH.plotCh3D, 'selHandle') % smazu predchozi oznaceni, pokud nejake bylo
                delete(obj.plotAUC.Eh.CH.plotCh3D.selHandle)
+               delete(obj.plotAUC.Eh.CH.plotCh3D.selNameHandle)
              end
              %TODO: Zrusit zvyrazneni v AUC plotu
           end
