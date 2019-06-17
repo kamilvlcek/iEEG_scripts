@@ -322,13 +322,24 @@ classdef CStat < handle
                 obj.plotAUC_m.chsort(selch)); %selch je jedno zvyraznene cislo kanalu - index v poli chnsel
         end       
       
-        function AUC2XLS(obj)
+        function AUC2XLS(obj, val_fraction, int_fraction)
             %vypise seznam kanalu z grafu AUCPlotM do xls souboru 
             %vola se pomoci x z grafu
-            percent = inputdlg('Trigger percentage:', 'XLS Export', [1 8], {'50'});
-            fraction = str2double(percent{1})/100;
+            %pokud neni specifikovan parametr 'fraction', zobrazi se
+            %dialogove okno pro zadani procent z maxima
+            if nargin == 1
+                prompt = {'Value trigger percentage:', 'Integral trigger percentage:'};
+                default = {'50', '50'};
+                percent = inputdlg(prompt, 'XLS Export', [1 30], default);
+                if isempty(percent)
+                    disp('XLS export cancelled');
+                    return;
+                end
+                val_fraction = str2double(percent{1})/100;
+                int_fraction = str2double(percent{2})/100;
+            end
             channels = obj.plotAUC_m.channels;   %XXX: predpokladam, ze obj.plotAUC_m.channels uz obsahuje vsechny spocitane kanaly
-            cellout = cell(numel(channels),15); % z toho bude vystupni xls tabulka s prehledem vysledku
+            cellout = cell(numel(channels),17); % z toho bude vystupni xls tabulka s prehledem vysledku
             for ch = 1:numel(channels)  %XXX: iterace pres kanaly, predpokladam, ze je jen jedna platna kombinace {k,l} nize!
                 channelHeader = obj.plotAUC.Eh.CH.H.channels(channels(ch));                
                 for k = 1:numel(obj.plotAUC.kategories)-1
@@ -339,16 +350,19 @@ classdef CStat < handle
                         AUC = obj.plotAUC.aucdata(channels(ch)).AUC{k,l};
                         X = linspace(obj.plotAUC.time(1),obj.plotAUC.time(2),size(AUC,1));
                         
-                        [amax, idx, idxHalf] = cMax(AUC(:,1), fraction);
+                        [amax, idx, idxHalf] = cMax(AUC(:,1), val_fraction);
                         tmax = X(idx);
                         thalf = X(idxHalf);                        
                         ci_u = AUC(idx, 3);
                         ci_l = AUC(idx, 2);                     
                         sig = obj.plotAUC.sig(channels(ch), obj.plotAUC.setup.legendkomb(k,l));
+
+                        tint1 = cIntegrate(X, AUC(:,1), int_fraction, 1);
+                        tint2 = cIntegrate(X, AUC(:,1), int_fraction, 2);
                         
                         cellout(ch, :) = {  channels(ch),   channelHeader.name, channelHeader.neurologyLabel, channelHeader.MNI_x, ...
                                 channelHeader.MNI_y, channelHeader.MNI_z, channelHeader.seizureOnset, channelHeader.interictalOften, ...
-                                mat2str(channelHeader.rejected), tmax, thalf, amax, ci_u, ci_l, sig };                                          
+                                mat2str(channelHeader.rejected), tmax, thalf, amax, tint1, tint2, ci_u, ci_l, sig };                                          
                     end
                 end
                 end                
@@ -356,7 +370,7 @@ classdef CStat < handle
             
             tablelog = cell2table(cellout, ...
                 'VariableNames', {'channel' 'name'  'neurologyLabel'  'MNI_x'  'MNI_y'  'MNI_z'  'seizureOnset'  'interictalOften'  ...
-                    'rejected'  'tmax'  ['t' percent{1}]  'aucmax'  'ci_u'  'ci_l'  'significance'   
+                    'rejected'  'tmax'  ['t' percent{1}]  'aucmax' ['tint' percent{1} 'v1'] ['tint' percent{1} 'v2'] 'ci_u'  'ci_l'  'significance'   
                 });
             obj.plotAUC_m.xlsvals = cell2mat(cellout(:,10:12)); %ulozim hodnoty tmax, thalf a aucmax
             %TODO: Identifikace nazvu souboru? 
@@ -367,7 +381,7 @@ classdef CStat < handle
             logfilename = ['AUCPlotM_' kat '_chnls_' chnls '_' mfilename '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') ];  
             xlsfilename = fullfile('logs', [logfilename '.xls']);            
             writetable(tablelog, xlsfilename); %zapisu do xls tabulky            
-            disp([ 'xls tables saved: ' xlsfilename]);
+            disp([ 'XLS tables saved: ' xlsfilename]);
         end
     end
     methods (Static,Access = public)        
