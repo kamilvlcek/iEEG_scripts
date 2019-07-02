@@ -228,7 +228,7 @@ p=p+1;
 pacienti(p).todo = 1;
 pacienti(p).folder = 'p187 Boh VT39';
 pacienti(p).data = 'VT39_2018-10-13_11-12_001_concat_ppa.mat';
-pacienti(p).header = 'p187_headerX.mat';
+pacienti(p).header = 'p187_headerX.mat'; %bez labelu
 pacienti(p).psychopy = 'p187_ppa.mat';
 pacienti(p).rjepoch = 'p187_ppa_rjepochs.mat';
 pacienti(p).epievents = 'p187_ppa_epievents.mat'; 
@@ -238,11 +238,20 @@ p=p+1;
 pacienti(p).todo = 1;
 pacienti(p).folder = 'p129 Kuch VT40';
 pacienti(p).data = 'VT40_2018-11-13_10-10_001_concat_ppa.mat';
-pacienti(p).header = 'p129_headerVT40x.mat';
+pacienti(p).header = 'p129_headerVT40x.mat'; %bez labelu
 pacienti(p).psychopy = 'p129vt40_ppa.mat';
 pacienti(p).rjepoch = 'p129vt40_ppa_rjepoch.mat';
 pacienti(p).epievents = 'p129vt40_ppa_epievents.mat'; 
 pacienti(p).rjch = [];  %zadny kanal k vyrazeni
 
+p=p+1; %21.6.2019
+pacienti(p).todo = 1;
+pacienti(p).folder = 'p193 Pys VT41';
+pacienti(p).data = 'P193_2019-01-22_08-37_002_512hz_concat_ppa.mat';
+pacienti(p).header = '';
+pacienti(p).psychopy = 'p193_ppa.mat';
+pacienti(p).rjepoch = '';
+pacienti(p).epievents = 'p193_ppa_epievents.mat'; 
+pacienti(p).rjch = [];  
 end
 

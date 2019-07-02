@@ -33,4 +33,4 @@ lower=lower'; end
 if find(size(upper)==(max(size(upper))))<2
 upper=upper'; end
 
-h = fill([x fliplr(x)],[upper fliplr(lower)],colour,'LineStyle','none');
+h = fill([x fliplr(x)],[upper fliplr(lower)],colour,'LineStyle','none','Marker','none');

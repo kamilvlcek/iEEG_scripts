@@ -355,9 +355,13 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             
             for ie = 1:numel(els)                
                 plot(x(els0(ie):els(ie)),y(els0(ie):els(ie)),'-o'); %plot kontaktu jedne elektrody
-                if obj.plotCh2D.names
+                if obj.plotCh2D.names > 0
                 for ch = els0(ie):els(ie)
-                        th = text(x(ch),y(ch),num2str(ch)); %cislo kazdeho kanalu
+                        if obj.plotCh2D.names == 2
+                            th = text(x(ch),y(ch),obj.H.channels(ch).name); %jmeno kanalu
+                        else
+                            th = text(x(ch),y(ch),num2str(ch)); %cislo kazdeho kanalu
+                        end
                         th.FontSize = 8;
                 end
                 end                              
@@ -840,7 +844,8 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                       obj.plotCh2D.chseltop = 1-obj.plotCh2D.chseltop;
                       obj.ChannelPlot2D();
                   case 'n' %moznost vypnout / zapnout zobrazeni jmen kanalu
-                      obj.plotCh2D.names = 1-obj.plotCh2D.names;
+                      obj.plotCh2D.names = obj.plotCh2D.names + 1; 
+                      if obj.plotCh2D.names == 3, obj.plotCh2D.names =0; end % meni se postupne hodoty 0 1 2
                       obj.ChannelPlot2D();    
 %                   case 'r' %zobrazi obrazek mozku s vybranych kanalem                   
 %                       obj.plotCh2D.plotAUCH(obj.plotCh2D.chsel); %vykreslim @obj.PlotResponseCh    %tady to hlasi error Undefined function or variable 'obj.CS.AUCPlot'. Jak to?                  

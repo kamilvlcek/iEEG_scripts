@@ -1313,6 +1313,8 @@ classdef CiEEGData < matlab.mixin.Copyable
             if exist('kategories','var') || exist('opakovani','var') %kategorie vykresluju jen pokud mam definovane karegorie                   
                 hue = 0.8;
                 colorskat = {[0 0 0],[0 1 0],[1 0 0],[0 0 1]; [hue hue hue],[hue 1 hue],[1 hue hue],[hue hue 1]}; % prvni radka - prumery, druha radka errorbars = svetlejsi
+                yposkat = [3 0 0 0; 4 5 0 0; 6 7 8 0]; %pozice y pro kombinaci k a l - k v radcich a l-1 ve sloupcich
+                ybottom = iff(numel(kategories)>3,0.4,0.3); %odkud se maji umistovat kontrasty mezi kategoriemi - parametr vypoctu y                
                 h_kat = zeros(numel(kategories),2); 
                
                 for k= 1 : numel(kategories) %index 1-3 (nebo 4)
@@ -1347,8 +1349,9 @@ classdef CiEEGData < matlab.mixin.Copyable
                         Tr = linspace(obj.Wp(WpA).baseline(2),obj.Wp(WpA).epochtime(2),size(obj.Wp(WpA).D2,1)); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
                         for l = k+1:numel(kategories) %katnum jde od nuly 
                             if iscell(obj.Wp(WpA).kats), colorkatl = obj.Wp(WpA).kats{l}(1)+1; else, colorkatl = obj.Wp(WpA).kats(l)+1; end
-                            y = ymin + (ymax-ymin)*(0.3 - (k+l)*0.05)  ; %pozice na ose y
-                            if k==1, color=colorskat{1,colorkatl}; else color = colorskat{1,1}; end %green a red jsou proti kategorii 0, cerna je kat 1 vs kat 2
+                            
+                            y = ymin + (ymax-ymin)*(ybottom - (yposkat(l-1,k))*0.05)  ; %pozice na ose y
+                            if k==1, color=colorskat{1,colorkatl}; else, color = colorskat{1,1}; end %green a red jsou proti kategorii 0, cerna je kat 1 vs kat 2
                             if pvalue %pokud chci zobrazovat hodnotu p value jako krivku                                
                                 plot(Tr,obj.Wp(WpA).WpKat{k,l}(:,ch), ':','Color',color); %carkovana cara oznacuje signifikanci kategorie vuci jine kategorii
                             end
@@ -1358,7 +1361,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                             iWpfirst = find(iWp,1,'first');                        
                             if(numel(iWpfirst)>0)                                
                                 text(-0.025+Tr(1),y,[ num2str(round(Tr(iWpfirst)*1000)) 'ms']);  %cas zacatku signifikance 
-                                text(-0.06+Tr(1),y,[ 'p=' num2str(CStat.round(min(obj.Wp(WpA).WpKat{k,l}(:,ch)),3))]);  %cas zacatku signifikance 
+                                text(-0.16+Tr(1),y,[ 'p=' num2str(CStat.round(min(obj.Wp(WpA).WpKat{k,l}(:,ch)),3))]);  %cas zacatku signifikance 
                                 line([Tr(iWpfirst) Tr(iWpfirst)],obj.plotRCh.ylim,'Color',color); %modra svisla cara u zacatku signifikance                                
                             end                            
                             %potom jeste p < 0.01
@@ -1380,7 +1383,8 @@ classdef CiEEGData < matlab.mixin.Copyable
                             end
                             text(0.04+obj.Wp(WpA).epochtime(1),y, ['\color[rgb]{' num2str(colorskat{1,colorkatl}) '}' kat1name ...
                                     '\color[rgb]{' num2str(color) '} *X* '  ...
-                                    '\color[rgb]{' num2str(colorkatk(1,:)) '}' kat2name kat3name]);                            
+                                    '\color[rgb]{' num2str(colorkatk(1,:)) '}' kat2name kat3name]);  
+                              
                         end                                              
                     end
                    
@@ -1399,8 +1403,8 @@ classdef CiEEGData < matlab.mixin.Copyable
                             else
                                 kat2name =  obj.PsyData.CategoryName(kategories(k));
                             end
-                            text(0.04+obj.Wp(WpA).epochtime(1), y, ['\color[rgb]{' num2str(colorkatk(1,:)) '}' kat2name ' vs.baseline'] );
-                            line([Tr(1) Tr(end)],[y y]+(ymax-ymin)*0.03 ,'Color',[0.5 0.5 0.5]);
+                            text(0.04+obj.Wp(WpA).epochtime(1), y, ['\color[rgb]{' num2str(colorkatk(1,:)) '}' kat2name ' vs.baseline'] );                            
+                            line([Tr(1) Tr(end)],[y y]+(ymax-ymin)*0.03 ,'Color',[0.5 0.5 0.5]); 
                                 %kazde jmeno kategorie jinou barvou
                             if pvalue %pokud chci zobrazovat hodnotu p value jako krivku
                                plot(Tr,obj.Wp(WpA).WpKatBaseline{k,1}(:,ch), '-.','Color',colorskat{1,k}); %teckovana cara oznacuje signifikanci kategorie vuci baseline

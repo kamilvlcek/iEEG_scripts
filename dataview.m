@@ -51,7 +51,7 @@ figure('Name','Synchronizace');
 x = start;
 yrange = [-3000 3000];
 
-    plot( x:1/fs:x+delka-1/fs,  d(x*fs+1:(x+delka)*fs,channel) .* mults(1,channel));
+    plot( x:1/fs:x+delka-1/fs,  d(x*fs+1:(x+delka)*fs,channel) .* mults(1,channel)); %,'-o'
     axis([x x+delka yrange])
     sekund_zac = x; % cas v sekundach,cisla s desetinnymi teckami se do grafu na osu x nevejdou
     sekund_konec = (x+delka);
