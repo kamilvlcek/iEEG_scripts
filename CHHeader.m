@@ -76,6 +76,9 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     els2plot(iEls) = e0 + kontaktumax;
                     e0 = e0+kontaktumax;
                     iEls = iEls+1;
+                    if e==numel(obj.els)
+                        els2plot = [els2plot, obj.els(e)]; %#ok<AGROW> %11.7.2019 - pokud jsem uz u posledni elektrody, musi jeste pridat zvyvajici kontakty 
+                    end
                 end
                 if obj.els(e)-e0 > 3 %pokud je elektroda prilis kratka, nebudu ji zobrazovat samostatne
                     els2plot(iEls) = obj.els(e);

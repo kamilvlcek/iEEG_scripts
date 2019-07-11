@@ -224,6 +224,8 @@ pacienti(p).rjepoch = 'p181_ppa_rjepoch.mat';
 pacienti(p).epievents = 'p181_ppa_epievents.mat'; 
 pacienti(p).rjch = [];  %zadny kanal k vyrazeni
 
+%p176 Bor VT38 dodelat - chybi prvni blok dat
+
 p=p+1;
 pacienti(p).todo = 1;
 pacienti(p).folder = 'p187 Boh VT39';
@@ -244,14 +246,25 @@ pacienti(p).rjepoch = 'p129vt40_ppa_rjepoch.mat';
 pacienti(p).epievents = 'p129vt40_ppa_epievents.mat'; 
 pacienti(p).rjch = [];  %zadny kanal k vyrazeni
 
-p=p+1; %21.6.2019
+p=p+1; %21.6.2019, 11.7.2019 header
 pacienti(p).todo = 1;
 pacienti(p).folder = 'p193 Pys VT41';
 pacienti(p).data = 'P193_2019-01-22_08-37_002_512hz_concat_ppa.mat';
-pacienti(p).header = '';
+pacienti(p).header = 'p193_header.mat';
 pacienti(p).psychopy = 'p193_ppa.mat';
-pacienti(p).rjepoch = '';
+pacienti(p).rjepoch = 'p193_ppa_rjepoch.mat';
 pacienti(p).epievents = 'p193_ppa_epievents.mat'; 
-pacienti(p).rjch = [];  
+pacienti(p).rjch = []; 
+
+p=p+1; %11.7.2019
+pacienti(p).todo = 1;
+pacienti(p).folder = 'p190 Hau VT43';
+pacienti(p).data = 'P190_2019-03-08_16-46_001_512hz_concat_ppa.mat';
+pacienti(p).header = 'p190_header.mat';
+pacienti(p).psychopy = 'p190_ppa.mat';
+pacienti(p).rjepoch = 'p190_ppa_rjepoch.mat';
+pacienti(p).epievents = 'p190_ppa_epievents.mat'; 
+pacienti(p).rjch = []; 
+
 end
 

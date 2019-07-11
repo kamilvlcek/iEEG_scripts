@@ -17,7 +17,7 @@ if ~exist('spojit','var')
         spojit{f} = [ files(f).name];        
     end
 end
-    
+spojeno = 0;    %kolik souboru jsem spojil
 for j = 1:numel(spojit)
     disp([ num2str(j) '/' num2str(numel(spojit)) ': ' adresar spojit{j}]);
     load([adresar spojit{j}]);
@@ -44,12 +44,13 @@ for j = 1:numel(spojit)
         end
         d0 = d; %#ok<NODEF>
         clear d;
-       
+        spojeno = 1; 
     else
         disp(['rozdil ' num2str((tabs(1)-tabs0(end))*24*3600) ' sekund']);
-        if (tabs(1)-tabs0(end))*24*3600 >= 1 %rozdil jedne vteriny je velmi zvlastni, nejspis se soubory nemaji spojit            
+        rozdil_sec = (tabs(1)-tabs0(end))*24*3600;
+        if rozdil_sec >= 1 || rozdil_sec < 0 %rozdil jedne vteriny je velmi zvlastni, nejspis se soubory nemaji spojit            
             m=input('Do you want to continue, y/n [n]:','s');
-            if m~='y',   break; end
+            if isempty(m) || m~='y',   break; end
         end
         tabs0 = [tabs0; tabs]; %#ok<AGROW>        
         clear tabs;
@@ -65,7 +66,8 @@ for j = 1:numel(spojit)
             if isfield(header,'records') 
                 header0.records = header0.records + header.records;
             end
-        end         
+        end 
+        spojeno = spojeno +1; 
     end
     
 end
@@ -91,10 +93,13 @@ if exist('evts','var')
 end
 delka = num2str(size(tabs,1));
 disp(['vysledna delka ' delka]);
-dot = strfind(spojit{1},'.');
-disp(['ukladam ' adresar '\' spojit{1}(1:dot(1)-1) '_concat.mat']);
-
-save([ adresar '\' spojit{1}(1:dot(1)-1) '_concat.mat'], '-regexp', '^(?!(spojit|j|dot|OBJ,f|delka|filename|adresar)$).','-v7.3');
+if spojeno > 1
+    dot = strfind(spojit{1},'.');
+    disp(['ukladam ze ' num2str(spojeno) ' souboru: ' adresar '\' spojit{1}(1:dot(1)-1) '_' num2str(spojeno) '_concat.mat']);
+    save([ adresar '\' spojit{1}(1:dot(1)-1) '_concat.mat'], '-regexp', '^(?!(spojit|j|dot|OBJ,f|delka|filename|adresar)$).','-v7.3');
+else 
+    disp('neukladam - pouze jeden soubor');
+end
 
 end
 
