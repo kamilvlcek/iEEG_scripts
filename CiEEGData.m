@@ -701,15 +701,23 @@ classdef CiEEGData < matlab.mixin.Copyable
                 Pmax = zeros(numel(kats),1); %sbiram maxima kategorii kvuli tomu kde posadit kontrasty mezi kat
                 for kat = 1: numel(kats) % cyklus pres kategorie - rozdil vuci baseline
                     [katdata,~,RjEpCh] = obj.CategoryData(cellval(kats,kat)); %time x channels x epochs
-                    iCh = min(obj.Wp(obj.WpActive).WpKatBaseline{kat,1}(iintervalyStat(1):iintervalyStat(2),channels),[],1) < 0.05; %kanaly kde je signifikantni rozdil vuci baseline, alespon jednou
+                    WpB = obj.Wp(obj.WpActive).WpKatBaseline{kat,1}(iintervalyStat(1):iintervalyStat(2),channels); %time x channels - statistika vuci baseline
+                    dataK = zeros(diff(iintervalyData)+1,obj.channels); %tam budu data prumery za epochy
+                    for ch = 1:obj.channels
+                        dataK(:,ch) = mean(katdata(iintervalyData(1):iintervalyData(2),ch,~RjEpCh(ch,:)),3); %time x channels, mean pres epochy
+                    end
+                    idataK = iff(signum>0, dataK > 0, iff(signum < 0, dataK < 0, true(size(dataK)) ));  % jestli chci vetsi, mensi nebo jakekoliv, time x channels
+                    WpAll = cat(3, WpB<0.05 , idataK); %time x channels x tyhle dve podminky, rozdil vuci baseline a kat1 > 0 (pokud signum = 1)
+                    iCh = any(all(WpAll,3),1); %obe dve podminky, alespon v jednom case  
                     fiCh = find(iCh); %absolutni cisla kanalu
                     data = zeros(diff(iintervalyData)+1,sum(iCh)); % samples x vybrane kanaly 
-                    sub = zeros(1,sum(iCh)); % indexy=cislo samplu maximalnich signif hodnot  
-                    Wp = obj.Wp(obj.WpActive).WpKatBaseline{kat,1}(iintervalyStat(1):iintervalyStat(2),iCh); %statistika jen pro vyber kanalu, kde je neco signif
+                    sub = zeros(1,sum(iCh)); % indexy=cislo samplu maximalnich signif hodnot                      
                     for ch = 1:sum(iCh) %musim jet po jednotlivych kanalech kvuli RjEpCh, ch je index v ramci je vybranych kanalu se signif rozdilem, takze fiCh
-                        %ted vyberu data jen z nevyrazenych epoch:
-                        data(:,ch) = mean(katdata(iintervalyData(1):iintervalyData(2),fiCh(ch),~RjEpCh(fiCh(ch),:)),3); %prumer pres epochy pro jeden kanal, pro nevyrazene epochy pro tento kanal
-                        fitime = find(Wp(:,ch)<0.05); %indexy vzorku, kde je signif rozdil
+                        %ted vyberu data jen z nevyrazenych epoch:                        
+                        data(:,ch) = dataK(:,fiCh(ch)); %time x channel (jen ty vybrane drive podle iCh) 
+                        idataK = iff(signum>0, dataK(:,fiCh(ch))>0, iff(signum < 0, dataK(:,fiCh(ch))<0, true(size(dataK,1))));  % time x 1, jestli chci vetsi, mensi nebo jakekoliv
+                        WpAll = [  WpB(:,fiCh(ch))<0.05 , idataK]; %time x dve podminky - rozdil vuci baseline a hodnota podle signum
+                        fitime = find(all(WpAll,2)); %casy, kde jsou obe podminky spolene                        
                         %ted vyberu maximalni hodnotu jen ze signifikantnich vzorku - ziskam jeji index v data: 
                         [~,subitime] = max(abs(data(fitime,ch))); % index maximalni absolutni hodnoty se signif rozdilem - jen relativni indexy v ramci fitime
                         sub(ch) = fitime(subitime); %prevedu na absolutni indexy v ramci data(:,ch)
@@ -739,10 +747,10 @@ classdef CiEEGData < matlab.mixin.Copyable
                     WpB = obj.Wp(obj.WpActive).WpKatBaseline{kombinace(kat,1),1}(iintervalyStat(1):iintervalyStat(2),:); %rozdil prvni kategorie vuci baseline
                     dataK = zeros(diff(iintervalyData)+1,obj.channels); %tam budu davat rozdil mezi dvema kategoriemi
                     for ch = 1:obj.channels
-                        dataK(:,ch) = mean(katdata1(iintervalyData(1):iintervalyData(2),ch,~RjEpCh1(ch,:)),3) - mean(katdata2(iintervalyData(1):iintervalyData(2),ch,~RjEpCh2(ch,:)),3);
+                        dataK(:,ch) = mean(katdata1(iintervalyData(1):iintervalyData(2),ch,~RjEpCh1(ch,:)),3) - mean(katdata2(iintervalyData(1):iintervalyData(2),ch,~RjEpCh2(ch,:)),3); %time x channels
                     end
-                    idataK = iff(signum>0, dataK > 0, iff(signum < 0, dataK < 0, true(size(dataK)) ));  % jestli chci vetsi, mensi nebo jakekoliv
-                    WpAll = cat(3, WpK<0.05 , WpB<0.05 , idataK); %time x channels x tyhle tri podminky, rozdil vuci baseline, rozdil kategorii a kat1 > kat2
+                    idataK = iff(signum>0, dataK > 0, iff(signum < 0, dataK < 0, true(size(dataK)) ));  % jestli chci vetsi, mensi nebo jakekoliv, time x channels
+                    WpAll = cat(3, WpK<0.05 , WpB<0.05 , idataK); %time x channels x tyhle tri podminky, rozdil vuci baseline, rozdil kategorii a kat1 > kat2 (pro signum = 1)
                     iCh = any(all(WpAll,3),1); %vsechny tri podminky, alespon v jednom case                                        
                     fiCh = find(iCh); %absolutni cisla kanalu
                     data = zeros(diff(iintervalyData)+1,sum(iCh)); % samples x vybrane kanaly - tam budu ukladat rozdily mezi kategoriemi

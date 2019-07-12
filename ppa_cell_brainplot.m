@@ -21,8 +21,8 @@ PAC = CB.StructFind({},labelstofind,testname,iff(strcmp(reference,'refBipo'),'b'
 CM = CHilbertMulti; %vytvorim tridu
 % nastavim promenne
 frekvence = '50-150Hz'; %15-31 
-label = 'AllEl'; % nazev exktraktu, pripoji s filename % ppaMNIBast
-datum = '2019-01-03'; %dnesni datum - tak se pojmenuju vystupni souhrnny soubor
+label = 'Scene'; % nazev exktraktu, pripoji s filename % ppaMNIBast
+datum = '2019-07-12'; %dnesni datum - tak se pojmenuju vystupni souhrnny soubor
 datumEP = '2018-08'; %datum v nazvu nacitaneho souboru, napriklad Ep2018-08
 epochtime = '-0.2-0.8'; %'-0.5-1.2'
 M = containers.Map({'ppa','menrot','aedist'},{'PPA','Menrot','Aedist'});
@@ -52,7 +52,7 @@ CM.Clear();
 
 %% 2.4 vypocitam si statistiku
 setup = eval(['setup_' testname]); %nactu nastaveni
-signum = 0; %1=chci jen odpovedi vyssi nez baseline, nebo druha kategorie, 0= vsechny signif rozdily
+signum = 1; %1=chci jen odpovedi vyssi nez baseline, nebo druha kategorie, 0= vsechny signif rozdily
 CM.ResponseSearchMulti(0.1,setup.stat_kats);
 %nastavim oznaceni kanalu podle signifikance odpovedi
 CM.SetStatActive(1); %nove oznaceni
@@ -66,7 +66,7 @@ CM.SelChannelStat({4, [5 6]},[5 6],1,signum); % {[ObjectXScene],{[FaceXScene],[F
 CM.Save([setup.basedir '0sumarne\CM ' M(testname) ' ' label ' ' frekvence ' ' reference ' ' epochtime ' Ep' datumEP ' '  datum]);
 
 %% 2.6 sumarni graf odpovedi
-CM.IntervalyResp(); %graf velikosti odpovedi pres vsechny kanaly
+CM.IntervalyResp([],[],signum); %graf velikosti odpovedi pres vsechny kanaly
 CM.PlotResponseCh(); %odpoved pro kazdy kanal zvlast 
 
 %% 2.7 nactu starsi data
