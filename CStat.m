@@ -652,7 +652,8 @@ classdef CStat < handle
           p1 = mousept(1,:); p2 = mousept(2,:); % souradnice kliknuti v grafu - predni a zadni bod
           displayedChannels = obj.plotAUC.Eh.CH.H.channels(obj.plotAUC_m.channels); % zobrazene kanaly
           coordinates = [displayedChannels.MNI_x; displayedChannels.MNI_y; displayedChannels.MNI_z];    % souradnice zobrazenych kanalu
-          closestChannel = obj.findClosestPoint(p1, p2, coordinates, 2);    % najdu kanal nejblize mistu kliknuti
+          tolerance = sum(abs(xlim)+abs(ylim)+abs(zlim))/256;
+          closestChannel = obj.findClosestPoint(p1, p2, coordinates, tolerance);    % najdu kanal nejblize mistu kliknuti
           if closestChannel  % pokud jsem nejaky nasel:
             %disp(displayedChannels(closestChannel).name)
             x = coordinates(1,closestChannel); y = coordinates(2,closestChannel); z = coordinates(3,closestChannel);
