@@ -56,10 +56,11 @@ signum = 1; %1=chci jen odpovedi vyssi nez baseline, nebo druha kategorie, 0= vs
 CM.ResponseSearchMulti(0.1,setup.stat_kats);
 %nastavim oznaceni kanalu podle signifikance odpovedi
 CM.SetStatActive(1); %nove oznaceni
-CM.SelChannelStat({1, 2, 3, 4, [5 6]},[3 2 1 5 4],0,signum); % {[Face],[Object],[Scene],[ObjectXFace],{[SceneXFace],[SceneXObject]}} = hgfkj
-%CM.SelChannelStat({1, 2, 3, 4, 5 , 6},[3 2 1 6 5 4],0,signum); % {[Face],[Object],[Scene],[ObjectXFace],{[SceneXFace],[SceneXObject]}} = hgflkj
-CM.SetStatActive(5); %pridam k prvnimu oznaceni
-CM.SelChannelStat({4, [5 6]},[5 6],1,signum); % {[ObjectXScene],{[FaceXScene],[FaceXObject]}} = kl
+CM.SelChannelStat({1, 2, 3, 5, 6},[3 2 1 5 4],0,signum); % {[Face],[Object],[Scene],[SceneXFace],[SceneXObject]} = hgfkj
+%CM.SelChannelStat({1, 2, 3, 4, [5 6]},[3 2 1 5 4],0,signum); % {[Face],[Object],[Scene],[ObjectXFace],{[SceneXFace],[SceneXObject]}} = hgfkj
+%CM.SelChannelStat({1, 2, 3, 4, 5 , 6},[3 2 1 6 5 4],0,signum); % {[Face],[Object],[Scene],[ObjectXFace],[SceneXFace],[SceneXObject]} = hgflkj
+%CM.SetStatActive(5); %pridam k prvnimu oznaceni
+%CM.SelChannelStat({4, [5 6]},[5 6],1,signum); % {[ObjectXScene],{[FaceXScene],[FaceXObject]}} = kl
 
 
 %% 2.5 vyslednou sumarni tridu si ulozim, podobne jako kdyz ukladam data tridy CHilbert

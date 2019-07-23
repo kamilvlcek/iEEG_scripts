@@ -543,18 +543,16 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             % a s otaznikem na konci
             load('BrainAtlas_zkratky.mat'); %nactu tabulku od Martina Tomaska
             obj.BrainAtlas_zkratky = BrainAtlas_zkratky; %#ok<CPROP>
-            mozek = cell(numel(obj.H.channels),2);
+            mozek = cell(numel(obj.H.channels),3);
             for ch=1:numel(obj.H.channels)
                 label = obj.H.channels(ch).neurologyLabel;   % Martinovo label tohoto kanalu
-                mozek{ch,1} = label;
-                znak = strfind(label,'/');
-                if ~isempty(znak) %pokud se jedna o dva labely oddelene lomitkem
-                    label1= label(1:znak-1);
-                    label2 = label(znak+1:end);
-                    mozek{ch,2} = [obj.brainlabel(label1) '/' obj.brainlabel(label2)];
-                else
-                    mozek{ch,2} = obj.brainlabel(label) ;
-                end                
+                mozek{ch,1} = obj.H.channels(ch).name;
+                mozek{ch,2} = label;
+                [C,matches] = strsplit(label,{'(',')','-','/'},'CollapseDelimiters',false);                
+                for j = 1:numel(C)
+                    C{j} = obj.brainlabel(C{j});                    
+                end
+                mozek{ch,3} = strjoin(C,matches);                                
             end
         end
         function [seizureOnset,interIctal]=GetSeizures(obj)
@@ -716,17 +714,26 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
           end  
           function [bl] = brainlabel(obj,label)
             %vrati jmeno struktury podle tabulky, pripadne doplni otaznik na konec             
+            if isempty(label), bl = ''; return; end
             znak = strfind(label,'?');
             if ~isempty(znak)
                 label = label(1:znak-1); % label bez otazniku
             end
-            iL = find(strcmp(obj.BrainAtlas_zkratky,label));   
+            iL = ''; col = 1;
+            %nejdriv zkusim najit presny vyskyt
+            while isempty(iL) && col < size(obj.BrainAtlas_zkratky,2)
+                col = col + 1; %zkratky zacinaji v druhem sloupci
+                if isempty(obj.BrainAtlas_zkratky(:,col)) %pokud je tahle alternativa zkratky prazdna, nebudu hledat dal
+                    break; 
+                end
+                iL = find(strcmpi(obj.BrainAtlas_zkratky(:,col),label)); %nezavisle na velikosti pismen
+            end
             if isempty(iL) %zadne label nenalezeno
-                bl = '';
+                bl = '';                
             elseif(numel(iL)>1) % vic nez jedno label nalezeno
                 bl = [num2str(numel(iL)) ' labels'];
             else
-                bl = obj.BrainAtlas_zkratky{iL,2};            
+                bl = obj.BrainAtlas_zkratky{iL,1};            
                 if ~isempty(znak)
                     bl = [bl '?'];
                 end

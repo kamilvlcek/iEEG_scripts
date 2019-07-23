@@ -626,7 +626,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
                 for ch = 1:numel(H.channels)
                     z = strsplit(H.channels(ch).neurologyLabel,{'/','(',')'});
                     for iz = 1:numel(z)
-                        if isempty(find(~cellfun('isempty',strfind(lower(BrainAtlas_zkratky(:,1)),lower(z{iz}))), 1)) %#ok<NODEF>
+                        if isempty(find(~cellfun('isempty',strfind(lower(BrainAtlas_zkratky(:,2)),lower(z{iz}))), 1)) %#ok<NODEF>
                            MIS(iMIS).pac = pacienti(p).folder; %#ok<AGROW>
                            MIS(iMIS).ch = ch; %#ok<AGROW>
                            MIS(iMIS).neurologyLabel = H.channels(ch).neurologyLabel; %#ok<AGROW>
