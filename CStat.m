@@ -331,10 +331,11 @@ classdef CStat < handle
             if ~exist('vals','var')
                 vals = abs(obj.plotAUC_m.chmax)+.5; %chmax jsou hodnoty -.5 az .5. Chci zobrazovat negativni rozliseni jako pozitivni
             end 
-            obj.plotAUC.Eh.CH.ChannelPlot([],0,vals,... %param chnvals
+            points = obj.plotAUC.Eh.CH.ChannelPlot([],0,vals,... %param chnvals
                 obj.plotAUC_m.channels,... %chnsel jsou cisla kanalu, pokud chci jen jejich vyber
                 obj.plotAUC_m.chsort(selch)); %selch je jedno zvyraznene cislo kanalu - index v poli chnsel
-        end       
+            set(obj.plotAUC.Eh.CH.plotCh3D.fh, 'WindowButtonDownFcn', {@obj.hybejPlot3Dclick, selch});
+        end
       
         function AUC2XLS(obj, val_fraction, int_fraction)
             %vypise seznam kanalu z grafu AUCPlotM do xls souboru 
@@ -639,7 +640,7 @@ classdef CStat < handle
                     channels = find(obj.plotAUC.selCh(:,'fghjkl'==eventDat.Key))'; %cisla musi byt v radce
                     obj.AUCPlotM(channels,find('fghjkl'==eventDat.Key),0); %#ok<FNDSB> %povinne ted uvadim predvybrany kanal
             end            
-        end    
+        end
         function obj = hybejAUCPlotM(obj,~,eventDat)
             kresli = 1;
             switch eventDat.Key                
@@ -669,6 +670,53 @@ classdef CStat < handle
                 obj.plotAUC.Eh.PlotResponseCh(obj.plotAUC_m.channels(obj.plotAUC_m.chsort(selch))); %prekresli graf PlotResponseCh
                 figure(obj.plotAUC_m.fh);
             end
+        end
+        
+        function minIndex = findClosestPoint(obj, p1, p2, points, tolerance)
+          minIndex = 0;     % index nejblizsiho kanalu
+          ray = p1 - p2;    % raycast - primka mezi p1 a p2
+          numPoints = size(points, 2);
+          distancesRay = zeros(1, numPoints);   % vzdalenosti kanalu od raycast primky
+          for i = 1:numPoints
+            testPoint = points(:, i)';  % pozice testovaneho kanalu
+            pdir = testPoint - p2;      % smerovy vektor k bodu na primce
+            distancesRay(i) = norm(cross(ray, pdir)) / norm(ray);   % vzdalenost od primky
+          end
+          pointsNearLine = find(distancesRay < tolerance);  % vyberu pouze body blizko primky (ve vzdalenosti < tolerance)
+          minDistance = inf;
+          for i = pointsNearLine    % z bodu lezicich blizko primce najdu ten "nejbliz k obrazovce"
+            testPoint = points(:, i)';  % pozice testovaneho kanalu
+            distanceP1 = norm(p1 - testPoint);  % vzdalenost od mista kliknuti v "rovine obrazovky"
+            if distanceP1 < minDistance    % pokud je bod nejlepsi nalezeny, ulozim jeho index
+                minDistance = distanceP1;
+                minIndex = i;
+            end
+          end
+        end
+        
+        function hybejPlot3Dclick(obj, h, ~, selch)
+          mousept = get(gca,'currentPoint');
+          p1 = mousept(1,:); p2 = mousept(2,:); % souradnice kliknuti v grafu - predni a zadni bod
+          displayedChannels = obj.plotAUC.Eh.CH.H.channels(obj.plotAUC_m.channels); % zobrazene kanaly
+          coordinates = [displayedChannels.MNI_x; displayedChannels.MNI_y; displayedChannels.MNI_z];    % souradnice zobrazenych kanalu
+          closestChannel = obj.findClosestPoint(p1, p2, coordinates, 2);    % najdu kanal nejblize mistu kliknuti
+          if closestChannel  % pokud jsem nejaky nasel:
+            %disp(displayedChannels(closestChannel).name)
+            x = coordinates(1,closestChannel); y = coordinates(2,closestChannel); z = coordinates(3,closestChannel);
+            if isfield(obj.plotAUC.Eh.CH.plotCh3D, 'selHandle') % smazu predchozi oznaceni, pokud nejake bylo
+                delete(obj.plotAUC.Eh.CH.plotCh3D.selHandle)
+                delete(obj.plotAUC.Eh.CH.plotCh3D.selNameHandle)
+            end
+            obj.plotAUC.Eh.CH.plotCh3D.selHandle = scatter3(x, y, z, 200, 'r', 'fill'); % oznacim vybrany kanal na 3D grafu
+            obj.plotAUC.Eh.CH.plotCh3D.selNameHandle = annotation('textbox',[0 1 0 0],'String',displayedChannels(closestChannel).name,'FitBoxToText','on');
+            obj.AUCPlotM([],[],find(obj.plotAUC_m.chsort == closestChannel, 1)); % oznacim vybrany kanal v AUC plotu
+          else  % pokud se zadny kanal nenasel (kliknuti mimo)
+             if isfield(obj.plotAUC.Eh.CH.plotCh3D, 'selHandle') % smazu predchozi oznaceni, pokud nejake bylo
+               delete(obj.plotAUC.Eh.CH.plotCh3D.selHandle)
+               delete(obj.plotAUC.Eh.CH.plotCh3D.selNameHandle)
+             end
+             %TODO: Zrusit zvyrazneni v AUC plotu
+          end
         end
         
     end
