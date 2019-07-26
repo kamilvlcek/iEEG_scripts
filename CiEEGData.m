@@ -1736,6 +1736,29 @@ classdef CiEEGData < matlab.mixin.Copyable
             disp(['nacten soubor ' filename]); 
         end
         
+        function [valmax, tmax, tfrac, tint] = ResponseTriggerTime(obj, val_fraction, int_fraction, katnum)
+            
+            T = linspace(obj.epochtime(1),obj.epochtime(2),size(obj.d,1));
+            
+            [katdata,~,RjEpCh] = obj.CategoryData(katnum); %eegdata - epochy jedne kategorie                       
+
+            M = mean(katdata(:,:,~RjEpCh(1,:)),3);
+
+            n = size(M,2);
+            
+            tint = zeros(1, n);
+            tmax = zeros(1, n);
+            tfrac = zeros(1, n);
+            valmax = zeros(1, n);
+            for ch = 1:n
+                [valmax(ch), idx, idxFrac] = cMax(M(:,ch), val_fraction, 0); %Nalezne maximum / minimum krivky curve, i jeho podilu (napr poloviny) a jeho parametry
+                tmax(ch)  = T(idx);
+                tfrac(ch) = T(idxFrac); %cas poloviny maxima, nebo jineho podilu                       
+                tint(ch)  = cIntegrate(T, M(:,ch), int_fraction, 2, 0); % integrace s posunem minima krivky do nuly
+            end
+            
+        end
+        
         function Response2XLS(obj, val_fraction, int_fraction)
             %pokud neni specifikovan parametr 'fraction', zobrazi se dialogove okno pro zadani procent z maxima            
             if nargin == 1
@@ -1752,51 +1775,30 @@ classdef CiEEGData < matlab.mixin.Copyable
             
             channels = obj.CH.H.channels;
             
-            T = linspace(obj.epochtime(1),obj.epochtime(2),size(obj.d,1));
-            
             kategories = obj.PsyData.Categories();
-            cellout = cell(numel(channels)*numel(kategories),13);
+            cellout = cell(numel(channels)*numel(kategories),14);
             
             for k = 1 : numel(kategories)
-                
                 if iscell(kategories) %iff tady nefunguje, to by bylo samozrejme lepsi85858
                     katnum = kategories{k}; %cislo kategorie, muze byt cell, pokud vice kategorii proti jedne
-                    [katdata,~,RjEpCh] = obj.CategoryData(katnum); %eegdata - epochy jedne kategorie
                 else
                     katnum = kategories(k); %cislo kategorie, muze byt cell, pokud vice kategorii proti jedne
-                    [katdata,~,RjEpCh] = obj.CategoryData(katnum); %eegdata - epochy jedne kategorie                       
-                end   %7.8.2018 - RjEpCh obsahuje jen aktualni kanal, takze rozmer 1x samples 
+                end 
                 
-                M = mean(katdata(:,:,~RjEpCh(1,:)),3);
-                
-                tint = zeros(1,size(M,2));
-                tmax = zeros(1,size(M,2));
-                thalf = zeros(1,size(M,2));
-                amax = zeros(1,size(M,2));
-                for ch=1:length(tint)
-                    [amax(ch), idx, idxFrac] = cMax(M(:,ch), val_fraction, 0); %Nalezne maximum / minimum krivky curve, i jeho podilu (napr poloviny) a jeho parametry
-                    tmax(ch)  = T(idx);
-                    thalf(ch) = T(idxFrac); %cas poloviny maxima, nebo jineho podilu                       
-                    tint(ch)  = cIntegrate(T, M(:,ch), int_fraction, 2, 0); % integrace s posunem minima krivky do nuly
-                end
-
-                %cellout((k-1)*numel(channels)+1:k*numel(channels), :) =  { (1:length(channels))',   {channels.name}', {channels.neurologyLabel}', ...
-                %        {channels.MNI_x}', {channels.MNI_y}', {channels.MNI_z}', {channels.seizureOnset}', {channels.interictalOften}', ...
-                %        {channels.rejected}',  amax', tmax', thalf', tint' };  
+                [valmax, tmax, tfrac, tint] = obj.ResponseTriggerTime(val_fraction, int_fraction, katnum);
                 
                 for ch=1:length(tint)
                     channelHeader = channels(ch);
-                    cellout((k-1)*numel(channels)+ch, :) =  { ch,   channelHeader.name, channelHeader.neurologyLabel, ...
+                    cellout((k-1)*numel(channels)+ch, :) =  { obj.PsyData.CategoryName(katnum), ch, channelHeader.name, channelHeader.neurologyLabel, ...
                         channelHeader.MNI_x, channelHeader.MNI_y, channelHeader.MNI_z, channelHeader.seizureOnset, channelHeader.interictalOften, ...
-                        mat2str(channelHeader.rejected),  amax(ch), tmax(ch), thalf(ch), tint(ch) };  
+                        mat2str(channelHeader.rejected),  valmax(ch), tmax(ch), tfrac(ch), tint(ch) };  
                 end
-                
             end
 
             %TODO: Vytahnout vypocet do samostatne funkce pro znovupouziti ve scatterplotu
             
             tablelog = cell2table(cellout, ...
-                'VariableNames', {'channel' 'name'  'neurologyLabel'  'MNI_x'  'MNI_y'  'MNI_z'  'seizureOnset'  'interictalOften'  ...
+                'VariableNames', {'category' 'channel' 'name'  'neurologyLabel'  'MNI_x'  'MNI_y'  'MNI_z'  'seizureOnset'  'interictalOften'  ...
                     'rejected' 'valmax'  'tmax'  ['t' percent{1}]   ['tint' percent{2}]
                 });
 
