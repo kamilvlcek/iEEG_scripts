@@ -1478,7 +1478,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             assert(obj.epochs > 1,'only for epoched data');
             T = 0:0.1:obj.epochtime(2); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
             WpA = obj.WpActive; %jen zkratka
-            if isfield(obj.Wp(WpA),'D1') %první 2D plot
+            if isfield(obj.Wp(WpA),'D1') %prvnï¿½ 2D plot
                 figure('Name','W plot 1D');
                 isignif = obj.Wp(WpA).D1<0.05;
                 plot(find(~isignif),obj.Wp(WpA).D1(~isignif),'o','MarkerSize',8,'MarkerEdgeColor','b','MarkerFaceColor','b');
@@ -1735,6 +1735,79 @@ classdef CiEEGData < matlab.mixin.Copyable
             if isa(obj,'CHilbertMulti') && ismember('label', {vars.name}), load(filename,'label'); obj.label = label; end %#ok<NASGU>
             disp(['nacten soubor ' filename]); 
         end
+        
+        function Response2XLS(obj, val_fraction, int_fraction)
+            %pokud neni specifikovan parametr 'fraction', zobrazi se dialogove okno pro zadani procent z maxima            
+            if nargin == 1
+                prompt = {'Value trigger percentage:', 'Integral trigger percentage:'};
+                default = {'50', '50'};
+                percent = inputdlg(prompt, 'XLS Export', [1 30], default);
+                if isempty(percent)
+                    disp('XLS export cancelled');
+                    return;
+                end
+                val_fraction = str2double(percent{1})/100; % procenta auxmax, u kterych se ma zjistit cas
+                int_fraction = str2double(percent{2})/100; % procenta plochy pod krivkou, u kterych se ma zjistit cas
+            end
+            
+            channels = obj.CH.H.channels;
+            
+            T = linspace(obj.epochtime(1),obj.epochtime(2),size(obj.d,1));
+            
+            kategories = obj.PsyData.Categories();
+            cellout = cell(numel(channels)*numel(kategories),13);
+            
+            for k = 1 : numel(kategories)
+                
+                if iscell(kategories) %iff tady nefunguje, to by bylo samozrejme lepsi85858
+                    katnum = kategories{k}; %cislo kategorie, muze byt cell, pokud vice kategorii proti jedne
+                    [katdata,~,RjEpCh] = obj.CategoryData(katnum); %eegdata - epochy jedne kategorie
+                else
+                    katnum = kategories(k); %cislo kategorie, muze byt cell, pokud vice kategorii proti jedne
+                    [katdata,~,RjEpCh] = obj.CategoryData(katnum); %eegdata - epochy jedne kategorie                       
+                end   %7.8.2018 - RjEpCh obsahuje jen aktualni kanal, takze rozmer 1x samples 
+                
+                M = mean(katdata(:,:,~RjEpCh(1,:)),3);
+                
+                tint = zeros(1,size(M,2));
+                tmax = zeros(1,size(M,2));
+                thalf = zeros(1,size(M,2));
+                amax = zeros(1,size(M,2));
+                for ch=1:length(tint)
+                    [amax(ch), idx, idxFrac] = cMax(M(:,ch), val_fraction, 0); %Nalezne maximum / minimum krivky curve, i jeho podilu (napr poloviny) a jeho parametry
+                    tmax(ch)  = T(idx);
+                    thalf(ch) = T(idxFrac); %cas poloviny maxima, nebo jineho podilu                       
+                    tint(ch)  = cIntegrate(T, M(:,ch), int_fraction, 2, 0); % integrace s posunem minima krivky do nuly
+                end
+
+                %cellout((k-1)*numel(channels)+1:k*numel(channels), :) =  { (1:length(channels))',   {channels.name}', {channels.neurologyLabel}', ...
+                %        {channels.MNI_x}', {channels.MNI_y}', {channels.MNI_z}', {channels.seizureOnset}', {channels.interictalOften}', ...
+                %        {channels.rejected}',  amax', tmax', thalf', tint' };  
+                
+                for ch=1:length(tint)
+                    channelHeader = channels(ch);
+                    cellout((k-1)*numel(channels)+ch, :) =  { ch,   channelHeader.name, channelHeader.neurologyLabel, ...
+                        channelHeader.MNI_x, channelHeader.MNI_y, channelHeader.MNI_z, channelHeader.seizureOnset, channelHeader.interictalOften, ...
+                        mat2str(channelHeader.rejected),  amax(ch), tmax(ch), thalf(ch), tint(ch) };  
+                end
+                
+            end
+
+            %TODO: Vytahnout vypocet do samostatne funkce pro znovupouziti ve scatterplotu
+            
+            tablelog = cell2table(cellout, ...
+                'VariableNames', {'channel' 'name'  'neurologyLabel'  'MNI_x'  'MNI_y'  'MNI_z'  'seizureOnset'  'interictalOften'  ...
+                    'rejected' 'valmax'  'tmax'  ['t' percent{1}]   ['tint' percent{2}]
+                });
+
+            %TODO: Identifikace nazvu souboru? 
+            [~,mfilename,~] = fileparts(obj.hfilename);
+            mfilename = strrep(mfilename, ' ', '_');
+            logfilename = ['ChannelResponse_' mfilename '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') ];  
+            xlsfilename = fullfile('logs', [logfilename '.xls']);            
+            writetable(tablelog, xlsfilename); %zapisu do xls tabulky            
+            disp([ 'XLS table saved: ' xlsfilename]);
+        end
     end
     %% staticke metody
     methods (Static,Access = public)
@@ -1940,6 +2013,8 @@ classdef CiEEGData < matlab.mixin.Copyable
                    obj.CS.AUCPlot(obj.plotRCh.ch,obj);
 %                    obj.CH.SaveAUCPlotHandle(@obj.CS.AUCPlot); %ulozim soucasne handle na AUCPlot funkci
                    figure(obj.plotRCh.fh); %dam puvodni obrazek dopredu
+                case 'x'    % XLS export
+                    obj.Response2XLS();
                 otherwise
                     disp(['You just pressed: ' eventDat.Key]);
             end

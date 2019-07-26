@@ -1,13 +1,19 @@
-function t = cIntegrate(time, curve, fraction, normMode)
+function t = cIntegrate(time, curve, fraction, normMode, centering)
     % Nalezne pozici idx, ve ktere je integral I(0,idx) = fraction*I(0,end)
+    % Hleda se integral +curve, nebo -curve v zavislosti na tom, jestli
+    % ma krivka vzdalenejsi maximum nebo minimum od hodnoty centering.
+    % Hodnota normMode urcuje sekundarni transformaci krivky pred integraci:
+    %   0: krivka se nijak netransformuje
+    %   1: odstrani se zaporne hodnoty (tj. ty na druhou stranu od centering)
+    %   2: minimum krivky se posune do nuly
 
     testMax = max(curve);
     testMin = min(curve);
     
-    if abs(testMax-0.5) > abs(0.5-testMin)
-        curve = curve - 0.5;
+    if abs(testMax-centering) > abs(centering-testMin)
+        curve = curve - centering;
     else
-        curve = 0.5 - curve;
+        curve = centering - curve;
     end
 
     if normMode == 1  % odstrani zaporne hodnoty

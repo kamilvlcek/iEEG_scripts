@@ -354,7 +354,7 @@ classdef CStat < handle
                 int_fraction = str2double(percent{2})/100; % procenta plochy pod krivkou, u kterych se ma zjistit cas
             end
             channels = obj.plotAUC_m.channels;   %XXX: predpokladam, ze obj.plotAUC_m.channels uz obsahuje vsechny spocitane kanaly
-            cellout = cell(numel(channels),17); % z toho bude vystupni xls tabulka s prehledem vysledku
+            cellout = cell(numel(channels),16); % z toho bude vystupni xls tabulka s prehledem vysledku
             for ch = 1:numel(channels)  %XXX: iterace pres kanaly, predpokladam, ze je jen jedna platna kombinace {k,l} nize!
                 channelHeader = obj.plotAUC.Eh.CH.H.channels(channels(ch));                
                 for k = 1:numel(obj.plotAUC.kategories)-1
@@ -365,20 +365,18 @@ classdef CStat < handle
                         AUC = obj.plotAUC.aucdata(channels(ch)).AUC{k,l};
                         X = linspace(obj.plotAUC.time(1),obj.plotAUC.time(2),size(AUC,1));
                         
-                        [amax, idx, idxHalf] = cMax(AUC(:,1), val_fraction); %Nalezne maximum / minimum krivky curve, i jeho podilu (napr poloviny) a jeho parametry
+                        [amax, idx, idxFrac] = cMax(AUC(:,1), val_fraction, 0.5); %Nalezne maximum / minimum krivky curve, i jeho podilu (napr poloviny) a jeho parametry
                         tmax = X(idx);
-                        thalf = X(idxHalf); %cas poloviny maxima, nebo jineho podilu                       
+                        thalf = X(idxFrac); %cas poloviny maxima, nebo jineho podilu                       
                         ci_u = AUC(idx, 3); %confidence intervals - upper
                         ci_l = AUC(idx, 2);                     
                         sig = obj.plotAUC.sig(channels(ch), obj.plotAUC.setup.legendkomb(k,l));
                         
-                        %dve metody vypoctu plochy pod krivkou
-                        tint1 = cIntegrate(X, AUC(:,1), int_fraction, 1); % odstrani zaporne hodnoty
-                        tint2 = cIntegrate(X, AUC(:,1), int_fraction, 2); % posune minimum krivky do nuly
+                        tint = cIntegrate(X, AUC(:,1), int_fraction, 2, 0.5); % integrace s posunem minima krivky do nuly
                         
                         cellout(ch, :) = {  channels(ch),   channelHeader.name, channelHeader.neurologyLabel, channelHeader.MNI_x, ...
                                 channelHeader.MNI_y, channelHeader.MNI_z, channelHeader.seizureOnset, channelHeader.interictalOften, ...
-                                mat2str(channelHeader.rejected),  amax, ci_l, ci_u, sig , tmax, thalf, tint1, tint2  };                                          
+                                mat2str(channelHeader.rejected),  amax, ci_l, ci_u, sig , tmax, thalf, tint  };                                          
                     end
                 end
                 end                
@@ -386,7 +384,7 @@ classdef CStat < handle
             
             tablelog = cell2table(cellout, ...
                 'VariableNames', {'channel' 'name'  'neurologyLabel'  'MNI_x'  'MNI_y'  'MNI_z'  'seizureOnset'  'interictalOften'  ...
-                    'rejected' 'aucmax' 'ci_l' 'ci_u'   'significance'  'tmax'  ['t' percent{1}]   ['tint' percent{2} 'v1'] ['tint' percent{2} 'v2']    
+                    'rejected' 'aucmax' 'ci_l' 'ci_u'   'significance'  'tmax'  ['t' percent{1}]   ['tint' percent{2}]
                 });
             obj.plotAUC_m.xlsvals = cell2mat(cellout(:,[10 14 15])); %ulozim hodnoty aucmax, tmax, thalf 
             %TODO: Identifikace nazvu souboru? 
@@ -397,7 +395,7 @@ classdef CStat < handle
             logfilename = ['AUCPlotM_' kat '_chnls_' chnls '_' mfilename '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') ];  
             xlsfilename = fullfile('logs', [logfilename '.xls']);            
             writetable(tablelog, xlsfilename); %zapisu do xls tabulky            
-            disp([ 'XLS tables saved: ' xlsfilename]);
+            disp([ 'XLS table saved: ' xlsfilename]);
         end
     end
     methods (Static,Access = public)        
