@@ -1737,7 +1737,6 @@ classdef CiEEGData < matlab.mixin.Copyable
         end
         
         function [valmax, tmax, tfrac, tint] = ResponseTriggerTime(obj, val_fraction, int_fraction, katnum)
-            
             T = linspace(obj.epochtime(1),obj.epochtime(2),size(obj.d,1));
             
             [katdata,~,RjEpCh] = obj.CategoryData(katnum); %eegdata - epochy jedne kategorie                       
@@ -1756,7 +1755,6 @@ classdef CiEEGData < matlab.mixin.Copyable
                 tfrac(ch) = T(idxFrac); %cas poloviny maxima, nebo jineho podilu                       
                 tint(ch)  = cIntegrate(T, M(:,ch), int_fraction, 2, 0); % integrace s posunem minima krivky do nuly
             end
-            
         end
         
         function Response2XLS(obj, val_fraction, int_fraction)
@@ -1795,14 +1793,11 @@ classdef CiEEGData < matlab.mixin.Copyable
                 end
             end
 
-            %TODO: Vytahnout vypocet do samostatne funkce pro znovupouziti ve scatterplotu
-            
             tablelog = cell2table(cellout, ...
                 'VariableNames', {'category' 'channel' 'name'  'neurologyLabel'  'MNI_x'  'MNI_y'  'MNI_z'  'seizureOnset'  'interictalOften'  ...
                     'rejected' 'valmax'  'tmax'  ['t' percent{1}]   ['tint' percent{2}]
                 });
 
-            %TODO: Identifikace nazvu souboru? 
             [~,mfilename,~] = fileparts(obj.hfilename);
             mfilename = strrep(mfilename, ' ', '_');
             logfilename = ['ChannelResponse_' mfilename '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') ];  
