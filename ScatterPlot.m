@@ -61,6 +61,7 @@ classdef ScatterPlot < handle
             layoutX =  uix.VBox('Parent', layoutAxes);
 
             uicontrol('Parent', layoutX, 'Style', 'Text', 'String', 'x axis');
+            
             obj.addCheckbox('x_valmax', 'maximum value', vset, st, layoutX);
             obj.addCheckbox('x_tmax',   'maximum time', vset, st, layoutX);
             obj.addCheckbox('x_tfrac',  'fraction time', vset, st, layoutX);
@@ -148,20 +149,20 @@ classdef ScatterPlot < handle
         end
 
         function addNumval(obj, varname, title, vset, st)
-                layout_loc = uix.HBox('Parent', obj.gui.vizSettings);
-                uicontrol('Parent', layout_loc, 'Style', 'Text', 'String', title);
-                vset.(varname) = uicontrol('Parent', layout_loc, 'Style', 'Edit', 'String', st.(varname), ...
-                        'Value', st.(varname), 'Callback', {@obj.onVsetNumval, obj.vizTypes.selected, varname});
+            layout_loc = uix.HBox('Parent', obj.gui.vizSettings);
+            uicontrol('Parent', layout_loc, 'Style', 'Text', 'String', title);
+            vset.(varname) = uicontrol('Parent', layout_loc, 'Style', 'Edit', 'String', st.(varname), ...
+                    'Value', st.(varname), 'Callback', {@obj.onVsetNumval, obj.vizTypes.selected, varname});
         end
 
         function onVsetCheckbox(obj, src, ~, vid, varname)
-            obj.vizSettings.settings{vid}.(varname) = get(src, 'Value');
-            updateInterface();
+            obj.vizTypes.settings{vid}.(varname) = get(src, 'Value');
+            obj.updateInterface();
         end
 
         function onVsetNumval(obj, src, ~, vid, varname)
-            obj.vizSettings.settings{vid}.(varname) = str2double(get(src, 'String'));
-            updateInterface();
+            obj.vizTypes.settings{vid}.(varname) = str2double(get(src, 'String'));
+            obj.updateInterface();
         end
         
         
@@ -220,14 +221,73 @@ classdef ScatterPlot < handle
         
         function drawScatterPlot(obj)
             graphSettings = obj.vizTypes.settings{obj.vizTypes.selected};
-            fh = figure;
-            ax = axes(fh);
-            hold on;
-            for catnum = obj.categories(obj.categoriesSelection)
-                [valmax, tmax, tfrac, tint] = obj.ieegdata.ResponseTriggerTime(graphSettings.val_fraction, graphSettings.int_fraction, catnum);
-                scatter(ax, tmax, valmax, '.');
+            
+            labels = {'v_{max}' 't_{max}' ['t_{' num2str(graphSettings.val_fraction) '}'] ['t_{int, ' num2str(graphSettings.int_fraction) '}']};
+            
+            axesX = {};
+            labelsX = {};
+            if graphSettings.x_valmax
+                axesX(end+1) = {'valmax'};
+                labelsX(end+1) = labels(1);
             end
-            hold off;
+            if graphSettings.x_tmax
+                axesX(end+1) = {'tmax'};
+                labelsX(end+1) = labels(2);
+            end
+            if graphSettings.x_tfrac
+                axesX(end+1) = {'tfrac'};
+                labelsX(end+1) = labels(3);
+            end
+            if graphSettings.x_tint
+                axesX(end+1) = {'tint'};
+                labelsX(end+1) = labels(4);
+            end
+            
+            axesY = {};
+            labelsY = {};
+            if graphSettings.y_valmax
+                axesY(end+1) = {'valmax'};
+                labelsY(end+1) = labels(1);
+            end
+            if graphSettings.y_tmax
+                axesY(end+1) = {'tmax'};
+                labelsY(end+1) = labels(2);
+            end
+            if graphSettings.y_tfrac
+                axesY(end+1) = {'tfrac'};
+                labelsY(end+1) = labels(3);
+            end
+            if graphSettings.y_tint
+                axesY(end+1) = {'tint'};
+                labelsY(end+1) = labels(4);
+            end
+
+            figures = struct();
+            axesList = struct();
+            
+            for k = obj.categoriesSelection
+                catnum = obj.categories(k);
+                stats = struct();
+                [stats.valmax, stats.tmax, stats.tfrac, stats.tint] = obj.ieegdata.ResponseTriggerTime(graphSettings.val_fraction, graphSettings.int_fraction, catnum);
+                for xx = 1:length(axesX)
+                    axisX = stats.(axesX{xx});
+                    for yy = 1:length(axesY)
+                        axisY = stats.(axesY{yy});
+                        figname = [axesX{xx} axesY{yy}];
+                        if ~isfield(figures, figname)
+                            figures.(figname) = figure;
+                            axesList.(figname) = axes(figures.(figname));
+                            xlabel(axesList.(figname), labelsX{xx});
+                            ylabel(axesList.(figname), labelsY{yy});
+                        end
+                        ax = axesList.(figname);
+                        hold(ax, 'on');
+                        scatter(ax, axisX, axisY, '.', 'DisplayName', obj.categoryNames(k));
+                        legend(ax);
+                        hold off;
+                    end
+                end
+            end
         end
         
     end
