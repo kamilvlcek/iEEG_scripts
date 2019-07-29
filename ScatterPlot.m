@@ -45,6 +45,39 @@ classdef ScatterPlot < handle
             );
         end
         
+        function updateVizSettings(obj)
+            if ishandle(obj.gui.vizSettings)
+                delete(obj.gui.vizSettings);
+            end
+            obj.gui.vizSettings = uix.VBox( 'Parent', obj.gui.vizSettingsLayout);
+            vset = obj.gui.vset;
+            st = obj.vizTypes.settings{obj.vizTypes.selected};
+            hs = [];
+            obj.addNumval('val_fraction', 'Value onset fraction: ', vset, st); hs = [hs 20];
+            obj.addNumval('int_fraction', 'Integral fraction: ',    vset, st); hs = [hs 20];
+            
+            layoutAxes = uix.HBox('Parent', obj.gui.vizSettings);
+            
+            layoutX =  uix.VBox('Parent', layoutAxes);
+
+            uicontrol('Parent', layoutX, 'Style', 'Text', 'String', 'x axis');
+            obj.addCheckbox('x_valmax', 'maximum value', vset, st, layoutX);
+            obj.addCheckbox('x_tmax',   'maximum time', vset, st, layoutX);
+            obj.addCheckbox('x_tfrac',  'fraction time', vset, st, layoutX);
+            obj.addCheckbox('x_tint',   'integral fraction time', vset, st, layoutX);
+            
+            layoutY =  uix.VBox('Parent', layoutAxes);
+            
+            uicontrol('Parent', layoutY, 'Style', 'Text', 'String', 'y axis');
+            obj.addCheckbox('y_valmax', 'maximum value', vset, st, layoutY);
+            obj.addCheckbox('y_tmax',   'maximum time', vset, st, layoutY);
+            obj.addCheckbox('y_tfrac',  'fraction time', vset, st, layoutY);
+            obj.addCheckbox('y_tint',   'integral fraction time', vset, st, layoutY);
+            
+            hs = [hs 80];
+            
+            set(obj.gui.vizSettings, 'Heights', hs);
+        end
         
         function CreateInterface(obj)
             obj.gui = struct();
@@ -92,7 +125,7 @@ classdef ScatterPlot < handle
             obj.gui.draw_button = uicontrol( 'Style', 'PushButton',...
                 'Parent', controls_layout, ...
                 'String', 'Draw!', ...
-                'Callback', @on_draw_button);
+                'Callback', @obj.onDrawButton);
 
             set(mainLayout, 'Heights', [-1 28]);
 
@@ -100,40 +133,6 @@ classdef ScatterPlot < handle
             obj.resetNeurologyLabels();
             
             obj.updateInterface();
-        end
-      
-        function updateVizSettings(obj)
-            if ishandle(obj.gui.vizSettings)
-                delete(obj.gui.vizSettings);
-            end
-            obj.gui.vizSettings = uix.VBox( 'Parent', obj.gui.vizSettingsLayout);
-            vset = obj.gui.vset;
-            st = obj.vizTypes.settings{obj.vizTypes.selected};
-            hs = [];
-            obj.addNumval('val_fraction', 'Value onset fraction: ', vset, st); hs = [hs 20];
-            obj.addNumval('int_fraction', 'Integral fraction: ',    vset, st); hs = [hs 20];
-            
-            layoutAxes = uix.HBox('Parent', obj.gui.vizSettings);
-            
-            layoutX =  uix.VBox('Parent', layoutAxes);
-
-            uicontrol('Parent', layoutX, 'Style', 'Text', 'String', 'x axis');
-            obj.addCheckbox('x_valmax', 'maximum value', vset, st, layoutX);
-            obj.addCheckbox('x_tmax',   'maximum time', vset, st, layoutX);
-            obj.addCheckbox('x_tfrac',  'fraction time', vset, st, layoutX);
-            obj.addCheckbox('x_tint',   'integral fraction time', vset, st, layoutX);
-            
-            layoutY =  uix.VBox('Parent', layoutAxes);
-            
-            uicontrol('Parent', layoutY, 'Style', 'Text', 'String', 'y axis');
-            obj.addCheckbox('y_valmax', 'maximum value', vset, st, layoutY);
-            obj.addCheckbox('y_tmax',   'maximum time', vset, st, layoutY);
-            obj.addCheckbox('y_tfrac',  'fraction time', vset, st, layoutY);
-            obj.addCheckbox('y_tint',   'integral fraction time', vset, st, layoutY);
-            
-            hs = [hs 80];
-            
-            set(obj.gui.vizSettings, 'Heights', hs);
         end
       
         function updateInterface(obj)
@@ -193,6 +192,12 @@ classdef ScatterPlot < handle
             obj.updateInterface();
         end
         
+        function onDrawButton(obj, ~, ~)
+            func = obj.vizTypes.functions(obj.vizTypes.selected);
+            obj.updateInterface();
+            obj.(func{1});
+        end
+        
         function resetCategories(obj)
             if isempty(obj.categories)
                 set(obj.gui.categoriesList, 'String', 'No categories loaded.');
@@ -212,6 +217,19 @@ classdef ScatterPlot < handle
                 set(obj.gui.neurologyLabelsList, 'String', obj.neurologyLabels);
             end
         end
+        
+        function drawScatterPlot(obj)
+            graphSettings = obj.vizTypes.settings{obj.vizTypes.selected};
+            fh = figure;
+            ax = axes(fh);
+            hold on;
+            for catnum = obj.categories(obj.categoriesSelection)
+                [valmax, tmax, tfrac, tint] = obj.ieegdata.ResponseTriggerTime(graphSettings.val_fraction, graphSettings.int_fraction, catnum);
+                scatter(ax, tmax, valmax, '.');
+            end
+            hold off;
+        end
+        
     end
     
 end
