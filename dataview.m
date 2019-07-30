@@ -49,9 +49,15 @@ figure('Name','Synchronizace');
 %       break; %kdyz uz delkou presahuju konec zaznamu, ukoncim cyklus
 %    end
 x = start;
-yrange = [-3000 3000];
+data = d(x*fs+1:(x+delka)*fs,channel) .* mults(1,channel);
+ymax = 3000;
+if sum(data>3000)>5e4
+    ymax = 5e5;
+    disp('range increased to 5e5');
+end
+yrange = [-ymax ymax];
 
-    plot( x:1/fs:x+delka-1/fs,  d(x*fs+1:(x+delka)*fs,channel) .* mults(1,channel)); %,'-o'
+    plot( x:1/fs:x+delka-1/fs, data ); %,'-o'
     axis([x x+delka yrange])
     sekund_zac = x; % cas v sekundach,cisla s desetinnymi teckami se do grafu na osu x nevejdou
     sekund_konec = (x+delka);
