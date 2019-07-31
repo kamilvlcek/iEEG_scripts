@@ -1,4 +1,4 @@
-function [files] = concatCVUT(adresar,spojit)
+function [files] = concatCVUT(adresar,spojit,testrozdil)
 %spoji dva rozdelene soubory
 % CVUT data
 % nefunguje to na notebooku protoze to potrebuje prilis mnoho pameti - 18.6.2015
@@ -9,7 +9,8 @@ function [files] = concatCVUT(adresar,spojit)
 %        'f:\eeg\motol\pacienti\p97 Novak VT13\VT13_2016-02-11_10-20_002.mat'
 %        
 %        };
-if ~exist('spojit','var')
+if ~exist('testrozdil','var'), testrozdil = 1; end
+if ~exist('spojit','var') || isempty(spojit)
     if numel(adresar) == 1
         %mam udelat vsechny soubory v adresari    
         files = dir(fullfile(adresar, '*.mat'));
@@ -34,11 +35,9 @@ for j = 1:numel(spojit)
     
     disp(['delka ' num2str(size(tabs,1)) ' vzorku']); %#ok<NODEF> 
     if j> j0 %pokud se nejedna o prvni soubor
-        disp(['rozdil ' num2str((tabs(1)-tabs0(end))*24*3600) ' sekund']);    
         rozdil_sec = (tabs(1)-tabs0(end))*24*3600;
-        if rozdil_sec >= 1 || rozdil_sec < 0 %rozdil jedne vteriny je velmi zvlastni, nejspis se soubory nemaji spojit            
-            %m=input('Do you want to continue, y/n [n]:','s');
-            %if isempty(m) || m~='y',   break; end
+        disp(['rozdil ' num2str(rozdil_sec) ' sekund']); 
+        if testrozdil && rozdil_sec >= 1 || rozdil_sec < 0 %rozdil jedne vteriny je velmi zvlastni, nejspis se soubory nemaji spojit                        
             [filename,delka] = ulozdata(j0,spojeno,adresar,spojit,d0,tabs0,fs0,header0,mults0,evts0); %#ok<NODEF>
             files = [files; {filename, spojeno, delka, rozdil_sec}]; %#ok<AGROW>
             j0 = j;        

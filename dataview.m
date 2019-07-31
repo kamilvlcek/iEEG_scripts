@@ -38,7 +38,7 @@ if numel(pauzyvdatech) > 0
         return; 
     else
         iP = pauzyvdatech<iKonec & pauzyvdatech>=iStart;
-        delka = delka - round(sum((tabs(pauzyvdatech(iP)+1)-tabs(pauzyvdatech(iP)))*24*3600));
+        delka = delka - round(sum((tabs(pauzyvdatech(iP)+1)-tabs(pauzyvdatech(iP)))*24*3600));        
     end    
 end
 
@@ -56,8 +56,8 @@ if sum(data>3000)>5e4
     disp('range increased to 5e5');
 end
 yrange = [-ymax ymax];
-
-    plot( x:1/fs:x+delka-1/fs, data ); %,'-o'
+    xtime = x:1/fs:x+delka-1/fs;
+    plot( xtime, data ); %,'-o'
     axis([x x+delka yrange])
     sekund_zac = x; % cas v sekundach,cisla s desetinnymi teckami se do grafu na osu x nevejdou
     sekund_konec = (x+delka);
@@ -114,6 +114,15 @@ yrange = [-ymax ymax];
     tsEND = tabs(iEND); %timestamp konce
     disp( ['konec: ' num2str(konec) 's, timestamp: ' datestr(tsEND,'dd-mmm-yyyy HH:MM:SS.FFF') ', iEND: ' num2str(iEND)]);
    %keyboard; %zastavi a muzu se divat na promenne, pokracuju pomoci return
+    if numel(pauzyvdatech) > 0
+       datatabs = tabs(x*fs+1:(x+delka)*fs+1); %tabs upravene na stejnou delku jako data
+       dt = diff(datatabs)*24*3600; 
+       figure('Name','Pauzy v Datech');
+       plot( xtime, dt );
+       xlabel(['sekundy z ' num2str(zaznamvterin) ' s celkove']); 
+       ylabel(['secs']); 
+       title('Pauzy v Datech');
+    end
 %end
 
 end
