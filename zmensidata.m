@@ -6,8 +6,9 @@ function [newnames, fs, delka] = zmensidata(filenames,podil,yratio,fsforce)
 % nebo filename = adresar + zacatek souboru (cele bez \ na konci) = maska - pak zpracuju jen vyber souboru
 newnames = {};
 if ~exist('fsforce','var'), fsforce = []; end %vynucna vystupni fs. Na co?
+if ~iscell(filenames), filenames = {filenames}; end %pokud jen jeden soubor, nemusi byt cell array
 for ff = 1:numel(filenames) %muzu mit celou serii adresaru na zpracovani se stejnymi parametry - 2019/07
-    filename = filenames{ff};
+    filename = filenames{ff};    
     [~,name,ext] = fileparts(filename);
     if  isempty(ext)
         %asi se jedna o adresar - zpracuju postupne vsechny soubory
@@ -67,6 +68,8 @@ for ff = 1:numel(filenames) %muzu mit celou serii adresaru na zpracovani se stej
         %druha pulka souboru
         disp('second half of d ...');
         load(filename,'d'); %maly soubor, nactu jen d
+        d(1:dpul,:)=[]; %smazu prvni pulku souboru
+        
         if exist('mults', 'var') 
             d = bsxfun(@times,double(d), mults); %rovnou to roznasobim mults - decimate pracuje jen s double          
         elseif ~isfloat(d)
@@ -74,9 +77,11 @@ for ff = 1:numel(filenames) %muzu mit celou serii adresaru na zpracovani se stej
             delka = numel(tabs);
             return;
         end
-
-        d(1:dpul,:)=[]; %smazu prvni pulku souboru
-
+        
+        if exist('yratio', 'var') %cim roznasobit data, aby byly stejne velike jako v systemu nickone - 0.1mV?
+            d = d*yratio; %novy system Quantum ma data 100x vetsi - uV?
+        end
+        
         dc2 = zeros(ceil(size(d,1)/podil),els);
         for j = 1:els %musim decimovat kazdou elektrodu zvlast
             dc2(:,j) = decimate(d(:,j),podil); %na 500 Hz z 8000 Hz

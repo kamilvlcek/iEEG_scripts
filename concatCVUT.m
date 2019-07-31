@@ -39,7 +39,7 @@ for j = 1:numel(spojit)
         if rozdil_sec >= 1 || rozdil_sec < 0 %rozdil jedne vteriny je velmi zvlastni, nejspis se soubory nemaji spojit            
             %m=input('Do you want to continue, y/n [n]:','s');
             %if isempty(m) || m~='y',   break; end
-            [filename,delka] = ulozdata(j0,spojeno,adresar,spojit,d,tabs,fs,header,mults,evts); %#ok<NODEF>
+            [filename,delka] = ulozdata(j0,spojeno,adresar,spojit,d0,tabs0,fs0,header0,mults0,evts0); %#ok<NODEF>
             files = [files; {filename, spojeno, delka, rozdil_sec}]; %#ok<AGROW>
             j0 = j;        
         end
@@ -50,28 +50,36 @@ for j = 1:numel(spojit)
         if exist('header','var') 
             header0 = header; 
             clear header;
+        else
+            header0 = [];
         end
         if exist('mults','var') %mults obsahuje jednu hodnotu pro kazdy kanal
             mults0 = mults; 
             clear mults;
+        else
+            mults0 = [];
         end
         if exist('fs','var') 
             disp(['fs=' num2str(fs)]); 
             fs0 = fs; 
             clear fs;
+        else
+            fs0 = [];
         end  
         if exist('evts','var')
             evts0 = evts; 
             clear evts;
+        else
+            evts0 = [];
         end
-        d0 = d; 
+        d0 = d;  %#ok<NODEF>
         clear d;
         spojeno = 1; 
     else
         
         tabs0 = [tabs0; tabs]; %#ok<AGROW>        
         clear tabs;
-        d0 = [d0; d]; %#ok<AGROW>
+        d0 = [d0; d]; %#ok<NODEF,AGROW>
         clear d;
         if exist('evts','var')
             evts0 = [evts0, evts]; %#ok<AGROW>
@@ -119,6 +127,9 @@ end
 function [filename,delka] = ulozdata(j0,spojeno,adresar,spojit,d,tabs,fs,header,mults,evts)     %#ok<INUSL,INUSD>
     delka = size(tabs,1);
     disp(['vysledna delka ' num2str(delka) ' vzorku']);
+    if isempty(mults), clear mults; end
+    if isempty(header), clear header; end
+    if isempty(evts), clear evts; end
     %if spojeno > 1 - ulozim i jen jeden soubor, aby to bylo prehledne
         dot = strfind(spojit{j0},'.');
         filename = [adresar  spojit{j0}(1:dot(1)-1) '_' num2str(spojeno) '_concat.mat'];
