@@ -1736,12 +1736,18 @@ classdef CiEEGData < matlab.mixin.Copyable
             disp(['nacten soubor ' filename]); 
         end
         
-        function [valmax, tmax, tfrac, tint] = ResponseTriggerTime(obj, val_fraction, int_fraction, katnum)
+        function [valmax, tmax, tfrac, tint] = ResponseTriggerTime(obj, val_fraction, int_fraction, katnum, neurologyLabels)
             T = linspace(obj.epochtime(1),obj.epochtime(2),size(obj.d,1));
             
             [katdata,~,RjEpCh] = obj.CategoryData(katnum); %eegdata - epochy jedne kategorie                       
-
-            M = mean(katdata(:,:,~RjEpCh(1,:)),3);
+            
+            if exist('neurologyLabels', 'var') && ~isempty(neurologyLabels)
+                nlFilter = ismember({obj.CH.H.channels.neurologyLabel}, neurologyLabels);
+            else
+                nlFilter = 1:size(katdata, 2);
+            end
+            
+            M = mean(katdata(:, nlFilter, ~RjEpCh(1,:)), 3);
 
             n = size(M,2);
             

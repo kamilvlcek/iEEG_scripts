@@ -123,12 +123,16 @@ classdef ScatterPlot < handle
                 'Callback', @obj.onNeurologyLabelsSelection );
             set(obj.gui.neurologyLabelsLayout, 'Heights', [28 -1]);
             
-            controls_layout = uix.HBox( 'Parent', mainLayout );
-            obj.gui.draw_button = uicontrol( 'Style', 'PushButton',...
-                'Parent', controls_layout, ...
+            controlsLayout = uix.HBox( 'Parent', mainLayout );
+            obj.gui.controlsSpacer = uix.VBox( 'Parent', controlsLayout );
+            obj.gui.drawButton = uicontrol( 'Style', 'PushButton',...
+                'Parent', controlsLayout, ...
                 'String', 'Draw!', ...
                 'Callback', @obj.onDrawButton);
-
+            obj.gui.highlightButton = uicontrol( 'Style', 'PushButton',...
+                'Parent', controlsLayout, ...
+                'String', 'Highlight!', ...
+                'Callback', @obj.onHighlighButton);
             set(mainLayout, 'Heights', [-1 28]);
 
             obj.resetCategories();
@@ -200,6 +204,13 @@ classdef ScatterPlot < handle
             obj.(func{1});
         end
         
+        function onHighlighButton(obj, ~, ~)
+            %func = obj.vizTypes.functions(obj.vizTypes.selected);
+            obj.updateInterface();
+            %obj.(func{1});
+            obj.highlight();
+        end
+        
         function resetCategories(obj)
             if isempty(obj.categories)
                 set(obj.gui.categoriesList, 'String', 'No categories loaded.');
@@ -268,6 +279,7 @@ classdef ScatterPlot < handle
             for k = obj.categoriesSelection
                 catnum = obj.categories(k);
                 stats = struct();
+                %FIXME: ulozit tuhle struckturu vcetne ID kanalu a nastaveni fractions, aby se to neprepocitavalo pri highlightu
                 [stats.valmax, stats.tmax, stats.tfrac, stats.tint] = obj.ieegdata.ResponseTriggerTime(graphSettings.val_fraction, graphSettings.int_fraction, catnum);
                 for xx = 1:length(axesX)
                     axisX = stats.(axesX{xx});
@@ -294,6 +306,32 @@ classdef ScatterPlot < handle
                         
                         obj.figs(figFilter) = fig;
                     end
+                end
+            end
+        end
+        
+        function highlight(obj)
+            nl = obj.neurologyLabels(obj.neurologyLabelsSelection);
+            graphSettings = obj.vizTypes.settings{obj.vizTypes.selected};   %FIXME: Tohle bude delat bordel, kdyz se cisla zmeni mezi stiskem Draw a Highlight
+            
+            for f = 1:length(obj.figs)
+                fig = obj.figs(f);
+                delete(fig.highlights);
+                fig.highlights = [];
+                for k = obj.categoriesSelection
+                    catnum = obj.categories(k);
+                    stats = struct();
+                    [stats.valmax, stats.tmax, stats.tfrac, stats.tint] = obj.ieegdata.ResponseTriggerTime(graphSettings.val_fraction, graphSettings.int_fraction, catnum, nl);
+                
+                    axisX = stats.(fig.axisX);
+                    axisY = stats.(fig.axisY);
+                    ax = fig.axes;
+
+                    hold(ax, 'on');
+                    fig.highlights(end+1) = scatter(ax, axisX, axisY, 'o', 'DisplayName', strcat(obj.categoryNames(k), ' filtered'));
+                    hold off;
+
+                    obj.figs(f) = fig;
                 end
             end
         end
