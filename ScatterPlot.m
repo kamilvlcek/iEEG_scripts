@@ -6,6 +6,7 @@ classdef ScatterPlot < handle
         ieegdata
         gui
         vizTypes
+        figs
         
         categories
         categoryNames
@@ -262,8 +263,7 @@ classdef ScatterPlot < handle
                 labelsY(end+1) = labels(4);
             end
 
-            figures = struct();
-            axesList = struct();
+            obj.figs = struct('axisX', {}, 'axisY', {}, 'figure', {}, 'axes', {}, 'plots', {}, 'highlights', {});
             
             for k = obj.categoriesSelection
                 catnum = obj.categories(k);
@@ -273,18 +273,26 @@ classdef ScatterPlot < handle
                     axisX = stats.(axesX{xx});
                     for yy = 1:length(axesY)
                         axisY = stats.(axesY{yy});
-                        figname = [axesX{xx} axesY{yy}];
-                        if ~isfield(figures, figname)
-                            figures.(figname) = figure;
-                            axesList.(figname) = axes(figures.(figname));
-                            xlabel(axesList.(figname), labelsX{xx});
-                            ylabel(axesList.(figname), labelsY{yy});
+                        
+                        figFilter = strcmp({obj.figs.axisX}, axesX{xx}) & strcmp({obj.figs.axisY}, axesY{yy});
+                        fig = obj.figs(figFilter);
+                        if isempty(fig)
+                            fig = struct('axisX', axesX{xx}, 'axisY', axesY{yy}, 'figure', figure, 'axes', '', 'plots', [], 'highlights', []);
+                            fig.axes = axes(fig.figure);
+                            xlabel(fig.axes, labelsX{xx});
+                            ylabel(fig.axes, labelsY{yy});
+                            obj.figs(end+1) = fig;
+                        elseif length(fig) > 1
+                            disp('Error: mulitple graphs retrieved for single query');
                         end
-                        ax = axesList.(figname);
+                        
+                        ax = fig.axes;
                         hold(ax, 'on');
-                        scatter(ax, axisX, axisY, '.', 'DisplayName', obj.categoryNames(k));
+                        fig.plots(end+1) = scatter(ax, axisX, axisY, '.', 'DisplayName', obj.categoryNames(k));
                         legend(ax);
                         hold off;
+                        
+                        obj.figs(figFilter) = fig;
                     end
                 end
             end
