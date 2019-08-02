@@ -1767,7 +1767,7 @@ classdef CiEEGData < matlab.mixin.Copyable
         
         function Response2XLS(obj, val_fraction, int_fraction)
             %pokud neni specifikovan parametr 'fraction', zobrazi se dialogove okno pro zadani procent z maxima            
-            if nargin == 1
+            if nargin < 2
                 prompt = {'Value trigger percentage:', 'Integral trigger percentage:'};
                 default = {'50', '50'};
                 percent = inputdlg(prompt, 'XLS Export', [1 30], default);
@@ -1775,13 +1775,22 @@ classdef CiEEGData < matlab.mixin.Copyable
                     disp('XLS export cancelled');
                     return;
                 end
-                val_fraction = str2double(percent{1})/100; % procenta auxmax, u kterych se ma zjistit cas
+                val_fraction = str2double(percent{1})/100; % procenta valmax, u kterych se ma zjistit cas
                 int_fraction = str2double(percent{2})/100; % procenta plochy pod krivkou, u kterych se ma zjistit cas
+            else
+                percent = {num2str(round(val_fraction * 100)), num2str(round(int_fraction * 100)) }; %cisla v procentech do hlavicky xls
             end
             
-            channels = obj.CH.H.channels;
+            channels = obj.CH.H.channels(obj.CH.sortorder); %vyberu kanaly, podle aktualniho razeni a ty ktere jsou zobrazene podle CH.FilterChannels()
             
-            kategories = obj.PsyData.Categories();
+            if isfield(obj.plotRCh,'kategories') 
+                kategories = obj.plotRCh.kategories; %hodnoty drive pouzite v grafu, ty maji prednost pred statistikou
+            elseif ~isempty(obj.Wp) && isfield(obj.Wp(obj.WpActive), 'kats')
+                kategories = flip(obj.Wp(obj.WpActive).kats); %dalsi volba je pouzit cisla kategorii z jiz vypocitane aktivni statistiky
+                % ve statistice jsou ty nejdulezitejsi kategorie na konci, tady je chci na zacatku
+            else    
+                kategories = obj.PsyData.Categories();
+            end
             cellout = cell(numel(channels)*numel(kategories),14);
             
             for k = 1 : numel(kategories)
@@ -1791,19 +1800,19 @@ classdef CiEEGData < matlab.mixin.Copyable
                     katnum = kategories(k); %cislo kategorie, muze byt cell, pokud vice kategorii proti jedne
                 end 
                 
-                [valmax, tmax, tfrac, tint] = obj.ResponseTriggerTime(val_fraction, int_fraction, katnum);
+                [valmax, tmax, tfrac, tint] = obj.ResponseTriggerTime(val_fraction, int_fraction, katnum,obj.CH.sortorder);
                 
                 for ch=1:length(tint)
                     channelHeader = channels(ch);
-                    cellout((k-1)*numel(channels)+ch, :) =  { obj.PsyData.CategoryName(katnum), ch, channelHeader.name, channelHeader.neurologyLabel, ...
+                    cellout((k-1)*numel(channels)+ch, :) =  { obj.PsyData.CategoryName(katnum), obj.CH.sortorder(ch), channelHeader.name, channelHeader.neurologyLabel, ...
                         channelHeader.MNI_x, channelHeader.MNI_y, channelHeader.MNI_z, channelHeader.seizureOnset, channelHeader.interictalOften, ...
-                        mat2str(channelHeader.rejected),  valmax(ch), tmax(ch), tfrac(ch), tint(ch) };  
+                        mat2str(channelHeader.rejected),  tmax(ch), valmax(ch),  tfrac(ch), tint(ch) };  
                 end
             end
 
             tablelog = cell2table(cellout, ...
                 'VariableNames', {'category' 'channel' 'name'  'neurologyLabel'  'MNI_x'  'MNI_y'  'MNI_z'  'seizureOnset'  'interictalOften'  ...
-                    'rejected' 'valmax'  'tmax'  ['t' percent{1}]   ['tint' percent{2}]
+                    'rejected' 'tmax' 'valmax'   ['t' percent{1}]   ['tint' percent{2}]
                 });
 
             [~,mfilename,~] = fileparts(obj.hfilename);
