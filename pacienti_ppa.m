@@ -266,5 +266,15 @@ pacienti(p).rjepoch = 'p190_ppa_rjepoch.mat';
 pacienti(p).epievents = 'p190_ppa_epievents.mat'; 
 pacienti(p).rjch = []; 
 
+p=p+1; %2.8.2019
+pacienti(p).todo = 1;
+pacienti(p).folder = 'p209 Sil VT46';
+pacienti(p).data = 'VT46_2019-05-22_13-29_001_512hz_14_concat_ppa.mat';
+pacienti(p).header = 'p209_header.mat';
+pacienti(p).psychopy = 'p209_ppa.mat';
+pacienti(p).rjepoch = 'p209_ppa_rjepoch.mat';
+pacienti(p).epievents = 'p209_ppa_epievents.mat'; 
+pacienti(p).rjch = [122];
+
 end
 
