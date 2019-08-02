@@ -311,7 +311,7 @@ classdef ScatterPlot < handle
         end
         
         function highlight(obj)
-            nl = obj.neurologyLabels(obj.neurologyLabelsSelection);
+            channels = obj.ieegdata.neurologyLabelsFilter(obj.neurologyLabels(obj.neurologyLabelsSelection));
             graphSettings = obj.vizTypes.settings{obj.vizTypes.selected};   %FIXME: Tohle bude delat bordel, kdyz se cisla zmeni mezi stiskem Draw a Highlight
             
             for f = 1:length(obj.figs)
@@ -321,7 +321,7 @@ classdef ScatterPlot < handle
                 for k = obj.categoriesSelection
                     catnum = obj.categories(k);
                     stats = struct();
-                    [stats.valmax, stats.tmax, stats.tfrac, stats.tint] = obj.ieegdata.ResponseTriggerTime(graphSettings.val_fraction, graphSettings.int_fraction, catnum, nl);
+                    [stats.valmax, stats.tmax, stats.tfrac, stats.tint] = obj.ieegdata.ResponseTriggerTime(graphSettings.val_fraction, graphSettings.int_fraction, catnum, channels);
                 
                     axisX = stats.(fig.axisX);
                     axisY = stats.(fig.axisY);
