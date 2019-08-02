@@ -37,7 +37,7 @@ for j = 1:numel(spojit)
     if j> j0 %pokud se nejedna o prvni soubor
         rozdil_sec = (tabs(1)-tabs0(end))*24*3600;
         disp(['rozdil ' num2str(rozdil_sec) ' sekund']); 
-        if testrozdil && rozdil_sec >= 1 || rozdil_sec < 0 %rozdil jedne vteriny je velmi zvlastni, nejspis se soubory nemaji spojit                        
+        if testrozdil && (rozdil_sec >= 1 || rozdil_sec) < 0 %rozdil jedne vteriny je velmi zvlastni, nejspis se soubory nemaji spojit                        
             [filename,delka] = ulozdata(j0,spojeno,adresar,spojit,d0,tabs0,fs0,header0,mults0,evts0); %#ok<NODEF>
             files = [files; {filename, spojeno, delka, rozdil_sec}]; %#ok<AGROW>
             j0 = j;        

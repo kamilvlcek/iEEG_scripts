@@ -27,7 +27,7 @@ for ff = 1:numel(filenames) %muzu mit celou serii adresaru na zpracovani se stej
 
     else
         %zpracovavam jeden soubor
-        %prvni pulka souboru - s celym najednou se spatne pracuje
+        disp(['zpracovavam ... ' filename]);
         load(filename);  
         if size(d,1)<2
             disp(['zaznam prilis kratky: ' num2str(size(d,1)) ' vzorku' ]);
@@ -49,55 +49,27 @@ for ff = 1:numel(filenames) %muzu mit celou serii adresaru na zpracovani se stej
         frek = num2str(fs/podil); %vysledna frekvence
         fs = fs / podil;
 
-        disp('first half of d ... ');
-        dpul = floor(size(d,1)/(podil*2)) * podil;  % aby delitelne podilem - pulka zaokrouhlena dolu
-        els = size(d,2);
-        d(dpul+1:end,:)=[]; %smazu druhou pulku
+        els = size(d,2);       
 
         dc1 = zeros(ceil(size(d,1)/podil),els); % d uz obsahuje jen svoji prvni pulku a delka je delitelna podilem
         for j = 1:els %musim decimovat kazdou elektrodu zvlast
             dc1(:,j) = decimate(d(:,j),podil); %na 500 Hz z 8000 Hz
         end
-        clear d;
-
+        
         %ostatni promenne krome d nerozdeluju
         if exist('tabs', 'var')
             tabs = downsample(tabs,podil);  %èas formatu    28-Jan-2014 11:35:45.000
         end
 
-        %druha pulka souboru
-        disp('second half of d ...');
-        load(filename,'d'); %maly soubor, nactu jen d
-        d(1:dpul,:)=[]; %smazu prvni pulku souboru
-        
-        if exist('mults', 'var') 
-            d = bsxfun(@times,double(d), mults); %rovnou to roznasobim mults - decimate pracuje jen s double          
-        elseif ~isfloat(d)
-            disp('d neni float type a neexistuje mults');
-            delka = numel(tabs);
-            return;
-        end
-        
-        if exist('yratio', 'var') %cim roznasobit data, aby byly stejne velike jako v systemu nickone - 0.1mV?
-            d = d*yratio; %novy system Quantum ma data 100x vetsi - uV?
-        end
-        
-        dc2 = zeros(ceil(size(d,1)/podil),els);
-        for j = 1:els %musim decimovat kazdou elektrodu zvlast
-            dc2(:,j) = decimate(d(:,j),podil); %na 500 Hz z 8000 Hz
-        end
-
-        clear d;
-
-        %spojim obe pulky souboru
-        d = vertcat(dc1,dc2);  
         delka = numel(tabs);
-
+        d = dc1;
+        clear dc1;
 
         %data ulozim do noveho souboru
         [pathstr,fname,ext] = fileparts(filename);  %ext bude .mat
         newfilename = [pathstr '\' fname '_' frek 'hz' ext];    
-        save(newfilename, '-regexp', '^(?!(mults|dc1|dc2|delka|dpul|els|ext|frek|fsforce|j|fname|name|newfilename|pathstr|podil)$).','-v7.3');
+        save(newfilename, ... 
+            '-regexp', '^(?!(mults|dc1|dc2|delka|dpul|els|ext|frek|fsforce|j|fname|name|newfilename|pathstr|podil|ff|filenames|newnames)$).','-v7.3');
         disp(['saved as ' newfilename]);
         newnames = [newnames; newfilename]; %#ok<AGROW>
     end
