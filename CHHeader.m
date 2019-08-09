@@ -660,7 +660,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 else
                     obj.plotCh2D.chshowstr = cell2str(chlabels);
                 end
-                obj.plotCh2D.chshow = find(iL); %vyber kanalu k zobrazeni       
+                obj.plotCh2D.chshow = find(iL)'; %vyber kanalu k zobrazeni  , chci je mit v radku     
                 obj.sortorder = obj.plotCh2D.chshow; %defaultni sort order pro tento vyber - nejsou tam cisla od 1 to n, ale cisla kanalu
                 disp(['zobrazeno ' num2str(numel(obj.plotCh2D.chshow)) ' kanalu']);
             else
