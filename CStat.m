@@ -49,7 +49,7 @@ classdef CStat < handle
             %time je vyhodnocovany cas ve vterinach, ale vzdy se bere z E
             %kategories jsou E.Wp.kats (cisla kategorii ve statistice), ale parametr se nikdy v kodu nepouziva, bere se z E            
             
-            ch = E.CH.sortorder(ch); %cislo kanalu musi odpovidat aktualnimu filtru a razeni
+            ch = obj.plotAUC.Eh.CH.sortorder(ch); %cislo kanalu musi odpovidat aktualnimu filtru a razeni
             
             %overim jestli se nezmenily parametry krivek - zatim mi staci kategorie, kvuli zmene statistiky
             if exist('time','var') && numel(time) == 1 %chci jen vykreslit jednu ROC krivku projeden bod

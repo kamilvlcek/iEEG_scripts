@@ -1791,7 +1791,8 @@ classdef CiEEGData < matlab.mixin.Copyable
             else    
                 kategories = obj.PsyData.Categories();
             end
-            cellout = cell(numel(channels)*numel(kategories),14);
+            
+            cellout = cell(numel(channels)*numel(kategories), 14 + length(obj.plotRCh.selChNames));
             
             for k = 1 : numel(kategories)
                 if iscell(kategories) %iff tady nefunguje, to by bylo samozrejme lepsi85858
@@ -1804,16 +1805,18 @@ classdef CiEEGData < matlab.mixin.Copyable
                 
                 for ch=1:length(tint)
                     channelHeader = channels(ch);
-                    cellout((k-1)*numel(channels)+ch, :) =  { obj.PsyData.CategoryName(katnum), obj.CH.sortorder(ch), channelHeader.name, channelHeader.neurologyLabel, ...
+                    lineIn = { obj.PsyData.CategoryName(katnum), obj.CH.sortorder(ch), channelHeader.name, channelHeader.neurologyLabel, ...
                         channelHeader.MNI_x, channelHeader.MNI_y, channelHeader.MNI_z, channelHeader.seizureOnset, channelHeader.interictalOften, ...
-                        mat2str(channelHeader.rejected),  tmax(ch), valmax(ch),  tfrac(ch), tint(ch) };  
+                        mat2str(channelHeader.rejected),  tmax(ch), valmax(ch),  tfrac(ch), tint(ch) };
+                    cellout((k-1)*numel(channels)+ch, :) =  [lineIn, num2cell(obj.plotRCh.selCh(ch, :))];  
                 end
             end
 
-            tablelog = cell2table(cellout, ...
-                'VariableNames', {'category' 'channel' 'name'  'neurologyLabel'  'MNI_x'  'MNI_y'  'MNI_z'  'seizureOnset'  'interictalOften'  ...
+            variableNames = {'category' 'channel' 'name'  'neurologyLabel'  'MNI_x'  'MNI_y'  'MNI_z'  'seizureOnset'  'interictalOften'  ...
                     'rejected' 'tmax' 'valmax'   ['t' percent{1}]   ['tint' percent{2}]
-                });
+                };
+            tablelog = cell2table(cellout, ...
+                'VariableNames', [variableNames, obj.plotRCh.selChNames]);
 
             [~,mfilename,~] = fileparts(obj.hfilename);
             mfilename = strrep(mfilename, ' ', '_');
