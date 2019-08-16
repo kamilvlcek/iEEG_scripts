@@ -134,33 +134,38 @@ classdef ScatterPlot < handle
                 [stats(k).valmax, stats(k).tmax, stats(k).tfrac, stats(k).tint] = obj.ieegdata.ResponseTriggerTime(obj.valFraction, obj.intFraction, catnum, obj.dispChannels);
             end
             
-            hold(obj.ax, 'on');
-            for k = obj.categoriesSelectionIndex
-                dataX = stats(k).(obj.axisX);
-                dataY = stats(k).(obj.axisY);
-                        
-                obj.plots(k) = scatter(obj.ax, dataX, dataY, 8, 'filled', 'DisplayName', obj.categoryNames(k));
-                legend(obj.ax);
-            end
+            categoryMarkers = {'x', 'o', 's', 'd'};
+            sizes = 24;
+            colors = obj.dispChannels;
             
+            hold(obj.ax, 'on');
             delete(obj.pairsPlot); obj.pairsPlot = [];
             if obj.connectPairs     % Nakresli linku spojujici prislusny par. Pro rychlejsi vykreslovani je pouzit jeden plot, zdrojova data jsou dvojice souradnic za sebou, oddelene NaNem
                 if length(obj.categoriesSelectionIndex) == 2
                     k1 = obj.categoriesSelectionIndex(1);
                     k2 = obj.categoriesSelectionIndex(2);
                     l = length(stats(k1).(obj.axisX));
-                    conx = NaN(1, 3*l);
-                    conx(1:3:3*l) = stats(k1).(obj.axisX);
-                    conx(2:3:3*l) = stats(k2).(obj.axisX);
-                    cony = NaN(1, 3*l);
-                    cony(1:3:3*l) = stats(k1).(obj.axisY);
-                    cony(2:3:3*l) = stats(k2).(obj.axisY);
-                    obj.pairsPlot = plot(obj.ax, conx, cony, 'Color', [0.8, 0.8, 0.8]);
+                    connX = NaN(1, 3*l);
+                    connX(1:3:3*l) = stats(k1).(obj.axisX);
+                    connX(2:3:3*l) = stats(k2).(obj.axisX);
+                    connY = NaN(1, 3*l);
+                    connY(1:3:3*l) = stats(k1).(obj.axisY);
+                    connY(2:3:3*l) = stats(k2).(obj.axisY);
+                    obj.pairsPlot = plot(obj.ax, connX, connY, 'Color', [0.8 0.8 0.8]);
                 else
                     disp('Pair connection must include exactly 2 categories');
                     obj.connectPairs = false;
                 end
             end
+            
+            for k = obj.categoriesSelectionIndex
+                dataX = stats(k).(obj.axisX);
+                dataY = stats(k).(obj.axisY);
+                
+                obj.plots(k) = scatter(obj.ax, dataX, dataY, sizes, colors, categoryMarkers{k}, 'DisplayName', obj.categoryNames(k));
+                legend(obj.ax);
+            end
+            
             hold(obj.ax, 'off');
         end
         
