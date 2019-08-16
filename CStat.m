@@ -648,7 +648,7 @@ classdef CStat < handle
                     obj.AUCPlot(obj.plotAUC.ch);
                 case {'f','g','h','j','k','l'}                    
                     channels = find(obj.plotAUC.selCh(:,'fghjkl'==eventDat.Key))'; %cisla musi byt v radce
-                    obj.AUCPlotM(channels,find('fghjkl'==eventDat.Key),0); %#ok<FNDSB> %povinne ted uvadim predvybrany kanal
+                    obj.AUCPlot(channels,find('fghjkl'==eventDat.Key),0); %#ok<FNDSB> %povinne ted uvadim predvybrany kanal
             end            
         end
         function obj = hybejAUCPlotM(obj,~,eventDat)

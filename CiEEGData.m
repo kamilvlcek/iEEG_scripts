@@ -1801,7 +1801,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                     katnum = kategories(k); %cislo kategorie, muze byt cell, pokud vice kategorii proti jedne
                 end 
                 
-                [valmax, tmax, tfrac, tint] = obj.ResponseTriggerTime(val_fraction, int_fraction, katnum,obj.CH.sortorder);
+                [valmax, tmax, tfrac, tint] = obj.ResponseTriggerTime(val_fraction, int_fraction, katnum, obj.CH.sortorder);
                 
                 for ch=1:length(tint)
                     channelHeader = channels(ch);
