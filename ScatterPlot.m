@@ -17,6 +17,11 @@ classdef ScatterPlot < handle
         ax
         plots
         sbox
+        pbox
+        
+        showNumbers
+        numbers
+        markerSize
         
         axisX
         axisY
@@ -40,6 +45,9 @@ classdef ScatterPlot < handle
             %TODO: Hodilo by se zachytit zmenu FilterChannles pres event?
             obj.dispChannels = obj.ieegdata.CH.sortorder; % Vyber podle FilterChannels
             obj.connectPairs = false;
+            obj.showNumbers = false;
+            obj.numbers = [];
+            obj.markerSize = 34;
             
             obj.setCategories();
             
@@ -125,8 +133,12 @@ classdef ScatterPlot < handle
             
             delete(obj.sbox);
             if ~isempty(obj.dispSelChName)
-                obj.sbox = annotation(obj.fig, 'textbox',[0 .9 .4 .1],'String',obj.dispSelChName,'EdgeColor','none');
+                obj.sbox = annotation(obj.fig, 'textbox',[0 .9 .4 .1], 'String', obj.dispSelChName, 'EdgeColor', 'none');
             end
+            
+            delete(obj.pbox);
+            catlist = strjoin(obj.categoryNames(obj.categoriesSelectionIndex), ', ');
+            obj.pbox = annotation(obj.fig, 'textbox', [0 0 .4 .1], 'String', ['C: ' catlist], 'EdgeColor', 'none');
             
             stats = struct();
             for k = obj.categoriesSelectionIndex
@@ -135,35 +147,46 @@ classdef ScatterPlot < handle
             end
             
             categoryMarkers = {'x', 'o', 's', 'd'};
-            sizes = 24;
-            colors = obj.dispChannels;
+            colors = obj.dispChannels/max(obj.dispChannels);    % Normalizace na 0,1
             
             hold(obj.ax, 'on');
             delete(obj.pairsPlot); obj.pairsPlot = [];
-            if obj.connectPairs     % Nakresli linku spojujici prislusny par. Pro rychlejsi vykreslovani je pouzit jeden plot, zdrojova data jsou dvojice souradnic za sebou, oddelene NaNem
+            if obj.connectPairs     % Nakresli linku spojujici prislusny par. Ruzne barvy musi byt samostatny plot (aby mohl scatter zustat ve stejnych osach)
                 if length(obj.categoriesSelectionIndex) == 2
                     k1 = obj.categoriesSelectionIndex(1);
                     k2 = obj.categoriesSelectionIndex(2);
                     l = length(stats(k1).(obj.axisX));
-                    connX = NaN(1, 3*l);
-                    connX(1:3:3*l) = stats(k1).(obj.axisX);
-                    connX(2:3:3*l) = stats(k2).(obj.axisX);
-                    connY = NaN(1, 3*l);
-                    connY(1:3:3*l) = stats(k1).(obj.axisY);
-                    connY(2:3:3*l) = stats(k2).(obj.axisY);
-                    obj.pairsPlot = plot(obj.ax, connX, connY, 'Color', [0.8 0.8 0.8]);
+                    x1 = stats(k1).(obj.axisX);
+                    x2 = stats(k2).(obj.axisX);
+                    y1 = stats(k1).(obj.axisY);
+                    y2 = stats(k2).(obj.axisY);
+                    
+                    % Mapovani barev
+                    cmap = colormap(obj.ax);
+                    colorIndex = floor(colors * size(cmap,1));
+                    colorIndex(colorIndex == 0) = 1;
+                    colorIndex(colorIndex > size(cmap,1)) = size(cmap,1);
+                    
+                    for k = 1:l-1
+                        obj.pairsPlot(k) = plot([x1(k) x2(k)], [y1(k) y2(k)], 'Color', cmap(colorIndex(k), :));
+                    end
                 else
                     disp('Pair connection must include exactly 2 categories');
                     obj.connectPairs = false;
                 end
             end
             
+            delete(obj.numbers); obj.numbers = [];
             for k = obj.categoriesSelectionIndex
                 dataX = stats(k).(obj.axisX);
                 dataY = stats(k).(obj.axisY);
-                
-                obj.plots(k) = scatter(obj.ax, dataX, dataY, sizes, colors, categoryMarkers{k}, 'DisplayName', obj.categoryNames(k));
-                legend(obj.ax);
+                obj.plots(k) = scatter(obj.ax, dataX, dataY, obj.markerSize, colors, categoryMarkers{k}, 'filled', 'DisplayName', obj.categoryNames(k));
+                if obj.showNumbers
+                    dx = diff(xlim)/100;
+                    th = text(dataX+dx, dataY, cellstr(num2str(obj.dispChannels')), 'FontSize', 8);
+                    set(th, 'Clipping', 'on');
+                    obj.numbers = [obj.numbers th];
+                end
             end
             
             hold(obj.ax, 'off');
@@ -193,7 +216,16 @@ classdef ScatterPlot < handle
                 case {'s'}
                     obj.connectPairs = ~obj.connectPairs;
                     obj.updateScatterPlot();
-            end            
+                case {'n'}
+                    obj.showNumbers = ~obj.showNumbers;
+                    obj.updateScatterPlot();
+                case {'add'}
+                    obj.markerSize = obj.markerSize + 8;
+                    obj.updateScatterPlot();
+                case {'subtract'}
+                    obj.markerSize = max(2, obj.markerSize - 8);
+                    obj.updateScatterPlot();
+            end
         end
         
     end
