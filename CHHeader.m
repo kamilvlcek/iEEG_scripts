@@ -17,6 +17,11 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         
     end
     %#ok<*PROPLC>
+    
+    events
+        FilterChanged
+    end
+    
     methods (Access = public)
         function obj = CHHeader(H,filename)
             %konstruktor
@@ -669,7 +674,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 obj.sortorder = 1:numel(obj.H.channels); %defaultni sort order pro vsechny kanaly
                 disp('zobrazeny vsechny kanalu');
             end
-            
+            notify(obj, 'FilterChanged');
         end
         function obj = Plot3DBoundary(obj)
             %vykresli obrys mozku ve vsech rozmerech do 3d grafu

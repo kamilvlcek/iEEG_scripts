@@ -8,7 +8,10 @@ classdef ScatterPlot < handle
         
         selCh
         selChNames
+        dispSelCh
         dispSelChName
+        
+        dispFilterCh
         
         connectPairs
         pairsPlot
@@ -32,6 +35,8 @@ classdef ScatterPlot < handle
         categories
         categoryNames
         categoriesSelectionIndex
+        
+        filterListener
     end
     
     methods
@@ -42,8 +47,9 @@ classdef ScatterPlot < handle
             obj.selCh = ieegdata.plotRCh.selCh; %vyber kanalu fghjkl * pocet kanalu
             obj.selChNames = ieegdata.plotRCh.selChNames; %vyber kanalu fghjkl * pocet kanalu
             obj.dispSelChName = [];
-            %TODO: Hodilo by se zachytit zmenu FilterChannles pres event?
-            obj.dispChannels = obj.ieegdata.CH.sortorder; % Vyber podle FilterChannels
+            obj.dispSelCh = 1:size(obj.selCh,1);  % Zobrazuji vse
+            
+            obj.dispFilterCh = obj.ieegdata.CH.sortorder; % Vyber podle FilterChannels
             obj.connectPairs = false;
             obj.showNumbers = false;
             obj.numbers = [];
@@ -57,9 +63,10 @@ classdef ScatterPlot < handle
         function drawScatterPlot(obj, valFraction, intFraction, axisX, axisY)
             obj.setTriggerValues(valFraction, intFraction);
             obj.initAxes(axisX, axisY);
-            obj.updateScatterPlot();
+            obj.updatePlot();
             obj.fixAxesLimits();
         end
+
     end
 
     methods(Access = private)
@@ -110,7 +117,10 @@ classdef ScatterPlot < handle
             obj.axisX = axisX;
             obj.axisY = axisY;
             
-            obj.fig = figure;
+            obj.fig = figure('CloseRequestFcn',@obj.tearDownFigCallback);
+            
+            obj.filterListener = addlistener(obj.ieegdata.CH, 'FilterChanged', @obj.filterChangedCallback);
+            
             obj.ax = axes(obj.fig);
             xlabel(obj.ax, labelX);
             ylabel(obj.ax, labelY);
@@ -127,7 +137,9 @@ classdef ScatterPlot < handle
             ylim(ylim(obj.ax));
         end
         
-        function updateScatterPlot(obj)
+        function updatePlot(obj)
+            obj.setDisplayedChannels(); % Kombinace voleb pro zobrazeni kanalu
+            
             delete(obj.plots);
             obj.plots = [];
             
@@ -152,6 +164,7 @@ classdef ScatterPlot < handle
             hold(obj.ax, 'on');
             delete(obj.pairsPlot); obj.pairsPlot = [];
             if obj.connectPairs     % Nakresli linku spojujici prislusny par. Ruzne barvy musi byt samostatny plot (aby mohl scatter zustat ve stejnych osach)
+                legend(obj.ax, 'off');  % V tomhle pripade by mela kazda linka vlastni legendu
                 if length(obj.categoriesSelectionIndex) == 2
                     k1 = obj.categoriesSelectionIndex(1);
                     k2 = obj.categoriesSelectionIndex(2);
@@ -174,13 +187,15 @@ classdef ScatterPlot < handle
                     disp('Pair connection must include exactly 2 categories');
                     obj.connectPairs = false;
                 end
+            else
+                legend(obj.ax);  % Zobrazit legendu, pokud nejsou zobrazene linky
             end
             
             delete(obj.numbers); obj.numbers = [];
             for k = obj.categoriesSelectionIndex
                 dataX = stats(k).(obj.axisX);
                 dataY = stats(k).(obj.axisY);
-                obj.plots(k) = scatter(obj.ax, dataX, dataY, obj.markerSize, colors, categoryMarkers{k}, 'filled', 'DisplayName', obj.categoryNames(k));
+                obj.plots(k) = scatter(obj.ax, dataX, dataY, obj.markerSize, colors, categoryMarkers{k}, 'MarkerFaceColor', 'flat', 'DisplayName', obj.categoryNames(k));
                 if obj.showNumbers
                     dx = diff(xlim)/100;
                     th = text(dataX+dx, dataY, cellstr(num2str(obj.dispChannels')), 'FontSize', 8);
@@ -195,7 +210,6 @@ classdef ScatterPlot < handle
         function hybejScatterPlot(obj,~,eventDat)
             switch eventDat.Key
                 case {'u','i','o','p'}
-                    disp(obj.categoriesSelectionIndex);
                     ik = find('uiop'==eventDat.Key); % index 1-4
                     if ik <= numel(obj.categories)
                         if(ismember(ik, obj.categoriesSelectionIndex))
@@ -204,28 +218,43 @@ classdef ScatterPlot < handle
                             obj.categoriesSelectionIndex = union(obj.categoriesSelectionIndex, ik);
                         end
                     end    
-                    obj.updateScatterPlot();
-                case {'a'}
-                    obj.dispChannels = obj.ieegdata.CH.sortorder; % Vyber podle FilterChannels
+                    obj.updatePlot();
+                case {'a'}  % Resset do zakladniho vyberu
+                    obj.dispFilterCh = obj.ieegdata.CH.sortorder; % Vyber podle FilterChannels
+                    obj.dispSelCh = 1:size(obj.selCh,1);   % Zrusit vyber dle SelCh
                     obj.dispSelChName = [];
-                    obj.updateScatterPlot();
+                    obj.updatePlot();
                 case {'f','g','h','j','k','l'}
-                    obj.dispChannels = find(obj.selCh(:,'fghjkl'==eventDat.Key))';
+                    obj.dispSelCh = find(obj.selCh(:,'fghjkl'==eventDat.Key)');
                     obj.dispSelChName = obj.selChNames{'fghjkl'==eventDat.Key};
-                    obj.updateScatterPlot();
+                    obj.updatePlot();
                 case {'s'}
                     obj.connectPairs = ~obj.connectPairs;
-                    obj.updateScatterPlot();
+                    obj.updatePlot();
                 case {'n'}
                     obj.showNumbers = ~obj.showNumbers;
-                    obj.updateScatterPlot();
+                    obj.updatePlot();
                 case {'add'}
                     obj.markerSize = obj.markerSize + 8;
-                    obj.updateScatterPlot();
+                    obj.updatePlot();
                 case {'subtract'}
                     obj.markerSize = max(2, obj.markerSize - 8);
-                    obj.updateScatterPlot();
+                    obj.updatePlot();
             end
+        end
+        
+        function setDisplayedChannels(obj)
+            obj.dispChannels = intersect(obj.dispFilterCh, obj.dispSelCh);
+        end
+        
+        function filterChangedCallback(obj,~,~)
+            obj.dispFilterCh = obj.ieegdata.CH.sortorder;   % Zmena vyberu dle filtru
+            obj.updatePlot();
+        end
+        
+        function tearDownFigCallback(obj,src,~)
+            delete(obj.filterListener);
+            delete(src)
         end
         
     end
