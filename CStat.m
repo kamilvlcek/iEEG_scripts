@@ -48,8 +48,11 @@ classdef CStat < handle
             %pouzije data z plotAUC, pokud je potreba zavola funkci ROCAnalysis
             %time je vyhodnocovany cas ve vterinach, ale vzdy se bere z E
             %kategories jsou E.Wp.kats (cisla kategorii ve statistice), ale parametr se nikdy v kodu nepouziva, bere se z E            
-            
-            ch = obj.plotAUC.Eh.CH.sortorder(ch); %cislo kanalu musi odpovidat aktualnimu filtru a razeni
+            if exist('E','var')
+                ch = E.CH.sortorder(ch); 
+            else                
+                ch = obj.plotAUC.Eh.CH.sortorder(ch);%cislo kanalu musi odpovidat aktualnimu filtru a razeni
+            end
             
             %overim jestli se nezmenily parametry krivek - zatim mi staci kategorie, kvuli zmene statistiky
             if exist('time','var') && numel(time) == 1 %chci jen vykreslit jednu ROC krivku projeden bod
@@ -641,14 +644,16 @@ classdef CStat < handle
                     ik = find('uiop'==eventDat.Key); %index 1-4
                     if ik <= numel(obj.plotAUC.katplot) %pokud je dost kontrastu mezi kategoriemi k zobrazeni
                         obj.plotAUC.katplot( ik ) = 1 - obj.plotAUC.katplot(ik);
-                    end    
+                    end
+                    %obnovim jednu krivku AUC
                     obj.AUCPlot(obj.plotAUC.ch);                      
                 case {'c'}
                     obj.plotAUC.corelplot = 1 - obj.plotAUC.corelplot;
                     obj.AUCPlot(obj.plotAUC.ch);
                 case {'f','g','h','j','k','l'}                    
                     channels = find(obj.plotAUC.selCh(:,'fghjkl'==eventDat.Key))'; %cisla musi byt v radce
-                    obj.AUCPlot(channels,find('fghjkl'==eventDat.Key),0); %#ok<FNDSB> %povinne ted uvadim predvybrany kanal
+                    %vytvorim multiple AUC graf:
+                    obj.AUCPlotM(channels,find('fghjkl'==eventDat.Key),0); %#ok<FNDSB> %povinne ted uvadim predvybrany kanal
             end            
         end
         function obj = hybejAUCPlotM(obj,~,eventDat)

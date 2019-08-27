@@ -57,7 +57,7 @@ classdef ScatterPlot < handle
             
             obj.setCategories();
             
-            obj.drawScatterPlot(0.5, 0.5, 'tmax', 'valmax');
+            obj.drawScatterPlot(0.5, 0.5, 'tmax', 'valmax'); %TODO; zmenit na tmax, valmax, 0.5, 0.5
         end
         
         function drawScatterPlot(obj, valFraction, intFraction, axisX, axisY)
@@ -72,7 +72,11 @@ classdef ScatterPlot < handle
     methods(Access = private)
         
         function setCategories(obj)
-            obj.categories = obj.ieegdata.PsyData.Categories();
+            if ~isempty(obj.ieegdata.Wp) && isfield(obj.ieegdata.Wp(obj.ieegdata.WpActive), 'kats') %prvni volba je pouzit kategorie ze statistiky
+                obj.categories  = flip(obj.ieegdata.Wp(obj.ieegdata.WpActive).kats);
+            else
+                obj.categories = obj.ieegdata.PsyData.Categories(); %pokud nejsou, pouziju vsechny kategorie
+            end
             obj.categoryNames = strings(size(obj.categories));
             for k = 1 : numel(obj.categories)
                 if iscell(obj.categories) %iff tady nefunguje, to by bylo samozrejme lepsi85858
@@ -158,10 +162,11 @@ classdef ScatterPlot < handle
                 [stats(k).valmax, stats(k).tmax, stats(k).tfrac, stats(k).tint] = obj.ieegdata.ResponseTriggerTime(obj.valFraction, obj.intFraction, catnum, obj.dispChannels);
             end
             
-            categoryMarkers = {'x', 'o', 's', 'd'};
+            categoryMarkers = {'o', 's', 'd','x'};
             colors = obj.dispChannels/max(obj.dispChannels);    % Normalizace na 0,1
             
             hold(obj.ax, 'on');
+            legend(obj.ax, 'off');
             delete(obj.pairsPlot); obj.pairsPlot = [];
             if obj.connectPairs     % Nakresli linku spojujici prislusny par. Ruzne barvy musi byt samostatny plot (aby mohl scatter zustat ve stejnych osach)
                 if length(obj.categoriesSelectionIndex) == 2
@@ -192,7 +197,7 @@ classdef ScatterPlot < handle
             for k = obj.categoriesSelectionIndex
                 dataX = stats(k).(obj.axisX);
                 dataY = stats(k).(obj.axisY);
-                obj.plots(k) = scatter(obj.ax, dataX, dataY, obj.markerSize, colors, categoryMarkers{k}, 'MarkerFaceColor', 'flat', 'DisplayName', obj.categoryNames(k));
+                obj.plots(k) = scatter(obj.ax, dataX, dataY, obj.markerSize, colors, categoryMarkers{k}, 'MarkerFaceColor', 'flat', 'DisplayName', obj.categoryNames{k});
                 if obj.showNumbers
                     dx = diff(xlim)/100;
                     th = text(dataX+dx, dataY, cellstr(num2str(obj.dispChannels')), 'FontSize', 8);
@@ -201,7 +206,7 @@ classdef ScatterPlot < handle
                 end
             end
 
-            legend(obj.ax);
+            legend(obj.ax, 'show');
             hold(obj.ax, 'off');
         end
         
