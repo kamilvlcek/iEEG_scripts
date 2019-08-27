@@ -164,7 +164,6 @@ classdef ScatterPlot < handle
             hold(obj.ax, 'on');
             delete(obj.pairsPlot); obj.pairsPlot = [];
             if obj.connectPairs     % Nakresli linku spojujici prislusny par. Ruzne barvy musi byt samostatny plot (aby mohl scatter zustat ve stejnych osach)
-                legend(obj.ax, 'off');  % V tomhle pripade by mela kazda linka vlastni legendu
                 if length(obj.categoriesSelectionIndex) == 2
                     k1 = obj.categoriesSelectionIndex(1);
                     k2 = obj.categoriesSelectionIndex(2);
@@ -181,14 +180,12 @@ classdef ScatterPlot < handle
                     colorIndex(colorIndex > size(cmap,1)) = size(cmap,1);
                     
                     for k = 1:l-1
-                        obj.pairsPlot(k) = plot([x1(k) x2(k)], [y1(k) y2(k)], 'Color', cmap(colorIndex(k), :));
+                        obj.pairsPlot(k) = plot([x1(k) x2(k)], [y1(k) y2(k)], 'Color', cmap(colorIndex(k), :), 'HandleVisibility','off');
                     end
                 else
                     disp('Pair connection must include exactly 2 categories');
                     obj.connectPairs = false;
                 end
-            else
-                legend(obj.ax);  % Zobrazit legendu, pokud nejsou zobrazene linky
             end
             
             delete(obj.numbers); obj.numbers = [];
@@ -203,7 +200,8 @@ classdef ScatterPlot < handle
                     obj.numbers = [obj.numbers th];
                 end
             end
-            
+
+            legend(obj.ax);
             hold(obj.ax, 'off');
         end
         
