@@ -163,7 +163,6 @@ classdef ScatterPlot < handle
             end
             
             categoryMarkers = {'o', 's', 'd','x'};
-            colors = obj.dispChannels/max(obj.dispChannels);    % Normalizace na 0,1
             
             hold(obj.ax, 'on');
             legend(obj.ax, 'off');
@@ -178,14 +177,8 @@ classdef ScatterPlot < handle
                     y1 = stats(k1).(obj.axisY);
                     y2 = stats(k2).(obj.axisY);
                     
-                    % Mapovani barev
-                    cmap = colormap(obj.ax);
-                    colorIndex = floor(colors * size(cmap,1));
-                    colorIndex(colorIndex == 0) = 1;
-                    colorIndex(colorIndex > size(cmap,1)) = size(cmap,1);
-                    
                     for k = 1:l-1
-                        obj.pairsPlot(k) = plot([x1(k) x2(k)], [y1(k) y2(k)], 'Color', cmap(colorIndex(k), :), 'HandleVisibility','off');
+                        obj.pairsPlot(k) = plot([x1(k) x2(k)], [y1(k) y2(k)], 'Color', [0.5 0.5 0.5], 'HandleVisibility','off');
                     end
                 else
                     disp('Pair connection must include exactly 2 categories');
@@ -193,11 +186,12 @@ classdef ScatterPlot < handle
                 end
             end
             
+            baseColors = [1 0 0; 0 1 0; 0 0 1; 1 1 0; 1 0 1; 0 1 0];
             delete(obj.numbers); obj.numbers = [];
             for k = obj.categoriesSelectionIndex
                 dataX = stats(k).(obj.axisX);
                 dataY = stats(k).(obj.axisY);
-                obj.plots(k) = scatter(obj.ax, dataX, dataY, obj.markerSize, colors, categoryMarkers{k}, 'MarkerFaceColor', 'flat', 'DisplayName', obj.categoryNames{k});
+                obj.plots(k) = scatter(obj.ax, dataX, dataY, obj.markerSize, repmat(baseColors(k,:), length(dataX), 1), categoryMarkers{k}, 'MarkerFaceColor', 'flat', 'DisplayName', obj.categoryNames{k});
                 if obj.showNumbers
                     dx = diff(xlim)/100;
                     th = text(dataX+dx, dataY, cellstr(num2str(obj.dispChannels')), 'FontSize', 8);
