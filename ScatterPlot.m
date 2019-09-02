@@ -163,7 +163,7 @@ classdef ScatterPlot < handle
             end
             
             categoryMarkers = {'o', 's', 'd','x'};
-            colors = obj.dispChannels/max(obj.dispChannels);    % Normalizace na 0,1
+            colors = [0 1 0; 0 0 1;  1 0 0; 0 0 0 ]; %obj.dispChannels/max(obj.dispChannels);    % Normalizace na 0,1
             
             hold(obj.ax, 'on');
             legend(obj.ax, 'off');
@@ -197,7 +197,7 @@ classdef ScatterPlot < handle
             for k = obj.categoriesSelectionIndex
                 dataX = stats(k).(obj.axisX);
                 dataY = stats(k).(obj.axisY);
-                obj.plots(k) = scatter(obj.ax, dataX, dataY, obj.markerSize, colors, categoryMarkers{k}, 'MarkerFaceColor', 'flat', 'DisplayName', obj.categoryNames{k});
+                obj.plots(k) = scatter(obj.ax, dataX, dataY, obj.markerSize, colors(k,:), categoryMarkers{k}, 'MarkerFaceColor', 'flat', 'DisplayName', obj.categoryNames{k});
                 if obj.showNumbers
                     dx = diff(xlim)/100;
                     th = text(dataX+dx, dataY, cellstr(num2str(obj.dispChannels')), 'FontSize', 8);
