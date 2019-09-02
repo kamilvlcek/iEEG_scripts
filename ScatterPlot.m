@@ -143,7 +143,7 @@ classdef ScatterPlot < handle
         
         function updatePlot(obj)
             obj.setDisplayedChannels(); % Kombinace voleb pro zobrazeni kanalu
-            
+
             delete(obj.plots);
             obj.plots = [];
             
@@ -157,6 +157,11 @@ classdef ScatterPlot < handle
             obj.pbox = annotation(obj.fig, 'textbox', [0 0 .4 .1], 'String', ['C: ' catlist], 'EdgeColor', 'none');
             
             stats = struct();
+            if isempty(obj.dispChannels)
+                disp('No channels corresponding to the selection');
+                return;
+            end
+            
             for k = obj.categoriesSelectionIndex
                 catnum = obj.categories(k);
                 [stats(k).valmax, stats(k).tmax, stats(k).tfrac, stats(k).tint] = obj.ieegdata.ResponseTriggerTime(obj.valFraction, obj.intFraction, catnum, obj.dispChannels);
