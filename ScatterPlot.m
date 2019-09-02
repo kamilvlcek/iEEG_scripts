@@ -168,20 +168,25 @@ classdef ScatterPlot < handle
             legend(obj.ax, 'off');
             delete(obj.pairsPlot); obj.pairsPlot = [];
             if obj.connectPairs     % Nakresli linku spojujici prislusny par. Ruzne barvy musi byt samostatny plot (aby mohl scatter zustat ve stejnych osach)
-                if length(obj.categoriesSelectionIndex) == 2
-                    k1 = obj.categoriesSelectionIndex(1);
-                    k2 = obj.categoriesSelectionIndex(2);
-                    l = length(stats(k1).(obj.axisX));
-                    x1 = stats(k1).(obj.axisX);
-                    x2 = stats(k2).(obj.axisX);
-                    y1 = stats(k1).(obj.axisY);
-                    y2 = stats(k2).(obj.axisY);
-                    
-                    for k = 1:l-1
-                        obj.pairsPlot(k) = plot([x1(k) x2(k)], [y1(k) y2(k)], 'Color', [0.5 0.5 0.5], 'HandleVisibility','off');
+                if length(obj.categoriesSelectionIndex) > 1
+                    catIndex = zeros(size(obj.categoriesSelectionIndex(1)));
+                    x = zeros(length(obj.categoriesSelectionIndex(1)), length(stats(1).(obj.axisX)));
+                    y = zeros(length(obj.categoriesSelectionIndex(1)), length(stats(1).(obj.axisX)));
+                    for cat = 1:length(obj.categoriesSelectionIndex)
+                        catIndex(cat) = obj.categoriesSelectionIndex(cat);
+                        x(cat,:) = stats(cat).(obj.axisX);
+                        y(cat,:) = stats(cat).(obj.axisY);
+                    end
+                    l = length(stats(catIndex(1)).(obj.axisX));
+                    for c1 = 1:length(obj.categoriesSelectionIndex)
+                        for c2 = 1:c1-1
+                            for k = 1:l-1
+                                obj.pairsPlot(k) = plot([x(c1,k) x(c2,k)], [y(c1,k) y(c2,k)], 'Color', [0.5 0.5 0.5], 'HandleVisibility','off');
+                            end
+                        end
                     end
                 else
-                    disp('Pair connection must include exactly 2 categories');
+                    disp('No categories to connect');
                     obj.connectPairs = false;
                 end
             end
