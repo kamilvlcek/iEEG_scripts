@@ -1746,12 +1746,15 @@ classdef CiEEGData < matlab.mixin.Copyable
             if ~exist('channels', 'var') || isempty(channels)
                 [katdata,~,RjEpCh] = obj.CategoryData(katnum); %eegdata - epochy jedne kategorie                       
                 channels = 1:size(katdata, 2);
+                M = mean(katdata(:, channels, ~RjEpCh(1,:)), 3);
             else
-                [katdata,~,RjEpCh] = obj.CategoryData(katnum,[],[],channels); %eegdata - epochy jedne kategorie
+                M = [];
+                for ch = 1:length(channels)
+                    [katdata,~,RjEpCh] = obj.CategoryData(katnum,[],[],channels(ch)); %eegdata - epochy jedne kategorie
+                    M(:,ch) = mean(katdata(:, channels(ch), ~RjEpCh(1,:)), 3);
+                end
             end
             
-            M = mean(katdata(:, channels, ~RjEpCh(1,:)), 3);
-
             n = size(M,2);
             
             tint = zeros(1, n);
