@@ -1743,10 +1743,11 @@ classdef CiEEGData < matlab.mixin.Copyable
         function [valmax, tmax, tfrac, tint] = ResponseTriggerTime(obj, val_fraction, int_fraction, katnum, channels)
             T = linspace(obj.epochtime(1),obj.epochtime(2),size(obj.d,1));
             
-            [katdata,~,RjEpCh] = obj.CategoryData(katnum); %eegdata - epochy jedne kategorie                       
-            
             if ~exist('channels', 'var') || isempty(channels)
+                [katdata,~,RjEpCh] = obj.CategoryData(katnum); %eegdata - epochy jedne kategorie                       
                 channels = 1:size(katdata, 2);
+            else
+                [katdata,~,RjEpCh] = obj.CategoryData(katnum,[],[],channels); %eegdata - epochy jedne kategorie
             end
             
             M = mean(katdata(:, channels, ~RjEpCh(1,:)), 3);

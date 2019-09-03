@@ -196,7 +196,7 @@ classdef ScatterPlot < handle
                 end
             end
             
-            baseColors = [1 0 0; 0 1 0; 0 0 1; 1 1 0; 1 0 1; 0 1 0];
+            baseColors = [0 1 0; 0 0 1; 1 0 0; 1 1 0; 1 0 1; 0 1 0];
             delete(obj.numbers); obj.numbers = [];
             for k = obj.categoriesSelectionIndex
                 dataX = stats(k).(obj.axisX);
