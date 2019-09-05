@@ -146,13 +146,15 @@ classdef ScatterPlot < handle
 
             delete(obj.plots);
             obj.plots = [];
-            
             delete(obj.sbox);
+            delete(obj.pbox);            
+            delete(obj.pairsPlot); obj.pairsPlot = [];
+            delete(obj.numbers); obj.numbers = [];            
+            
             if ~isempty(obj.dispSelChName)
                 obj.sbox = annotation(obj.fig, 'textbox',[0 .9 .4 .1], 'String', obj.dispSelChName, 'EdgeColor', 'none');
             end
             
-            delete(obj.pbox);
             catlist = strjoin(obj.categoryNames(obj.categoriesSelectionIndex), ', ');
             obj.pbox = annotation(obj.fig, 'textbox', [0 0 .4 .1], 'String', ['C: ' catlist], 'EdgeColor', 'none');
             
@@ -171,7 +173,7 @@ classdef ScatterPlot < handle
             
             hold(obj.ax, 'on');
             legend(obj.ax, 'off');
-            delete(obj.pairsPlot); obj.pairsPlot = [];
+            
             if obj.connectPairs     % Nakresli linku spojujici prislusny par. Ruzne barvy musi byt samostatny plot (aby mohl scatter zustat ve stejnych osach)
                 if length(obj.categoriesSelectionIndex) > 1
                     catIndex = zeros(size(obj.categoriesSelectionIndex(1)));
@@ -185,8 +187,8 @@ classdef ScatterPlot < handle
                     l = length(stats(catIndex(1)).(obj.axisX));
                     for c1 = 1:length(obj.categoriesSelectionIndex)
                         for c2 = 1:c1-1
-                            for k = 1:l-1
-                                obj.pairsPlot(k) = plot([x(c1,k) x(c2,k)], [y(c1,k) y(c2,k)], 'Color', [0.5 0.5 0.5], 'HandleVisibility','off');
+                            for k = 1:l
+                                obj.pairsPlot(end+1) = plot([x(c1,k) x(c2,k)], [y(c1,k) y(c2,k)], 'Color', [0.5 0.5 0.5], 'HandleVisibility','off');
                             end
                         end
                     end
@@ -197,7 +199,6 @@ classdef ScatterPlot < handle
             end
             
             baseColors = [0 1 0; 0 0 1; 1 0 0; 1 1 0; 1 0 1; 0 1 0];
-            delete(obj.numbers); obj.numbers = [];
             for k = obj.categoriesSelectionIndex
                 dataX = stats(k).(obj.axisX);
                 dataY = stats(k).(obj.axisY);
