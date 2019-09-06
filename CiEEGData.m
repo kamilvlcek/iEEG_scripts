@@ -1792,31 +1792,44 @@ classdef CiEEGData < matlab.mixin.Copyable
                 kategories = obj.PsyData.Categories();
             end
             
-            cellout = cell(numel(channels)*numel(kategories), 14 + length(obj.plotRCh.selChNames));
-            
-            for k = 1 : numel(kategories)
-                if iscell(kategories) %iff tady nefunguje, to by bylo samozrejme lepsi85858
-                    katnum = kategories{k}; %cislo kategorie, muze byt cell, pokud vice kategorii proti jedne
-                else
-                    katnum = kategories(k); %cislo kategorie, muze byt cell, pokud vice kategorii proti jedne
-                end 
-                
-                [valmax, tmax, tfrac, tint] = obj.ResponseTriggerTime(val_fraction, int_fraction, katnum, obj.CH.sortorder);
-                
-                for ch=1:length(tint)
-                    channelHeader = channels(ch);
-                    lineIn = { obj.PsyData.CategoryName(katnum), obj.CH.sortorder(ch), channelHeader.name, channelHeader.neurologyLabel, ...
+           cellout = cell(numel(channels), 9 + length(obj.plotRCh.selChNames) + 4*numel(kategories));
+           
+           RespVALS = struct; %struct array, kam si predpocitam hodnoty
+           for k = 1:numel(kategories)
+               katnum = cellval(kategories,k); %funkce cellval funguje at je to cell array nebo neni
+               [RespVALS(k).tmax, RespVALS(k).valmax,  RespVALS(k).tfrac, RespVALS(k).tint] = obj.ResponseTriggerTime(val_fraction, int_fraction, katnum, obj.CH.sortorder);                  
+           end
+           
+           %pres vsechny kanaly plnim tabulku
+           for ch=1:numel(channels)              
+               channelHeader = channels(ch);
+               lineIn = [{ obj.CH.sortorder(ch), channelHeader.name, channelHeader.neurologyLabel, ...
                         channelHeader.MNI_x, channelHeader.MNI_y, channelHeader.MNI_z, channelHeader.seizureOnset, channelHeader.interictalOften, ...
-                        mat2str(channelHeader.rejected),  tmax(ch), valmax(ch),  tfrac(ch), tint(ch) };
-                    cellout((k-1)*numel(channels)+ch, :) =  [lineIn, num2cell(obj.plotRCh.selCh(ch, :))];  
-                end
-            end
-
-            variableNames = {'category' 'channel' 'name'  'neurologyLabel'  'MNI_x'  'MNI_y'  'MNI_z'  'seizureOnset'  'interictalOften'  ...
-                    'rejected' 'tmax' 'valmax'   ['t' percent{1}]   ['tint' percent{2}]
-                };
+                        mat2str(channelHeader.rejected)} , ...
+                        num2cell(obj.plotRCh.selCh(ch, :))];  %vybery kanalu fghjkl               
+               selChNames = obj.plotRCh.selChNames;
+               iV = find(cellfun(@isempty,selChNames)); %bunky nesmi byt prazdne, to se pak neda pouzit jako VariableNames
+               for n = iV
+                    selChNames{n} = ['V' num2str(n) ]; %jednotliv promenne ani nesmi mit stejna jmena
+               end
+               if ch==1
+                   variableNames = [{ 'channel' 'name'  'neurologyLabel'  'MNI_x'  'MNI_y'  'MNI_z'  'seizureOnset'  'interictalOften' 'rejected'}, ...
+                    selChNames];               
+               end
+               %chci mit kategorie v tabulce vedle sebe, protoze patri k jednomu kanalu. Treba kvuli 2way ANOVA
+               for k = 1 : numel(kategories) 
+                    katname = obj.PsyData.CategoryName(cellval(kategories,k));
+                    lineIn = [lineIn,{RespVALS(k).tmax(ch), RespVALS(k).valmax(ch),  RespVALS(k).tfrac(ch), RespVALS(k).tint(ch)}]; %#ok<AGROW>
+                    if ch==1
+                        variableNames = [ variableNames, {[katname '_tmax'],[katname '_valmax'],[katname '_t' percent{1}],[katname '_tint' percent{2}]}]; %#ok<AGROW>
+                    end                    
+               end
+               cellout(ch, :) =  lineIn;
+           end 
+            
+            %export tabulky
             tablelog = cell2table(cellout, ...
-                'VariableNames', [variableNames, obj.plotRCh.selChNames]);
+                'VariableNames', variableNames); %TODO tady vadi, kdyz je posledni selChName prazdne
 
             [~,mfilename,~] = fileparts(obj.hfilename);
             mfilename = strrep(mfilename, ' ', '_');
