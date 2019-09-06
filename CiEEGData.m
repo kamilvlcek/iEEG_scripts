@@ -431,6 +431,10 @@ classdef CiEEGData < matlab.mixin.Copyable
                     iEpCh(channels(ch),:) = iEpCh(channels(ch-1),:); %pokud se jedna o CPsyData s jednim subjektem, pro vsechny kanaly to bude stejne
                 end
             end
+            if isa(obj.PsyData,'CPsyDataMulti')
+                PsyData.SubjectChange(1); %ulozim blocksMulti
+                obj.PsyData.blocksMulti = PsyData.blocksMulti; %ulozim si jen predpocitane udaje o blocich - takova cache kvuli rychlosti
+            end
             
         end
             
@@ -1744,24 +1748,23 @@ classdef CiEEGData < matlab.mixin.Copyable
             T = linspace(obj.epochtime(1),obj.epochtime(2),size(obj.d,1));
             
             if ~exist('channels', 'var') || isempty(channels)
-                [katdata,~,RjEpCh] = obj.CategoryData(katnum); %eegdata - epochy jedne kategorie                       
-                channels = 1:size(katdata, 2);
-                M = mean(katdata(:, channels, ~RjEpCh(1,:)), 3);
-            else
-                M = [];
-                for ch = 1:length(channels)
-                    [katdata,~,RjEpCh] = obj.CategoryData(katnum,[],[],channels(ch)); %eegdata - epochy jedne kategorie
-                    M(:,ch) = mean(katdata(:, channels(ch), ~RjEpCh(1,:)), 3);
-                end
+                channels = 1:obj.channels; %vsechny kanaly
             end
+            [katdata,~,RjEpCh] = obj.CategoryData(katnum); %eegdata - epochy jedne kategorie
+            katdata = katdata(:,channels,:); %time x channels x epochs- vyberu jen kanaly podle channels
+            RjEpCh = RjEpCh(channels,:); % channels x epochs - vyberu jen kanaly podle channels
+            M = zeros(size(katdata,1),size(katdata,2)); %time x channels
+            for ch = 1:size(katdata,2) %mam pocit, ze to nejde udelat bez cyklu, protoze pro kazdy kanal potrebuju vyradit jiny pocet epoch
+                M(:,ch) = mean(katdata(:, ch, ~RjEpCh(ch,:)), 3); 
+            end
+                
+            nChannels = numel(channels);
             
-            n = size(M,2);
-            
-            tint = zeros(1, n);
-            tmax = zeros(1, n);
-            tfrac = zeros(1, n);
-            valmax = zeros(1, n);
-            for ch = 1:n
+            tint = zeros(1, nChannels);
+            tmax = zeros(1, nChannels);
+            tfrac = zeros(1, nChannels);
+            valmax = zeros(1, nChannels);
+            for ch = 1:nChannels
                 [valmax(ch), idx, idxFrac] = cMax(M(:,ch), val_fraction, 0); %Nalezne maximum / minimum krivky curve, i jeho podilu (napr poloviny) a jeho parametry
                 tmax(ch)  = T(idx);
                 tfrac(ch) = T(idxFrac); %cas poloviny maxima, nebo jineho podilu                       
