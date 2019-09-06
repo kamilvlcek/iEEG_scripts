@@ -266,12 +266,12 @@ classdef CStat < handle
                figurenew = 1; %vytvoril jsem novy graf - okno               
             end
             
-            if exist('chSelection','var'), ChSelText = [' chnls: ' cell2str(obj.plotAUC.selChNames{chSelection}) ]; else, ChSelText = ''; end
+            if exist('chSelection','var') && ~isempty(obj.plotAUC.selChNames), ChSelText = [' chnls: ' cell2str(obj.plotAUC.selChNames{chSelection}) ]; else, ChSelText = ''; end
             figuretitle= ['AUCPlotM kontrast: ' obj.plotAUC.katnames{find(obj.plotAUC.katplot)}  ChSelText   ]; %#ok<FNDSB>
             if figurenew, disp(figuretitle); end            
             ileg = 1; %specialni index na signif kanaly - legendu a barvy            
             for ch = 1:numel(channels)     
-                if isfield(obj.plotAUC_m,'chsort') &&  figurenew == 0 %TODO tohle mi nefuguje, kresli spatne kanaly, chtel jsem pouze seradit legentu podle chsort
+                if isfield(obj.plotAUC_m,'chsort') &&  figurenew == 0 %pokud jsou kanaly serazene jinak neni to novy obrazek
                     chnum = channels(obj.plotAUC_m.chsort(ch));
                 else
                     chnum = channels(ch);
@@ -306,8 +306,9 @@ classdef CStat < handle
             line([X(1) X(end)],[.5 .5]);             
             if selch>0 %kdyz poprve graf vykreslim, neni zadny vybrany kanal
                 uistack(selchH, 'top');  %vybrany kanal dam na popredi
-                txt = sprintf('ch: %i(%i), %s: %s, %s',channels(selch),selch, obj.plotAUC.Eh.CH.H.channels(channels(selch)).name, ...
-                    obj.plotAUC.Eh.CH.H.channels(channels(selch)).neurologyLabel,obj.plotAUC.Eh.CH.H.channels(channels(selch)).ass_brainAtlas );
+                chnum = channels(obj.plotAUC_m.chsort(selch));
+                txt = sprintf('ch: %i(%i), %s: %s, %s',chnum,selch, obj.plotAUC.Eh.CH.H.channels(chnum).name, ...
+                    obj.plotAUC.Eh.CH.H.channels(chnum).neurologyLabel,obj.plotAUC.Eh.CH.H.channels(chnum).ass_brainAtlas );
                 text(.05,.1,txt);
                 if isfield(obj.plotAUC_m,'xlsvals')
                     txt = sprintf('aucmax: %.3f, tmax %.3f',obj.plotAUC_m.xlsvals(selch,1),obj.plotAUC_m.xlsvals(selch,2) );
@@ -315,7 +316,7 @@ classdef CStat < handle
                 end
             end
             legenda = legenda(~cellfun('isempty',legenda)); %vymazu prazdne polozky, ktere se nevykresluji
-            legend(ploth,legenda);
+            if ~isempty(legenda), legend(ploth,legenda); end
             ylim([0 1]);
             
             title(figuretitle);           
@@ -646,10 +647,10 @@ classdef CStat < handle
                         obj.plotAUC.katplot( ik ) = 1 - obj.plotAUC.katplot(ik);
                     end
                     %obnovim jednu krivku AUC
-                    obj.AUCPlot(obj.plotAUC.ch);                      
-                case {'c'}
+                    obj.AUCPlot(find(obj.plotAUC.Eh.CH.sortorder==obj.plotAUC.ch));  %#ok<FNDSB>
+                case {'c'} %zmeni barvy pasu stderr na nepruhledne, aby se daly kopirovat do corelDRAW / a zpet
                     obj.plotAUC.corelplot = 1 - obj.plotAUC.corelplot;
-                    obj.AUCPlot(obj.plotAUC.ch);
+                    obj.AUCPlot(find(obj.plotAUC.Eh.CH.sortorder==obj.plotAUC.ch));
                 case {'f','g','h','j','k','l'}                    
                     channels = find(obj.plotAUC.selCh(:,'fghjkl'==eventDat.Key))'; %cisla musi byt v radce
                     %vytvorim multiple AUC graf:
