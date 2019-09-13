@@ -1,4 +1,4 @@
-function [files] = cvutBatch(spojit,ratio,yratio,testrozdil)
+function [files,zmenseno] = cvutBatch(spojit,ratio,yratio,testrozdil)
 
 if ~exist('testrozdil','var'), testrozdil = 1; end %defaultne chci testovat casovy rozdil mezi daty pri spojovani.
 %spojit = {};
@@ -6,6 +6,6 @@ if ~exist('testrozdil','var'), testrozdil = 1; end %defaultne chci testovat caso
 %yratio = 0.01; % pro novy system Quantum
  
 
-zmenseno = zmensidata(spojit,ratio,yratio);
+zmenseno = zmensidata(spojit,ratio,yratio); %vraci se seznam souboru ke spojeni vcetne plne cesty
 
 [files] = concatCVUT(zmenseno,[],testrozdil);

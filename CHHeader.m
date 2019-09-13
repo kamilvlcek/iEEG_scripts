@@ -381,7 +381,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 
             end
             if ~isempty(selCh) %hromadne vybrane kanaly, zobrazne cernym koleckem
-                barvy = 'rbgcmk';
+                barvy = 'gbrcmk';
                 for m = size(selCh,2):-1:1 %jednu znacku za druhou
                    if  obj.plotCh2D.marks(m) %pokud se ma znacka zobrazovat
                        ch = find(selCh(:,m)); %seznam cisel vybranych kanalu pro danou znacku
@@ -435,7 +435,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 end                
             end
             if ~isempty(selCh) %hromadne vybrane kanaly, zobrazne cernym koleckem                
-                barvy = 'rbgcmk';
+                barvy = 'gbrcmk';
                 klavesy = 'fghjkl'; %abych mohl vypsat primo nazvy klaves vedle hvezdicky podle selCh
                 for m = size(selCh,2):-1:1 %jednu znacku za druhou - naposled ty prvni aby byly nahore
                     if  obj.plotCh2D.marks(m) %pokud se ma znacka zobrazovat

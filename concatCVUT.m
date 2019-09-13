@@ -35,15 +35,15 @@ for j = 1:numel(spojit)
     
     disp(['delka ' num2str(size(tabs,1)) ' vzorku']); %#ok<NODEF> 
     if j> j0 %pokud se nejedna o prvni soubor
-        rozdil_sec = (tabs(1)-tabs0(end))*24*3600;
+        rozdil_sec = (tabs(1)-tabs0(end))*24*3600; %rozdil mezi koncem jednoho a zacatkem druheho
         disp(['rozdil ' num2str(rozdil_sec) ' sekund']); 
-        if testrozdil && (rozdil_sec >= 1 || rozdil_sec) < 0 %rozdil jedne vteriny je velmi zvlastni, nejspis se soubory nemaji spojit                        
-            [filename,delka] = ulozdata(j0,spojeno,adresar,spojit,d0,tabs0,fs0,header0,mults0,evts0); %#ok<NODEF>
+        if testrozdil && (rozdil_sec >= (tabs(3)-tabs(1))*24*3600 || rozdil_sec < 0) %rozdil je dvojnasobek normalniho rozdilu, nejspis se soubory nemaji spojit                        
+            [filename,delka] = ulozdata(j0,spojeno,adresar,spojit,d0,tabs0,fs0,header0,mults0,evts0); 
             files = [files; {filename, spojeno, delka, rozdil_sec}]; %#ok<AGROW>
-            j0 = j;        
+            j0 = j;      %aktualni soubor chci zpracovat jako prvni - pocitani zacinam od zacatku  
         end
     end
-    if j0 == j
+    if j0 == j %pokud jde o prvni soubor
         tabs0 = tabs;
         clear tabs;
         if exist('header','var') 
@@ -74,7 +74,7 @@ for j = 1:numel(spojit)
         d0 = d;  %#ok<NODEF>
         clear d;
         spojeno = 1; 
-    else
+    else %nasledujici soubory
         
         tabs0 = [tabs0; tabs]; %#ok<AGROW>        
         clear tabs;

@@ -1,4 +1,4 @@
-function [ iSTART,iEND ] = dataview(d,tabs,fs,mults, start,konec,evts, annotations,  channel,Events)
+function [ iSTART,iEND,pauzyvdatech ] = dataview(d,tabs,fs,mults, start,konec,evts, annotations,  channel,Events)
 %DATAVIEW zobrazi synchronizacni puls s polu s anotacema
 %   pracuje s datama EEG z Motola
 %   delka i start jsou v sekundach
@@ -37,8 +37,8 @@ if numel(pauzyvdatech) > 0
     if m~='y'  
         return; 
     else
-        iP = pauzyvdatech<iKonec & pauzyvdatech>=iStart;
-        delka = delka - round(sum((tabs(pauzyvdatech(iP)+1)-tabs(pauzyvdatech(iP)))*24*3600));        
+        iP = pauzyvdatech(:,1)<iKonec & pauzyvdatech(:,1)>=iStart;
+        delka = delka - round(sum((tabs(pauzyvdatech(iP,1)+1)-tabs(pauzyvdatech(iP,1)))*24*3600));        
     end    
 end
 
@@ -58,7 +58,7 @@ end
 yrange = [-ymax ymax];
     xtime = x:1/fs:x+delka-1/fs;
     plot( xtime, data ); %,'-o'
-    axis([x x+delka yrange])
+    axis([x x+delka yrange])    
     sekund_zac = x; % cas v sekundach,cisla s desetinnymi teckami se do grafu na osu x nevejdou
     sekund_konec = (x+delka);
     %sekund_delka = delka/fs;
@@ -114,14 +114,19 @@ yrange = [-ymax ymax];
     tsEND = tabs(iEND); %timestamp konce
     disp( ['konec: ' num2str(konec) 's, timestamp: ' datestr(tsEND,'dd-mmm-yyyy HH:MM:SS.FFF') ', iEND: ' num2str(iEND)]);
    %keyboard; %zastavi a muzu se divat na promenne, pokracuju pomoci return
+    %casove znaèky po 10 minutách
+    for ix = 1:600*fs:numel(tabs)
+        line([xtime(ix) xtime(ix)],[2500 3000],'Color','black');
+        text(xtime(ix),2500,datestr(tabs(ix),'dd-mmm-yyyy HH:MM:SS.FFF'),'Color','black');
+    end
+    text(xtime(end),1000,datestr(tabs(end),'dd-mmm-yyyy HH:MM:SS.FFF'),'Color','black');
     if numel(pauzyvdatech) > 0
-       datatabs = tabs(x*fs+1:(x+delka)*fs+1); %tabs upravene na stejnou delku jako data
-       dt = diff(datatabs)*24*3600; 
-       figure('Name','Pauzy v Datech');
-       plot( xtime, dt );
-       xlabel(['sekundy z ' num2str(zaznamvterin) ' s celkove']); 
-       ylabel(['secs']); 
-       title('Pauzy v Datech');
+       for ip = 1:size(pauzyvdatech,1)
+           line([pauzyvdatech(ip,2) pauzyvdatech(ip,2)],yrange,'Color','red');
+           text(pauzyvdatech(ip,2),2000-ip*200,datestr(tabs(pauzyvdatech(ip,1)+1),'dd-mmm-yyyy HH:MM:SS.FFF'),'Color','red');
+           text(pauzyvdatech(ip,2),2090-ip*200,datestr(tabs(pauzyvdatech(ip,1)),'dd-mmm-yyyy HH:MM:SS.FFF'),'Color','black');
+           text(pauzyvdatech(ip,2),1000-ip*200,num2str(pauzyvdatech(ip,3),'%.2f sec'),'Color','red');
+       end       
     end
 %end
 
@@ -129,7 +134,9 @@ end
 
 function [dlouhe] = kontrolacasu(tabs,fs)
 tabsdiff = diff(tabs)*24*3600*1000;       %rozdily timestampu v ms
-dlouhe = find(tabsdiff> (1/fs*1000*2)); %najit rozdily v casech vetsi nez dvojnasobek vzorkovaci frekvence
+dlouhe = find(tabsdiff > (1/fs*1000*2) | tabsdiff<0); %najit rozdily v casech vetsi nez dvojnasobek vzorkovaci frekvence
+dlouhe(:,2) = dlouhe(:,1)/fs;
+dlouhe(:,3) = (tabs(dlouhe(:,1)+1)-tabs(dlouhe(:,1)))*24*3600; %delka rozdilu v s
 if numel(dlouhe)  > 0
     disp(['pauzy v datech: ' num2str(numel(dlouhe))]);
     disp(['prvni pauza: i=' num2str(dlouhe(1)) '=' num2str(dlouhe(1)/fs) 's, timediff=' num2str(tabsdiff(dlouhe(1))) ' ms']);    
