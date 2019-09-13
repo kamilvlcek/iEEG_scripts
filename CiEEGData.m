@@ -706,13 +706,13 @@ classdef CiEEGData < matlab.mixin.Copyable
                 for kat = 1: numel(kats) % cyklus pres kategorie - rozdil vuci baseline
                     [katdata,~,RjEpCh] = obj.CategoryData(cellval(kats,kat)); %time x channels x epochs
                     WpB = obj.Wp(obj.WpActive).WpKatBaseline{kat,1}(iintervalyStat(1):iintervalyStat(2),channels); %time x channels - statistika vuci baseline
-                    dataK = zeros(diff(iintervalyData)+1,obj.channels); %tam budu data prumery za epochy
+                    dataK = zeros(diff(iintervalyData)+1,obj.channels); %time x channels - tam budu data prumery za epochy
                     for ch = 1:obj.channels
                         dataK(:,ch) = mean(katdata(iintervalyData(1):iintervalyData(2),ch,~RjEpCh(ch,:)),3); %time x channels, mean pres epochy
                     end
                     idataK = iff(signum>0, dataK > 0, iff(signum < 0, dataK < 0, true(size(dataK)) ));  % jestli chci vetsi, mensi nebo jakekoliv, time x channels
                     WpAll = cat(3, WpB<0.05 , idataK); %time x channels x tyhle dve podminky, rozdil vuci baseline a kat1 > 0 (pokud signum = 1)
-                    iCh = any(all(WpAll,3),1); %obe dve podminky, alespon v jednom case  
+                    iCh = any(all(WpAll,3),1); %1xchannels - obe dve podminky, alespon v jednom case  
                     fiCh = find(iCh); %absolutni cisla kanalu
                     data = zeros(diff(iintervalyData)+1,sum(iCh)); % samples x vybrane kanaly 
                     sub = zeros(1,sum(iCh)); % indexy=cislo samplu maximalnich signif hodnot                      
@@ -1744,31 +1744,39 @@ classdef CiEEGData < matlab.mixin.Copyable
             nlFilter = ismember({obj.CH.H.channels.neurologyLabel}, neurologyLabels);
         end
         
-        function [valmax, tmax, tfrac, tint] = ResponseTriggerTime(obj, val_fraction, int_fraction, katnum, channels)
-            T = linspace(obj.epochtime(1),obj.epochtime(2),size(obj.d,1));
-            
+        function [valmax, tmax, tfrac, tint] = ResponseTriggerTime(obj, val_fraction, int_fraction, katnum, channels)          
             if ~exist('channels', 'var') || isempty(channels)
                 channels = 1:obj.channels; %vsechny kanaly
             end
             [katdata,~,RjEpCh] = obj.CategoryData(katnum); %eegdata - epochy jedne kategorie
             katdata = katdata(:,channels,:); %time x channels x epochs- vyberu jen kanaly podle channels
             RjEpCh = RjEpCh(channels,:); % channels x epochs - vyberu jen kanaly podle channels
-            M = zeros(size(katdata,1),size(katdata,2)); %time x channels
+            iintervalyData = obj.Wp(obj.WpActive).iepochtime(2,:); %16.1.2019 - indexy statistiky ulozene v ResponseSearch 
+            dataM = zeros(diff(iintervalyData)+1,size(katdata,2)); %time x channels
             for ch = 1:size(katdata,2) %mam pocit, ze to nejde udelat bez cyklu, protoze pro kazdy kanal potrebuju vyradit jiny pocet epoch
-                M(:,ch) = mean(katdata(:, ch, ~RjEpCh(ch,:)), 3); 
+                dataM(:,ch) = mean(katdata(iintervalyData(1):iintervalyData(2), ch, ~RjEpCh(ch,:)), 3); 
             end
                 
-            nChannels = numel(channels);
-            
+            nChannels = numel(channels);            
             tint = zeros(1, nChannels);
             tmax = zeros(1, nChannels);
             tfrac = zeros(1, nChannels);
             valmax = zeros(1, nChannels);
+            
+            %kamil - potrebuju zjistit, kdy je kazdy kanal signifikantni, podle kodu z IntervalyResp            
+            intervalData = iintervalyData/obj.fs + obj.epochtime(1); %casy ve vterinach
+            T = linspace(intervalData(1),intervalData(2),diff(iintervalyData)+1); 
+            iintervalyStat = [1 diff(iintervalyData)+1];
+            signum = 0; %chci odchylky od 0 v obou smerech (zatim)
+            WpB = obj.Wp(obj.WpActive).WpKatBaseline{katnum,1}(iintervalyStat(1):iintervalyStat(2),channels); %time x channels - statistika vuci baseline
+            idataM = iff(signum>0, dataM > 0, iff(signum < 0, dataM < 0, true(size(dataM)) ));  % time x channel - jestli chci vetsi, mensi nebo jakekoliv, time x channels                                
             for ch = 1:nChannels
-                [valmax(ch), idx, idxFrac] = cMax(M(:,ch), val_fraction, 0); %Nalezne maximum / minimum krivky curve, i jeho podilu (napr poloviny) a jeho parametry
+                WpAllCh = [  WpB(:,ch)<0.05 , idataM(:,ch)]; %boolean: time x WpB+idataK = dve podminky - rozdil vuci baseline a hodnota podle signum
+                iTimeCh = all(WpAllCh,2); %casy, kde jsou obe podminky spolene  
+                [valmax(ch), idx, idxFrac] = cMax(dataM(:,ch), val_fraction, 0,iTimeCh); %Nalezne maximum / minimum krivky curve, i jeho podilu (napr poloviny) a jeho parametry
                 tmax(ch)  = T(idx);
                 tfrac(ch) = T(idxFrac); %cas poloviny maxima, nebo jineho podilu                       
-                tint(ch)  = cIntegrate(T, M(:,ch), int_fraction, 2, 0); % integrace s posunem minima krivky do nuly
+                tint(ch)  = cIntegrate(T, dataM(:,ch), int_fraction, 2, 0,iTimeCh); % integrace s posunem minima krivky do nuly
             end
         end
         
@@ -1804,7 +1812,7 @@ classdef CiEEGData < matlab.mixin.Copyable
            RespVALS = struct; %struct array, kam si predpocitam hodnoty
            for k = 1:numel(kategories)
                katnum = cellval(kategories,k); %funkce cellval funguje at je to cell array nebo neni
-               [RespVALS(k).tmax, RespVALS(k).valmax,  RespVALS(k).tfrac, RespVALS(k).tint] = obj.ResponseTriggerTime(val_fraction, int_fraction, katnum, obj.CH.sortorder);                  
+               [RespVALS(k).valmax, RespVALS(k).tmax,  RespVALS(k).tfrac, RespVALS(k).tint] = obj.ResponseTriggerTime(val_fraction, int_fraction, katnum, obj.CH.sortorder);                  
            end
            
            %pres vsechny kanaly plnim tabulku

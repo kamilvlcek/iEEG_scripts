@@ -1,4 +1,4 @@
-function t = cIntegrate(time, curve, fraction, normMode, centering)
+function t = cIntegrate(time, curve, fraction, normMode, centering,iTime)
     % Nalezne pozici idx, ve ktere je integral I(0,idx) = fraction*I(0,end)
     % Hleda se integral +curve, nebo -curve v zavislosti na tom, jestli
     % ma krivka vzdalenejsi maximum nebo minimum od hodnoty centering.
@@ -6,9 +6,16 @@ function t = cIntegrate(time, curve, fraction, normMode, centering)
     %   0: krivka se nijak netransformuje
     %   1: odstrani se zaporne hodnoty (tj. ty na druhou stranu od centering)
     %   2: minimum krivky se posune do nuly
+    % iTime - kamil 13.9.2019 - indexy krivky, ze kterych se ma fraction pocitat
 
+    if ~exist('iTime','var') || ~any(iTime) %pokud neni casovy index pouzit nebo pokud je prazny (same false)
+        iTime = true(size(curve));
+    end
+    fiTime = find(iTime);     
+    
     testMax = max(curve);
     testMin = min(curve);
+    
     
     if abs(testMax-centering) > abs(centering-testMin)
         curve = curve - centering;
@@ -22,9 +29,10 @@ function t = cIntegrate(time, curve, fraction, normMode, centering)
         curve = curve - min(curve);
     end
     
-    cint = cumtrapz(time, curve);
+    cint = cumtrapz(time(iTime), curve(iTime));
     
     idx = find(cint < fraction*cint(end), 1, 'last');
+    idx = fiTime(idx);  %z relativnich indexu v ramci iTime udelam absolutni v ramci curve
     t = time(idx);
 
 end
