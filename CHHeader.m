@@ -158,6 +158,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 end
             end           
             if ~isfield(obj.plotCh3D,'allpoints'), obj.plotCh3D.allpoints = 0; end
+            if ~isfield(obj.plotCh3D,'zoom'), obj.plotCh3D.zoom = 0; end
             assert(numel(chnvals) == numel(chnsel), 'unequal size of chnvals and chnsel');
             nblocks = numel(chnvals); %pocet barev bude odpovidat poctu kanalu
             cmap = parula(nblocks+1); %+1 protoze hodnoty se budou zaokrouhlovat nahoru nebo dolu
@@ -188,15 +189,17 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     linestyle = iff(isempty(chnsel),'-','.'); %cara bude jina pokud je pouzite chnsel
                     plot3(X,Y,Z,linestyle,'LineWidth',2);
                     if chg==1, hold on; end                         
-                    if labels
+                    if labels == 1
                         names = {obj.H.channels(group).neurologyLabel};
-                    else
+                    elseif labels == 2
                         names = {obj.H.channels(group).name};
                     end
                     iZ = mod([1:numel(Z)], 2); iZ(iZ == 0) = -1;                    
                     if chg==1 || isempty(chnsel) || ~obj.plotCh3D.allpoints %druhou skupinu chci do kulicek jen pokud zobrazuju vsechny (chnsel je prazdne) nebo pokud nejsou v druhe skupine ostatni kanaly
                         XYZ(chg) = struct('X',X,'Y',Y,'Z',Z); %export pro scatter3 nize, ktery zobrazi ruzne velke a barevne kulicky
-                        text(X,Y,Z+iZ*2,names,'FontSize', 7);
+                        if labels>0
+                            text(X+abs(iZ)*0.5,Y,Z+iZ*0.5,names,'FontSize', 7);
+                        end
                     end
                 end
                 % Plot with different colors and sizes based on chnvals
@@ -238,7 +241,11 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     case 'h' %horizontal = hornodolni   
                         view([0 0 1]); %shora
                 end
-                axis([-75 75 -120 80 -75 85]); %zhruba velikost mozku        
+                if obj.plotCh3D.zoom == 0
+                    axis([-75 75 -120 80 -75 85]); %zhruba velikost mozku        
+                else 
+                    axis([ min([XYZ.X]) max([XYZ.X]) min([XYZ.Y]) max([XYZ.Y]) min([XYZ.Z]) max([XYZ.Z]) ] );
+                end
                 text(-70,0,0,'LEVA');        
                 text(70,0,0,'PRAVA');   
                 text(0,65,0,'VPREDU');        
@@ -255,7 +262,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     colorbar; 
                     caxis([min(chnvals) max(chnvals)]); 
                 end %barevna skala, jen pokud jsou ruzne hodnoty kanalu
-                axis equal;                               
+                if obj.plotCh3D.zoom < 2, axis equal;  end %maximalni zoom je bez stejnych os
                 %rozhybani obrazku            
                 set(obj.plotCh3D.fh,'KeyPressFcn',@obj.hybejPlot3D);
             else
@@ -762,11 +769,12 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                          obj.plotCh3D.boundary  = 1;
                      end
                      obj.ChannelPlot();
-                  case 'l'
+                  case 'n' %names
                      if isfield(obj.plotCh3D,'labels') %prepinac neurology labels v grafu
-                         obj.plotCh3D.labels  = 1 - obj.plotCh3D.labels;
+                         obj.plotCh3D.labels  = obj.plotCh3D.labels + 1;
+                         if obj.plotCh3D.labels > 2, obj.plotCh3D.labels =0; end
                      else
-                         obj.plotCh3D.labels  = 1;
+                         obj.plotCh3D.labels  = 0;
                      end
                      obj.ChannelPlot();
                   case 'r'
@@ -790,6 +798,14 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     else
                        obj.plotCh3D.allpoints  = 1;
                     end
+                    obj.ChannelPlot();
+                  case 'z'
+                    if isfield(obj.plotCh3D,'zoom') %prepinac zoom/no zoom
+                       obj.plotCh3D.zoom  = obj.plotCh3D.zoom + 1;
+                       if obj.plotCh3D.zoom > 2, obj.plotCh3D.zoom = 0; end
+                    else
+                       obj.plotCh3D.zoom  = 1; %vykreslim zoom jen kanalu
+                    end 
                     obj.ChannelPlot();
               end
           end

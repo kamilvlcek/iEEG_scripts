@@ -5,6 +5,7 @@ classdef ScatterPlot < handle
     properties
         ieegdata
         dispChannels
+        dispData; %vyobrazena data ve scatterplotu
         
         selCh
         selChNames
@@ -22,7 +23,7 @@ classdef ScatterPlot < handle
         sbox
         pbox
         
-        showNumbers
+        showNumbers; %zobrazit popisky hodnot, 0=nic 1=cisla 2=jmena kanalu
         numbers
         markerSize
         
@@ -32,9 +33,9 @@ classdef ScatterPlot < handle
         valFraction
         intFraction
         
-        categories
-        categoryNames
-        categoriesSelectionIndex
+        categories %seznam cisel kategorii od nejdulezitejsi (podle poradi ve statistice)
+        categoryNames %jmena kategorii odpovidajici obj.categories
+        categoriesSelectionIndex %1:numel(obj.categories)
         
         filterListener
     end
@@ -51,7 +52,7 @@ classdef ScatterPlot < handle
             
             obj.dispFilterCh = obj.ieegdata.CH.sortorder; % Vyber podle FilterChannels
             obj.connectPairs = false;
-            obj.showNumbers = false;
+            obj.showNumbers = 0; %defaultne se zadne labels nezobrazuji
             obj.numbers = [];
             obj.markerSize = 34;
             
@@ -66,6 +67,17 @@ classdef ScatterPlot < handle
             obj.updatePlot();
             obj.fixAxesLimits();
         end
+        
+        function PlotBrain(obj,katnum,xy)
+            if ~exist('katnum','var') || isempty(katnum), katnum = 1; end
+            if ~exist('xy','var'), xy = 'y'; end %defaultne osaY = valmax napriklad
+            data = iff(xy=='x',obj.dispData(katnum).dataX, obj.dispData(katnum).dataY);
+            obj.ieegdata.CH.plotCh3D.selch = []; %nechci mit vybrany zadny kanal z minula
+            obj.ieegdata.CH.ChannelPlot([],0,data,... %param chnvals
+                obj.dispChannels,... %chnsel jsou cisla kanalu, pokud chci jen jejich vyber
+                []); %selch je jedno zvyraznene cislo kanalu - index v poli chnsel
+            %set(obj.plotAUC.Eh.CH.plotCh3D.fh, 'WindowButtonDownFcn', {@obj.hybejPlot3Dclick, selch});
+        end
 
     end
 
@@ -78,12 +90,8 @@ classdef ScatterPlot < handle
                 obj.categories = obj.ieegdata.PsyData.Categories(); %pokud nejsou, pouziju vsechny kategorie
             end
             obj.categoryNames = strings(size(obj.categories));
-            for k = 1 : numel(obj.categories)
-                if iscell(obj.categories) %iff tady nefunguje, to by bylo samozrejme lepsi85858
-                    catnum = obj.categories{k}; %cislo kategorie, muze byt cell, pokud vice kategorii proti jedne
-                else
-                    catnum = obj.categories(k); %cislo kategorie, muze byt cell, pokud vice kategorii proti jedne
-                end
+            for k = 1 : numel(obj.categories)                
+                catnum = cellval(obj.categories,k);%cislo kategorie, muze byt cell, pokud vice kategorii proti jedne
                 obj.categoryNames(k) = obj.ieegdata.PsyData.CategoryName(catnum);
             end
             obj.categoriesSelectionIndex = 1:numel(obj.categories);
@@ -164,7 +172,7 @@ classdef ScatterPlot < handle
                 return;
             end
             
-            for k = obj.categoriesSelectionIndex
+            for k = obj.categoriesSelectionIndex %1:numel(obj.categories)
                 catnum = obj.categories(k);
                 [stats(k).valmax, stats(k).tmax, stats(k).tfrac, stats(k).tint] = obj.ieegdata.ResponseTriggerTime(obj.valFraction, obj.intFraction, catnum, obj.dispChannels);
             end
@@ -199,20 +207,27 @@ classdef ScatterPlot < handle
             end
             
             baseColors = [0 1 0; 0 0 1; 1 0 0; 1 1 0; 1 0 1; 0 1 0];
-            for k = obj.categoriesSelectionIndex
+            for k = obj.categoriesSelectionIndex %1:numel(obj.categories)
                 dataX = stats(k).(obj.axisX);
                 dataY = stats(k).(obj.axisY);
                 obj.plots(k) = scatter(obj.ax, dataX, dataY, obj.markerSize, repmat(baseColors(k,:), length(dataX), 1), categoryMarkers{k}, 'MarkerFaceColor', 'flat', 'DisplayName', obj.categoryNames{k});
-                if obj.showNumbers
+                if obj.showNumbers > 0
+                    if obj.showNumbers == 1
+                        labels = cellstr(num2str(obj.dispChannels')); %cisla kanalu
+                    else
+                        labels = {obj.ieegdata.CH.H.channels(obj.dispChannels).name}'; %jmena kanalu
+                    end
                     dx = diff(xlim)/100;
-                    th = text(dataX+dx, dataY, cellstr(num2str(obj.dispChannels')), 'FontSize', 8);
+                    th = text(dataX+dx, dataY, labels, 'FontSize', 8);
                     set(th, 'Clipping', 'on');
                     obj.numbers = [obj.numbers th];
                 end
+                obj.dispData(k).dataX = dataX; %zalohuju vyobrazena data pro jine pouziti
+                obj.dispData(k).dataY = dataY;
             end
 
             legend(obj.ax, 'show');
-            hold(obj.ax, 'off');
+            hold(obj.ax, 'off');            
         end
         
         function hybejScatterPlot(obj,~,eventDat)
@@ -240,7 +255,7 @@ classdef ScatterPlot < handle
                     obj.connectPairs = ~obj.connectPairs;
                     obj.updatePlot();
                 case {'n'}
-                    obj.showNumbers = ~obj.showNumbers;
+                    obj.showNumbers = iff(obj.showNumbers==0, 1, iff(obj.showNumbers==1,2,0)); %0->1->2->0
                     obj.updatePlot();
                 case {'add'}
                     obj.markerSize = obj.markerSize + 8;
@@ -263,7 +278,7 @@ classdef ScatterPlot < handle
         function tearDownFigCallback(obj,src,~)
             delete(obj.filterListener);
             delete(src)
-        end
+        end      
         
     end
     

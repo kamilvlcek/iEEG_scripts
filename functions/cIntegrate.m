@@ -28,11 +28,13 @@ function t = cIntegrate(time, curve, fraction, normMode, centering,iTime)
     elseif normMode == 2  % posune minimum krivky do nuly
         curve = curve - min(curve);
     end
-    
-    cint = cumtrapz(time(iTime), curve(iTime));
-    
-    idx = find(cint < fraction*cint(end), 1, 'last');
-    idx = fiTime(idx);  %z relativnich indexu v ramci iTime udelam absolutni v ramci curve
-    t = time(idx);
+    if sum(iTime)>1 %funkce cumtrapz musi mit alespon 2 prvni v array
+        cint = cumtrapz(time(iTime), curve(iTime));    
+        idx = find(cint < fraction*cint(end), 1, 'last');
+        idx = fiTime(idx);  %z relativnich indexu v ramci iTime udelam absolutni v ramci curve
+        t = time(idx);
+    else
+        t = 0; %nic se nenaslo
+    end
 
 end

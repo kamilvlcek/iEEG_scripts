@@ -1775,7 +1775,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 iTimeCh = all(WpAllCh,2); %casy, kde jsou obe podminky spolene  
                 [valmax(ch), idx, idxFrac] = cMax(dataM(:,ch), val_fraction, 0,iTimeCh); %Nalezne maximum / minimum krivky curve, i jeho podilu (napr poloviny) a jeho parametry
                 tmax(ch)  = T(idx);
-                tfrac(ch) = T(idxFrac); %cas poloviny maxima, nebo jineho podilu                       
+                if ~isempty(idxFrac), tfrac(ch) = T(idxFrac); end %cas poloviny maxima, nebo jineho podilu                       
                 tint(ch)  = cIntegrate(T, dataM(:,ch), int_fraction, 2, 0,iTimeCh); % integrace s posunem minima krivky do nuly
             end
         end
