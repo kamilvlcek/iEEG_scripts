@@ -125,15 +125,16 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             end
             ch = 0;
         end
-        function [XYZ,obj] = ChannelPlot(obj,pohled,labels,chnvals,chnsel,selch,roi)
+        function [XYZ,obj] = ChannelPlot(obj,pohled,labels,chnvals,chnsel,selch,roi,popis)
             %zobrazi 3D obrazek elektrod v MNI prostoru. Obrazek ma rozmery podle rozmeru mozku
             %pohled muze urcti smer pohledu s-sagital,c-coronal,h-horizontal
             %chnsel jsou cisla kanalu, pokud chci jen jejich vyber
             %selch je jedno zvyraznene cislo kanalu - index v poli chnsel
             %roi je zvyraznena krychlova oblast [ x y z edge]
+            %popis je text k zobrazeni na obrazku
             if ~exist('pohled','var') || isempty(pohled), pohled = ''; end            
             
-            params = {'labels','chnvals','chnsel','selch','roi'}; %zkusim hromadne zpracovani parametru touhle nedoporucovanou metodou
+            params = {'labels','chnvals','chnsel','selch','roi','popis'}; %zkusim hromadne zpracovani parametru touhle nedoporucovanou metodou
             for p=1:numel(params) %parametry, ktere se ukladaji do obj.plotCh3D
                 if ~exist(params{p},'var') || eval(['isempty(' params{p} ')']) %pokud neni vstupni promenna nebo je prazdna
                     if isfield(obj.plotCh3D,params{p}) %pokud ale existuje ulozena hodnota
@@ -150,6 +151,8 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                                 selch = []; %default vsechny kanaly
                             case 'roi'
                                 roi = []; %default zadne
+                            case 'popis'
+                                popis = ''; %default zadny text
                         end
                         eval(['obj.plotCh3D.' params{p} ' = ' params{p} ';']); %nastavim ulozenou hodnotu na default
                     end
@@ -263,6 +266,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     caxis([min(chnvals) max(chnvals)]); 
                 end %barevna skala, jen pokud jsou ruzne hodnoty kanalu
                 if obj.plotCh3D.zoom < 2, axis equal;  end %maximalni zoom je bez stejnych os
+                title(popis);
                 %rozhybani obrazku            
                 set(obj.plotCh3D.fh,'KeyPressFcn',@obj.hybejPlot3D);
             else

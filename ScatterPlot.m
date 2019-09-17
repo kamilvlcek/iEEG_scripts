@@ -71,11 +71,19 @@ classdef ScatterPlot < handle
         function PlotBrain(obj,katnum,xy)
             if ~exist('katnum','var') || isempty(katnum), katnum = 1; end
             if ~exist('xy','var'), xy = 'y'; end %defaultne osaY = valmax napriklad
-            data = iff(xy=='x',obj.dispData(katnum).dataX, obj.dispData(katnum).dataY);
+            selChFiltered = obj.selCh(obj.dispChannels,:); %chci zobrazovat jen signif odpovedi
+            iData = logical(selChFiltered(:,katnum)); %kanaly se signifikantim rozdilem vuci baseline v teto kategorii
+            if(xy=='x')
+                data = obj.dispData(katnum).dataX(iData);
+                dataName = obj.axisX;
+            else
+                data = obj.dispData(katnum).dataY(iData);
+                dataName = obj.axisY;
+            end
             obj.ieegdata.CH.plotCh3D.selch = []; %nechci mit vybrany zadny kanal z minula
             obj.ieegdata.CH.ChannelPlot([],0,data,... %param chnvals
-                obj.dispChannels,... %chnsel jsou cisla kanalu, pokud chci jen jejich vyber
-                []); %selch je jedno zvyraznene cislo kanalu - index v poli chnsel
+                obj.dispChannels(iData),... %chnsel jsou cisla kanalu, pokud chci jen jejich vyber
+                [],[],[obj.categoryNames{katnum} ':' dataName ', show:' obj.ieegdata.CH.plotCh2D.chshowstr]); %selch je jedno zvyraznene cislo kanalu - index v poli chnsel
             %set(obj.plotAUC.Eh.CH.plotCh3D.fh, 'WindowButtonDownFcn', {@obj.hybejPlot3Dclick, selch});
         end
 
@@ -129,7 +137,7 @@ classdef ScatterPlot < handle
             obj.axisX = axisX;
             obj.axisY = axisY;
             
-            obj.fig = figure('CloseRequestFcn',@obj.tearDownFigCallback);
+            obj.fig = figure('CloseRequestFcn',@obj.tearDownFigCallback,'Name','ScatterPlot');
             
             obj.filterListener = addlistener(obj.ieegdata.CH, 'FilterChanged', @obj.filterChangedCallback);
             
@@ -234,7 +242,8 @@ classdef ScatterPlot < handle
                 obj.dispData(k).dataY = dataY;
             end
             legend(obj.ax, 'show');
-            hold(obj.ax, 'off');            
+            hold(obj.ax, 'off'); 
+            title(['show:' obj.ieegdata.CH.plotCh2D.chshowstr]);
         end
         
         function hybejScatterPlot(obj,~,eventDat)

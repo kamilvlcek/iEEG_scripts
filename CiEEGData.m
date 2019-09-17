@@ -1984,7 +1984,13 @@ classdef CiEEGData < matlab.mixin.Copyable
                 case 'home' %skok na prvni kanal
                     obj.PlotResponseCh( 1);                    
                 case 'end' %skok na posledni kanal
-                    obj.PlotResponseCh( numel(obj.CH.sortorder));                    
+                    obj.PlotResponseCh( numel(obj.CH.sortorder)); 
+                case 'o' %skok na vybrany kanal
+                     answ = inputdlg('Enter channel number:','Go to channel', 1,{num2str(obj.CH.sortorder(obj.plotRCh.ch))});
+                     if numel(answ)>0
+                         ch = find(obj.CH.sortorder>=str2double(answ{1}),1); %chci index v sortorder
+                         obj.PlotResponseCh( ch); 
+                     end
                 case {'multiply','8'} %hvezdicka na numericke klavesnici, nebo hvezdicka nad osmickou
                     %dialog na vlozeni minima a maxima osy y
                     answ = inputdlg('Enter ymax and min:','Yaxis limits', [1 50],{num2str(obj.plotRCh.ylim)});
