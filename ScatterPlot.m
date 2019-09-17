@@ -7,8 +7,8 @@ classdef ScatterPlot < handle
         dispChannels
         dispData; %vyobrazena data ve scatterplotu
         
-        selCh
-        selChNames
+        selCh ; %kopie ieegdata.plotRCh.selCh;
+        selChNames ; %kopie ieegdata.plotRCh.selChNames;
         dispSelCh
         dispSelChName
         
@@ -151,7 +151,7 @@ classdef ScatterPlot < handle
         
         function updatePlot(obj)
             obj.setDisplayedChannels(); % Kombinace voleb pro zobrazeni kanalu
-
+            selChFiltered = obj.selCh(obj.dispChannels,:); %filter kanalu ve vyberu fghjkl
             delete(obj.plots);
             obj.plots = [];
             delete(obj.sbox);
@@ -210,7 +210,15 @@ classdef ScatterPlot < handle
             for k = obj.categoriesSelectionIndex %1:numel(obj.categories)
                 dataX = stats(k).(obj.axisX);
                 dataY = stats(k).(obj.axisY);
-                obj.plots(k) = scatter(obj.ax, dataX, dataY, obj.markerSize, repmat(baseColors(k,:), length(dataX), 1), categoryMarkers{k}, 'MarkerFaceColor', 'flat', 'DisplayName', obj.categoryNames{k});
+                iData = logical(selChFiltered(:,k)); %kanaly se signifikantim rozdilem vuci baseline v teto kategorii
+                if any(iData) 
+                    obj.plots(k,1) = scatter(obj.ax, dataX(iData), dataY(iData), obj.markerSize, repmat(baseColors(k,:), sum(iData), 1), categoryMarkers{k}, 'MarkerFaceColor', 'flat', 'DisplayName', obj.categoryNames{k});
+                end
+                iData = ~iData; %kanaly bez signif rozdilu vuci baseline v teto kategorii
+                if any(iData) 
+                    obj.plots(k,2) = scatter(obj.ax, dataX(iData), dataY(iData), obj.markerSize, repmat(baseColors(k,:), sum(iData), 1), categoryMarkers{k}, 'MarkerFaceColor', 'none', 'DisplayName', obj.categoryNames{k},...
+                        'HandleVisibility','off'); %nebude v legende
+                end
                 if obj.showNumbers > 0
                     if obj.showNumbers == 1
                         labels = cellstr(num2str(obj.dispChannels')); %cisla kanalu
@@ -225,7 +233,6 @@ classdef ScatterPlot < handle
                 obj.dispData(k).dataX = dataX; %zalohuju vyobrazena data pro jine pouziti
                 obj.dispData(k).dataY = dataY;
             end
-
             legend(obj.ax, 'show');
             hold(obj.ax, 'off');            
         end

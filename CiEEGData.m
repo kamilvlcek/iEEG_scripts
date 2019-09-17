@@ -1797,6 +1797,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
             
             channels = obj.CH.H.channels(obj.CH.sortorder); %vyberu kanaly, podle aktualniho razeni a ty ktere jsou zobrazene podle CH.FilterChannels()
+            selChFiltered = obj.plotRCh.selCh(obj.CH.sortorder,:); %filter kanalu ve vyberu fghjkl
             
             if isfield(obj.plotRCh,'kategories') 
                 kategories = obj.plotRCh.kategories; %hodnoty drive pouzite v grafu, ty maji prednost pred statistikou
@@ -1821,7 +1822,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                lineIn = [{ obj.CH.sortorder(ch), channelHeader.name, channelHeader.neurologyLabel, ...
                         channelHeader.MNI_x, channelHeader.MNI_y, channelHeader.MNI_z, channelHeader.seizureOnset, channelHeader.interictalOften, ...
                         mat2str(channelHeader.rejected)} , ...
-                        num2cell(obj.plotRCh.selCh(ch, :))];  %vybery kanalu fghjkl               
+                        num2cell(selChFiltered(ch, :))];  %vybery kanalu fghjkl               
                selChNames = obj.plotRCh.selChNames;
                iV = find(cellfun(@isempty,selChNames)); %bunky nesmi byt prazdne, to se pak neda pouzit jako VariableNames
                for n = iV
