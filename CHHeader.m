@@ -125,7 +125,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             end
             ch = 0;
         end
-        function [XYZ,obj] = ChannelPlot(obj,pohled,labels,chnvals,chnsel,selch,roi,popis)
+        function [XYZ,obj] = ChannelPlot(obj,pohled,labels,chnvals,chnsel,selch,roi,popis,rangeZ)
             %zobrazi 3D obrazek elektrod v MNI prostoru. Obrazek ma rozmery podle rozmeru mozku
             %pohled muze urcti smer pohledu s-sagital,c-coronal,h-horizontal
             %chnsel jsou cisla kanalu, pokud chci jen jejich vyber
@@ -134,7 +134,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             %popis je text k zobrazeni na obrazku
             if ~exist('pohled','var') || isempty(pohled), pohled = ''; end            
             
-            params = {'labels','chnvals','chnsel','selch','roi','popis'}; %zkusim hromadne zpracovani parametru touhle nedoporucovanou metodou
+            params = {'labels','chnvals','chnsel','selch','roi','popis','rangeZ'}; %zkusim hromadne zpracovani parametru touhle nedoporucovanou metodou
             for p=1:numel(params) %parametry, ktere se ukladaji do obj.plotCh3D
                 if ~exist(params{p},'var') || eval(['isempty(' params{p} ')']) %pokud neni vstupni promenna nebo je prazdna
                     if isfield(obj.plotCh3D,params{p}) %pokud ale existuje ulozena hodnota
@@ -153,6 +153,8 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                                 roi = []; %default zadne
                             case 'popis'
                                 popis = ''; %default zadny text
+                            case 'rangeZ'
+                                rangeZ = [];
                         end
                         eval(['obj.plotCh3D.' params{p} ' = ' params{p} ';']); %nastavim ulozenou hodnotu na default
                     end
@@ -161,15 +163,17 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 end
             end           
             if ~isfield(obj.plotCh3D,'allpoints'), obj.plotCh3D.allpoints = 0; end
-            if ~isfield(obj.plotCh3D,'zoom'), obj.plotCh3D.zoom = 0; end
+            if ~isfield(obj.plotCh3D,'zoom'), obj.plotCh3D.zoom = 0; end            
             assert(numel(chnvals) == numel(chnsel), 'unequal size of chnvals and chnsel');
             nblocks = numel(chnvals); %pocet barev bude odpovidat poctu kanalu
             cmap = parula(nblocks+1); %+1 protoze hodnoty se budou zaokrouhlovat nahoru nebo dolu
-            chnvalsN = chnvals - min(chnvals);
-            chnvalsN = chnvalsN/max(chnvalsN); % normalization            
-            chnvals(isnan(chnvalsN)) = 0; % in case of all zeros
-            clrs = cmap(round(nblocks*chnvalsN)+1, :); % color values
-            sizes = 20+200*chnvalsN;
+            if isempty(rangeZ), rangeZ = [min(chnvals) max(chnvals)]; end
+            chnvalsN = chnvals - rangeZ(1); %odectu mimimum
+            chnvalsN = chnvalsN/diff(rangeZ); % normalization  - podelim maximem - hodnoty jsou [0;1]          
+            chnvalsN(isnan(chnvalsN)) = 0; % in case of all zeros, nan nahradim 0
+            chnvalsN(chnvalsN<0) = 0; chnvalsN(chnvalsN>1) = 1; %omezim rozsah na [0;1];            
+            clrs = cmap(round(nblocks*chnvalsN)+1, :); % color values, prevedu na rozsah 1-nblocks a priradim barvy
+            sizes = 20+200*chnvalsN; %velikosti kulicek 
             if isfield(obj.H.channels,'MNI_x')
                 if isfield(obj.plotCh3D,'fh') && ishandle(obj.plotCh3D.fh)
                     figure(obj.plotCh3D.fh); %pouziju uz vytvoreny graf
@@ -263,7 +267,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 
                 if(max(chnvals)>0)
                     colorbar; 
-                    caxis([min(chnvals) max(chnvals)]); 
+                    caxis(rangeZ); 
                 end %barevna skala, jen pokud jsou ruzne hodnoty kanalu
                 if obj.plotCh3D.zoom < 2, axis equal;  end %maximalni zoom je bez stejnych os
                 title(popis);

@@ -68,9 +68,12 @@ classdef ScatterPlot < handle
             obj.fixAxesLimits();
         end
         
-        function PlotBrain(obj,katnum,xy)
+        function PlotBrain(obj,katnum,xy,rangeZ)
             if ~exist('katnum','var') || isempty(katnum), katnum = 1; end
             if ~exist('xy','var'), xy = 'y'; end %defaultne osaY = valmax napriklad
+            if ~exist('rangeZ','var') %pokud neni zadane
+                rangeZ = iff(xy=='x',xlim(obj.ax),ylim(obj.ax));  %nastavi se podle limitu scatterplotu
+            end; 
             selChFiltered = obj.selCh(obj.dispChannels,:); %chci zobrazovat jen signif odpovedi
             iData = logical(selChFiltered(:,katnum)); %kanaly se signifikantim rozdilem vuci baseline v teto kategorii
             if(xy=='x')
@@ -83,8 +86,16 @@ classdef ScatterPlot < handle
             obj.ieegdata.CH.plotCh3D.selch = []; %nechci mit vybrany zadny kanal z minula
             obj.ieegdata.CH.ChannelPlot([],0,data,... %param chnvals
                 obj.dispChannels(iData),... %chnsel jsou cisla kanalu, pokud chci jen jejich vyber
-                [],[],[obj.categoryNames{katnum} ':' dataName ', show:' obj.ieegdata.CH.plotCh2D.chshowstr]); %selch je jedno zvyraznene cislo kanalu - index v poli chnsel
+                [],[],[obj.categoryNames{katnum} ':' dataName ', show:' obj.ieegdata.CH.plotCh2D.chshowstr], ... %popis grafu = title
+                rangeZ); %rozsah hodnot - meritko barevne skaly
             %set(obj.plotAUC.Eh.CH.plotCh3D.fh, 'WindowButtonDownFcn', {@obj.hybejPlot3Dclick, selch});
+        end
+        
+        function setXYLim(obj,xrange,yrange) %set axes limit
+            if ~exist('xrange','var') || isempty(xrange), xrange = xlim(obj.ax); end
+            if ~exist('yrange','var') || isempty(yrange), yrange = ylim(obj.ax); end
+            xlim(xrange);
+            ylim(yrange);
         end
 
     end
