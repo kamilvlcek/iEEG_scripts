@@ -1676,7 +1676,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
             if ismember('CH_H', {vars.name})
                 load(filename,'CH_H');      obj.CH = CHHeader(CH_H);
-                [~, ~, obj.els] = obj.CH.ChannelGroups();  
+                [~, ~, obj.els] = obj.CH.ChannelGroups([],isa(obj,'CHilbertMulti'));  
             else
                 load(filename,'CH');
                 obj.CH = CH; %#ok<CPROPLC,CPROP,PROP> %  %drive ulozeny objekt, nez jsem zavedl ukladani struct
