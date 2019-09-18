@@ -11,17 +11,20 @@ classdef ScatterPlot < handle
         selChNames ; %kopie ieegdata.plotRCh.selChNames;
         dispSelCh
         dispSelChName
+        dispStats % ulozeny vypocet statistik (TODO: pri inicializaci pocitat vse, a pote uz jen provadet filtrovani)
         
         dispFilterCh
         
         connectPairs
-        pairsPlot
+        connectionsPlot
         
         fig
         ax
         plots
         sbox
         pbox
+        
+        highlights
         
         showNumbers; %zobrazit popisky hodnot, 0=nic 1=cisla 2=jmena kanalu
         numbers
@@ -38,6 +41,9 @@ classdef ScatterPlot < handle
         categoriesSelectionIndex %1:numel(obj.categories)
         
         filterListener
+        channelListener
+        
+        baseColors = [0 1 0; 0 0 1; 1 0 0; 1 1 0; 1 0 1; 0 1 0];
     end
     
     methods
@@ -73,7 +79,7 @@ classdef ScatterPlot < handle
             if ~exist('xy','var'), xy = 'y'; end %defaultne osaY = valmax napriklad
             if ~exist('rangeZ','var') %pokud neni zadane
                 rangeZ = iff(xy=='x',xlim(obj.ax),ylim(obj.ax));  %nastavi se podle limitu scatterplotu
-            end; 
+            end 
             selChFiltered = obj.selCh(obj.dispChannels,:); %chci zobrazovat jen signif odpovedi
             iData = logical(selChFiltered(:,katnum)); %kanaly se signifikantim rozdilem vuci baseline v teto kategorii
             if(xy=='x')
@@ -147,15 +153,18 @@ classdef ScatterPlot < handle
             
             obj.axisX = axisX;
             obj.axisY = axisY;
-            
-            obj.fig = figure('CloseRequestFcn',@obj.tearDownFigCallback,'Name','ScatterPlot');
-            
-            obj.filterListener = addlistener(obj.ieegdata.CH, 'FilterChanged', @obj.filterChangedCallback);
+
+            obj.fig = figure('CloseRequestFcn', @obj.tearDownFigCallback, 'Name', 'ScatterPlot');
             
             obj.ax = axes(obj.fig);
             xlabel(obj.ax, labelX);
             ylabel(obj.ax, labelY);
-            set(obj.fig,'KeyPressFcn',@obj.hybejScatterPlot);
+
+            obj.filterListener = addlistener(obj.ieegdata.CH, 'FilterChanged', @obj.filterChangedCallback);
+            obj.channelListener = addlistener(obj.ieegdata, 'PlotResponseChPlotted', @obj.plotResponseChCallback);
+            
+            set(obj.fig, 'KeyPressFcn', @obj.hybejScatterPlot);
+            set(obj.fig, 'WindowButtonDownFcn', @obj.hybejScatterPlotClick);
         end
         
         function setTriggerValues(obj, valFraction, intFraction)
@@ -171,11 +180,10 @@ classdef ScatterPlot < handle
         function updatePlot(obj)
             obj.setDisplayedChannels(); % Kombinace voleb pro zobrazeni kanalu
             selChFiltered = obj.selCh(obj.dispChannels,:); %filter kanalu ve vyberu fghjkl
-            delete(obj.plots);
-            obj.plots = [];
+            delete(obj.plots); obj.plots = [];
             delete(obj.sbox);
             delete(obj.pbox);            
-            delete(obj.pairsPlot); obj.pairsPlot = [];
+            delete(obj.connectionsPlot); obj.connectionsPlot = [];
             delete(obj.numbers); obj.numbers = [];            
             
             if ~isempty(obj.dispSelChName)
@@ -215,7 +223,7 @@ classdef ScatterPlot < handle
                     for c1 = 1:length(obj.categoriesSelectionIndex)
                         for c2 = 1:c1-1
                             for k = 1:l
-                                obj.pairsPlot(end+1) = plot([x(c1,k) x(c2,k)], [y(c1,k) y(c2,k)], 'Color', [0.5 0.5 0.5], 'HandleVisibility','off');
+                                obj.connectionsPlot(end+1) = plot([x(c1,k) x(c2,k)], [y(c1,k) y(c2,k)], 'Color', [0.5 0.5 0.5], 'HandleVisibility','off');
                             end
                         end
                     end
@@ -225,17 +233,16 @@ classdef ScatterPlot < handle
                 end
             end
             
-            baseColors = [0 1 0; 0 0 1; 1 0 0; 1 1 0; 1 0 1; 0 1 0];
             for k = obj.categoriesSelectionIndex %1:numel(obj.categories)
                 dataX = stats(k).(obj.axisX);
                 dataY = stats(k).(obj.axisY);
                 iData = logical(selChFiltered(:,k)); %kanaly se signifikantim rozdilem vuci baseline v teto kategorii
                 if any(iData) 
-                    obj.plots(k,1) = scatter(obj.ax, dataX(iData), dataY(iData), obj.markerSize, repmat(baseColors(k,:), sum(iData), 1), categoryMarkers{k}, 'MarkerFaceColor', 'flat', 'DisplayName', obj.categoryNames{k});
+                    obj.plots(k,1) = scatter(obj.ax, dataX(iData), dataY(iData), obj.markerSize, repmat(obj.baseColors(k,:), sum(iData), 1), categoryMarkers{k}, 'MarkerFaceColor', 'flat', 'DisplayName', obj.categoryNames{k});
                 end
                 iData = ~iData; %kanaly bez signif rozdilu vuci baseline v teto kategorii
                 if any(iData) 
-                    obj.plots(k,2) = scatter(obj.ax, dataX(iData), dataY(iData), obj.markerSize, repmat(baseColors(k,:), sum(iData), 1), categoryMarkers{k}, 'MarkerFaceColor', 'none', 'DisplayName', obj.categoryNames{k},...
+                    obj.plots(k,2) = scatter(obj.ax, dataX(iData), dataY(iData), obj.markerSize, repmat(obj.baseColors(k,:), sum(iData), 1), categoryMarkers{k}, 'MarkerFaceColor', 'none', 'DisplayName', obj.categoryNames{k},...
                         'HandleVisibility','off'); %nebude v legende
                 end
                 if obj.showNumbers > 0
@@ -253,8 +260,27 @@ classdef ScatterPlot < handle
                 obj.dispData(k).dataY = dataY;
             end
             legend(obj.ax, 'show');
-            hold(obj.ax, 'off'); 
-            title(['show:' obj.ieegdata.CH.plotCh2D.chshowstr]);
+            hold(obj.ax, 'off');
+            if isfield(obj.ieegdata.CH.plotCh2D, 'chshowstr') && ~isempty(obj.ieegdata.CH.plotCh2D.chshowstr)
+                title(['show:' obj.ieegdata.CH.plotCh2D.chshowstr]);
+            else
+                title('show: all');
+            end
+            obj.dispStats = stats;  % ulozeni vypocitanych statistik
+        end
+        
+        function highlightSelected(obj, ch)
+            delete(obj.highlights); obj.highlights = [];
+            idx = find(obj.dispChannels == ch);
+            hold(obj.ax, 'on');
+            if idx
+                for k = obj.categoriesSelectionIndex
+                    dataX = obj.dispStats(k).(obj.axisX);
+                    dataY = obj.dispStats(k).(obj.axisY);
+                    obj.highlights(k) = scatter(obj.ax, dataX(idx), dataY(idx), 3*obj.markerSize, 0.75*obj.baseColors(k,:), 'o', 'MarkerFaceColor', 'none', 'LineWidth', 2, 'HandleVisibility','off');
+                end
+            end
+            hold(obj.ax, 'off');
         end
         
         function hybejScatterPlot(obj,~,eventDat)
@@ -293,6 +319,36 @@ classdef ScatterPlot < handle
             end
         end
         
+      function hybejScatterPlotClick(obj,h,~)
+          mousept = get(gca,'currentPoint');
+          x = mousept(1,1); y = mousept(1,2); %souradnice v grafu              
+          xy = get(h, 'currentpoint'); %souradnice v pixelech
+          pos = get(gcf, 'Position'); 
+          width = pos(3);
+          subp = xy(1) > width/2; 
+          if ~isempty(obj.dispChannels)
+              chs  = zeros(size(obj.categoriesSelectionIndex));
+              dist = zeros(size(obj.categoriesSelectionIndex));
+              for k = obj.categoriesSelectionIndex % vsechny zobrazene kategorie
+                  dataX = obj.dispStats(k).(obj.axisX);
+                  dataY = obj.dispStats(k).(obj.axisY);
+                  [chs(k), dist(k)] = dsearchn([dataX' dataY'],[x y]); %najde nejblizsi kanal a vzdalenost k nemu
+              end
+              [~, k_min] = min(dist); % vyberu skutecne nejblizsi kanal ze vsech kategorii
+              ch = obj.dispChannels(chs(k_min));
+              %TODO: Pokud neni otevreny PlotResponseCh, nebude po otevreni znat cislo vybraneho kanalu. Lepsi by bylo pouzit proxy objekt, ktery drzi informaci o vybranem kanalu a v pripade zmeny vyberu posle signal, ktery se tak zpropaguje do vsech plotu, ktere ho potrebuji.
+              if isvalid(obj.ieegdata.plotRCh.fh)  % Zjistim, jeslti je otevreny PlotResponseCh
+                  sortChannel = find(obj.ieegdata.CH.sortorder == ch);
+                  obj.ieegdata.PlotResponseCh(sortChannel);    % Pokud mam PlotResponseCh, updatuju zobrezene kanaly
+                  % Nevolam highlightSelected, protoze ten se zavola diky eventu
+              else
+                  obj.highlightSelected(ch);
+                  %TODO: Pokud ted manualne otevru PlotResponseCh bez parametru, neuvidim v nem spranvy kanal
+              end
+              
+          end
+      end
+        
         function setDisplayedChannels(obj)
             obj.dispChannels = intersect(obj.dispFilterCh, obj.dispSelCh);
         end
@@ -302,9 +358,14 @@ classdef ScatterPlot < handle
             obj.updatePlot();
         end
         
+        function plotResponseChCallback(obj, ~, eventData)
+            obj.highlightSelected(eventData.plottedChannel);
+        end
+        
         function tearDownFigCallback(obj,src,~)
             delete(obj.filterListener);
-            delete(src)
+            delete(obj.channelListener);
+            delete(src);
         end      
         
     end

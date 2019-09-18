@@ -38,6 +38,10 @@ classdef CiEEGData < matlab.mixin.Copyable
         CS = {}; %objekt CStat
     end
     
+    events
+        PlotResponseChPlotted
+    end
+    
     methods (Access = public)
         %% ELEMENTAL FUNCTIONS 
         function obj = CiEEGData(d,tabs,fs,mults,header)
@@ -1217,7 +1221,6 @@ classdef CiEEGData < matlab.mixin.Copyable
             else
                 obj.plotRCh.ch = ch; %tady bude ulozeny index sortorder, parametr ch urcuje index v sortorder
                 ch = obj.CH.sortorder(ch); %promenna ch uz urcuje skutecne cislo kanalu
-                
             end
             WpA = obj.WpActive; %jen zkratka
             if ~exist('kategories','var') || isempty(kategories) 
@@ -1474,7 +1477,8 @@ classdef CiEEGData < matlab.mixin.Copyable
                 text(-0.1,ymax*.72, ['show:  ' obj.CH.plotCh2D.chshowstr '=' mat2str(obj.CH.plotCh2D.chshow)], 'FontSize', 10);
             end
             methodhandle = @obj.hybejPlotCh;
-            set(obj.plotRCh.fh,'KeyPressFcn',methodhandle);          
+            set(obj.plotRCh.fh,'KeyPressFcn',methodhandle);      
+            notify(obj, 'PlotResponseChPlotted', PlotResponsePlottedData(ch));
         end        
             
         function obj = PlotResponseP(obj)

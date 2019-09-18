@@ -9,3 +9,4 @@
 *.graphml
 mindmaps/
 logs/
+*.m~
