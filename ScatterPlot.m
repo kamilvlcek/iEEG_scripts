@@ -92,7 +92,8 @@ classdef ScatterPlot < handle
             obj.ieegdata.CH.plotCh3D.selch = []; %nechci mit vybrany zadny kanal z minula
             obj.ieegdata.CH.ChannelPlot([],0,data,... %param chnvals
                 obj.dispChannels(iData),... %chnsel jsou cisla kanalu, pokud chci jen jejich vyber
-                [],[],[obj.categoryNames{katnum} ':' dataName ', show:' obj.ieegdata.CH.plotCh2D.chshowstr], ... %popis grafu = title
+                [],[],{[dataName '(' obj.categoryNames{katnum} '), SelCh: ' obj.dispSelChName ], ... %popis grafu = title - prvni radek
+                ['show:' obj.ieegdata.CH.plotCh2D.chshowstr]}, ... %popis grafu title, druhy radek
                 rangeZ); %rozsah hodnot - meritko barevne skaly
             %set(obj.plotAUC.Eh.CH.plotCh3D.fh, 'WindowButtonDownFcn', {@obj.hybejPlot3Dclick, selch});
         end
@@ -100,8 +101,8 @@ classdef ScatterPlot < handle
         function setXYLim(obj,xrange,yrange) %set axes limit
             if ~exist('xrange','var') || isempty(xrange), xrange = xlim(obj.ax); end
             if ~exist('yrange','var') || isempty(yrange), yrange = ylim(obj.ax); end
-            xlim(xrange);
-            ylim(yrange);
+            xlim(obj.ax,xrange);
+            ylim(obj.ax,yrange);
         end
 
     end
@@ -334,18 +335,20 @@ classdef ScatterPlot < handle
                   dataY = obj.dispStats(k).(obj.axisY);
                   [chs(k), dist(k)] = dsearchn([dataX' dataY'],[x y]); %najde nejblizsi kanal a vzdalenost k nemu
               end
-              [~, k_min] = min(dist); % vyberu skutecne nejblizsi kanal ze vsech kategorii
-              ch = obj.dispChannels(chs(k_min));
-              %TODO: Pokud neni otevreny PlotResponseCh, nebude po otevreni znat cislo vybraneho kanalu. Lepsi by bylo pouzit proxy objekt, ktery drzi informaci o vybranem kanalu a v pripade zmeny vyberu posle signal, ktery se tak zpropaguje do vsech plotu, ktere ho potrebuji.
-              if isvalid(obj.ieegdata.plotRCh.fh)  % Zjistim, jeslti je otevreny PlotResponseCh
-                  sortChannel = find(obj.ieegdata.CH.sortorder == ch);
-                  obj.ieegdata.PlotResponseCh(sortChannel);    % Pokud mam PlotResponseCh, updatuju zobrezene kanaly
-                  % Nevolam highlightSelected, protoze ten se zavola diky eventu
-              else
-                  obj.highlightSelected(ch);
-                  %TODO: Pokud ted manualne otevru PlotResponseCh bez parametru, neuvidim v nem spranvy kanal
+              [mindist, k_min] = min(dist); % vyberu skutecne nejblizsi kanal ze vsech kategorii
+              if mindist < mean([diff(ylim(obj.ax)), diff(xlim(obj.ax))])/20 %kamil - kdyz kliknu moc daleko od kanalu, nechci nic vybrat
+                  ch = obj.dispChannels(chs(k_min));
+                  %TODO: Pokud neni otevreny PlotResponseCh, nebude po otevreni znat cislo vybraneho kanalu. Lepsi by bylo pouzit proxy objekt, ktery drzi informaci o vybranem kanalu a v pripade zmeny vyberu posle signal, ktery se tak zpropaguje do vsech plotu, ktere ho potrebuji.
+                  if isvalid(obj.ieegdata.plotRCh.fh)  % Zjistim, jeslti je otevreny PlotResponseCh
+                      sortChannel = find(obj.ieegdata.CH.sortorder == ch);
+                      obj.ieegdata.PlotResponseCh(sortChannel);    % Pokud mam PlotResponseCh, updatuju zobrezene kanaly
+                      % Nevolam highlightSelected, protoze ten se zavola diky eventu
+                      figure(obj.fig); %kamil - dam do popredi scatter plot
+                  else
+                      obj.highlightSelected(ch);
+                      %TODO: Pokud ted manualne otevru PlotResponseCh bez parametru, neuvidim v nem spranvy kanal
+                  end
               end
-              
           end
       end
         
