@@ -5,7 +5,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
     properties (Access = public)
         H; %data od Jirky Hammera
         %E; % unikatni jmena elektrod, napr RG, I, GC ...
-        chgroups;
+        chgroups; %cell array, kazda bunka jsou cisla kanalu ve skupine
         els;
         RjCh;
         BrainAtlas_zkratky; %tabulka od Martina Tomaska
@@ -45,12 +45,12 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
              
         end
         
-        function [obj, chgroups, els] = ChannelGroups(obj,chnsel)
+        function [obj, chgroups, els] = ChannelGroups(obj,chnsel,subjname)
             %vraci skupiny kanalu (cisla vsech channels na elekrode) + cisla nejvyssiho kanalu v na kazde elektrode v poli els
             if ~exist('chnsel','var') || isempty(chnsel)
-                if isempty(obj.chgroups)
-                    chgroups = getChannelGroups_kisarg(obj.H,'perElectrode');
-                    els = zeros(1,numel(chgroups));
+                if isempty(obj.chgroups)                    
+                    chgroups = obj.getChannelGroups(subjname); %pouziju vlastni funkci, getChannelGroups_kisarg je hrozne pomale
+                    els = zeros(1,numel(chgroups)); 
                     for j = 1:numel(chgroups)
                         els(j)=max(chgroups{j});
                     end
@@ -732,6 +732,36 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             
             obj.H.selCh_H = selCh_H;
           end  
+          function groups = getChannelGroups(obj,subjname)
+             %vraci cell array, kazda bunka jsou cisla kanalu ve skupine
+             % subjname - jestli jsou skupiny podle subjname (napr p173) nebo elektrod (napr A)             
+             if ~exist('subjname','var'), subjname = 0; end %defaultne podle elektod
+             strprev = '';
+             groups = cell(1,1);
+             groupN = 1;
+             chgroup = 1;             
+             for ch = 1:numel(obj.H.channels)
+                 if strcmp(obj.H.channels(ch).signalType,'SEEG')
+                     if subjname
+                        expr = '^\w+'; %pismena i cisla,napriklad p173, konci mezerou nebo zavorkou za tim
+                     else
+                        expr = '^[a-zA-Z]+';
+                     end
+                     str = regexp(obj.H.channels(ch).name,expr,'match');   %jeden nebo vice pismen na zacatku                  
+                     if ~strcmp(str{1},strprev)
+                         if ch > 1
+                            groups{groupN} = chgroup;
+                            groupN = groupN + 1;
+                            chgroup = ch;
+                         end
+                         strprev = str{1};    
+                     else
+                         chgroup = [chgroup ch]; %#ok<AGROW>
+                     end
+                 end
+             end
+             groups{groupN} = chgroup;
+          end
           function [bl] = brainlabel(obj,label)
             %vrati jmeno struktury podle tabulky, pripadne doplni otaznik na konec             
             if isempty(label), bl = ''; return; end
