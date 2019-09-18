@@ -90,10 +90,11 @@ classdef ScatterPlot < handle
                 dataName = obj.axisY;
             end
             obj.ieegdata.CH.plotCh3D.selch = []; %nechci mit vybrany zadny kanal z minula
+            chshowstr = obj.ieegdata.CH.plotCh2D.chshowstr; %musim udelat kopii jinak se do grafu preda odkaz
             obj.ieegdata.CH.ChannelPlot([],0,data,... %param chnvals
                 obj.dispChannels(iData),... %chnsel jsou cisla kanalu, pokud chci jen jejich vyber
                 [],[],{[dataName '(' obj.categoryNames{katnum} '), SelCh: ' obj.dispSelChName ], ... %popis grafu = title - prvni radek
-                ['show:' obj.ieegdata.CH.plotCh2D.chshowstr]}, ... %popis grafu title, druhy radek
+                ['show:' chshowstr]}, ... %popis grafu title, druhy radek
                 rangeZ); %rozsah hodnot - meritko barevne skaly
             %set(obj.plotAUC.Eh.CH.plotCh3D.fh, 'WindowButtonDownFcn', {@obj.hybejPlot3Dclick, selch});
         end
@@ -249,8 +250,10 @@ classdef ScatterPlot < handle
                 if obj.showNumbers > 0
                     if obj.showNumbers == 1
                         labels = cellstr(num2str(obj.dispChannels')); %cisla kanalu
-                    else
+                    elseif obj.showNumbers==2
                         labels = {obj.ieegdata.CH.H.channels(obj.dispChannels).name}'; %jmena kanalu
+                    else
+                        labels = {obj.ieegdata.CH.H.channels(obj.dispChannels).neurologyLabel}'; %anatomicke oznaceni kanalu
                     end
                     dx = diff(xlim)/100;
                     th = text(dataX+dx, dataY, labels, 'FontSize', 8);
@@ -309,7 +312,8 @@ classdef ScatterPlot < handle
                     obj.connectPairs = ~obj.connectPairs;
                     obj.updatePlot();
                 case {'n'}
-                    obj.showNumbers = iff(obj.showNumbers==0, 1, iff(obj.showNumbers==1,2,0)); %0->1->2->0
+                    obj.showNumbers =  obj.showNumbers + 1;
+                    if obj.showNumbers > 3, obj.showNumbers=0; end %0->1->2->3->0
                     obj.updatePlot();
                 case {'add'}
                     obj.markerSize = obj.markerSize + 8;
