@@ -4,6 +4,7 @@ classdef ScatterPlot < handle
     
     properties
         ieegdata
+        header; %handle na kopii ieegdata.CH, kvuli PlotBrain
         dispChannels
         dispData; %vyobrazena data ve scatterplotu
         
@@ -52,6 +53,7 @@ classdef ScatterPlot < handle
             %SCATTERPLOT Construct an instance of this class
             %   Detailed explanation goes here
             obj.ieegdata = ieegdata;
+            obj.header = copy(obj.ieegdata.CH); %vytvorim nezavislou kopii kvuli PlotBrain, aby ne kolize z AUCPlotM grafem
             obj.selCh = ieegdata.plotRCh.selCh; %vyber kanalu fghjkl * pocet kanalu
             obj.selChNames = ieegdata.plotRCh.selChNames; %vyber kanalu fghjkl * pocet kanalu
             obj.dispSelChName = [];
@@ -90,9 +92,9 @@ classdef ScatterPlot < handle
                 data = obj.dispData(katnum).dataY(iData);
                 dataName = obj.axisY;
             end
-            obj.ieegdata.CH.plotCh3D.selch = []; %nechci mit vybrany zadny kanal z minula
-            chshowstr = obj.ieegdata.CH.plotCh2D.chshowstr; %musim udelat kopii jinak se do grafu preda odkaz
-            obj.ieegdata.CH.ChannelPlot([],0,data,... %param chnvals
+            obj.header.plotCh3D.selch = []; %nechci mit vybrany zadny kanal z minula
+            chshowstr = obj.header.plotCh2D.chshowstr; %musim udelat kopii jinak se do grafu preda odkaz
+            obj.header.ChannelPlot([],0,data,... %param chnvals
                 obj.dispChannels(iData),... %chnsel jsou cisla kanalu, pokud chci jen jejich vyber
                 [],[],{[dataName '(' obj.categoryNames{katnum} '), SelCh: ' obj.dispSelChName ], ... %popis grafu = title - prvni radek
                 ['show:' chshowstr]}, ... %popis grafu title, druhy radek
@@ -190,7 +192,7 @@ classdef ScatterPlot < handle
             delete(obj.connectionsPlot); obj.connectionsPlot = [];
             delete(obj.numbers); obj.numbers = [];  
             for j = 1:numel(obj.texthandles)
-                delete(obj.texthandles(j)); 
+                if(isgraphics(obj.texthandles(j))), delete(obj.texthandles(j));  end
             end            
             obj.texthandles = [];
             

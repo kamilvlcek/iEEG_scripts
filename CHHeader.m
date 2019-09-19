@@ -286,6 +286,9 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 end %barevna skala, jen pokud jsou ruzne hodnoty kanalu
                 if obj.plotCh3D.zoom < 2, axis equal;  end %maximalni zoom je bez stejnych os
                 title(popis);
+                if isfield(obj.plotCh3D,'background') && obj.plotCh3D.background==0
+                    set(gca,'color','none'); %zadne bile pozadi, pak ani v corelu
+                end
                 %rozhybani obrazku            
                 set(obj.plotCh3D.fh,'KeyPressFcn',@obj.hybejPlot3D);
             else
@@ -806,7 +809,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
           end
           function obj = hybejPlot3D(obj,~,eventDat)
               switch eventDat.Key
-                  case 's'                                           
+                  case 's'    %sagital view                                       
                       obj.plotCh3D.view =  [1 0 0]; %zprava
                       view(obj.plotCh3D.view); 
                   case {'c','f'} %coronal = predozadni, frontal                      
@@ -859,6 +862,13 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     else
                        obj.plotCh3D.zoom  = 1; %vykreslim zoom jen kanalu
                     end 
+                    obj.ChannelPlot();
+                 case 'w' %zapinani a vypinani prazdneho pozadi obrazku
+                    if isfield(obj.plotCh3D,'background') 
+                        obj.plotCh3D.background = 1-obj.plotCh3D.background;
+                    else
+                        obj.plotCh3D.background = 0;
+                    end
                     obj.ChannelPlot();
               end
           end

@@ -244,6 +244,14 @@ classdef CStat < handle
                 end
             end            
             
+             if isfield(obj.plotAUC_m,'fh') && (verLessThan('matlab','9.0') || isvalid(obj.plotAUC_m.fh)) %isvalid je od verze 2016
+               figure(obj.plotAUC_m.fh); %pouziju uz vytvoreny graf
+               clf(obj.plotAUC_m.fh); %graf vycistim
+               figurenew = 0;  %obnovuju uz drive vytvoreny graf=figure                           
+            else                                  
+               obj.plotAUC_m.fh = figure('Name','AUC for multiple channels');
+               figurenew = 1; %vytvoril jsem novy graf - okno               
+             end            
             
             chantodo = find(cellfun(@isempty,{obj.plotAUC.aucdata.AUC})); %najdu kanaly, ktere jsou nespocitane v aucdata
             chantodo = intersect(chantodo,channels); %z tech nespocitanych chci jen ty, ktere se maji ted vykreslit
@@ -251,31 +259,25 @@ classdef CStat < handle
             if ~isempty(chantodo)
                 obj.ROCAnalysis(obj.plotAUC.Eh,chantodo,obj.plotAUC.time,obj.plotAUC.kategories); 
             end
-            sig = obj.plotAUC.sig(channels,logical(obj.plotAUC.katplot)); %index kanalu se signifik auc krivkami ke kresleni
+            if isfield(obj.plotAUC_m,'chsort') &&  figurenew == 0 %pokud jsou kanaly serazene jinak neni to novy obrazek
+                chnums = channels(obj.plotAUC_m.chsort);
+            else
+                chnums = channels;            
+            end
+            sig = obj.plotAUC.sig(chnums,logical(obj.plotAUC.katplot)); %index kanalu se signifik auc krivkami ke kresleni
             
             legenda = cell(1,sum(sig));                        
             ColorSet = distinguishable_colors(sum(sig)); %ruzne barvy pro ruzne kanaly
-            ploth = zeros(1,sum(sig)); %handly na ploty, kvuli selektivni legende            
+            ploth = nan(1,sum(sig)); %handly na ploty, kvuli selektivni legende            
                         
-            if isfield(obj.plotAUC_m,'fh') && (verLessThan('matlab','9.0') || isvalid(obj.plotAUC_m.fh)) %isvalid je od verze 2016
-               figure(obj.plotAUC_m.fh); %pouziju uz vytvoreny graf
-               clf(obj.plotAUC_m.fh); %graf vycistim
-               figurenew = 0;  %obnovuju uz drive vytvoreny graf=figure                           
-            else                                  
-               obj.plotAUC_m.fh = figure('Name','AUC for multiple channels');
-               figurenew = 1; %vytvoril jsem novy graf - okno               
-            end
+           
             
             if exist('chSelection','var') && ~isempty(obj.plotAUC.selChNames), ChSelText = [' chnls: ' cell2str(obj.plotAUC.selChNames{chSelection}) ]; else, ChSelText = ''; end
             figuretitle= ['AUCPlotM kontrast: ' obj.plotAUC.katnames{find(obj.plotAUC.katplot)}  ChSelText   ]; %#ok<FNDSB>
             if figurenew, disp(figuretitle); end            
             ileg = 1; %specialni index na signif kanaly - legendu a barvy            
-            for ch = 1:numel(channels)     
-                if isfield(obj.plotAUC_m,'chsort') &&  figurenew == 0 %pokud jsou kanaly serazene jinak neni to novy obrazek
-                    chnum = channels(obj.plotAUC_m.chsort(ch));
-                else
-                    chnum = channels(ch);
-                end
+            for ch = 1:numel(channels)                     
+                chnum = chnums(ch);                
                 if channels(ch) > numel(obj.plotAUC.aucdata) || isempty( obj.plotAUC.aucdata(chnum).AUC)                     
                     obj.ROCAnalysis(obj.plotAUC.Eh,chnum,obj.plotAUC.time,obj.plotAUC.kategories);                                        
                 end                
@@ -316,6 +318,7 @@ classdef CStat < handle
                 end
             end
             legenda = legenda(~cellfun('isempty',legenda)); %vymazu prazdne polozky, ktere se nevykresluji
+            ploth = ploth(~isnan(ploth)); %vymazu prazdne polozky, ktere se nevykresluji
             if ~isempty(legenda), legend(ploth,legenda); end
             ylim([0 1]);
             
