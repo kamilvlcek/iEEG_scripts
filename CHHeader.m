@@ -167,19 +167,29 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             assert(numel(chnvals) == numel(chnsel), 'unequal size of chnvals and chnsel');
             nblocks = numel(chnvals); %pocet barev bude odpovidat poctu kanalu
             cmap = parula(nblocks+1); %+1 protoze hodnoty se budou zaokrouhlovat nahoru nebo dolu
-            if isempty(rangeZ), rangeZ = [min(chnvals) max(chnvals)]; end
+            reverse = 0; %jestli obratit barevnou skalu a velikosti
+            if isempty(rangeZ)
+                rangeZ = [min(chnvals) max(chnvals)];                 
+            elseif rangeZ(1) > rangeZ(2) %pokud dam minmax v obrazenem poradi, barvy i velikosti taky v obracenem poradi
+                reverse = 1;
+                rangeZ = flip(rangeZ);            
+                cmap = flip(cmap,1);
+            end
+            
             chnvalsN = chnvals - rangeZ(1); %odectu mimimum
             chnvalsN = chnvalsN/diff(rangeZ); % normalization  - podelim maximem - hodnoty jsou [0;1]          
             chnvalsN(isnan(chnvalsN)) = 0; % in case of all zeros, nan nahradim 0
             chnvalsN(chnvalsN<0) = 0; chnvalsN(chnvalsN>1) = 1; %omezim rozsah na [0;1];            
             clrs = cmap(round(nblocks*chnvalsN)+1, :); % color values, prevedu na rozsah 1-nblocks a priradim barvy
-            sizes = 20+200*chnvalsN; %velikosti kulicek 
+            sizes = 20+200*iff(reverse,1-chnvalsN,chnvalsN); %velikosti kulicek 
+            %if reverse, sizes = flip(sizes); end
             if isfield(obj.H.channels,'MNI_x')
                 if isfield(obj.plotCh3D,'fh') && ishandle(obj.plotCh3D.fh)
                     figure(obj.plotCh3D.fh); %pouziju uz vytvoreny graf
-                    clf(obj.plotCh3D.fh); %graf vycistim
+                    clf(obj.plotCh3D.fh); %graf vycistim                     
                 else
                     obj.plotCh3D.fh = figure('Name','ChannelPlot 3D in MNI');                     
+                    obj.plotCh3D.isColormapReversed = 0;
                 end          
                                
                 [obj,chgroups] = obj.ChannelGroups(chnsel); %rozdeli kanaly po elektrodach do skupin. 
@@ -266,7 +276,12 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 end
                 
                 if(max(chnvals)>0)
-                    colorbar; 
+                    colorbar;
+                    if (reverse && ~obj.plotCh3D.isColormapReversed) || (~reverse && obj.plotCh3D.isColormapReversed)
+                        oldcmap = colormap;
+                        colormap( flipud(oldcmap) ); %prevratim colomapu, jinak se zobrazuje defaultni poradi, bez ohledu na moje prehozeni                  
+                        obj.plotCh3D.isColormapReversed = 1 - obj.plotCh3D.isColormapReversed;                     
+                    end
                     caxis(rangeZ); 
                 end %barevna skala, jen pokud jsou ruzne hodnoty kanalu
                 if obj.plotCh3D.zoom < 2, axis equal;  end %maximalni zoom je bez stejnych os

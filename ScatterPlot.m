@@ -23,6 +23,7 @@ classdef ScatterPlot < handle
         plots
         sbox
         pbox
+        texthandles ; %handle na texty v obrazku, abych je mohl smazat
         
         highlights
         
@@ -179,14 +180,19 @@ classdef ScatterPlot < handle
             ylim(ylim(obj.ax));
         end
         
-        function updatePlot(obj)
+        function updatePlot(obj,recompute)
+            if ~exist('recompute','var'), recompute = 1; end;
             obj.setDisplayedChannels(); % Kombinace voleb pro zobrazeni kanalu
             selChFiltered = obj.selCh(obj.dispChannels,:); %filter kanalu ve vyberu fghjkl
             delete(obj.plots); obj.plots = [];
             delete(obj.sbox);
             delete(obj.pbox);            
             delete(obj.connectionsPlot); obj.connectionsPlot = [];
-            delete(obj.numbers); obj.numbers = [];            
+            delete(obj.numbers); obj.numbers = [];  
+            for j = 1:numel(obj.texthandles)
+                delete(obj.texthandles(j)); 
+            end            
+            obj.texthandles = [];
             
             if ~isempty(obj.dispSelChName)
                 obj.sbox = annotation(obj.fig, 'textbox',[0 .9 .4 .1], 'String', obj.dispSelChName, 'EdgeColor', 'none');
@@ -195,15 +201,19 @@ classdef ScatterPlot < handle
             catlist = strjoin(obj.categoryNames(obj.categoriesSelectionIndex), ', ');
             obj.pbox = annotation(obj.fig, 'textbox', [0 0 .4 .1], 'String', ['C: ' catlist], 'EdgeColor', 'none');
             
-            stats = struct();
+           
             if isempty(obj.dispChannels)
                 disp('No channels corresponding to the selection');
                 return;
             end
-            
-            for k = obj.categoriesSelectionIndex %1:numel(obj.categories)
-                catnum = obj.categories(k);
-                [stats(k).valmax, stats(k).tmax, stats(k).tfrac, stats(k).tint] = obj.ieegdata.ResponseTriggerTime(obj.valFraction, obj.intFraction, catnum, obj.dispChannels);
+            if recompute
+                stats = struct();
+                for k = obj.categoriesSelectionIndex %1:numel(obj.categories)
+                    catnum = obj.categories(k);
+                    [stats(k).valmax, stats(k).tmax, stats(k).tfrac, stats(k).tint] = obj.ieegdata.ResponseTriggerTime(obj.valFraction, obj.intFraction, catnum, obj.dispChannels);
+                end
+            else
+                stats = obj.dispStats; %pouziju drive ulozene hodnoty
             end
             
             categoryMarkers = {'o', 's', 'd','x'};
@@ -234,6 +244,10 @@ classdef ScatterPlot < handle
                     obj.connectPairs = false;
                 end
             end
+            pocty = zeros(numel(obj.categoriesSelectionIndex),2); %pocty zobrazenych kanalu   
+            xsize = xlim; ysize = ylim;
+            xtext = xsize(2)-diff(xsize)/5;
+            ytext = ysize(2)-diff(ysize)/5;
             
             for k = obj.categoriesSelectionIndex %1:numel(obj.categories)
                 dataX = stats(k).(obj.axisX);
@@ -241,11 +255,13 @@ classdef ScatterPlot < handle
                 iData = logical(selChFiltered(:,k)); %kanaly se signifikantim rozdilem vuci baseline v teto kategorii
                 if any(iData) 
                     obj.plots(k,1) = scatter(obj.ax, dataX(iData), dataY(iData), obj.markerSize, repmat(obj.baseColors(k,:), sum(iData), 1), categoryMarkers{k}, 'MarkerFaceColor', 'flat', 'DisplayName', obj.categoryNames{k});
+                    pocty(k,1) = sum(iData);
                 end
                 iData = ~iData; %kanaly bez signif rozdilu vuci baseline v teto kategorii
                 if any(iData) 
                     obj.plots(k,2) = scatter(obj.ax, dataX(iData), dataY(iData), obj.markerSize, repmat(obj.baseColors(k,:), sum(iData), 1), categoryMarkers{k}, 'MarkerFaceColor', 'none', 'DisplayName', obj.categoryNames{k},...
                         'HandleVisibility','off'); %nebude v legende
+                    pocty(k,2) = sum(iData);
                 end
                 if obj.showNumbers > 0
                     if obj.showNumbers == 1
@@ -262,6 +278,7 @@ classdef ScatterPlot < handle
                 end
                 obj.dispData(k).dataX = dataX; %zalohuju vyobrazena data pro jine pouziti
                 obj.dispData(k).dataY = dataY;
+                obj.texthandles(k) = text(xtext, ytext - (k-1)*diff(ysize)/20 ,[obj.categoryNames{k} ':' num2str(pocty(k,1)) '+' num2str(pocty(k,2))]);
             end
             legend(obj.ax, 'show');
             hold(obj.ax, 'off');
@@ -269,7 +286,8 @@ classdef ScatterPlot < handle
                 title(['show:' obj.ieegdata.CH.plotCh2D.chshowstr]);
             else
                 title('show: all');
-            end
+            end            
+            
             obj.dispStats = stats;  % ulozeni vypocitanych statistik
         end
         
@@ -310,11 +328,11 @@ classdef ScatterPlot < handle
                     obj.updatePlot();
                 case {'s'}
                     obj.connectPairs = ~obj.connectPairs;
-                    obj.updatePlot();
+                    obj.updatePlot(0); %neprepocitat hodnoty
                 case {'n'}
                     obj.showNumbers =  obj.showNumbers + 1;
                     if obj.showNumbers > 3, obj.showNumbers=0; end %0->1->2->3->0
-                    obj.updatePlot();
+                    obj.updatePlot(0); %neprepocitat hodnoty
                 case {'add'}
                     obj.markerSize = obj.markerSize + 8;
                     obj.updatePlot();
