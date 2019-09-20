@@ -258,8 +258,8 @@ classdef CStat < handle
             %chantodo = channels(channels>numel(obj.plotAUC.aucdata)); %spocitam si nespocitane kanaly predem najednou. Zatim neresim spocitani i tech chybejicich kanalu
             if ~isempty(chantodo)
                 obj.ROCAnalysis(obj.plotAUC.Eh,chantodo,obj.plotAUC.time,obj.plotAUC.kategories); 
-            end
-            if isfield(obj.plotAUC_m,'chsort') &&  figurenew == 0 %pokud jsou kanaly serazene jinak neni to novy obrazek
+            end                     
+            if isfield(obj.plotAUC_m,'chsort') &&  figurenew == 0 %pokud jsou kanaly serazene jinak a neni to novy obrazek
                 chnums = channels(obj.plotAUC_m.chsort);
             else
                 chnums = channels;            
@@ -346,13 +346,23 @@ classdef CStat < handle
         end
         function AUCPlotBrain(obj,selch,vals)
             %volam funkci na vykresleni 3D obrazku mozku ChannelPlot
+            %selch je cislo kanalu podle poradi (podle velikosti chmax)
             %vals - muzu dodat hodnoty na vykresleni, defaultne jsou pouzite maxima AUC krivek. 
             if ~exist('vals','var')
-                vals = abs(obj.plotAUC_m.chmax)+.5; %chmax jsou hodnoty -.5 az .5. Chci zobrazovat negativni rozliseni jako pozitivni
-            end 
-            points = obj.plotAUC.Eh.CH.ChannelPlot([],0,vals,... %param chnvals
-                obj.plotAUC_m.channels,... %chnsel jsou cisla kanalu, pokud chci jen jejich vyber
-                obj.plotAUC_m.chsort(selch)); %selch je jedno zvyraznene cislo kanalu - index v poli chnsel
+                sig = logical(obj.plotAUC.sig(obj.plotAUC_m.channels,logical(obj.plotAUC.katplot)));  %jestli jsou AUCkrivky signifikangni
+                vals = obj.plotAUC_m.chmax+.5; %chmax jsou hodnoty -.5 az .5. chciz rozsah 0-1                         
+                selchval = vals(obj.plotAUC_m.chsort(selch)); %zjistim hodnotu, kterou chci v mozku oznacit
+                vals = vals(sig); %vezem jen signif kanaly
+                channels =  obj.plotAUC_m.channels(sig);
+                selchs = find(vals==selchval);  %najdu znovu index hodnoty ze signif kanalu
+            else
+                channels =   obj.plotAUC_m.channels;
+            end           
+            
+            obj.plotAUC.Eh.CH.ChannelPlot([],0,vals,... %param chnvals
+                channels,... %chnsel jsou cisla kanalu, pokud chci jen jejich vyber
+                iff(~isempty(selchs),selchs,0),[],...%selch je jedno zvyraznene cislo kanalu - index v poli chnsel
+                'AUCPlotBrain', [0 1]); 
             set(obj.plotAUC.Eh.CH.plotCh3D.fh, 'WindowButtonDownFcn', {@obj.hybejPlot3Dclick, selch});
         end
       
@@ -737,8 +747,7 @@ classdef CStat < handle
              end
              %TODO: Zrusit zvyrazneni v AUC plotu
           end
-        end
-        
+        end           
     end
     
 end

@@ -229,7 +229,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 end               
                 scatter3([XYZ.X],[XYZ.Y],[XYZ.Z],sizes(isizes),clrs(isizes,:),'filled'); %ruzne velke a barevne krouzky vsech kanalu najednou
                
-                if ~isempty(selch)
+                if ~isempty(selch) && selch>0
                     scatter3(XYZ.X(selch),XYZ.Y(selch),XYZ.Z(selch),max(sizes),[0 0 0]);
                 end
                 

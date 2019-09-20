@@ -1749,7 +1749,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 obj.CH.plotCh2D = CH_plots{1};   %#ok<USENS>
                 obj.CH.plotCh3D = CH_plots{2};  
             end
-            if isfield(obj.CH.plotCh2D,'chshow') && length(obj.CH.sortorder) > obj.CH.plotCh2D.chshow
+            if isfield(obj.CH.plotCh2D,'chshow') && length(obj.CH.sortorder) > length(obj.CH.plotCh2D.chshow)
                 obj.CH.sortorder = obj.CH.plotCh2D.chshow; %zatimco sortorder se neuklada, chshow ano
             end
             if ismember('CS_plots', {vars.name}) %nastaveni obou grafu AUC v CStat
