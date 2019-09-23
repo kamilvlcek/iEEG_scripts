@@ -1772,7 +1772,11 @@ classdef CiEEGData < matlab.mixin.Copyable
             intervalData = iintervalyData/obj.fs + obj.epochtime(1); %casy ve vterinach
             T = linspace(intervalData(1),intervalData(2),diff(iintervalyData)+1); 
             iintervalyStat = [1 diff(iintervalyData)+1];
-            signum = iff(isfield(obj.plotRCh,'selChSignum'), obj.plotRCh.selChSignum,0); %pokud mam nastavene signum z SelChannelStat, pouziju to, jinak chci odchylky od 0 v obou smerech
+            if isfield(obj.plotRCh,'selChSignum') %pokud mam nastavene signum z SelChannelStat, pouziju to, jinak chci odchylky od 0 v obou smerech
+                signum = obj.plotRCh.selChSignum;
+            else
+                signum = 0;
+            end
             ikatnum = obj.Wp(obj.WpActive).kats == katnum; %WpKatBaseline jsou indexovane ne podle cisel kategorii ale podle indexu v kats
             WpB = obj.Wp(obj.WpActive).WpKatBaseline{ikatnum,1}(iintervalyStat(1):iintervalyStat(2),channels); %time x channels - statistika vuci baseline
             idataM = iff(signum>0, dataM > 0, iff(signum < 0, dataM < 0, true(size(dataM)) ));  % time x channel - jestli chci vetsi, mensi nebo jakekoliv, time x channels                                
