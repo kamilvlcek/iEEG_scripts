@@ -276,7 +276,10 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             else
                 disp('No MNI data');
             end
-        end        
+        end
+        
+        
+        
         function ChannelPlot2D(obj,chsel,plotRCh,plotChH,label)
             %vstupni promenne
             %plotRCh - cela struktura plotRCh z CiEEGData

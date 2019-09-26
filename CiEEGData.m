@@ -38,8 +38,8 @@ classdef CiEEGData < matlab.mixin.Copyable
         CS = {}; %objekt CStat
     end
     
-    events
-        PlotResponseChPlotted
+    properties(SetObservable)
+        SelectedChannel
     end
     
     methods (Access = public)
@@ -1479,7 +1479,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
             methodhandle = @obj.hybejPlotCh;
             set(obj.plotRCh.fh,'KeyPressFcn',methodhandle);      
-            notify(obj, 'PlotResponseChPlotted', PlotResponsePlottedData(ch));
+            obj.SelectedChannel = ch;
         end        
             
         function obj = PlotResponseP(obj)

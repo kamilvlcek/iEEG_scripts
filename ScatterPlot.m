@@ -172,7 +172,7 @@ classdef ScatterPlot < handle
             zlabel(obj.ax, 'channel');
 
             obj.filterListener = addlistener(obj.ieegdata.CH, 'FilterChanged', @obj.filterChangedCallback);
-            obj.channelListener = addlistener(obj.ieegdata, 'PlotResponseChPlotted', @obj.plotResponseChCallback);
+            obj.channelListener = addlistener(obj.ieegdata, 'SelectedChannel', 'PostSet', @obj.channelChangedCallback);
             
             set(obj.fig, 'KeyPressFcn', @obj.hybejScatterPlot);
             set(obj.fig, 'WindowButtonDownFcn', @obj.hybejScatterPlotClick);
@@ -337,7 +337,10 @@ classdef ScatterPlot < handle
         end
         
         function highlightSelected(obj, ch)
-            delete(obj.highlights); obj.highlights = [];
+            if ~isempty(obj.highlights)
+                delete(obj.highlights);
+            end
+            obj.highlights = [];
             idx = find(obj.dispChannels == ch);
             hold(obj.ax, 'on');
             if idx
@@ -397,6 +400,8 @@ classdef ScatterPlot < handle
 
             mousept = get(gca,'currentPoint');
             p1 = mousept(1,:); p2 = mousept(2,:); % souradnice kliknuti v grafu - predni a zadni bod
+            disp(p1);
+            disp(p2);
             chs  = zeros(size(obj.categoriesSelectionIndex));
             dist = zeros(size(obj.categoriesSelectionIndex));
             for k = obj.categoriesSelectionIndex % vsechny zobrazene kategorie
@@ -408,7 +413,7 @@ classdef ScatterPlot < handle
               else
                   x = p1(1); y = p1(2); % souradnice v grafu (ve 2D pouze "predni" bod)
                   [chs(k), dist(k)] = dsearchn([dataX' dataY'], [x y]); %najde nejblizsi kanal a vzdalenost k nemu
-                  if dist(k) < mean([diff(ylim(obj.ax)), diff(xlim(obj.ax))])/20 % kdyz kliknu moc daleko od kanalu, nechci nic vybrat - nastavim [0 inf] stejne jako to dela funkce findClosestPoint
+                  if dist(k) > mean([diff(ylim(obj.ax)), diff(xlim(obj.ax))])/20 % kdyz kliknu moc daleko od kanalu, nechci nic vybrat - nastavim [0 inf] stejne jako to dela funkce findClosestPoint
                       chs(k) = 0;
                       dist(k) = inf;
                   end
@@ -443,9 +448,10 @@ classdef ScatterPlot < handle
             obj.dispFilterCh = obj.ieegdata.CH.sortorder;   % Zmena vyberu dle filtru
             obj.updatePlot();
         end
-        
-        function plotResponseChCallback(obj, ~, eventData)
-            obj.highlightSelected(eventData.plottedChannel);
+
+        function channelChangedCallback(obj, ~, eventData)
+            obj.highlightSelected(eventData.AffectedObject.SelectedChannel);
+            disp(['change in SP: ' num2str(eventData.AffectedObject.SelectedChannel)]);
         end
         
         function tearDownFigCallback(obj,src,~)
