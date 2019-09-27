@@ -14,7 +14,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         sortedby; %podle ceho jsou kanaly serazeny
         plotCh2D; %udaje o 2D grafu kanalu ChannelPlot2D, hlavne handle
         plotCh3D; %udaje o 3D grafu kanalu ChannelPlot, hlavne handle
-        
+        reference; %aby trida vedela, jestli je bipolarni nebo ne
     end
     %#ok<*PROPLC>
     
@@ -23,7 +23,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
     end
     
     methods (Access = public)
-        function obj = CHHeader(H,filename)
+        function obj = CHHeader(H,filename,reference)
             %konstruktor
             obj.H = H;     
             if exist('filename','var') && ~isempty(filename)
@@ -42,7 +42,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
              obj = obj.SelChannels(); 
              obj.sortorder = 1:numel(obj.H.channels); %defaultni sort order
              obj.sortedby = '';
-             
+             if exist('reference','var'), obj.reference = reference; else obj.reference = []; end
         end
         
         function [obj, chgroups, els] = ChannelGroups(obj,chnsel,subjname)
@@ -758,13 +758,15 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
              groups = cell(1,1);
              groupN = 1;
              chgroup = 1;             
+             if subjname
+                expr = '^\w+'; %pismena i cisla,napriklad p173, konci mezerou nebo zavorkou za tim
+             elseif strcmp(obj.reference,'Bipolar')
+                expr = '^\(([a-zA-Z]+)';
+             else
+                expr = '^[a-zA-Z]+';
+             end
              for ch = 1:numel(obj.H.channels)
-                 if strcmp(obj.H.channels(ch).signalType,'SEEG')
-                     if subjname
-                        expr = '^\w+'; %pismena i cisla,napriklad p173, konci mezerou nebo zavorkou za tim
-                     else
-                        expr = '^[a-zA-Z]+';
-                     end
+                 if strcmp(obj.H.channels(ch).signalType,'SEEG')                     
                      str = regexp(obj.H.channels(ch).name,expr,'match');   %jeden nebo vice pismen na zacatku                  
                      if ~strcmp(str{1},strprev)
                          if ch > 1

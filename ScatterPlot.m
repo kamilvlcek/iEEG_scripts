@@ -363,15 +363,18 @@ classdef ScatterPlot < handle
               if mindist < mean([diff(ylim(obj.ax)), diff(xlim(obj.ax))])/20 %kamil - kdyz kliknu moc daleko od kanalu, nechci nic vybrat
                   ch = obj.dispChannels(chs(k_min));
                   %TODO: Pokud neni otevreny PlotResponseCh, nebude po otevreni znat cislo vybraneho kanalu. Lepsi by bylo pouzit proxy objekt, ktery drzi informaci o vybranem kanalu a v pripade zmeny vyberu posle signal, ktery se tak zpropaguje do vsech plotu, ktere ho potrebuji.
-                  if isvalid(obj.ieegdata.plotRCh.fh)  % Zjistim, jeslti je otevreny PlotResponseCh
+%                   Kamil - prijde mi, ze to funguje dobre, at je otevreny PlotResponseCh nebo neni
+%                   if isfield(obj.ieegdata.plotRCh,'fh') && isvalid(obj.ieegdata.plotRCh.fh)  % Zjistim, jeslti je otevreny PlotResponseCh
                       sortChannel = find(obj.ieegdata.CH.sortorder == ch);
-                      obj.ieegdata.PlotResponseCh(sortChannel);    % Pokud mam PlotResponseCh, updatuju zobrezene kanaly
+                      obj.ieegdata.PlotResponseCh(sortChannel);    %#ok<FNDSB> % Pokud mam PlotResponseCh, updatuju zobrezene kanaly
                       % Nevolam highlightSelected, protoze ten se zavola diky eventu
                       figure(obj.fig); %kamil - dam do popredi scatter plot
-                  else
-                      obj.highlightSelected(ch);
-                      %TODO: Pokud ted manualne otevru PlotResponseCh bez parametru, neuvidim v nem spranvy kanal
-                  end
+%                   else
+%                       obj.highlightSelected(ch);
+%                       sortChannel = find(obj.ieegdata.CH.sortorder == ch);
+%                       obj.ieegdata.PlotResponseCh(sortChannel); 
+%                       %TODO: Pokud ted manualne otevru PlotResponseCh bez parametru, neuvidim v nem spranvy kanal                      
+%                   end
               end
           end
       end

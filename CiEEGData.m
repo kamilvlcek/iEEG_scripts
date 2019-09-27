@@ -77,7 +77,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 end
                 obj.plotES = [1 1 150 5 0]; %nastavim defaultni hodnoty grafy
                 obj.epochLast = 1;
-                obj.reference = 'original';
+                obj.reference = 'original'; obj.CH.reference = 'original';
                 obj.DatumCas.Created = datestr(now);
                 obj.RjEpochCh = false(obj.channels,1); %zatim nejsou zadne epochy              
                 disp('vytvoren objekt CiEEGData'); 
@@ -406,9 +406,9 @@ classdef CiEEGData < matlab.mixin.Copyable
            
             obj.filename = []; %nechci si omylem prepsat puvodni data 
             switch ref
-                case 'h', obj.reference = 'perHeadbox';
-                case 'e', obj.reference = 'perElectrode'; 
-                case 'b', obj.reference = 'Bipolar';                    
+                case 'h', obj.reference = 'perHeadbox'; obj.CH.reference = 'perHeadbox';
+                case 'e', obj.reference = 'perElectrode';  obj.CH.reference = 'perElectrode';
+                case 'b', obj.reference = 'Bipolar'; obj.CH.reference = 'Bipolar';                   
             end
            
             disp(['reference zmenena: ' obj.reference]); 
@@ -1653,6 +1653,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             obj.mults = ones(1,size(d,2));  %#ok<CPROPLC,CPROP,PROP> 
             obj.header = header;            %#ok<CPROPLC,CPROP,PROP> 
             obj.samples = sce(1); obj.channels=sce(2); obj.epochs = sce(3); %sumarni promenna sce
+            if exist('reference','var'),  obj.reference = reference;   else obj.reference = 'original'; end  %#ok<CPROPLC,CPROP,PROP>  %14.6.2016                        
             vars = whos('-file',filename);
             if ismember('PsyDataP', {vars.name}) %ulozena pouze struktura P z PsyData
                 load(filename,'PsyDataP'); 
@@ -1681,7 +1682,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 obj.epochData = [];
             end
             if ismember('CH_H', {vars.name})
-                load(filename,'CH_H');      obj.CH = CHHeader(CH_H);
+                load(filename,'CH_H');      obj.CH = CHHeader(CH_H,[],obj.reference);
                 [~, ~, obj.els] = obj.CH.ChannelGroups([],isa(obj,'CHilbertMulti'));  
             else
                 load(filename,'CH');
@@ -1711,14 +1712,13 @@ classdef CiEEGData < matlab.mixin.Copyable
             else
                 obj.RjEpochCh = false(obj.channels,obj.epochs); %zatim zadne vyrazene epochy
             end
-            obj.els = els;                  %#ok<CPROPLC,CPROP,PROP> 
+            if ~isprop(obj,'els') || isempty(obj.els), obj.els = els;  end   %#ok<CPROPLC,CPROP,PROP> %spis pouziju els sestavane z headeru
             obj.LoadPlots(filename,vars);
             %obj.plotH = plotH;             %#ok<CPROPLC,CPROP,PROP> 
             obj.RjCh = RjCh;                %#ok<CPROPLC,CPROP,PROP>     
             obj.RjEpoch = RjEpoch;          %#ok<CPROPLC,CPROP,PROP> 
             if exist('epochTags','var'),  obj.epochTags = epochTags;   else obj.epochTags = []; end         %#ok<CPROPLC,CPROP,PROP>     
-            if exist('epochLast','var'),  obj.epochLast = epochLast;   else obj.epochLast = []; end         %#ok<CPROPLC,CPROP,PROP> 
-            if exist('reference','var'),  obj.reference = reference;   else obj.reference = 'original'; end  %#ok<CPROPLC,CPROP,PROP>  %14.6.2016            
+            if exist('epochLast','var'),  obj.epochLast = epochLast;   else obj.epochLast = []; end         %#ok<CPROPLC,CPROP,PROP>             
             obj.filename = filename;
             if isa(obj,'CHilbertMulti') && ismember('label', {vars.name}), load(filename,'label'); obj.label = label; end %#ok<NASGU>
             disp(['nacten soubor ' filename]); 
