@@ -14,7 +14,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         sortedby; %podle ceho jsou kanaly serazeny
         plotCh2D; %udaje o 2D grafu kanalu ChannelPlot2D, hlavne handle
         plotCh3D; %udaje o 3D grafu kanalu ChannelPlot, hlavne handle
-        
+        reference; %aby trida vedela, jestli je bipolarni nebo ne
     end
     %#ok<*PROPLC>
     
@@ -23,7 +23,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
     end
     
     methods (Access = public)
-        function obj = CHHeader(H,filename)
+        function obj = CHHeader(H,filename,reference)
             %konstruktor
             obj.H = H;     
             if exist('filename','var') && ~isempty(filename)
@@ -42,7 +42,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
              obj = obj.SelChannels(); 
              obj.sortorder = 1:numel(obj.H.channels); %defaultni sort order
              obj.sortedby = '';
-             
+             if exist('reference','var'), obj.reference = reference; else obj.reference = []; end
         end
         
         function [obj, chgroups, els] = ChannelGroups(obj,chnsel,subjname)
@@ -167,19 +167,29 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             assert(numel(chnvals) == numel(chnsel), 'unequal size of chnvals and chnsel');
             nblocks = numel(chnvals); %pocet barev bude odpovidat poctu kanalu
             cmap = parula(nblocks+1); %+1 protoze hodnoty se budou zaokrouhlovat nahoru nebo dolu
-            if isempty(rangeZ), rangeZ = [min(chnvals) max(chnvals)]; end
+            reverse = 0; %jestli obratit barevnou skalu a velikosti
+            if isempty(rangeZ)
+                rangeZ = [min(chnvals) max(chnvals)];                 
+            elseif rangeZ(1) > rangeZ(2) %pokud dam minmax v obrazenem poradi, barvy i velikosti taky v obracenem poradi
+                reverse = 1;
+                rangeZ = flip(rangeZ);            
+                cmap = flip(cmap,1);
+            end
+            
             chnvalsN = chnvals - rangeZ(1); %odectu mimimum
             chnvalsN = chnvalsN/diff(rangeZ); % normalization  - podelim maximem - hodnoty jsou [0;1]          
             chnvalsN(isnan(chnvalsN)) = 0; % in case of all zeros, nan nahradim 0
             chnvalsN(chnvalsN<0) = 0; chnvalsN(chnvalsN>1) = 1; %omezim rozsah na [0;1];            
             clrs = cmap(round(nblocks*chnvalsN)+1, :); % color values, prevedu na rozsah 1-nblocks a priradim barvy
-            sizes = 20+200*chnvalsN; %velikosti kulicek 
+            sizes = 20+200*iff(reverse,1-chnvalsN,chnvalsN); %velikosti kulicek 
+            %if reverse, sizes = flip(sizes); end
             if isfield(obj.H.channels,'MNI_x')
                 if isfield(obj.plotCh3D,'fh') && ishandle(obj.plotCh3D.fh)
                     figure(obj.plotCh3D.fh); %pouziju uz vytvoreny graf
-                    clf(obj.plotCh3D.fh); %graf vycistim
+                    clf(obj.plotCh3D.fh); %graf vycistim                     
                 else
                     obj.plotCh3D.fh = figure('Name','ChannelPlot 3D in MNI');                     
+                    obj.plotCh3D.isColormapReversed = 0;
                 end          
                                
                 [obj,chgroups] = obj.ChannelGroups(chnsel); %rozdeli kanaly po elektrodach do skupin. 
@@ -219,7 +229,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 end               
                 scatter3([XYZ.X],[XYZ.Y],[XYZ.Z],sizes(isizes),clrs(isizes,:),'filled'); %ruzne velke a barevne krouzky vsech kanalu najednou
                
-                if ~isempty(selch)
+                if ~isempty(selch) && selch>0
                     scatter3(XYZ.X(selch),XYZ.Y(selch),XYZ.Z(selch),max(sizes),[0 0 0]);
                 end
                 
@@ -266,11 +276,19 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 end
                 
                 if(max(chnvals)>0)
-                    colorbar; 
+                    colorbar;
+                    if (reverse && ~obj.plotCh3D.isColormapReversed) || (~reverse && obj.plotCh3D.isColormapReversed)
+                        oldcmap = colormap;
+                        colormap( flipud(oldcmap) ); %prevratim colomapu, jinak se zobrazuje defaultni poradi, bez ohledu na moje prehozeni                  
+                        obj.plotCh3D.isColormapReversed = 1 - obj.plotCh3D.isColormapReversed;                     
+                    end
                     caxis(rangeZ); 
                 end %barevna skala, jen pokud jsou ruzne hodnoty kanalu
                 if obj.plotCh3D.zoom < 2, axis equal;  end %maximalni zoom je bez stejnych os
                 title(popis);
+                if isfield(obj.plotCh3D,'background') && obj.plotCh3D.background==0
+                    set(gca,'color','none'); %zadne bile pozadi, pak ani v corelu
+                end
                 %rozhybani obrazku            
                 set(obj.plotCh3D.fh,'KeyPressFcn',@obj.hybejPlot3D);
             else
@@ -743,13 +761,15 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
              groups = cell(1,1);
              groupN = 1;
              chgroup = 1;             
+             if subjname
+                expr = '^\w+'; %pismena i cisla,napriklad p173, konci mezerou nebo zavorkou za tim
+             elseif strcmp(obj.reference,'Bipolar')
+                expr = '^\(([a-zA-Z]+)';
+             else
+                expr = '^[a-zA-Z]+';
+             end
              for ch = 1:numel(obj.H.channels)
-                 if strcmp(obj.H.channels(ch).signalType,'SEEG')
-                     if subjname
-                        expr = '^\w+'; %pismena i cisla,napriklad p173, konci mezerou nebo zavorkou za tim
-                     else
-                        expr = '^[a-zA-Z]+';
-                     end
+                 if strcmp(obj.H.channels(ch).signalType,'SEEG')                     
                      str = regexp(obj.H.channels(ch).name,expr,'match');   %jeden nebo vice pismen na zacatku                  
                      if ~strcmp(str{1},strprev)
                          if ch > 1
@@ -794,7 +814,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
           end
           function obj = hybejPlot3D(obj,~,eventDat)
               switch eventDat.Key
-                  case 's'                                           
+                  case 's'    %sagital view                                       
                       obj.plotCh3D.view =  [1 0 0]; %zprava
                       view(obj.plotCh3D.view); 
                   case {'c','f'} %coronal = predozadni, frontal                      
@@ -847,6 +867,13 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     else
                        obj.plotCh3D.zoom  = 1; %vykreslim zoom jen kanalu
                     end 
+                    obj.ChannelPlot();
+                 case 'w' %zapinani a vypinani prazdneho pozadi obrazku
+                    if isfield(obj.plotCh3D,'background') 
+                        obj.plotCh3D.background = 1-obj.plotCh3D.background;
+                    else
+                        obj.plotCh3D.background = 0;
+                    end
                     obj.ChannelPlot();
               end
           end

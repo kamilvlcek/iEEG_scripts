@@ -77,7 +77,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 end
                 obj.plotES = [1 1 150 5 0]; %nastavim defaultni hodnoty grafy
                 obj.epochLast = 1;
-                obj.reference = 'original';
+                obj.reference = 'original'; obj.CH.reference = 'original';
                 obj.DatumCas.Created = datestr(now);
                 obj.RjEpochCh = false(obj.channels,1); %zatim nejsou zadne epochy              
                 disp('vytvoren objekt CiEEGData'); 
@@ -406,9 +406,9 @@ classdef CiEEGData < matlab.mixin.Copyable
            
             obj.filename = []; %nechci si omylem prepsat puvodni data 
             switch ref
-                case 'h', obj.reference = 'perHeadbox';
-                case 'e', obj.reference = 'perElectrode'; 
-                case 'b', obj.reference = 'Bipolar';                    
+                case 'h', obj.reference = 'perHeadbox'; obj.CH.reference = 'perHeadbox';
+                case 'e', obj.reference = 'perElectrode';  obj.CH.reference = 'perElectrode';
+                case 'b', obj.reference = 'Bipolar'; obj.CH.reference = 'Bipolar';                   
             end
            
             disp(['reference zmenena: ' obj.reference]); 
@@ -1603,14 +1603,12 @@ classdef CiEEGData < matlab.mixin.Copyable
             baseline = obj.baseline;        %#ok<PROP,NASGU>
             CH_H=obj.CH.H;                  %#ok<NASGU>            
             CH_plots = {obj.CH.plotCh2D obj.CH.plotCh3D}; % ulozeni parametru plotu mozku                        
-            CS_plots = {obj.CS.plotAUC obj.CS.plotAUC_m}; % ulozeni parametru plotu AUC krivek            
-            [CH_plots,CS_plots] = obj.SaveRemoveFh(CH_plots,CS_plots);  %#ok<ASGLU> %smazu vsechny handely na obrazky 
+            CS_plots = {obj.CS.plotAUC obj.CS.plotAUC_m}; % ulozeni parametru plotu AUC krivek                        
+            [CH_plots,CS_plots,RCh_plots] = obj.SaveRemoveFh(CH_plots,CS_plots,obj.plotRCh);  %#ok<ASGLU> %smazu vsechny handely na obrazky 
             
             CH_filterMatrix = obj.CH.filterMatrix; %#ok<NASGU>  
             els = obj.els;                  %#ok<PROP,NASGU>
-            plotES = obj.plotES;            %#ok<PROP,NASGU>
-            [selCh,selChNames] = obj.GetSelCh();       %#ok<ASGLU>
-            %plotH = obj.plotH;             %#ok<PROP,NASGU> %plotH je blbost ukladat, vytvori se novy, jen to brani vice grafum - 14.6.2016
+            plotES = obj.plotES;            %#ok<PROP,NASGU>          
             RjCh = obj.RjCh;                %#ok<PROP,NASGU>
             RjEpoch = obj.RjEpoch;          %#ok<PROP,NASGU>
             RjEpochCh = obj.RjEpochCh;      %#ok<PROP,NASGU>
@@ -1625,11 +1623,11 @@ classdef CiEEGData < matlab.mixin.Copyable
             [pathstr,fname,ext] = CiEEGData.matextension(filename);        
             filename2 = fullfile(pathstr,[fname ext]);
             save(filename2,'d','tabs','tabs_orig','fs','header','sce','PsyDataP','PsyData','testname','epochtime','baseline','CH_H','CH_plots', 'CS_plots','els',...
-                    'plotES','selCh','selChNames','RjCh','RjEpoch','RjEpochCh','epochTags','epochLast','reference','epochData','Wp','DE','DatumCas', 'label', ...
+                    'plotES','RCh_plots','RjCh','RjEpoch','RjEpochCh','epochTags','epochLast','reference','epochData','Wp','DE','DatumCas', 'label', ...
                     'CH_filterMatrix','-v7.3');  
             disp(['ulozeno do ' filename2]); 
         end
-        function [CH_plots,CS_plots,obj] = SaveRemoveFh(obj,CH_plots,CS_plots)  %smazu vsechny handely na obrazky 
+        function [CH_plots,CS_plots,RCh_plots, obj] = SaveRemoveFh(obj,CH_plots,CS_plots,RCh_plots)  %smazu vsechny handely na obrazky 
             %{obj.CH.plotCh2D obj.CH.plotCh3D}
             if isfield(CH_plots{1}, 'fh' ), CH_plots{1} = rmfield(CH_plots{1}, {'fh'}); end  %potrebuju odstranit figure handly
             if isfield(CH_plots{1}, 'plotChH' ), CH_plots{1} = rmfield(CH_plots{1}, {'plotChH'}); end  %potrebuju odstranit figure handly
@@ -1638,13 +1636,16 @@ classdef CiEEGData < matlab.mixin.Copyable
             %{obj.CS.plotAUC obj.CS.plotAUC_m};
             if isfield(CS_plots{1}, 'fh' ), CS_plots{1} = rmfield(CS_plots{1},  {'fh','Eh','PsyData'}); end %potrebuju odstranit figure handly a jine tridy
             if isfield(CS_plots{2}, 'fh' ), CS_plots{2} = rmfield(CS_plots{2}, {'fh'}); end  
+            
+            %CM.plotRCh
+            if isfield(RCh_plots, 'fh' ), RCh_plots = rmfield(RCh_plots,  {'fh'}); end %potrebuju odstranit figure handly a jine tridy           
         end
         function obj = Load(obj,filename,~,~)
             % nacte veskere promenne tridy ze souboru
             assert(exist(filename,'file')==2, 'soubor s daty neexistuje, nejde o data tridy CHilbert?');
             vars = whos('-file',filename) ;
             assert(ismember('d', {vars.name}), 'soubor neobsahuje promennou d, nejde o data tridy CHilbert?'); 
-            load(filename,'d','tabs','tabs_orig','fs','header','sce','epochtime','els','plotES','RjCh','RjEpoch','epochTags','epochLast','reference');            
+            load(filename,'d','tabs','tabs_orig','fs','header','sce','epochtime','els','RjCh','RjEpoch','epochTags','epochLast','reference');            
             obj.d = d;                      %#ok<CPROPLC,CPROP,PROP> 
             obj.tabs = tabs;                %#ok<CPROPLC,CPROP,PROP> 
             obj.tabs_orig = tabs_orig;      %#ok<CPROPLC,CPROP,PROP> 
@@ -1652,6 +1653,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             obj.mults = ones(1,size(d,2));  %#ok<CPROPLC,CPROP,PROP> 
             obj.header = header;            %#ok<CPROPLC,CPROP,PROP> 
             obj.samples = sce(1); obj.channels=sce(2); obj.epochs = sce(3); %sumarni promenna sce
+            if exist('reference','var'),  obj.reference = reference;   else obj.reference = 'original'; end  %#ok<CPROPLC,CPROP,PROP>  %14.6.2016                        
             vars = whos('-file',filename);
             if ismember('PsyDataP', {vars.name}) %ulozena pouze struktura P z PsyData
                 load(filename,'PsyDataP'); 
@@ -1680,7 +1682,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 obj.epochData = [];
             end
             if ismember('CH_H', {vars.name})
-                load(filename,'CH_H');      obj.CH = CHHeader(CH_H);
+                load(filename,'CH_H');      obj.CH = CHHeader(CH_H,[],obj.reference);
                 [~, ~, obj.els] = obj.CH.ChannelGroups([],isa(obj,'CHilbertMulti'));  
             else
                 load(filename,'CH');
@@ -1710,41 +1712,54 @@ classdef CiEEGData < matlab.mixin.Copyable
             else
                 obj.RjEpochCh = false(obj.channels,obj.epochs); %zatim zadne vyrazene epochy
             end
-            obj.els = els;                  %#ok<CPROPLC,CPROP,PROP> 
-            obj.plotES = plotES;            %#ok<CPROPLC,CPROP,PROP> 
+            if ~isprop(obj,'els') || isempty(obj.els), obj.els = els;  end   %#ok<CPROPLC,CPROP,PROP> %spis pouziju els sestavane z headeru
+            obj.LoadPlots(filename,vars);
+            %obj.plotH = plotH;             %#ok<CPROPLC,CPROP,PROP> 
+            obj.RjCh = RjCh;                %#ok<CPROPLC,CPROP,PROP>     
+            obj.RjEpoch = RjEpoch;          %#ok<CPROPLC,CPROP,PROP> 
+            if exist('epochTags','var'),  obj.epochTags = epochTags;   else obj.epochTags = []; end         %#ok<CPROPLC,CPROP,PROP>     
+            if exist('epochLast','var'),  obj.epochLast = epochLast;   else obj.epochLast = []; end         %#ok<CPROPLC,CPROP,PROP>             
+            obj.filename = filename;
+            if isa(obj,'CHilbertMulti') && ismember('label', {vars.name}), load(filename,'label'); obj.label = label; end %#ok<NASGU>
+            disp(['nacten soubor ' filename]); 
+        end
+        function obj = LoadPlots(obj,filename,vars)          
             if ismember('selCh', {vars.name}) %nastaveni grafu PlotResponseCh
                 load(filename,'selCh'); obj.plotRCh.selCh = selCh;          %#ok<CPROPLC,CPROP,PROP> 
-            end
+            end            
             if ismember('selChNames', {vars.name}) %nastaveni grafu PlotResponseCh - jmena vyberu kanalu fghjkl
                 load(filename,'selChNames'); obj.plotRCh.selChNames = selChNames;          %#ok<CPROPLC,CPROP,PROP>
             else
                 obj.plotRCh.selChNames = [];  
             end
+            %nove plotRCh ukladam cely, predchozi radky tam jsou jen kvuli zpetne kompatibilite
+            if ismember('RCh_plots', {vars.name}) %nastaveni grafu PlotResponseCh - jmena vyberu kanalu fghjkl
+                load(filename,'RCh_plots'); obj.plotRCh = RCh_plots;          %#ok<CPROPLC,CPROP,PROP>            
+            elseif ~isprop(obj,'plotRCh')
+                obj.plotRCh = [];
+            end 
+            if ~isfield(obj.plotRCh,'selCh') || isempty(obj.plotRCh.selCh) %kdyz to je prazdne, tak to pak zlobi, musi byt zeros
+                obj.SetSelCh([]); %nastavim prazdne - zadne vybrane kanaly
+            end
+            if ismember('plotES', {vars.name})
+                load(filename,'plotES'); obj.plotES = plotES;            %#ok<CPROPLC,CPROP,PROP>            
+            end
             if ismember('CH_plots', {vars.name}) %nastaveni obou grafu mozku v CHHeader
                 load(filename,'CH_plots'); 
                 obj.CH.plotCh2D = CH_plots{1};   %#ok<USENS>
-                obj.CH.plotCh3D = CH_plots{2};  %#ok<USENS>
+                obj.CH.plotCh3D = CH_plots{2};  
+            end
+            if isfield(obj.CH.plotCh2D,'chshow') && length(obj.CH.sortorder) > length(obj.CH.plotCh2D.chshow)
+                obj.CH.sortorder = obj.CH.plotCh2D.chshow; %zatimco sortorder se neuklada, chshow ano
             end
             if ismember('CS_plots', {vars.name}) %nastaveni obou grafu AUC v CStat
                 load(filename,'CS_plots'); 
                 obj.CS = CStat();
                 obj.CS.plotAUC = CS_plots{1};   %#ok<USENS>
-                obj.CS.plotAUC_m = CS_plots{2};  %#ok<USENS>
+                obj.CS.plotAUC_m = CS_plots{2}; 
             end
-            if ~isfield(obj.plotRCh,'selCh') || isempty(obj.plotRCh.selCh) %kdyz to je prazdne, tak to pak zlobi, musi byt zeros
-                obj.SetSelCh([]); %nastavim prazdne - zadne vybrane kanaly
-            end
-            %obj.plotH = plotH;             %#ok<CPROPLC,CPROP,PROP> 
-            obj.RjCh = RjCh;                %#ok<CPROPLC,CPROP,PROP>     
-            obj.RjEpoch = RjEpoch;          %#ok<CPROPLC,CPROP,PROP> 
-            if exist('epochTags','var'),  obj.epochTags = epochTags;   else obj.epochTags = []; end         %#ok<CPROPLC,CPROP,PROP>     
-            if exist('epochLast','var'),  obj.epochLast = epochLast;   else obj.epochLast = []; end         %#ok<CPROPLC,CPROP,PROP> 
-            if exist('reference','var'),  obj.reference = reference;   else obj.reference = 'original'; end  %#ok<CPROPLC,CPROP,PROP>  %14.6.2016            
-            obj.filename = filename;
-            if isa(obj,'CHilbertMulti') && ismember('label', {vars.name}), load(filename,'label'); obj.label = label; end %#ok<NASGU>
-            disp(['nacten soubor ' filename]); 
+            
         end
-        
         function nlFilter = neurologyLabelsFilter(obj,neurologyLabels)
             nlFilter = ismember({obj.CH.H.channels.neurologyLabel}, neurologyLabels);
         end
@@ -1776,7 +1791,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 signum = obj.plotRCh.selChSignum;
             else
                 signum = 0;
-            end
+            end; 
             ikatnum = obj.Wp(obj.WpActive).kats == katnum; %WpKatBaseline jsou indexovane ne podle cisel kategorii ale podle indexu v kats
             WpB = obj.Wp(obj.WpActive).WpKatBaseline{ikatnum,1}(iintervalyStat(1):iintervalyStat(2),channels); %time x channels - statistika vuci baseline
             idataM = iff(signum>0, dataM > 0, iff(signum < 0, dataM < 0, true(size(dataM)) ));  % time x channel - jestli chci vetsi, mensi nebo jakekoliv, time x channels                                

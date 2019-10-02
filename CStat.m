@@ -244,38 +244,40 @@ classdef CStat < handle
                 end
             end            
             
-            
-            chantodo = find(cellfun(@isempty,{obj.plotAUC.aucdata.AUC})); %najdu kanaly, ktere jsou nespocitane v aucdata
-            chantodo = intersect(chantodo,channels); %z tech nespocitanych chci jen ty, ktere se maji ted vykreslit
-            %chantodo = channels(channels>numel(obj.plotAUC.aucdata)); %spocitam si nespocitane kanaly predem najednou. Zatim neresim spocitani i tech chybejicich kanalu
-            if ~isempty(chantodo)
-                obj.ROCAnalysis(obj.plotAUC.Eh,chantodo,obj.plotAUC.time,obj.plotAUC.kategories); 
-            end
-            sig = obj.plotAUC.sig(channels,logical(obj.plotAUC.katplot)); %index kanalu se signifik auc krivkami ke kresleni
-            
-            legenda = cell(1,sum(sig));                        
-            ColorSet = distinguishable_colors(sum(sig)); %ruzne barvy pro ruzne kanaly
-            ploth = zeros(1,sum(sig)); %handly na ploty, kvuli selektivni legende            
-                        
-            if isfield(obj.plotAUC_m,'fh') && (verLessThan('matlab','9.0') || isvalid(obj.plotAUC_m.fh)) %isvalid je od verze 2016
+             if isfield(obj.plotAUC_m,'fh') && (verLessThan('matlab','9.0') || isvalid(obj.plotAUC_m.fh)) %isvalid je od verze 2016
                figure(obj.plotAUC_m.fh); %pouziju uz vytvoreny graf
                clf(obj.plotAUC_m.fh); %graf vycistim
                figurenew = 0;  %obnovuju uz drive vytvoreny graf=figure                           
             else                                  
                obj.plotAUC_m.fh = figure('Name','AUC for multiple channels');
                figurenew = 1; %vytvoril jsem novy graf - okno               
+             end            
+            
+            chantodo = find(cellfun(@isempty,{obj.plotAUC.aucdata.AUC})); %najdu kanaly, ktere jsou nespocitane v aucdata
+            chantodo = intersect(chantodo,channels); %z tech nespocitanych chci jen ty, ktere se maji ted vykreslit
+            %chantodo = channels(channels>numel(obj.plotAUC.aucdata)); %spocitam si nespocitane kanaly predem najednou. Zatim neresim spocitani i tech chybejicich kanalu
+            if ~isempty(chantodo)
+                obj.ROCAnalysis(obj.plotAUC.Eh,chantodo,obj.plotAUC.time,obj.plotAUC.kategories); 
+            end                     
+            if isfield(obj.plotAUC_m,'chsort') &&  figurenew == 0 %pokud jsou kanaly serazene jinak a neni to novy obrazek
+                chnums = channels(obj.plotAUC_m.chsort);
+            else
+                chnums = channels;            
             end
+            sig = obj.plotAUC.sig(chnums,logical(obj.plotAUC.katplot)); %index kanalu se signifik auc krivkami ke kresleni
+            
+            legenda = cell(1,sum(sig));                        
+            ColorSet = distinguishable_colors(sum(sig)); %ruzne barvy pro ruzne kanaly
+            ploth = nan(1,sum(sig)); %handly na ploty, kvuli selektivni legende            
+                        
+           
             
             if exist('chSelection','var') && ~isempty(obj.plotAUC.selChNames), ChSelText = [' chnls: ' cell2str(obj.plotAUC.selChNames{chSelection}) ]; else, ChSelText = ''; end
             figuretitle= ['AUCPlotM kontrast: ' obj.plotAUC.katnames{find(obj.plotAUC.katplot)}  ChSelText   ]; %#ok<FNDSB>
             if figurenew, disp(figuretitle); end            
             ileg = 1; %specialni index na signif kanaly - legendu a barvy            
-            for ch = 1:numel(channels)     
-                if isfield(obj.plotAUC_m,'chsort') &&  figurenew == 0 %pokud jsou kanaly serazene jinak neni to novy obrazek
-                    chnum = channels(obj.plotAUC_m.chsort(ch));
-                else
-                    chnum = channels(ch);
-                end
+            for ch = 1:numel(channels)                     
+                chnum = chnums(ch);                
                 if channels(ch) > numel(obj.plotAUC.aucdata) || isempty( obj.plotAUC.aucdata(chnum).AUC)                     
                     obj.ROCAnalysis(obj.plotAUC.Eh,chnum,obj.plotAUC.time,obj.plotAUC.kategories);                                        
                 end                
@@ -316,6 +318,7 @@ classdef CStat < handle
                 end
             end
             legenda = legenda(~cellfun('isempty',legenda)); %vymazu prazdne polozky, ktere se nevykresluji
+            ploth = ploth(~isnan(ploth)); %vymazu prazdne polozky, ktere se nevykresluji
             if ~isempty(legenda), legend(ploth,legenda); end
             ylim([0 1]);
             
@@ -343,13 +346,23 @@ classdef CStat < handle
         end
         function AUCPlotBrain(obj,selch,vals)
             %volam funkci na vykresleni 3D obrazku mozku ChannelPlot
+            %selch je cislo kanalu podle poradi (podle velikosti chmax)
             %vals - muzu dodat hodnoty na vykresleni, defaultne jsou pouzite maxima AUC krivek. 
             if ~exist('vals','var')
-                vals = abs(obj.plotAUC_m.chmax)+.5; %chmax jsou hodnoty -.5 az .5. Chci zobrazovat negativni rozliseni jako pozitivni
-            end 
-            points = obj.plotAUC.Eh.CH.ChannelPlot([],0,vals,... %param chnvals
-                obj.plotAUC_m.channels,... %chnsel jsou cisla kanalu, pokud chci jen jejich vyber
-                obj.plotAUC_m.chsort(selch)); %selch je jedno zvyraznene cislo kanalu - index v poli chnsel
+                sig = logical(obj.plotAUC.sig(obj.plotAUC_m.channels,logical(obj.plotAUC.katplot)));  %jestli jsou AUCkrivky signifikangni
+                vals = obj.plotAUC_m.chmax+.5; %chmax jsou hodnoty -.5 az .5. chciz rozsah 0-1                         
+                selchval = vals(obj.plotAUC_m.chsort(selch)); %zjistim hodnotu, kterou chci v mozku oznacit
+                vals = vals(sig); %vezem jen signif kanaly
+                channels =  obj.plotAUC_m.channels(sig);
+                selchs = find(vals==selchval);  %najdu znovu index hodnoty ze signif kanalu
+            else
+                channels =   obj.plotAUC_m.channels;
+            end           
+            
+            obj.plotAUC.Eh.CH.ChannelPlot([],0,vals,... %param chnvals
+                channels,... %chnsel jsou cisla kanalu, pokud chci jen jejich vyber
+                iff(~isempty(selchs),selchs,0),[],...%selch je jedno zvyraznene cislo kanalu - index v poli chnsel
+                'AUCPlotBrain', [0 1]); 
             set(obj.plotAUC.Eh.CH.plotCh3D.fh, 'WindowButtonDownFcn', {@obj.hybejPlot3Dclick, selch});
         end
       
@@ -712,8 +725,7 @@ classdef CStat < handle
              end
              %TODO: Zrusit zvyrazneni v AUC plotu
           end
-        end
-        
+        end           
     end
     
 end

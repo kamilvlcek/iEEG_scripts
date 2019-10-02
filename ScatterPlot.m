@@ -4,6 +4,7 @@ classdef ScatterPlot < handle
     
     properties
         ieegdata
+        header; %handle na kopii ieegdata.CH, kvuli PlotBrain
         dispChannels
         dispData; %vyobrazena data ve scatterplotu
         
@@ -25,6 +26,7 @@ classdef ScatterPlot < handle
         plots
         sbox
         pbox
+        texthandles ; %handle na texty v obrazku, abych je mohl smazat
         
         highlights
         
@@ -54,6 +56,7 @@ classdef ScatterPlot < handle
             %SCATTERPLOT Construct an instance of this class
             %   Detailed explanation goes here
             obj.ieegdata = ieegdata;
+            obj.header = copy(obj.ieegdata.CH); %vytvorim nezavislou kopii kvuli PlotBrain, aby ne kolize z AUCPlotM grafem
             obj.selCh = ieegdata.plotRCh.selCh; %vyber kanalu fghjkl * pocet kanalu
             obj.selChNames = ieegdata.plotRCh.selChNames; %vyber kanalu fghjkl * pocet kanalu
             obj.dispSelChName = [];
@@ -98,11 +101,12 @@ classdef ScatterPlot < handle
                 data = obj.dispData(katnum).dataY(iData);
                 dataName = obj.axisY;
             end
-            obj.ieegdata.CH.plotCh3D.selch = []; %nechci mit vybrany zadny kanal z minula
-            obj.ieegdata.CH.ChannelPlot([],0,data,... %param chnvals
+            obj.header.plotCh3D.selch = []; %nechci mit vybrany zadny kanal z minula
+            chshowstr = obj.header.plotCh2D.chshowstr; %musim udelat kopii jinak se do grafu preda odkaz
+            obj.header.ChannelPlot([],0,data,... %param chnvals
                 obj.dispChannels(iData),... %chnsel jsou cisla kanalu, pokud chci jen jejich vyber
                 [],[],{[dataName '(' obj.categoryNames{katnum} '), SelCh: ' obj.dispSelChName ], ... %popis grafu = title - prvni radek
-                ['show:' obj.ieegdata.CH.plotCh2D.chshowstr]}, ... %popis grafu title, druhy radek
+                ['show:' chshowstr]}, ... %popis grafu title, druhy radek
                 rangeZ); %rozsah hodnot - meritko barevne skaly
             %set(obj.plotAUC.Eh.CH.plotCh3D.fh, 'WindowButtonDownFcn', {@obj.hybejPlot3Dclick, selch});
         end
@@ -188,14 +192,19 @@ classdef ScatterPlot < handle
             ylim(ylim(obj.ax));
         end
         
-        function updatePlot(obj)
+        function updatePlot(obj,recompute)
+            if ~exist('recompute','var'), recompute = 1; end;
             obj.setDisplayedChannels(); % Kombinace voleb pro zobrazeni kanalu
             selChFiltered = obj.selCh(obj.dispChannels,:); %filter kanalu ve vyberu fghjkl
             delete(obj.plots); obj.plots = [];
             delete(obj.sbox);
             delete(obj.pbox);            
             delete(obj.connectionsPlot); obj.connectionsPlot = [];
-            delete(obj.numbers); obj.numbers = [];            
+            delete(obj.numbers); obj.numbers = [];  
+            for j = 1:numel(obj.texthandles)
+                if(isgraphics(obj.texthandles(j))), delete(obj.texthandles(j));  end
+            end            
+            obj.texthandles = [];
             
             if ~isempty(obj.dispSelChName)
                 obj.sbox = annotation(obj.fig, 'textbox',[0 .9 .4 .1], 'String', obj.dispSelChName, 'EdgeColor', 'none');
@@ -204,15 +213,19 @@ classdef ScatterPlot < handle
             catlist = strjoin(obj.categoryNames(obj.categoriesSelectionIndex), ', ');
             obj.pbox = annotation(obj.fig, 'textbox', [0 0 .4 .1], 'String', ['C: ' catlist], 'EdgeColor', 'none');
             
-            obj.stats = struct();
+           
             if isempty(obj.dispChannels)
                 disp('No channels corresponding to the selection');
                 return;
             end
-            
-            for k = obj.categoriesSelectionIndex %1:numel(obj.categories)
-                catnum = obj.categories(k);
-                [obj.stats(k).valmax, obj.stats(k).tmax, obj.stats(k).tfrac, obj.stats(k).tint] = obj.ieegdata.ResponseTriggerTime(obj.valFraction, obj.intFraction, catnum, obj.dispChannels);
+            if recompute
+                stats = struct();
+                for k = obj.categoriesSelectionIndex %1:numel(obj.categories)
+                    catnum = obj.categories(k);
+                    [stats(k).valmax, stats(k).tmax, stats(k).tfrac, stats(k).tint] = obj.ieegdata.ResponseTriggerTime(obj.valFraction, obj.intFraction, catnum, obj.dispChannels);
+                end
+            else
+                stats = obj.dispStats; %pouziju drive ulozene hodnoty
             end
             
             hold(obj.ax, 'on');
@@ -263,8 +276,10 @@ classdef ScatterPlot < handle
                 if obj.showNumbers > 0
                     if obj.showNumbers == 1
                         labels = cellstr(num2str(obj.dispChannels')); %cisla kanalu
-                    else
+                    elseif obj.showNumbers==2
                         labels = {obj.ieegdata.CH.H.channels(obj.dispChannels).name}'; %jmena kanalu
+                    else
+                        labels = {obj.ieegdata.CH.H.channels(obj.dispChannels).neurologyLabel}'; %anatomicke oznaceni kanalu
                     end
                     dx = diff(xlim)/100;
                     if obj.is3D
@@ -277,6 +292,7 @@ classdef ScatterPlot < handle
                 end
                 obj.dispData(k).dataX = dataX; %zalohuju vyobrazena data pro jine pouziti
                 obj.dispData(k).dataY = dataY;
+                obj.texthandles(k) = text(xtext, ytext - (k-1)*diff(ysize)/20 ,[obj.categoryNames{k} ':' num2str(pocty(k,1)) '+' num2str(pocty(k,2))]);
             end
         end
         
@@ -309,33 +325,7 @@ classdef ScatterPlot < handle
                 obj.connectChannels = false;
             end
         end
-        
-        function connectChannels3D(obj)
-        % Nakresli linku spojujici stejne kanaly. Ruzne barvy musi byt samostatny plot (aby mohl scatter zustat ve stejnych osach)
-            if length(obj.categoriesSelectionIndex) > 1
-                catIndex = zeros(size(obj.categoriesSelectionIndex(1)));
-                x = zeros(length(obj.categoriesSelectionIndex(1)), length(obj.stats(1).(obj.axisX)));
-                y = zeros(length(obj.categoriesSelectionIndex(1)), length(obj.stats(1).(obj.axisX)));
-                for cat = 1:length(obj.categoriesSelectionIndex)
-                    catIndex(cat) = obj.categoriesSelectionIndex(cat);
-                    x(cat,:) = obj.stats(cat).(obj.axisX);
-                    y(cat,:) = obj.stats(cat).(obj.axisY);
-                end
-                l = length(obj.stats(catIndex(1)).(obj.axisX));
-                for c1 = 1:length(obj.categoriesSelectionIndex)
-                    for c2 = 1:c1-1
-                        for k = 1:l
-                            z = obj.dispChannels(k);
-                            obj.connectionsPlot(end+1) = plot([x(c1,k) x(c2,k)], [y(c1,k) y(c2,k)], [z z], 'Color', [0.5 0.5 0.5], 'HandleVisibility','off');
-                        end
-                    end
-                end
-            else
-                disp('No categories to connect');
-                obj.connectChannels = false;
-            end
-        end
-        
+                
         function highlightSelected(obj, ch)
             if ~isempty(obj.highlights)
                 delete(obj.highlights);
@@ -380,10 +370,11 @@ classdef ScatterPlot < handle
                     obj.updatePlot();
                 case {'s'}
                     obj.connectChannels = ~obj.connectChannels;
-                    obj.updatePlot();
+                    obj.updatePlot(0);
                 case {'n'}
-                    obj.showNumbers = iff(obj.showNumbers==0, 1, iff(obj.showNumbers==1,2,0)); %0->1->2->0
-                    obj.updatePlot();
+                    obj.showNumbers =  obj.showNumbers + 1;
+                    if obj.showNumbers > 3, obj.showNumbers=0; end %0->1->2->3->0
+                    obj.updatePlot(0); %neprepocitat hodnoty
                 case {'add'}
                     obj.markerSize = obj.markerSize + 8;
                     obj.updatePlot();
