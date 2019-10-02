@@ -8,13 +8,14 @@ classdef ScatterPlot < handle
         dispChannels
         dispData; %vyobrazena data ve scatterplotu
         
+        stats; % spocitane statistiky
+        
         is3D
         
         selCh ; %kopie ieegdata.plotRCh.selCh;
         selChNames ; %kopie ieegdata.plotRCh.selChNames;
         dispSelCh
         dispSelChName
-        stats % ulozeny vypocet statistik (TODO: pri inicializaci pocitat vse, a pote uz jen provadet filtrovani)
         
         dispFilterCh
         
@@ -219,13 +220,11 @@ classdef ScatterPlot < handle
                 return;
             end
             if recompute
-                stats = struct();
+                obj.stats = struct();
                 for k = obj.categoriesSelectionIndex %1:numel(obj.categories)
                     catnum = obj.categories(k);
-                    [stats(k).valmax, stats(k).tmax, stats(k).tfrac, stats(k).tint] = obj.ieegdata.ResponseTriggerTime(obj.valFraction, obj.intFraction, catnum, obj.dispChannels);
+                    [obj.stats(k).valmax, obj.stats(k).tmax, obj.stats(k).tfrac, obj.stats(k).tint] = obj.ieegdata.ResponseTriggerTime(obj.valFraction, obj.intFraction, catnum, obj.dispChannels);
                 end
-            else
-                stats = obj.dispStats; %pouziju drive ulozene hodnoty
             end
             
             hold(obj.ax, 'on');
@@ -252,6 +251,7 @@ classdef ScatterPlot < handle
         end
         
         function drawPlot(obj, selChFiltered)
+            pocty = zeros(numel(obj.categoriesSelectionIndex),2); %pocty zobrazenych kanalu  
             for k = obj.categoriesSelectionIndex %1:numel(obj.categories)
                 dataX = obj.stats(k).(obj.axisX);
                 dataY = obj.stats(k).(obj.axisY);
@@ -292,8 +292,14 @@ classdef ScatterPlot < handle
                 end
                 obj.dispData(k).dataX = dataX; %zalohuju vyobrazena data pro jine pouziti
                 obj.dispData(k).dataY = dataY;
+                
+                xsize = xlim(obj.ax); ysize = ylim(obj.ax);
+                xtext = xsize(2)-diff(xsize)/5;
+                ytext = ysize(2)-diff(ysize)/5;
+                
                 obj.texthandles(k) = text(xtext, ytext - (k-1)*diff(ysize)/20 ,[obj.categoryNames{k} ':' num2str(pocty(k,1)) '+' num2str(pocty(k,2))]);
             end
+
         end
         
         function drawConnectChannels(obj)
@@ -391,8 +397,6 @@ classdef ScatterPlot < handle
 
             mousept = get(gca,'currentPoint');
             p1 = mousept(1,:); p2 = mousept(2,:); % souradnice kliknuti v grafu - predni a zadni bod
-            disp(p1);
-            disp(p2);
             chs  = zeros(size(obj.categoriesSelectionIndex));
             dist = zeros(size(obj.categoriesSelectionIndex));
             for k = obj.categoriesSelectionIndex % vsechny zobrazene kategorie
