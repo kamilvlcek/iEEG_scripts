@@ -46,6 +46,7 @@ classdef ScatterPlot < handle
         channelListener
         
         baseColors = [0 1 0; 0 0 1; 1 0 0; 1 1 0; 1 0 1; 0 1 0];
+        transparent; % jestli maji byt markers nakreslene s pruhlednosti
     end
     
     methods
@@ -60,10 +61,11 @@ classdef ScatterPlot < handle
             obj.dispSelCh = 1:size(obj.selCh,1);  % Zobrazuji vse
             
             obj.dispFilterCh = obj.ieegdata.CH.sortorder; % Vyber podle FilterChannels
-            obj.connectPairs = false;
+            obj.connectPairs = 0;
             obj.showNumbers = 0; %defaultne se zadne labels nezobrazuji
             obj.numbers = [];
             obj.markerSize = 34;
+            obj.transparent = false;
             
             obj.setCategories();
             
@@ -223,7 +225,7 @@ classdef ScatterPlot < handle
             hold(obj.ax, 'on');
             legend(obj.ax, 'off');
             
-            if obj.connectPairs     % Nakresli linku spojujici prislusny par. Ruzne barvy musi byt samostatny plot (aby mohl scatter zustat ve stejnych osach)
+            if obj.connectPairs > 0     % Nakresli linku spojujici prislusny par. Ruzne barvy musi byt samostatny plot (aby mohl scatter zustat ve stejnych osach)
                 if length(obj.categoriesSelectionIndex) > 1
                     catIndex = zeros(size(obj.categoriesSelectionIndex(1)));
                     x = zeros(length(obj.categoriesSelectionIndex(1)), length(stats(1).(obj.axisX)));
@@ -233,14 +235,17 @@ classdef ScatterPlot < handle
                         x(cat,:) = stats(cat).(obj.axisX);
                         y(cat,:) = stats(cat).(obj.axisY);
                     end
-                    l = length(stats(catIndex(1)).(obj.axisX));
-                    for c1 = 1:length(obj.categoriesSelectionIndex)
-                        for c2 = 1:c1-1
+                    l = length(stats(catIndex(1)).(obj.axisX));                    
+                    %for c1 = 1:length(obj.categoriesSelectionIndex) %pres vsechny zobrazene kategorie
+                        %for c2 = 1:c1-1 
                             for k = 1:l
-                                obj.connectionsPlot(end+1) = plot([x(c1,k) x(c2,k)], [y(c1,k) y(c2,k)], 'Color', [0.5 0.5 0.5], 'HandleVisibility','off');
+                                xx = [x(:,k); x(1,k)]; %tri body za vsechny kategorie + pridam prvni na konec znovu, aby se spojily
+                                yy = [y(:,k); y(1,k)]; %kvuli zrychleni u velkeho mnozstvi bodu
+                                obj.connectionsPlot(end+1) = plot(xx, yy, 'Color', [0.5 0.5 0.5], 'HandleVisibility','off');
+                                %obj.connectionsPlot(end+1) = plot([x(c1,k) x(c2,k)], [y(c1,k) y(c2,k)], 'Color', [0.5 0.5 0.5], 'HandleVisibility','off');
                             end
-                        end
-                    end
+                        %end
+                    %end
                 else
                     disp('No categories to connect');
                     obj.connectPairs = false;
@@ -251,32 +256,35 @@ classdef ScatterPlot < handle
             xtext = xsize(2)-diff(xsize)/5;
             ytext = ysize(2)-diff(ysize)/5;
             
-            for k = obj.categoriesSelectionIndex %1:numel(obj.categories)
+            for k = flip(obj.categoriesSelectionIndex) %nejpozdeji, cili nejvic na vrchu, chci mit prvni kategorii %1:numel(obj.categories)
                 dataX = stats(k).(obj.axisX);
                 dataY = stats(k).(obj.axisY);
                 iData = logical(selChFiltered(:,k)); %kanaly se signifikantim rozdilem vuci baseline v teto kategorii
                 if any(iData) 
                     obj.plots(k,1) = scatter(obj.ax, dataX(iData), dataY(iData), obj.markerSize, repmat(obj.baseColors(k,:), sum(iData), 1), categoryMarkers{k}, 'MarkerFaceColor', 'flat', 'DisplayName', obj.categoryNames{k});
+                    if obj.transparent, alpha(obj.plots(k,1),.5); end %volitelne pridani pruhlednosti
                     pocty(k,1) = sum(iData);
                 end
-                iData = ~iData; %kanaly bez signif rozdilu vuci baseline v teto kategorii
-                if any(iData) 
+                iData = ~iData; %kanaly bez signif rozdilu vuci baseline v teto kategorii - podle oznaceni fghjkl
+                if any(iData) &&  obj.connectPairs >= 0
                     obj.plots(k,2) = scatter(obj.ax, dataX(iData), dataY(iData), obj.markerSize, repmat(obj.baseColors(k,:), sum(iData), 1), categoryMarkers{k}, 'MarkerFaceColor', 'none', 'DisplayName', obj.categoryNames{k},...
                         'HandleVisibility','off'); %nebude v legende
                     pocty(k,2) = sum(iData);
                 end
                 if obj.showNumbers > 0
                     if obj.showNumbers == 1
-                        labels = cellstr(num2str(obj.dispChannels')); %cisla kanalu
+                        labels = cellstr(num2str(obj.dispChannels')); %cisla zobrazenych kanalu 
                     elseif obj.showNumbers==2
                         labels = {obj.ieegdata.CH.H.channels(obj.dispChannels).name}'; %jmena kanalu
                     else
                         labels = {obj.ieegdata.CH.H.channels(obj.dispChannels).neurologyLabel}'; %anatomicke oznaceni kanalu
                     end
-                    dx = diff(xlim)/100;
-                    th = text(dataX+dx, dataY, labels, 'FontSize', 8);
+                    dx = diff(xlim)/100;                    
+                    iData = iff( obj.connectPairs >= 0 , true(size(selChFiltered,1),1), logical(selChFiltered(:,k)) );                    
+                    th = text(dataX(iData)+dx, dataY(iData), labels(iData), 'FontSize', 8);
+                    
                     set(th, 'Clipping', 'on');
-                    obj.numbers = [obj.numbers th];
+                    obj.numbers = [obj.numbers ; th]; % do dlouheho sloupce, kazda kategorie ma ruzny pocet zobrazenych kanalu a textu
                 end
                 obj.dispData(k).dataX = dataX; %zalohuju vyobrazena data pro jine pouziti
                 obj.dispData(k).dataY = dataY;
@@ -329,7 +337,12 @@ classdef ScatterPlot < handle
                     obj.dispSelChName = obj.selChNames{'fghjkl'==eventDat.Key};
                     obj.updatePlot();
                 case {'s'}
-                    obj.connectPairs = ~obj.connectPairs;
+                    obj.connectPairs = obj.connectPairs + 1;
+                    if obj.connectPairs >1,  obj.connectPairs = -1; end
+                    obj.updatePlot(0); %neprepocitat hodnoty
+                case {'t'}
+                    obj.transparent =  ~obj.transparent;
+                    if obj.connectPairs >1,  obj.connectPairs = -1; end
                     obj.updatePlot(0); %neprepocitat hodnoty
                 case {'n'}
                     obj.showNumbers =  obj.showNumbers + 1;
