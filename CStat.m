@@ -272,7 +272,15 @@ classdef CStat < handle
                         
            
             
-            if exist('chSelection','var') && ~isempty(obj.plotAUC.selChNames), ChSelText = [' chnls: ' cell2str(obj.plotAUC.selChNames{chSelection}) ]; else, ChSelText = ''; end
+            if exist('chSelection','var') && ~isempty(obj.plotAUC.selChNames)
+                if ~isempty(chSelection)  && chSelection > 0
+                    ChSelText = [' chnls: ' cell2str(obj.plotAUC.selChNames{chSelection}) ];
+                else
+                    ChSelText = ' chnls: all'; % vsechny kanaly zobrazuju, nefiltruju je podle selCh
+                end
+            else
+                ChSelText = ''; 
+            end
             figuretitle= ['AUCPlotM kontrast: ' obj.plotAUC.katnames{find(obj.plotAUC.katplot)}  ChSelText   ]; %#ok<FNDSB>
             if figurenew, disp(figuretitle); end            
             ileg = 1; %specialni index na signif kanaly - legendu a barvy            
@@ -665,9 +673,12 @@ classdef CStat < handle
                     obj.plotAUC.corelplot = 1 - obj.plotAUC.corelplot;
                     obj.AUCPlot(find(obj.plotAUC.Eh.CH.sortorder==obj.plotAUC.ch));
                 case {'f','g','h','j','k','l'}                    
-                    channels = find(obj.plotAUC.selCh(:,'fghjkl'==eventDat.Key))'; %cisla musi byt v radce
+                    channels = find(obj.plotAUC.selCh(:,'fghjkl'==eventDat.Key))'; %indexy kanalu se znackou f-l
                     %vytvorim multiple AUC graf:
                     obj.AUCPlotM(channels,find('fghjkl'==eventDat.Key),0); %#ok<FNDSB> %povinne ted uvadim predvybrany kanal
+                case {'a'} %chci zobrazit krivky ze vsech kanalu
+                    channels = 1:size(obj.plotAUC.selCh,1);
+                    obj.AUCPlotM(channels,0,0); %#ok<FNDSB> % 0 znamena vsechy kanaly, povinne ted uvadim predvybrany kanal
             end            
         end
         function obj = hybejAUCPlotM(obj,~,eventDat)
