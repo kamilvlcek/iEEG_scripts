@@ -94,7 +94,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             else
                     disp('no epievents');
             end
-            if ~isempty(obj.CH)
+            if ~isempty(obj.CH) && isprop(obj,'CH') && isfield(obj.CH,'H') %kontroly H kvuli obj.CH.reference viz vyse
                 if ~isfield(obj.CH.H,'subjName')
                     obj.CH.H.subjName = [obj.CH.H.patientTag ' ' obj.CH.H.patientNick];
                 end
