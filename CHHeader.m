@@ -134,15 +134,17 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             %selch je jedno zvyraznene cislo kanalu - index v poli chnsel
             %roi je zvyraznena krychlova oblast [ x y z edge]
             %popis je text k zobrazeni na obrazku
-            if ~exist('pohled','var') || isempty(pohled), pohled = ''; end            
+%             if ~exist('pohled','var') || isempty(pohled), pohled = ''; end            
             
-            params = {'labels','chnvals','chnsel','selch','roi','popis','rangeZ'}; %zkusim hromadne zpracovani parametru touhle nedoporucovanou metodou
+            params = {'pohled','labels','chnvals','chnsel','selch','roi','popis','rangeZ'}; %zkusim hromadne zpracovani parametru touhle nedoporucovanou metodou
             for p=1:numel(params) %parametry, ktere se ukladaji do obj.plotCh3D
                 if ~exist(params{p},'var') || eval(['isempty(' params{p} ')']) %pokud neni vstupni promenna nebo je prazdna
                     if isfield(obj.plotCh3D,params{p}) %pokud ale existuje ulozena hodnota
                         eval([ params{p} ' = obj.plotCh3D.' params{p} ';']); %tak ji pouziju
                     else 
                         switch params{p}
+                            case 'pohled'
+                                pohled =  ''; %defaultni pohled nedefinovany = horizontal
                             case 'labels'
                                 labels = 0;  %defaultne se nezobrazuji neurology labels, ale jmena kanalu
                             case 'chnvals'
@@ -156,7 +158,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                             case 'popis'
                                 popis = ''; %default zadny text
                             case 'rangeZ'
-                                rangeZ = [];
+                                rangeZ = [];                            
                         end
                         eval(['obj.plotCh3D.' params{p} ' = ' params{p} ';']); %nastavim ulozenou hodnotu na default
                     end
@@ -166,6 +168,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             end           
             if ~isfield(obj.plotCh3D,'allpoints'), obj.plotCh3D.allpoints = 0; end
             if ~isfield(obj.plotCh3D,'zoom'), obj.plotCh3D.zoom = 0; end            
+            if ~isfield(obj.plotCh3D,'reorder'), obj.plotCh3D.reorder = 0; end   %defaultne se neprerazuji kanaly podle velikosti
             assert(numel(chnvals) == numel(chnsel), 'unequal size of chnvals and chnsel');
             nblocks = numel(chnvals); %pocet barev bude odpovidat poctu kanalu
             cmap = parula(nblocks+1); %+1 protoze hodnoty se budou zaokrouhlovat nahoru nebo dolu
@@ -203,8 +206,18 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     group = chgroups{chg};                     
                     X = [obj.H.channels(group).MNI_x];
                     Y = [obj.H.channels(group).MNI_y];
-                    Z = [obj.H.channels(group).MNI_z];     
+                    Z = [obj.H.channels(group).MNI_z];                                             
                     
+                    if obj.plotCh3D.reorder %pokud chci seradi body podle velikosti, tak aby v prislusnem pohledu byly nejvetsi v popredi
+                        switch obj.plotCh3D.pohled
+                            case 'h'
+                                Z = sortBlikeA(sizes,Z); %nejvetsi hodnoty na nejvyssich souradnicich Z
+                            case 'c'
+                                Y = sortBlikeA(-sizes,Y); %nejvetsi hodnoty na nejnizsich souradnicich y
+                            case 's'
+                                X = sortBlikeA(sizes,X);
+                        end
+                    end
                     linestyle = iff(isempty(chnsel),'-','.'); %cara bude jina pokud je pouzite chnsel
                     plot3(X,Y,Z,linestyle,'LineWidth',2);
                     if chg==1, hold on; end                         
@@ -254,9 +267,9 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                             view([0 0 1]); %shora - pokud neni zadny ulozeny
                         end
                     case 's' %sagital = levoprava
-                        view([-1 0 0]); %zleva
+                        view([1 0 0]); %zleva
                     case 'c' %coronal = predozadni
-                        view([0 1 0]); %zepredu
+                        view([0 -1 0]); %zepredu
                     case 'h' %horizontal = hornodolni   
                         view([0 0 1]); %shora
                 end
@@ -835,13 +848,16 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
           function obj = hybejPlot3D(obj,~,eventDat)
               switch eventDat.Key
                   case 's'    %sagital view                                       
-                      obj.plotCh3D.view =  [1 0 0]; %zprava
+                      obj.plotCh3D.view =  [1 0 0]; %zprava  
+                      obj.plotCh3D.pohled = 's';
                       view(obj.plotCh3D.view); 
                   case {'c','f'} %coronal = predozadni, frontal                      
                       obj.plotCh3D.view =  [0 -1 0];%zepredu
+                      obj.plotCh3D.pohled = 'c';
                       view(obj.plotCh3D.view); %zleva
                   case {'h','a'} %horizontal = hornodolni nebo axial                        
                       obj.plotCh3D.view =  [0 0 1]; %shora
+                      obj.plotCh3D.pohled = 'h';
                       view(obj.plotCh3D.view); 
                   case 'space'
                      if isfield(obj.plotCh3D,'boundary') %prepinam v grafu cely scatter s jen hranici mozku - hlavne kvuli kopirovani do corelu
@@ -894,6 +910,9 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     else
                         obj.plotCh3D.background = 0;
                     end
+                    obj.ChannelPlot();
+                  case 'o' %reorder channels, so that highest vals will be in front
+                    obj.plotCh3D.reorder = 1-obj.plotCh3D.reorder;  
                     obj.ChannelPlot();
               end
           end
