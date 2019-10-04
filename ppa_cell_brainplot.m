@@ -22,7 +22,7 @@ CM = CHilbertMulti; %vytvorim tridu
 % nastavim promenne
 frekvence = '50-150Hz'; %15-31 
 label = 'Scene'; % nazev exktraktu, pripoji s filename % ppaMNIBast
-datum = '2019-07-12'; %dnesni datum - tak se pojmenuju vystupni souhrnny soubor
+datum = '2019-10-04'; %dnesni datum - tak se pojmenuju vystupni souhrnny soubor
 datumEP = '2018-08'; %datum v nazvu nacitaneho souboru, napriklad Ep2018-08
 epochtime = '-0.2-0.8'; %'-0.5-1.2'
 M = containers.Map({'ppa','menrot','aedist'},{'PPA','Menrot','Aedist'});

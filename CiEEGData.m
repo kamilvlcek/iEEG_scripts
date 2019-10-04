@@ -77,7 +77,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 end
                 obj.plotES = [1 1 150 5 0]; %nastavim defaultni hodnoty grafy
                 obj.epochLast = 1;
-                obj.reference = 'original'; obj.CH.reference = 'original';
+                obj.reference = 'original'; 
                 obj.DatumCas.Created = datestr(now);
                 obj.RjEpochCh = false(obj.channels,1); %zatim nejsou zadne epochy              
                 disp('vytvoren objekt CiEEGData'); 
@@ -129,10 +129,9 @@ classdef CiEEGData < matlab.mixin.Copyable
             if isfield(H,'selCh_H'),  H_channels = size(H.selCh_H,2); else, H_channels = 0; end
             assert(H_channels == size(obj.d,2) || size(H.channels,2)==size(obj.d,2), ...
                  ['nesouhlasi pocet elektrod (data:' num2str(size(obj.d,2)) ',H_channels:' num2str(H_channels) ', header' num2str(size(H.channels,2)) ') - spatny header?']);
-            obj.CH = CHHeader(H,filename); %vypocita i selCh_H
+            obj.CH = CHHeader(H,filename,obj.reference); %vypocita i selCh_H
             [~, ~, obj.els] = obj.CH.ChannelGroups();  
             assert(max(obj.els)<=size(obj.d,2),['nesouhlasi pocet elektrod (data:' num2str(size(obj.d,2)) ',header:' num2str(max(obj.els)) ') - spatny header?']);
-            
             disp(['header nacten: ' obj.CH.PacientTag() ', triggerch: ' num2str(obj.CH.GetTriggerCh())]);
         end
          
@@ -207,8 +206,8 @@ classdef CiEEGData < matlab.mixin.Copyable
         function [selCh,selChNames] = GetSelCh(obj)
             %vraci cisla kanalu vybranych v grafu plotResponseCh, naprikla pro CBrainPLot
             if isprop(obj, 'plotRCh') && isfield(obj.plotRCh,'selCh')
-                 selCh = obj.plotRCh.selCh;    %ukladam kvuli selected channels, bez file handelu   
-                 selChNames = obj.plotRCh.selChNames;    %ukladam kvuli selected channels, jejich jmena jednotlivych f-l 
+                 selCh = obj.plotRCh.selCh;    %ChannelsX6, ukladam kvuli selected channels, bez file handelu   
+                 selChNames = obj.plotRCh.selChNames;    %cell 1x6, ukladam kvuli selected channels, jejich jmena jednotlivych f-l 
             else
                  selCh = [];
                  selChNames = [];
