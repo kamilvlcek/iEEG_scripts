@@ -371,6 +371,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             if ~isfield(obj.plotCh2D,'names'), obj.plotCh2D.names = 1; end %jestli se maji vypisovat jmena kanalu
             if ~isfield(obj.plotCh2D,'lines'), obj.plotCh2D.lines=1; end; %defaltne se kresli cary mezi kanaly jedne elektrody
             if ~isfield(obj.plotCh2D,'transparent'), obj.plotCh2D.transparent=0; end; %defaltne se kresli body nepruhledne
+            if ~isfield(obj.plotCh2D,'ch_displayed'), obj.plotCh2D.ch_displayed=obj.plotCh2D.chshow; end; %defaltne jsou zobrazeny vsechny vybrane kanaly (podle filtru)
             %------------------------- vytvoreni figure -----------------------------------
             x = [obj.H.channels(:).MNI_x];
             y = [obj.H.channels(:).MNI_y];
@@ -437,6 +438,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             end
             if ~isempty(selCh) %vybery kanalu fghjkl
                 barvy = 'gbrcmk';
+                ch_displayed = cell(1,6);
                 for m = size(selCh,2):-1:1 %jednu znacku za druhou
                    if  obj.plotCh2D.marks(m) %pokud se ma znacka zobrazovat
                        ch = find(selCh(:,m)); %seznam cisel vybranych kanalu pro danou znacku
@@ -444,7 +446,13 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                        %plot(x(ch),y(ch),'o','MarkerSize',size_selCh,'MarkerEdgeColor',barvy(m),'MarkerFaceColor',barvy(m));
                        sh = scatter(x(ch),y(ch),size_selCh,barvy(m),'filled');
                        if obj.plotCh2D.transparent, alpha(sh,.5); end %volitelne pridani pruhlednosti
+                       ch_displayed{m} = ch;
                    end
+                end
+                if obj.plotCh2D.lines < 0
+                    obj.plotCh2D.ch_displayed = unique(cell2mat(ch_displayed))'; %ktere kanaly jsou opravu zobrazeny, do radku
+                else
+                    obj.plotCh2D.ch_displayed = chnshow;
                 end
             end
             if obj.plotCh2D.chseltop, uistack(h_selection, 'top'); end
@@ -917,22 +925,31 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
               end
           end
           function obj = hybejPlot2D(obj,~,eventDat) 
+              iCh = find(obj.plotCh2D.ch_displayed==obj.plotCh2D.chsel); %index v obj.plotCh2D.ch_displayed
               switch eventDat.Key
                   case {'rightarrow','c'} %dalsi kanal
-                      obj.ChannelPlot2D( min( [obj.plotCh2D.chsel + 1 , max(obj.H.selCh_H)]));
+                      if numel(obj.plotCh2D.ch_displayed) >= iCh + 1
+                        obj.ChannelPlot2D( min( [obj.plotCh2D.ch_displayed(iCh + 1), obj.plotCh2D.ch_displayed(end)]));
+                      end
                   case 'pagedown' %skok o 10 kanalu dopred
-                      obj.ChannelPlot2D( min( [obj.plotCh2D.chsel + 10 , max(obj.H.selCh_H)]));
+                      if numel(obj.plotCh2D.ch_displayed) >= iCh + 10
+                        obj.ChannelPlot2D( min( [obj.plotCh2D.ch_displayed(iCh + 10) , obj.plotCh2D.ch_displayed(end)]));
+                      end
                   case {'leftarrow','z'} %predchozi kanal
-                      obj.ChannelPlot2D( max( [obj.plotCh2D.chsel - 1 , 1]));
+                      if iCh - 1 >= 1
+                        obj.ChannelPlot2D( max( [obj.plotCh2D.ch_displayed(iCh - 1) , obj.plotCh2D.ch_displayed(1)]));
+                      end
                   case 'pageup' %skok 10 kanalu dozadu
-                      obj.ChannelPlot2D( max( [obj.plotCh2D.chsel - 10, 1]));
+                      if iCh - 10 >= 1
+                        obj.ChannelPlot2D( max( [obj.plotCh2D.ch_displayed(iCh - 10), obj.plotCh2D.ch_displayed(1)]));
+                      end
                   case 'return' %zobrazi obrazek mozku s vybranych kanalem                   
                       obj.plotCh2D.plotChH(obj.plotCh2D.chsel); %vykreslim @obj.PlotResponseCh                     
                       figure(obj.plotCh2D.fh); %dam puvodni obrazek dopredu
                   case 'home' %skok na prvni kanal
-                      obj.ChannelPlot2D(1);
+                      obj.ChannelPlot2D( obj.plotCh2D.ch_displayed(1));
                   case 'end' %skok na posledni kanal
-                      obj.ChannelPlot2D( max(obj.H.selCh_H));
+                      obj.ChannelPlot2D( obj.plotCh2D.ch_displayed(end));
                   case 'period'     % prepinani razeni kanalu
                       sortorder0 = obj.sortorder; %musi si ulozit stare razeni, abych potom nasel ten spravny kanal
                       obj.NextSortChOrder();                   
@@ -1005,7 +1022,9 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
               width = pos(3);
               subp = xy(1) > width/2; 
               chns_mni = [];
-              if isfield(obj.plotCh2D,'chshow') && numel(obj.plotCh2D.chshow) < numel(obj.H.channels) 
+              if isfield(obj.plotCh2D,'ch_displayed')
+                  chshow = obj.plotCh2D.ch_displayed; %seznam skutecne zobrazenych kanaly
+              elseif isfield(obj.plotCh2D,'chshow') && numel(obj.plotCh2D.chshow) < numel(obj.H.channels) 
                   chshow = obj.plotCh2D.chshow;
               else
                   chshow = 1:numel(obj.H.channels);

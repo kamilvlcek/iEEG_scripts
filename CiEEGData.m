@@ -832,35 +832,53 @@ classdef CiEEGData < matlab.mixin.Copyable
             if ~exist('add','var') || isempty(add) , add = 0; end %defaultne prepise stare znaceni 
             assert(numel(kategorie)==numel(marks), 'CiEEGData.SelChannelStat: pocet kategorie a marks musi byt stejny');
             [prumery, ~,~,~,katsnames,~] = obj.IntervalyResp([],[],signum, 0); %prumery jsou  channels x intervaly x kategorie 
-            selCh = iff(add,obj.GetSelCh(),zeros(size(prumery,1),6)); %selCh je channels x 6 oznaceni fghjkl
+            selCh = zeros(size(prumery,1),6); %selCh je channels x 6 oznaceni fghjkl
             pocty = zeros(1,numel(kategorie)); %pocty vybranych kanalu v kategoriich, jen kvuli vypisu na obrazovku
             katname = cell(1,numel(kategorie)); %nazvy kategorii a jejich kombinaci. Tam kde ma kategorie vice prvku, bude mi ti katname vice prvku. Ale serazene podle marks
             
             for kat = 1:numel(kategorie)
-                if iscell(kategorie)
+                DoAnd = false; %jestli chci delat AND mezi kategoriemi
+                if iscell(kategorie) %pokud kategorie napr {4, [5 6]}
                     K = kategorie{kat};    %cisla kategorii
+                    if iscell(K)
+                        if ischar(K{1}) && K{1} == '&' %chci udelat AND mezi kategoriemi 
+                            DoAnd = true;
+                            %TODO - tohle reseni nebere v uvahu cas, muze byt SxF a SxO v ruznem case! 
+                            % Krome toho maximalni odpoved muze byt spolecna, a pak chvilku SxO & SxF
+                        end
+                        q = cellfun(@(x) isnumeric(x) && numel(x)==1,K); %index numerickych scalars 
+                        K = cell2mat(K(q)); %vytahnu numericke hodnoty
+                    end
                     KN = cell(1,numel(K)); %KategoryNames - bude tu vic kategorii, jmena z katsnames
                 else
-                    K = kategorie(kat);   
+                    K = kategorie(kat);   %K je jedno cislo kategorie
                     KN = katsnames{kategorie(kat)}; %KategoryNames - jmeno tehle kategorie z katsnames
                 end
                 for iK = 1:numel(K) %pro vsechny prvky tehle kategorie - muze jich byt vic pokud kategorie je cellarray
                     %K(iK) je ted cislo kategorie
                     if(K(iK)<=size(prumery,3)) && marks(kat) <= 6 %pokud je cislo kategorie v poradku
                         iP = prumery(:,1,K(iK))~=0; %index kanalu se signif rozdilem v tehle kategorii - v prumery jsou nesignif hodnoty 0                   
-                        selCh(iP,marks(kat)) = 1; %timhle udelam oznaceni signif kanalu pro tuhle kategorii. Pokud selCh nebylo prazne (add~=0) udela se vlastne OR
-                        pocty(kat)=pocty(kat) + sum(iP); %kolik vybrano v teto kategorii kanalu, scitam kvuli tomu kdyz je kategorie cell array
+                        if DoAnd && iK > 1 %pro prvni kategorii nemuzu delat AND vuci nulam
+                            selCh(:,marks(kat)) = selCh(:,marks(kat)) & iP; %AND mezi soucasnym a predchozimi signif rozdily pro tuto mark
+                        else
+                            selCh(:,marks(kat)) = selCh(:,marks(kat)) | iP; %OR mezi soucasnym a predchozimi signif rozdily pro tuto mark - default
+                        end                        
                         if iscell(KN) 
                             KN(iK) = katsnames(K(iK));
                         end
                     end
-                end  
+                end 
+                if DoAnd, KN = [ KN '&' ]; end %#ok<AGROW>
+                pocty(kat)= sum(selCh(:,marks(kat))); %kolik vybrano v teto kategorii kanalu
                 katname(kat) = iff(numel(KN) > 1,{KN},KN); %nazvy kategorii a jejich kombinacim, kvuli popiskum do grafu               
+            end
+            if add %pokud chci pridavat, udelam OR s puvodnim selch
+                selCh = double(selCh | obj.GetSelCh());
             end
             obj.SetSelCh(selCh); %ulozim oznaceni kanalu 
             marks_str = 'fghjkl';    
             [marks,im] = sort(marks); %seradim znadky
-            katname = katname(im); %seracim kategorie podle znacek
+            katname = katname(im); %seradim kategorie podle znacek
             %jeste popis marks ulozim, abych mohl pozdeji pouzit do grafu
             if ~add
                 obj.plotRCh.selChNames = cell(1,6); %prazdna jmena

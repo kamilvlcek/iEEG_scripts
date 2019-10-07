@@ -32,7 +32,7 @@ for ff = 1:numel(filenames) %muzu mit celou serii adresaru na zpracovani se stej
         if size(d,1)<2
             disp(['zaznam prilis kratky: ' num2str(size(d,1)) ' vzorku' ]);
             delka = numel(tabs);
-            newnames = [newnames; filename]; %#ok<AGROW>
+            %newnames = [newnames; filename]; %#ok<AGROW> %jednovzorkovy zaznam vubec nechci dal zpracovavat
             continue;
         end
         if exist('mults', 'var')
