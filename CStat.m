@@ -373,7 +373,6 @@ classdef CStat < handle
                 'AUCPlotBrain', [0 1]); 
             set(obj.plotAUC.Eh.CH.plotCh3D.fh, 'WindowButtonDownFcn', {@obj.hybejPlot3Dclick, selch});
         end
-      
         function AUC2XLS(obj, val_fraction, int_fraction)
             %vypise seznam kanalu z grafu AUCPlotM do xls souboru 
             %vola se pomoci stlaceni x z grafu AUCPlotM
@@ -433,6 +432,19 @@ classdef CStat < handle
             xlsfilename = fullfile('logs', [logfilename '.xls']);            
             writetable(tablelog, xlsfilename); %zapisu do xls tabulky            
             disp([ 'XLS table saved: ' xlsfilename]);
+        end
+        function Scatter(obj,names)
+            assert(~isempty(obj.plotAUC_m.xlsvals),'no xls data');
+            if ~exist('names','var'), names = 1; end;
+            figure('Name','AUCPlotM Scatter');
+            scatter(obj.plotAUC_m.xlsvals(:,2),obj.plotAUC_m.xlsvals(:,1),'filled');
+            xlim(obj.plotAUC.Eh.epochtime(1:2));
+            ylim([0 1]);
+            if(names)
+                for ch = 1:numel(obj.plotAUC_m.channels)
+                    text(obj.plotAUC_m.xlsvals(ch,2)+0.02,obj.plotAUC_m.xlsvals(ch,1)-0.02,num2str(obj.plotAUC_m.channels(ch)));
+                end
+            end
         end
     end
     methods (Static,Access = public)        
