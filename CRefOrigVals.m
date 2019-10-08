@@ -3,10 +3,13 @@ classdef CRefOrigVals < matlab.mixin.Copyable
     %   Detailed explanation goes here
     
     properties (Access = public)
-        OrigVals = []; %matrix kategories x channels x 2 - maximalni hodnoty kanaly
+        ValMax = []; %matrix kategories x channels x 2 - maximalni hodnoty kanaly
+        TMax = []; %matrix kategories x channels x 2 - cas maxima
         kats; %kategorie, ktere patri k OrigVals
         Eh; %odkaz na objekt CHilbertMulti
         setup;  %nastaveni podle testu
+        chnames = {}; %nazvy originalnich kanalu z kterych je to spocitane
+        chnums = []; %cisla originalnich kanalu, kvuli kontrole
     end
     
     methods (Access = public)
@@ -15,36 +18,69 @@ classdef CRefOrigVals < matlab.mixin.Copyable
             obj.setup = eval(['setup_' E.PsyData.testname]); %nactu nastaveni
         end
         function GetData(obj)
-            obj.OrigVals = zeros(numel(obj.Eh.Wp(obj.Eh.WpActive).kats),numel(obj.Eh.CH.H.channels),2);
+            obj.ValMax = zeros(numel(obj.Eh.Wp(obj.Eh.WpActive).kats),numel(obj.Eh.CH.H.channels),2);
+            obj.TMax = zeros(numel(obj.Eh.Wp(obj.Eh.WpActive).kats),numel(obj.Eh.CH.H.channels),2);
             obj.kats = obj.Eh.Wp(obj.Eh.WpActive).kats;
+            obj.chnames = cell(numel(obj.Eh.CH.H.channels),6);
+            obj.chnums = zeros(numel(obj.Eh.CH.H.channels),2);
             lastiFile = 0;
             for ch = 1:numel(obj.Eh.CH.H.channels) %pres vsechny bipolarni kanaly
                 iFile = find(obj.Eh.els >= ch,1); %cislo souboru, ze ktereho nactu data pro aktualni kanal
-                [ch1name,ch2name]= obj.extractChannelNames(obj.Eh.CH.H.channels(ch).name);
+                [ch1name,ch2name]= obj.extractChannelNames(obj.Eh.CH.H.channels(ch).name);                
                 if iFile ~= lastiFile
                     [pacientId,fnameOrig] = obj.extractPacient(obj.Eh.filenames{iFile});
                     E = pacient_load(pacientId,obj.Eh.PsyData.testname,fnameOrig);
                     valmax = zeros(E.channels,numel(obj.kats));
+                    tmax = zeros(E.channels,numel(obj.kats));
                     for k = 1:numel(obj.kats) %nactu si z tohohle souboru maxima pro vsechny kategorie
-                        valmax(:,k) = E.ResponseTriggerTime(0.9,0.9,obj.kats(k));  
+                        [valmax(:,k),tmax(:,k)] = E.ResponseTriggerTime(0.9,0.9,obj.kats(k));  
                     end
                     lastiFile = iFile; %posledni nactene cislo souboru
                 end
+                obj.chnames(ch,:) = {ch1name,ch2name,obj.Eh.CH.H.channels(ch).name,pacientId,fnameOrig,~isempty(E)};
                 if ~isempty(E)
                     ch1 = E.CH.ChannelNameFind(ch1name);
                     ch2 = E.CH.ChannelNameFind(ch2name);
+                    obj.chnums(ch,:) = [ch1,ch2];
                     if ch1 < 1 || ch2 < 1
                         warning([chn2name 'or' chn2name 'not found in ' pacientId]);
                         continue;
                     end
                     for k = 1:numel(obj.kats) %index kategorie v aktualni statistice, zatim budu pracovat jen s jednoduchymi kontrasty, bez dvojic                        
-                        obj.OrigVals(k,ch,1) = valmax(ch1,k);
-                        obj.OrigVals(k,ch,2) = valmax(ch2,k);
+                        obj.ValMax(k,ch,1) = valmax(ch1,k);
+                        obj.ValMax(k,ch,2) = valmax(ch2,k);
+                        obj.TMax(k,ch,1) = tmax(ch1,k);
+                        obj.TMax(k,ch,2) = tmax(ch2,k);
                     end
                 end
                 
             end
         end
+        function PlotCh(obj,ch)
+            figure('Name',['CRefOrigVals - ch' num2str(ch)]);
+            hold on;
+            baseColors = [0 1 0;  1 0 0; 0 0 1; 1 1 0; 1 0 1; 0 1 0];
+            katnames = cell(1,numel(obj.kats));
+            for k = 1:numel(obj.kats)
+                katnames{k} = obj.Eh.PsyData.CategoryName(obj.kats(k));
+                vals = squeeze(obj.ValMax(k,ch,:));
+                times = squeeze(obj.TMax(k,ch,:));
+                plot(times,vals,'-o','Color',baseColors(obj.kats(k),:));
+                text(times(1),vals(1),obj.chnames{ch,1});
+                text(times(2),vals(2),obj.chnames{ch,2});
+            end
+            xlim(obj.Eh.epochtime(1:2));
+            legend(katnames);
+            title(['channel ' num2str(ch) ', ' obj.chnames{ch,1} '-' obj.chnames{ch,2}]);                 
+            hold off;
+        end
+        function E = PlotResponseCh(obj,ch)
+            E = pacient_load(obj.chnames{ch,4},obj.Eh.PsyData.testname,obj.chnames{ch,5});
+            if ~isempty(E)
+                E.PlotResponseCh(obj.chnums(ch,1));
+            end
+        end
+            
     end
     methods (Access = private)
         function [pacientId,fnameOrig] = extractPacient(obj,filename)
