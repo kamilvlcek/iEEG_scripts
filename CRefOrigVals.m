@@ -14,6 +14,7 @@ classdef CRefOrigVals < matlab.mixin.Copyable
     
     methods (Access = public)
         function obj = CRefOrigVals(E)
+            assert(strcmp(E.reference,'Bipolar'), 'CRefOrigVals: data musi byt bipolarni');
             obj.Eh = E;                
             obj.setup = eval(['setup_' E.PsyData.testname]); %nactu nastaveni
         end
@@ -57,6 +58,7 @@ classdef CRefOrigVals < matlab.mixin.Copyable
             end
         end
         function PlotCh(obj,ch)
+            assert(~isempty(obj.ValMax),'CRefOrigVals: nejsou nactena data');
             figure('Name',['CRefOrigVals - ch' num2str(ch)]);
             hold on;
             baseColors = [0 1 0;  1 0 0; 0 0 1; 1 1 0; 1 0 1; 0 1 0];
@@ -75,12 +77,35 @@ classdef CRefOrigVals < matlab.mixin.Copyable
             hold off;
         end
         function E = PlotResponseCh(obj,ch)
+            assert(~isempty(obj.ValMax),'CRefOrigVals: nejsou nactena data');
             E = pacient_load(obj.chnames{ch,4},obj.Eh.PsyData.testname,obj.chnames{ch,5});
             if ~isempty(E)
                 E.PlotResponseCh(obj.chnums(ch,1));
             end
         end
             
+        function Save(obj)
+            fname = obj.filenameM(obj.Eh.filename);
+            ValMax = obj.ValMax; %#ok<PROP,NASGU>
+            TMax = obj.TMax; %#ok<PROP,NASGU>
+            kats = obj.kats; %#ok<PROP,NASGU>
+            setup = obj.setup; %#ok<PROP,NASGU>
+            chnames = obj.chnames; %#ok<PROP,NASGU>
+            chnums = obj.chnums; %#ok<PROP,NASGU>
+            save(fname,'ValMax','TMax','kats','setup','chnames','chnums','-v7.3'); %do druheho souboru data z teto tridy
+            disp(['saved to ' fname ]);
+        end
+        function Load(obj)
+            fname = obj.filenameM(obj.Eh.filename);
+            load(fname);
+            obj.ValMax = ValMax;  %#ok<CPROP>
+            obj.TMax = TMax; %#ok<CPROP>
+            obj.kats = kats; %#ok<CPROP>
+            obj.setup = setup; %#ok<CPROP>
+            obj.chnames = chnames; %#ok<CPROP>
+            obj.chnums = chnums; %#ok<CPROP>            
+            disp(['loaded ' fname ]);
+        end
     end
     methods (Access = private)
         function [pacientId,fnameOrig] = extractPacient(obj,filename)
@@ -92,6 +117,7 @@ classdef CRefOrigVals < matlab.mixin.Copyable
             fnamepart = extractBefore(fname,mezery(end)); %napriklad "PPA CHilbert 50-150Hz -0.2-0.8 refBipo Ep2018-08"
             fnameOrig = char(strrep(fnamepart,'refBipo','refOrig'));
         end
+        
     end
     methods (Static,Access = private)
         function [chn1,chn2]= extractChannelNames(biponame)
@@ -117,6 +143,14 @@ classdef CRefOrigVals < matlab.mixin.Copyable
                       chn2 = n(pos(2)+1:end);
                   end
               end
+        end
+        function filename2 = filenameM(filename)
+            %vraci jmeno souboru s daty tridy CRefOrigVals
+           filename=strrep(filename,'_CHilb',''); %odstranim pripony vytvorene pri save
+           filename=strrep(filename,'_CiEEG','');
+           filename=strrep(filename,'_CHMult','');
+           [pathstr,fname,ext] = CiEEGData.matextension(filename);         
+           filename2 = fullfile(pathstr,[fname '_CRefOrig' ext]);
         end
     end
     
