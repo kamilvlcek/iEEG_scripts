@@ -10,6 +10,7 @@ classdef CRefOrigVals < matlab.mixin.Copyable
         setup;  %nastaveni podle testu
         chnames = {}; %nazvy originalnich kanalu z kterych je to spocitane
         chnums = []; %cisla originalnich kanalu, kvuli kontrole
+        PlotChH; %handle na obrazek
     end
     
     methods (Access = public)
@@ -59,7 +60,12 @@ classdef CRefOrigVals < matlab.mixin.Copyable
         end
         function PlotCh(obj,ch)
             assert(~isempty(obj.ValMax),'CRefOrigVals: nejsou nactena data');
-            figure('Name',['CRefOrigVals - ch' num2str(ch)]);
+            if isempty(ishghandle(obj.PlotChH))
+                obj.PlotChH = figure('Name',['CRefOrigVals - ch' num2str(ch)]);
+            else
+                figure(obj.PlotChH);
+                clf; %vymazu obrazek
+            end
             hold on;
             baseColors = [0 1 0;  1 0 0; 0 0 1; 1 1 0; 1 0 1; 0 1 0];
             katnames = cell(1,numel(obj.kats));
@@ -73,7 +79,7 @@ classdef CRefOrigVals < matlab.mixin.Copyable
             end
             xlim(obj.Eh.epochtime(1:2));
             legend(katnames);
-            title(['channel ' num2str(ch) ', ' obj.chnames{ch,1} '-' obj.chnames{ch,2}]);                 
+            title(['channel ' num2str(ch) ', ' obj.chnames{ch,3}]);                 
             hold off;
         end
         function E = PlotResponseCh(obj,ch)
