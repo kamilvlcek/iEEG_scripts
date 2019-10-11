@@ -89,7 +89,7 @@ classdef CHilbertMulti < CHilbert
                 if exist(filename,'file') 
                     disp(obj.basename(filename)); %zobrazim jmeno souboru s pouze koncem 
                     obj.filenames{fileno,1} = filename;
-                    load(filename); %nacte vsechny promenne
+                    load(filename); %#ok<LOAD> %nacte vsechny promenne
                     if ~exist('baseline','var'), baseline = [epochtime(1) 0]; end %fake baseline, pokud nebyla ulozena                    
                     test = ~P.data(:,P.sloupce.zpetnavazba); %index testovych epoch
                     

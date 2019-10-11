@@ -1473,8 +1473,8 @@ classdef CiEEGData < matlab.mixin.Copyable
                 text(-0.1,ymax*.90,'no MNI');
             end
             if isfield(obj.CH.H.channels,'seizureOnset') %vypisu epilepticke info
-                seizureOnset    = iff(obj.CH.H.channels(1,ch).seizureOnset==1,'seizureOnset','-');
-                interictalOften = iff(obj.CH.H.channels(1,ch).interictalOften==1,'interictalOften','-');
+                seizureOnset    = iff(isempty(obj.CH.H.channels(1,ch).seizureOnset),'[]',iff(obj.CH.H.channels(1,ch).seizureOnset==1,'seizureOnset','-'));
+                interictalOften = iff(isempty(obj.CH.H.channels(1,ch).interictalOften),'[]',iff(obj.CH.H.channels(1,ch).interictalOften==1,'interictalOften','-'));
                 if isfield(obj.CH.H.channels,'rejected')
                     rejected = iff( ~isempty(obj.CH.H.channels(1,ch).rejected==1),'rejected','-');
                 else
@@ -1495,8 +1495,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 text(-0.1,ymax*.72, ['show:  ' obj.CH.plotCh2D.chshowstr '=' mat2str(obj.CH.plotCh2D.chshow)], 'FontSize', 10);
             end
             methodhandle = @obj.hybejPlotCh;
-            set(obj.plotRCh.fh,'KeyPressFcn',methodhandle);      
-            notify(obj, 'PlotResponseChPlotted', PlotResponsePlottedData(ch));
+            set(obj.plotRCh.fh,'KeyPressFcn',methodhandle);                  
         end        
             
         function obj = PlotResponseP(obj)
