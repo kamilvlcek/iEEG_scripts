@@ -378,9 +378,10 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             end
             if ~isfield(obj.plotCh2D,'chseltop'), obj.plotCh2D.chseltop = 0; end %jestli se ma vybrany kanal zobrazovat na popredi ostatnych  - zlute kolecko
             if ~isfield(obj.plotCh2D,'names'), obj.plotCh2D.names = 1; end %jestli se maji vypisovat jmena kanalu
-            if ~isfield(obj.plotCh2D,'lines'), obj.plotCh2D.lines=1; end; %defaltne se kresli cary mezi kanaly jedne elektrody
-            if ~isfield(obj.plotCh2D,'transparent'), obj.plotCh2D.transparent=0; end; %defaltne se kresli body nepruhledne
-            if ~isfield(obj.plotCh2D,'ch_displayed'), obj.plotCh2D.ch_displayed=obj.plotCh2D.chshow; end; %defaltne jsou zobrazeny vsechny vybrane kanaly (podle filtru)
+            if ~isfield(obj.plotCh2D,'lines'), obj.plotCh2D.lines=1; end %defaltne se kresli cary mezi kanaly jedne elektrody
+            if ~isfield(obj.plotCh2D,'transparent'), obj.plotCh2D.transparent=0; end %defaltne se kresli body nepruhledne
+            if ~isfield(obj.plotCh2D,'chshow'), obj.plotCh2D.chshow = 1:numel(obj.H.channels); end %defaltne se kresli body nepruhledne
+            if ~isfield(obj.plotCh2D,'ch_displayed'), obj.plotCh2D.ch_displayed=obj.plotCh2D.chshow; end %defaltne jsou zobrazeny vsechny vybrane kanaly (podle filtru)
             %------------------------- vytvoreni figure -----------------------------------
             x = [obj.H.channels(:).MNI_x];
             y = [obj.H.channels(:).MNI_y];
@@ -461,7 +462,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 if obj.plotCh2D.lines < 0
                     obj.plotCh2D.ch_displayed = unique(cell2mat(ch_displayed))'; %ktere kanaly jsou opravu zobrazeny, do radku
                 else
-                    obj.plotCh2D.ch_displayed = chnshow;
+                    obj.plotCh2D.ch_displayed = chshow;
                 end
             end
             if obj.plotCh2D.chseltop, uistack(h_selection, 'top'); end

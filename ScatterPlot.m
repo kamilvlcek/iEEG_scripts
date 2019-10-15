@@ -5,16 +5,16 @@ classdef ScatterPlot < handle
     properties
         ieegdata
         header; %handle na kopii ieegdata.CH, kvuli PlotBrain
-        dispChannels
+        dispChannels %zobrazene kanaly v grafu
         dispData; %vyobrazena data ve scatterplotu
         
         selCh ; %kopie ieegdata.plotRCh.selCh;
         selChNames ; %kopie ieegdata.plotRCh.selChNames;
-        dispSelCh
+        dispSelCh % vyber klavesami fghjkl 
         dispSelChName
         dispStats % ulozeny vypocet statistik (TODO: pri inicializaci pocitat vse, a pote uz jen provadet filtrovani)
         
-        dispFilterCh
+        dispFilterCh % CH.sortorder
         
         connectPairs
         connectionsPlot
@@ -185,7 +185,7 @@ classdef ScatterPlot < handle
         end
         
         function updatePlot(obj,recompute)
-            if ~exist('recompute','var'), recompute = 1; end;
+            if ~exist('recompute','var'), recompute = 1; end
             obj.setDisplayedChannels(); % Kombinace voleb pro zobrazeni kanalu
             selChFiltered = obj.selCh(obj.dispChannels,:); %filter kanalu ve vyberu fghjkl
             delete(obj.plots); obj.plots = [];
@@ -394,6 +394,7 @@ classdef ScatterPlot < handle
         
         function setDisplayedChannels(obj)
             obj.dispChannels = intersect(obj.dispFilterCh, obj.dispSelCh);
+            obj.dispChannels = setdiff(obj.dispChannels,obj.ieegdata.RjCh); %kamil 15.10 - vyradim ze zobrazeni vyrazene kanaly
         end
         
         function filterChangedCallback(obj,~,~)
