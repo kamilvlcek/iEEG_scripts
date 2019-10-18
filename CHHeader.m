@@ -25,6 +25,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
     methods (Access = public)
         function obj = CHHeader(H,filename,reference)
             %konstruktor
+            %filename se zatim na nic nepouziva
             obj.H = H;     
             if exist('filename','var') && ~isempty(filename)
                obj.H.filename = filename;
@@ -139,6 +140,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
 %             if ~exist('pohled','var') || isempty(pohled), pohled = ''; end            
             
             params = {'pohled','labels','chnvals','chnsel','selch','roi','popis','rangeZ'}; %zkusim hromadne zpracovani parametru touhle nedoporucovanou metodou
+            iSEEG = contains({obj.H.channels.signalType},'SEEG'); %index kanalu s EEG signalem
             for p=1:numel(params) %parametry, ktere se ukladaji do obj.plotCh3D
                 if ~exist(params{p},'var') || eval(['isempty(' params{p} ')']) %pokud neni vstupni promenna nebo je prazdna
                     if isfield(obj.plotCh3D,params{p}) %pokud ale existuje ulozena hodnota
@@ -150,9 +152,9 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                             case 'labels'
                                 labels = 0;  %defaultne se nezobrazuji neurology labels, ale jmena kanalu
                             case 'chnvals'
-                                chnvals = zeros(1, numel(obj.H.channels)); %default same nuly
+                                chnvals = zeros(1, numel(obj.H.channels(iSEEG))); %default same nuly
                             case 'chnsel'
-                                chnsel = []; %default vsechny kanaly
+                                chnsel = 1:numel(obj.H.channels(iSEEG)) ; %default vsechny kanaly
                             case 'selch'
                                 selch = []; %default vsechny kanaly
                             case 'roi'
@@ -740,8 +742,13 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                    obj.SortChannels();
             end 
         end
-        function obj = FilterChannels(obj,chlabels,notchnlabels)
+        function obj = FilterChannels(obj,chlabels,notchnlabels,selCh)
             %vyberu podle neurologylabel jen nektere kanaly k zobrazeni
+            %selCh - jedno pismeno fghjkl podle oznaceni kanalu. 
+            % Pozor - funguje na zaklade obj.plotCh2D.selCh, ktere se vytvari pri volani ChannelPlot2D, takze to se musi spusti nejdriv a i po zmene vyberu kanalu
+            % zatim se nedaji pouzit obe metody filtrovani dohromady
+            
+            filtered = false;
             if exist('chlabels','var') && ~isempty(chlabels)
                 ChLabels = {obj.H.channels(:).neurologyLabel}';
                 iL = contains(lower(ChLabels),lower(chlabels)); %prevedu oboji na mala pismena
@@ -754,8 +761,19 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 end
                 obj.plotCh2D.chshow = find(iL)'; %vyber kanalu k zobrazeni  , chci je mit v radku     
                 obj.sortorder = obj.plotCh2D.chshow; %defaultni sort order pro tento vyber - nejsou tam cisla od 1 to n, ale cisla kanalu
-                disp(['zobrazeno ' num2str(numel(obj.plotCh2D.chshow)) ' kanalu']);
-            else
+                disp(['zobrazeno ' num2str(numel(obj.plotCh2D.chshow)) ' kanalu']);                
+                filtered = true;
+            end
+            if exist('selCh','var') && ~isempty(selCh)
+                klavesy = 'fghjkl';
+                assert (numel(selCh)==1 && find(klavesy==selCh),'selCh musi byt pouze jedna z pismen fghjkl');
+                obj.plotCh2D.chshow = find(obj.plotCh2D.selCh(:,klavesy==selCh))'; %indexy kanalu se znackou f-l
+                obj.sortorder = obj.plotCh2D.chshow;
+                obj.plotCh2D.chshowstr = selCh;
+                disp(['zobrazeno ' num2str(numel(obj.plotCh2D.chshow)) ' kanalu']);  
+                filtered = true;                
+            end
+            if ~filtered
                 obj.plotCh2D.chshow = 1:numel(obj.H.channels);
                 obj.plotCh2D.chshowstr = '';
                 obj.sortorder = 1:numel(obj.H.channels); %defaultni sort order pro vsechny kanaly

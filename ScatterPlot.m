@@ -188,6 +188,8 @@ classdef ScatterPlot < handle
             if ~exist('recompute','var'), recompute = 1; end
             obj.setDisplayedChannels(); % Kombinace voleb pro zobrazeni kanalu
             selChFiltered = obj.selCh(obj.dispChannels,:); %filter kanalu ve vyberu fghjkl
+            RjCh = intersect(intersect(obj.dispFilterCh, obj.dispSelCh),obj.ieegdata.RjCh); %vyrazene kanaly z tech nyni zobrazenych - cisla kanalu
+            selChRj = obj.selCh(RjCh,:); %filter vyrazenych kanalu ve vyberu fghjkl
             delete(obj.plots); obj.plots = [];
             delete(obj.sbox);
             delete(obj.pbox);            
@@ -251,7 +253,7 @@ classdef ScatterPlot < handle
                     obj.connectPairs = false;
                 end
             end
-            pocty = zeros(numel(obj.categoriesSelectionIndex),2); %pocty zobrazenych kanalu   
+            pocty = zeros(numel(obj.categoriesSelectionIndex),3); %pocty zobrazenych kanalu   
             xsize = xlim; ysize = ylim;
             xtext = xsize(2)-diff(xsize)/5;
             ytext = ysize(2)-diff(ysize)/5;
@@ -263,13 +265,16 @@ classdef ScatterPlot < handle
                 if any(iData) 
                     obj.plots(k,1) = scatter(obj.ax, dataX(iData), dataY(iData), obj.markerSize, repmat(obj.baseColors(k,:), sum(iData), 1), categoryMarkers{k}, 'MarkerFaceColor', 'flat', 'DisplayName', obj.categoryNames{k});
                     if obj.transparent, alpha(obj.plots(k,1),.5); end %volitelne pridani pruhlednosti
-                    pocty(k,1) = sum(iData);
+                    pocty(k,1) = sum(iData); %pocet signifikantnich v teto kategorii
                 end
                 iData = ~iData; %kanaly bez signif rozdilu vuci baseline v teto kategorii - podle oznaceni fghjkl
                 if any(iData) &&  obj.connectPairs >= 0
                     obj.plots(k,2) = scatter(obj.ax, dataX(iData), dataY(iData), obj.markerSize, repmat(obj.baseColors(k,:), sum(iData), 1), categoryMarkers{k}, 'MarkerFaceColor', 'none', 'DisplayName', obj.categoryNames{k},...
                         'HandleVisibility','off'); %nebude v legende
-                    pocty(k,2) = sum(iData);
+                    pocty(k,2) = sum(iData); %pocet ne signifikantnich v teto kategorii
+                end
+                if any(logical(selChRj(:,k))) %pocet rejectovanych pro tuto kategorii
+                    pocty(k,3) = sum(logical(selChRj(:,k))); 
                 end
                 if obj.showNumbers > 0
                     if obj.showNumbers == 1
@@ -288,7 +293,7 @@ classdef ScatterPlot < handle
                 end
                 obj.dispData(k).dataX = dataX; %zalohuju vyobrazena data pro jine pouziti
                 obj.dispData(k).dataY = dataY;
-                obj.texthandles(k) = text(xtext, ytext - (k-1)*diff(ysize)/20 ,[obj.categoryNames{k} ':' num2str(pocty(k,1)) '+' num2str(pocty(k,2))]);
+                obj.texthandles(k) = text(xtext, ytext - (k-1)*diff(ysize)/20 ,[obj.categoryNames{k} ':' num2str(pocty(k,1)) '+' num2str(pocty(k,2)) ' (' num2str(pocty(k,3)) ')' ]);
             end
             legend(obj.ax, 'show');
             hold(obj.ax, 'off');
@@ -393,7 +398,7 @@ classdef ScatterPlot < handle
       end
         
         function setDisplayedChannels(obj)
-            obj.dispChannels = intersect(obj.dispFilterCh, obj.dispSelCh);
+            obj.dispChannels = intersect(obj.dispFilterCh, obj.dispSelCh); % CH.sortorder (vysledek CH.FilterChannels) & vyber klavesami fghjkl 
             obj.dispChannels = setdiff(obj.dispChannels,obj.ieegdata.RjCh); %kamil 15.10 - vyradim ze zobrazeni vyrazene kanaly
         end
         

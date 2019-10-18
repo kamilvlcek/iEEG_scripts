@@ -18,6 +18,7 @@ classdef CRefOrigVals < matlab.mixin.Copyable
             assert(strcmp(E.reference,'Bipolar'), 'CRefOrigVals: data musi byt bipolarni');
             obj.Eh = E;                
             obj.setup = eval(['setup_' E.PsyData.testname]); %nactu nastaveni
+            obj.Load();
         end
         function GetData(obj)
             obj.ValMax = zeros(numel(obj.Eh.Wp(obj.Eh.WpActive).kats),numel(obj.Eh.CH.H.channels),2);
