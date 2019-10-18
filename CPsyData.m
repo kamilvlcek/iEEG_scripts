@@ -285,10 +285,12 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             ylabel('RT PsychoPy');
        
         end
-        function [id] = PacientID(obj)
+        function [id] = PacientID(obj,full)
             %funkce ktera bude vracet id pacienta
+            %jestli chci plne id nebo jen obj.P.pacientid
             id = obj.P.pacientid;
-            if length(id) <= 5 %pokud id obsahuje jen napr p132
+            if ~exist('full','var'), full = true; end
+            if full && length(id) <= 5 %pokud id obsahuje jen napr p132
                 podtrzitko = strfind(obj.P.eegfile,'_');
                 id = [id '-' obj.P.eegfile(1 : podtrzitko-1)]; %pritam jeste zacatke jmena eeg souboru, naprilad VT18
              end

@@ -2198,13 +2198,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                     obj.plotRCh.ylim = [ymin ymax];
             end
         end
-        function id = PacientID(obj)
-            %vraci oznaceni pacienta, bud z CPsyData nebo z CHHeader
-            id= obj.PsyData.PacientID();
-            if isempty(id) || numel(id)<=1
-                id = obj.CH.PacientTag();
-            end
-        end
+
         function [obj] = ChangeReferenceRjEpochCh(obj,filterMatrix)
             %kod Nada 2017-12-07 - prepocitani RjEpochCh na bipolarni referenci            
             RjEpochCh = obj.RjEpochCh(1:size(filterMatrix,1),:)';  %u zadneho z pacientu jsem nenasel trigger channel uprostred kanalu, vzdy je na konci. To by jinak byl problem            
@@ -2262,7 +2256,14 @@ classdef CiEEGData < matlab.mixin.Copyable
                 obj.plotRCh.selCh(ch,markno) = 1 - obj.plotRCh.selCh(ch,markno); %pridam kanal k vyberu , nebo odeberu             
             end
         end
-        
+        function id = PacientID(obj,full)
+            %vraci oznaceni pacienta, bud z CPsyData nebo z CHHeader
+            if ~exist('full','var'), full = true; end
+            id= obj.PsyData.PacientID(full);
+            if isempty(id) || numel(id)<=1
+                id = obj.CH.PacientTag();
+            end
+        end
         function cpObj = copyElement(obj)
             % Override copyElement method: to copy also property objects
             % Make a shallow copy of all properties

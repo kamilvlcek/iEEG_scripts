@@ -21,8 +21,8 @@ PAC = CB.StructFind({},labelstofind,testname,iff(strcmp(reference,'refBipo'),'b'
 CM = CHilbertMulti; %vytvorim tridu
 % nastavim promenne
 frekvence = '50-150Hz'; %15-31 
-label = 'Scene'; % nazev exktraktu, pripoji s filename % ppaMNIBast
-datum = '2019-10-04'; %dnesni datum - tak se pojmenuju vystupni souhrnny soubor
+label = 'AnyResp'; % nazev exktraktu, pripoji s filename % ppaMNIBast
+datum = '2019-10-18'; %dnesni datum - tak se pojmenuju vystupni souhrnny soubor
 datumEP = '2018-08'; %datum v nazvu nacitaneho souboru, napriklad Ep2018-08
 epochtime = '-0.2-0.8'; %'-0.5-1.2'
 M = containers.Map({'ppa','menrot','aedist'},{'PPA','Menrot','Aedist'});
@@ -33,7 +33,7 @@ filenames = CM.ExtractData(PAC,testname,filename,label, overwrite); %#ok<NASGU>
 
 %% 2.1b nalezeni existujicich extraktu 
 %NEBO pokud vim, ze mam vsechny extrakty vytvorene, muzu pouzit tohle
-filenames = CM.FindExtract(testname,label, filename); 
+filenames = CM.FindExtract(testname, filename,label); 
 
 %% 2.2 zkontroluju extrakty - to uz neni nutne delat, vzorkovace frekvence i pocet epoch se prizpusobi
 FILES = CM.TestExtract(filenames); 

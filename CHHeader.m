@@ -43,7 +43,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
              obj = obj.SelChannels(); 
              obj.sortorder = 1:numel(obj.H.channels); %defaultni sort order
              obj.sortedby = '';
-             if exist('reference','var'), obj.reference = reference; else obj.reference = []; end
+             if exist('reference','var'), obj.reference = reference; else, obj.reference = []; end
         end
         
         function [obj, chgroups, els] = ChannelGroups(obj,chnsel,subjname)
