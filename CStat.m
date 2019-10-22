@@ -272,7 +272,15 @@ classdef CStat < handle
                         
            
             
-            if exist('chSelection','var') && ~isempty(obj.plotAUC.selChNames), ChSelText = [' chnls: ' cell2str(obj.plotAUC.selChNames{chSelection}) ]; else, ChSelText = ''; end
+            if exist('chSelection','var') && ~isempty(obj.plotAUC.selChNames)
+                if ~isempty(chSelection)  && chSelection > 0
+                    ChSelText = [' chnls: ' cell2str(obj.plotAUC.selChNames{chSelection}) ];
+                else
+                    ChSelText = ' chnls: all'; % vsechny kanaly zobrazuju, nefiltruju je podle selCh
+                end
+            else
+                ChSelText = ''; 
+            end
             figuretitle= ['AUCPlotM kontrast: ' obj.plotAUC.katnames{find(obj.plotAUC.katplot)}  ChSelText   ]; %#ok<FNDSB>
             if figurenew, disp(figuretitle); end            
             ileg = 1; %specialni index na signif kanaly - legendu a barvy            
@@ -365,7 +373,6 @@ classdef CStat < handle
                 'AUCPlotBrain', [0 1]); 
             set(obj.plotAUC.Eh.CH.plotCh3D.fh, 'WindowButtonDownFcn', {@obj.hybejPlot3Dclick, selch});
         end
-      
         function AUC2XLS(obj, val_fraction, int_fraction)
             %vypise seznam kanalu z grafu AUCPlotM do xls souboru 
             %vola se pomoci stlaceni x z grafu AUCPlotM
@@ -425,6 +432,19 @@ classdef CStat < handle
             xlsfilename = fullfile('logs', [logfilename '.xls']);            
             writetable(tablelog, xlsfilename); %zapisu do xls tabulky            
             disp([ 'XLS table saved: ' xlsfilename]);
+        end
+        function Scatter(obj,names)
+            assert(~isempty(obj.plotAUC_m.xlsvals),'no xls data');
+            if ~exist('names','var'), names = 1; end;
+            figure('Name','AUCPlotM Scatter');
+            scatter(obj.plotAUC_m.xlsvals(:,2),obj.plotAUC_m.xlsvals(:,1),'filled');
+            xlim(obj.plotAUC.Eh.epochtime(1:2));
+            ylim([0 1]);
+            if(names)
+                for ch = 1:numel(obj.plotAUC_m.channels)
+                    text(obj.plotAUC_m.xlsvals(ch,2)+0.02,obj.plotAUC_m.xlsvals(ch,1)-0.02,num2str(obj.plotAUC_m.channels(ch)));
+                end
+            end
         end
     end
     methods (Static,Access = public)        
@@ -665,9 +685,12 @@ classdef CStat < handle
                     obj.plotAUC.corelplot = 1 - obj.plotAUC.corelplot;
                     obj.AUCPlot(find(obj.plotAUC.Eh.CH.sortorder==obj.plotAUC.ch));
                 case {'f','g','h','j','k','l'}                    
-                    channels = find(obj.plotAUC.selCh(:,'fghjkl'==eventDat.Key))'; %cisla musi byt v radce
+                    channels = find(obj.plotAUC.selCh(:,'fghjkl'==eventDat.Key))'; %indexy kanalu se znackou f-l
                     %vytvorim multiple AUC graf:
                     obj.AUCPlotM(channels,find('fghjkl'==eventDat.Key),0); %#ok<FNDSB> %povinne ted uvadim predvybrany kanal
+                case {'a'} %chci zobrazit krivky ze vsech kanalu
+                    channels = 1:size(obj.plotAUC.selCh,1);
+                    obj.AUCPlotM(channels,0,0); %#ok<FNDSB> % 0 znamena vsechy kanaly, povinne ted uvadim predvybrany kanal
             end            
         end
         function obj = hybejAUCPlotM(obj,~,eventDat)

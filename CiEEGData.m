@@ -77,7 +77,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 end
                 obj.plotES = [1 1 150 5 0]; %nastavim defaultni hodnoty grafy
                 obj.epochLast = 1;
-                obj.reference = 'original'; obj.CH.reference = 'original';
+                obj.reference = 'original'; 
                 obj.DatumCas.Created = datestr(now);
                 obj.RjEpochCh = false(obj.channels,1); %zatim nejsou zadne epochy              
                 disp('vytvoren objekt CiEEGData'); 
@@ -94,7 +94,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             else
                     disp('no epievents');
             end
-            if ~isempty(obj.CH)
+            if ~isempty(obj.CH) && isprop(obj,'CH') && isfield(obj.CH,'H') %kontroly H kvuli obj.CH.reference viz vyse
                 if ~isfield(obj.CH.H,'subjName')
                     obj.CH.H.subjName = [obj.CH.H.patientTag ' ' obj.CH.H.patientNick];
                 end
@@ -129,10 +129,9 @@ classdef CiEEGData < matlab.mixin.Copyable
             if isfield(H,'selCh_H'),  H_channels = size(H.selCh_H,2); else, H_channels = 0; end
             assert(H_channels == size(obj.d,2) || size(H.channels,2)==size(obj.d,2), ...
                  ['nesouhlasi pocet elektrod (data:' num2str(size(obj.d,2)) ',H_channels:' num2str(H_channels) ', header' num2str(size(H.channels,2)) ') - spatny header?']);
-            obj.CH = CHHeader(H,filename); %vypocita i selCh_H
+            obj.CH = CHHeader(H,filename,obj.reference); %vypocita i selCh_H
             [~, ~, obj.els] = obj.CH.ChannelGroups();  
             assert(max(obj.els)<=size(obj.d,2),['nesouhlasi pocet elektrod (data:' num2str(size(obj.d,2)) ',header:' num2str(max(obj.els)) ') - spatny header?']);
-            
             disp(['header nacten: ' obj.CH.PacientTag() ', triggerch: ' num2str(obj.CH.GetTriggerCh())]);
         end
          
@@ -207,8 +206,8 @@ classdef CiEEGData < matlab.mixin.Copyable
         function [selCh,selChNames] = GetSelCh(obj)
             %vraci cisla kanalu vybranych v grafu plotResponseCh, naprikla pro CBrainPLot
             if isprop(obj, 'plotRCh') && isfield(obj.plotRCh,'selCh')
-                 selCh = obj.plotRCh.selCh;    %ukladam kvuli selected channels, bez file handelu   
-                 selChNames = obj.plotRCh.selChNames;    %ukladam kvuli selected channels, jejich jmena jednotlivych f-l 
+                 selCh = obj.plotRCh.selCh;    %ChannelsX6, ukladam kvuli selected channels, bez file handelu   
+                 selChNames = obj.plotRCh.selChNames;    %cell 1x6, ukladam kvuli selected channels, jejich jmena jednotlivych f-l 
             else
                  selCh = [];
                  selChNames = [];
@@ -833,35 +832,53 @@ classdef CiEEGData < matlab.mixin.Copyable
             if ~exist('add','var') || isempty(add) , add = 0; end %defaultne prepise stare znaceni 
             assert(numel(kategorie)==numel(marks), 'CiEEGData.SelChannelStat: pocet kategorie a marks musi byt stejny');
             [prumery, ~,~,~,katsnames,~] = obj.IntervalyResp([],[],signum, 0); %prumery jsou  channels x intervaly x kategorie 
-            selCh = iff(add,obj.GetSelCh(),zeros(size(prumery,1),6)); %selCh je channels x 6 oznaceni fghjkl
+            selCh = zeros(size(prumery,1),6); %selCh je channels x 6 oznaceni fghjkl
             pocty = zeros(1,numel(kategorie)); %pocty vybranych kanalu v kategoriich, jen kvuli vypisu na obrazovku
             katname = cell(1,numel(kategorie)); %nazvy kategorii a jejich kombinaci. Tam kde ma kategorie vice prvku, bude mi ti katname vice prvku. Ale serazene podle marks
             
             for kat = 1:numel(kategorie)
-                if iscell(kategorie)
+                DoAnd = false; %jestli chci delat AND mezi kategoriemi
+                if iscell(kategorie) %pokud kategorie napr {4, [5 6]}
                     K = kategorie{kat};    %cisla kategorii
+                    if iscell(K)
+                        if ischar(K{1}) && K{1} == '&' %chci udelat AND mezi kategoriemi 
+                            DoAnd = true;
+                            %TODO - tohle reseni nebere v uvahu cas, muze byt SxF a SxO v ruznem case! 
+                            % Krome toho maximalni odpoved muze byt spolecna, a pak chvilku SxO & SxF
+                        end
+                        q = cellfun(@(x) isnumeric(x) && numel(x)==1,K); %index numerickych scalars 
+                        K = cell2mat(K(q)); %vytahnu numericke hodnoty
+                    end
                     KN = cell(1,numel(K)); %KategoryNames - bude tu vic kategorii, jmena z katsnames
                 else
-                    K = kategorie(kat);   
+                    K = kategorie(kat);   %K je jedno cislo kategorie
                     KN = katsnames{kategorie(kat)}; %KategoryNames - jmeno tehle kategorie z katsnames
                 end
                 for iK = 1:numel(K) %pro vsechny prvky tehle kategorie - muze jich byt vic pokud kategorie je cellarray
                     %K(iK) je ted cislo kategorie
                     if(K(iK)<=size(prumery,3)) && marks(kat) <= 6 %pokud je cislo kategorie v poradku
                         iP = prumery(:,1,K(iK))~=0; %index kanalu se signif rozdilem v tehle kategorii - v prumery jsou nesignif hodnoty 0                   
-                        selCh(iP,marks(kat)) = 1; %timhle udelam oznaceni signif kanalu pro tuhle kategorii. Pokud selCh nebylo prazne (add~=0) udela se vlastne OR
-                        pocty(kat)=pocty(kat) + sum(iP); %kolik vybrano v teto kategorii kanalu, scitam kvuli tomu kdyz je kategorie cell array
+                        if DoAnd && iK > 1 %pro prvni kategorii nemuzu delat AND vuci nulam
+                            selCh(:,marks(kat)) = selCh(:,marks(kat)) & iP; %AND mezi soucasnym a predchozimi signif rozdily pro tuto mark
+                        else
+                            selCh(:,marks(kat)) = selCh(:,marks(kat)) | iP; %OR mezi soucasnym a predchozimi signif rozdily pro tuto mark - default
+                        end                        
                         if iscell(KN) 
                             KN(iK) = katsnames(K(iK));
                         end
                     end
-                end  
-                katname(kat) = iff(numel(KN) > 1,{KN},KN); %nazvy kategorii a jejich kombinacim, kvuli popiskum do grafu               
+                end 
+                if DoAnd, KN = {[KN{1} 'A' KN{2}]}; end 
+                pocty(kat)= sum(selCh(:,marks(kat))); %kolik vybrano v teto kategorii kanalu
+                katname(kat) =KN; %nazvy kategorii a jejich kombinacim, kvuli popiskum do grafu               
+            end
+            if add %pokud chci pridavat, udelam OR s puvodnim selch
+                selCh = double(selCh | obj.GetSelCh());
             end
             obj.SetSelCh(selCh); %ulozim oznaceni kanalu 
             marks_str = 'fghjkl';    
             [marks,im] = sort(marks); %seradim znadky
-            katname = katname(im); %seracim kategorie podle znacek
+            katname = katname(im); %seradim kategorie podle znacek
             %jeste popis marks ulozim, abych mohl pozdeji pouzit do grafu
             if ~add
                 obj.plotRCh.selChNames = cell(1,6); %prazdna jmena
@@ -1447,6 +1464,9 @@ classdef CiEEGData < matlab.mixin.Copyable
                 uistack(h_mean, 'top'); %uplne nahoru dam prumer vsech kategorii
             end 
             
+            if find(obj.RjCh==ch) %skrtnu vyrazene kanaly
+                line([obj.epochtime(1) obj.epochtime(2)],[ymin ymax],'Color','r','LineWidth',2);
+            end
             chstr = iff(isempty(obj.CH.sortedby),num2str(ch), [ num2str(ch) '(' obj.CH.sortedby  num2str(obj.plotRCh.ch) ')' ]);
             title(['channel ' chstr '/' num2str(obj.channels) ' - ' obj.PacientID()], 'Interpreter', 'none'); % v titulu obrazku bude i pacientID napriklad p132-VT18
             text(-0.1,ymax*.95,[ obj.CH.H.channels(1,ch).name ' : ' obj.CH.H.channels(1,ch).neurologyLabel ',' obj.CH.H.channels(1,ch).ass_brainAtlas]);
@@ -1456,8 +1476,8 @@ classdef CiEEGData < matlab.mixin.Copyable
                 text(-0.1,ymax*.90,'no MNI');
             end
             if isfield(obj.CH.H.channels,'seizureOnset') %vypisu epilepticke info
-                seizureOnset    = iff(obj.CH.H.channels(1,ch).seizureOnset==1,'seizureOnset','-');
-                interictalOften = iff(obj.CH.H.channels(1,ch).interictalOften==1,'interictalOften','-');
+                seizureOnset    = iff(isempty(obj.CH.H.channels(1,ch).seizureOnset),'[]',iff(obj.CH.H.channels(1,ch).seizureOnset==1,'seizureOnset','-'));
+                interictalOften = iff(isempty(obj.CH.H.channels(1,ch).interictalOften),'[]',iff(obj.CH.H.channels(1,ch).interictalOften==1,'interictalOften','-'));
                 if isfield(obj.CH.H.channels,'rejected')
                     rejected = iff( ~isempty(obj.CH.H.channels(1,ch).rejected==1),'rejected','-');
                 else
@@ -1791,7 +1811,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 signum = obj.plotRCh.selChSignum;
             else
                 signum = 0;
-            end; 
+            end 
             ikatnum = obj.Wp(obj.WpActive).kats == katnum; %WpKatBaseline jsou indexovane ne podle cisel kategorii ale podle indexu v kats
             WpB = obj.Wp(obj.WpActive).WpKatBaseline{ikatnum,1}(iintervalyStat(1):iintervalyStat(2),channels); %time x channels - statistika vuci baseline
             idataM = iff(signum>0, dataM > 0, iff(signum < 0, dataM < 0, true(size(dataM)) ));  % time x channel - jestli chci vetsi, mensi nebo jakekoliv, time x channels                                
@@ -1833,7 +1853,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 kategories = obj.PsyData.Categories();
             end
             
-           cellout = cell(numel(channels), 9 + length(obj.plotRCh.selChNames) + 4*numel(kategories));
+           cellout = cell(numel(channels), 10 + length(obj.plotRCh.selChNames) + 4*numel(kategories));
            
            RespVALS = struct; %struct array, kam si predpocitam hodnoty
            for k = 1:numel(kategories)
@@ -1844,9 +1864,10 @@ classdef CiEEGData < matlab.mixin.Copyable
            %pres vsechny kanaly plnim tabulku
            for ch=1:numel(channels)              
                channelHeader = channels(ch);
+               RjCh = double(any(obj.RjCh==obj.CH.sortorder(ch))); %vyrazeni kanalu v CiEEGData
                lineIn = [{ obj.CH.sortorder(ch), channelHeader.name, channelHeader.neurologyLabel, ...
                         channelHeader.MNI_x, channelHeader.MNI_y, channelHeader.MNI_z, channelHeader.seizureOnset, channelHeader.interictalOften, ...
-                        mat2str(channelHeader.rejected)} , ...
+                        mat2str(channelHeader.rejected), RjCh} , ...
                         num2cell(selChFiltered(ch, :))];  %vybery kanalu fghjkl               
                selChNames = obj.plotRCh.selChNames;
                iV = find(cellfun(@isempty,selChNames)); %bunky nesmi byt prazdne, to se pak neda pouzit jako VariableNames
@@ -1854,7 +1875,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                     selChNames{n} = ['V' num2str(n) ]; %jednotliv promenne ani nesmi mit stejna jmena
                end
                if ch==1
-                   variableNames = [{ 'channel' 'name'  'neurologyLabel'  'MNI_x'  'MNI_y'  'MNI_z'  'seizureOnset'  'interictalOften' 'rejected'}, ...
+                   variableNames = [{ 'channel' 'name'  'neurologyLabel'  'MNI_x'  'MNI_y'  'MNI_z'  'seizureOnset'  'interictalOften' 'rejected' 'RjCh'}, ...
                     selChNames];               
                end
                %chci mit kategorie v tabulce vedle sebe, protoze patri k jednomu kanalu. Treba kvuli 2way ANOVA
@@ -1869,8 +1890,7 @@ classdef CiEEGData < matlab.mixin.Copyable
            end 
             
             %export tabulky
-            tablelog = cell2table(cellout, ...
-                'VariableNames', variableNames); 
+            tablelog = cell2table(cellout,'VariableNames', variableNames); 
 
             [~,mfilename,~] = fileparts(obj.hfilename);
             mfilename = strrep(mfilename, ' ', '_');
@@ -2092,6 +2112,15 @@ classdef CiEEGData < matlab.mixin.Copyable
                    figure(obj.plotRCh.fh); %dam puvodni obrazek dopredu
                 case 'x'    % XLS export
                     obj.Response2XLS();
+                case 'delete'
+                    ch = obj.CH.sortorder(obj.plotRCh.ch); %realne cislo kanalu
+                    if find(obj.RjCh==ch)
+                        obj.RjCh = obj.RjCh(obj.RjCh~=ch);
+                    else
+                        obj.RjCh = [obj.RjCh ch]; %obsahuje realna cisla kanalu
+                    end  
+                    obj.CH.RejectChannels(obj.RjCh);
+                    obj.PlotResponseCh();
                 otherwise
                     disp(['You just pressed: ' eventDat.Key]);
             end
@@ -2170,13 +2199,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                     obj.plotRCh.ylim = [ymin ymax];
             end
         end
-        function id = PacientID(obj)
-            %vraci oznaceni pacienta, bud z CPsyData nebo z CHHeader
-            id= obj.PsyData.PacientID();
-            if isempty(id) || numel(id)<=1
-                id = obj.CH.PacientTag();
-            end
-        end
+
         function [obj] = ChangeReferenceRjEpochCh(obj,filterMatrix)
             %kod Nada 2017-12-07 - prepocitani RjEpochCh na bipolarni referenci            
             RjEpochCh = obj.RjEpochCh(1:size(filterMatrix,1),:)';  %u zadneho z pacientu jsem nenasel trigger channel uprostred kanalu, vzdy je na konci. To by jinak byl problem            
@@ -2234,7 +2257,14 @@ classdef CiEEGData < matlab.mixin.Copyable
                 obj.plotRCh.selCh(ch,markno) = 1 - obj.plotRCh.selCh(ch,markno); %pridam kanal k vyberu , nebo odeberu             
             end
         end
-        
+        function id = PacientID(obj,full)
+            %vraci oznaceni pacienta, bud z CPsyData nebo z CHHeader
+            if ~exist('full','var'), full = true; end
+            id= obj.PsyData.PacientID(full);
+            if isempty(id) || numel(id)<=1
+                id = obj.CH.PacientTag();
+            end
+        end
         function cpObj = copyElement(obj)
             % Override copyElement method: to copy also property objects
             % Make a shallow copy of all properties

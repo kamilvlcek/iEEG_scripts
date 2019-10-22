@@ -34,6 +34,7 @@ for j = 1:numel(spojit)
     if ~exist('header','var'), header = []; end
     
     disp(['delka ' num2str(size(tabs,1)) ' vzorku']); %#ok<NODEF> 
+    if numel(tabs)<3, continue; end %kratke zaznamy preskakuju
     if j> j0 %pokud se nejedna o prvni soubor
         rozdil_sec = (tabs(1)-tabs0(end))*24*3600; %rozdil mezi koncem jednoho a zacatkem druheho
         disp(['rozdil ' num2str(rozdil_sec) ' sekund']); 

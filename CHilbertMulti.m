@@ -89,7 +89,7 @@ classdef CHilbertMulti < CHilbert
                 if exist(filename,'file') 
                     disp(obj.basename(filename)); %zobrazim jmeno souboru s pouze koncem 
                     obj.filenames{fileno,1} = filename;
-                    load(filename); %nacte vsechny promenne
+                    load(filename); %#ok<LOAD> %nacte vsechny promenne
                     if ~exist('baseline','var'), baseline = [epochtime(1) 0]; end %fake baseline, pokud nebyla ulozena                    
                     test = ~P.data(:,P.sloupce.zpetnavazba); %index testovych epoch
                     
@@ -111,14 +111,14 @@ classdef CHilbertMulti < CHilbert
                     if ~isempty(obj.fs), assert(obj.fs == fs,'fs musi byt stejne');  else, obj.fs = fs; end                                                                             
                     
                     %Hammer header
-                    obj.GetHeader(H,fileno);
+                    obj.GetRef(reference); 
+                    obj.GetHeader(H,fileno,P);
                     
                     %PsychoPy data
                     obj.GetPsyData(P,fileno);                                                           
                     
                     %frekvencni data
-                    obj.GetHfreq(Hf,Hfmean,HFreq);
-                    obj.GetRef(reference); 
+                    obj.GetHfreq(Hf,Hfmean,HFreq);                    
                     
                     %obj.GetStat(Wp); %mam funkci, ale statistiku zatim neimportuju
                     %jen kopie - zatim nezpracovavam                                                           
@@ -291,11 +291,15 @@ classdef CHilbertMulti < CHilbert
                 obj.orig(fileno).epochData = epochData; % ulozim original taky                        
             end
         end        
-        function obj = GetHeader(obj,H,fileno)
+        function obj = GetHeader(obj,H,fileno,P)
             %spoji header (kanaly) v puvodnich souborech a tom novem
+            if isfield(P,'pacientid') && ~isempty(P.pacientid)
+                H.subjName = P.pacientid; %nahradim originalni subjName (Hammer) tim z PsyData, ktere jsem si nastavil sam, napriklad p129VT40            
+            end
+            
             if isempty(obj.CH)
                 %GetHHeader@CHilbert(obj,H);  
-                els = obj.els;
+                els = obj.els;                
                 obj.GetHHeader(H);
                 obj.els = els; %chci jina els,nez nacteno v GetHHeader
                 obj.CH.chgroups = {1:numel(H.channels)};
@@ -470,21 +474,24 @@ classdef CHilbertMulti < CHilbert
             if ~exist('filename','var') || isempty(filename) , filename = '*'; end %filename nemusim zadat, pak hledam cokoliv s timto label
             if ~exist('label','var') || isempty(label) , label = '*'; end 
             [pacienti,setup] = pacienti_setup_load( testname );
-            filename = strrep(filename,'_CHilb.mat',''); %funkce ExtractData pro zmenu vyzaduje tuhle priponu            
+            filename = strrep(filename,'_CHilb.mat',''); %odstranim tuhle priponu pokud je nakonci          
+            filenameExtract = [filename ' ' label '_Extract.mat'];
             filenames = cell(0,4); %budu vrace vsechny nalezene udaje, nejen filename, kvuli prehledu
             for p = 1:numel(pacienti)
-               path = [setup.basedir pacienti(p).folder filesep setup.subfolder filesep 'Extracts' filesep];
-               files = dir([path filename ' ' label '_Extract.mat']);
-               for f = 1:numel(files)
-                   files(f).name = [path files(f).name];                   
+               path = [setup.basedir pacienti(p).folder filesep setup.subfolder filesep 'Extracts' filesep];               
+               files = dir([ path filenameExtract]);
+               if numel(files) > 0
+                   for f = 1:numel(files)
+                       files(f).name = [path files(f).name];                   
+                   end
+                   files_cell = struct2cell(files)';
+                   filenames = cat(1,filenames,files_cell(:,1:4)); %prevedu struct na cell array, jen prvni 4 sloupce               
                end
-               files_cell = struct2cell(files)';
-               filenames = cat(1,filenames,files_cell(:,1:4)); %prevedu struct na cell array, jen prvni 4 sloupce
             end
             if numel(filenames) > 0
                 disp(['OK: nalezeno ' num2str(size(filenames,1)) ' souboru']);
             else
-                disp('zadne soubory nenalezeny');
+                disp(['zadne soubory nenalezeny: ' filenameExtract]);
             end
         end        
         function filename2 = filenameM(filename)
