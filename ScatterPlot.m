@@ -207,7 +207,9 @@ classdef ScatterPlot < handle
             delete(obj.connectionsPlot); obj.connectionsPlot = [];
             delete(obj.numbers); obj.numbers = [];  
             for j = 1:numel(obj.texthandles)
-                if(isgraphics(obj.texthandles(j))), delete(obj.texthandles(j));  end
+                if isgraphics(obj.texthandles(j)) && obj.texthandles(j) ~= 0
+                    delete(obj.texthandles(j));  
+                end
             end            
             obj.texthandles = [];
             
@@ -237,7 +239,7 @@ classdef ScatterPlot < handle
             if obj.connectChannels > 0
                 obj.drawConnectChannels();
             end
-            obj.drawPlot(selChFiltered);
+            obj.drawPlot(selChFiltered, selChRj);
             
             legend(obj.ax, 'show');
             hold(obj.ax, 'off');
@@ -254,8 +256,8 @@ classdef ScatterPlot < handle
             end
         end
         
-        function drawPlot(obj, selChFiltered)
-            pocty = zeros(numel(obj.categoriesSelectionIndex),2); %pocty zobrazenych kanalu  
+        function drawPlot(obj, selChFiltered, selChRj)
+            pocty = zeros(numel(obj.categoriesSelectionIndex),3); %pocty zobrazenych kanalu  
             for k = flip(obj.categoriesSelectionIndex) %nejpozdeji, cili nejvic na vrchu, chci mit prvni kategorii %1:numel(obj.categories)
                 dataX = obj.stats(k).(obj.axisX);
                 dataY = obj.stats(k).(obj.axisY);
@@ -271,7 +273,7 @@ classdef ScatterPlot < handle
                     pocty(k,1) = sum(iData); %pocet signifikantnich v teto kategorii
                 end
                 iData = ~iData; %kanaly bez signif rozdilu vuci baseline v teto kategorii
-                if any(iData) && obj.connectPairs >= 0
+                if any(iData) && obj.connectChannels >= 0
                     if obj.is3D
                         obj.plots(k,2) = scatter3(obj.ax, dataX(iData), dataY(iData), obj.dispChannels(iData), obj.markerSize, repmat(obj.baseColors(k,:), sum(iData), 1), obj.categoryMarkers{k}, 'MarkerFaceColor', 'none', 'DisplayName', obj.categoryNames{k},...
                             'HandleVisibility','off'); %nebude v legende
@@ -293,7 +295,7 @@ classdef ScatterPlot < handle
                         labels = {obj.ieegdata.CH.H.channels(obj.dispChannels).neurologyLabel}'; %anatomicke oznaceni kanalu
                     end
                     dx = diff(xlim)/100;
-                    iData = iff( obj.connectPairs >= 0 , true(size(selChFiltered,1),1), logical(selChFiltered(:,k)) );   
+                    iData = iff( obj.connectChannels >= 0 , true(size(selChFiltered,1),1), logical(selChFiltered(:,k)) );   
                     if obj.is3D
                         th = text(dataX+dx, dataY, obj.dispChannels, labels, 'FontSize', 8);
                     else
@@ -317,27 +319,14 @@ classdef ScatterPlot < handle
         % Nakresli linku spojujici stejne kanaly. Ruzne barvy musi byt samostatny plot (aby mohl scatter zustat ve stejnych osach)
             if length(obj.categoriesSelectionIndex) > 1
                 catIndex = zeros(size(obj.categoriesSelectionIndex(1)));
-                x = zeros(length(obj.categoriesSelectionIndex(1)), length(obj.stats(1).(obj.axisX)));
-                y = zeros(length(obj.categoriesSelectionIndex(1)), length(obj.stats(1).(obj.axisX)));
+                x = zeros(length(obj.categoriesSelectionIndex(1)), length(obj.stats(obj.categoriesSelectionIndex(1)).(obj.axisX)));
+                y = zeros(length(obj.categoriesSelectionIndex(1)), length(obj.stats(obj.categoriesSelectionIndex(1)).(obj.axisX)));
                 for cat = 1:length(obj.categoriesSelectionIndex)
                     catIndex(cat) = obj.categoriesSelectionIndex(cat);
                     x(cat,:) = obj.stats(cat).(obj.axisX);
                     y(cat,:) = obj.stats(cat).(obj.axisY);
                 end
                 l = length(obj.stats(catIndex(1)).(obj.axisX));
-                for c1 = 1:length(obj.categoriesSelectionIndex)
-                    for c2 = 1:c1-1
-                        for k = 1:l
-                            if obj.is3D
-                                z = obj.dispChannels(k);
-                                obj.connectionsPlot(end+1) = plot3([x(c1,k) x(c2,k)], [y(c1,k) y(c2,k)], [z z], 'Color', [0.5 0.5 0.5], 'HandleVisibility','off');
-                            else
-                                obj.connectionsPlot(end+1) = plot([x(c1,k) x(c2,k)], [y(c1,k) y(c2,k)], 'Color', [0.5 0.5 0.5], 'HandleVisibility','off');
-                            end
-                        end
-                    end
-                end
-                
                 for k = 1:l
                     xx = [x(:,k); x(1,k)]; %tri body za vsechny kategorie + pridam prvni na konec znovu, aby se spojily
                     yy = [y(:,k); y(1,k)]; %kvuli zrychleni u velkeho mnozstvi bodu
@@ -403,7 +392,7 @@ classdef ScatterPlot < handle
                     obj.updatePlot(0);
                 case {'t'}
                     obj.transparent =  ~obj.transparent;
-                    if obj.connectPairs >1,  obj.connectPairs = -1; end
+                    if obj.connectChannels >1,  obj.connectChannels = -1; end
                     obj.updatePlot(0); %neprepocitat hodnoty
                 case {'n'}
                     obj.showNumbers =  obj.showNumbers + 1;
