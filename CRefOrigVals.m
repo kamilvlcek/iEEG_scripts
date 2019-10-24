@@ -104,14 +104,18 @@ classdef CRefOrigVals < matlab.mixin.Copyable
         end
         function Load(obj)
             fname = obj.filenameM(obj.Eh.filename);
-            load(fname);
-            obj.ValMax = ValMax;  %#ok<CPROP>
-            obj.TMax = TMax; %#ok<CPROP>
-            obj.kats = kats; %#ok<CPROP>
-            obj.setup = setup; %#ok<CPROP>
-            obj.chnames = chnames; %#ok<CPROP>
-            obj.chnums = chnums; %#ok<CPROP>            
-            disp(['loaded ' fname ]);
+            if exist(fname,'file')
+                load(fname);
+                obj.ValMax = ValMax;  %#ok<CPROP>
+                obj.TMax = TMax; %#ok<CPROP>
+                obj.kats = kats; %#ok<CPROP>
+                obj.setup = setup; %#ok<CPROP>
+                obj.chnames = chnames; %#ok<CPROP>
+                obj.chnums = chnums; %#ok<CPROP>            
+                disp(['loaded ' fname ]);
+            else
+                disp(['not found: ' fname ]);
+            end
         end
     end
     methods (Access = private)

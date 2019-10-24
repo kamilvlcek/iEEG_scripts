@@ -769,12 +769,32 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             end
             if exist('selCh','var') && ~isempty(selCh)
                 klavesy = 'fghjkl';
-                assert (numel(selCh)==1 && find(klavesy==selCh),'selCh musi byt pouze jedna z pismen fghjkl');
-                obj.plotCh2D.chshow = find(obj.plotCh2D.selCh(:,klavesy==selCh))'; %indexy kanalu se znackou f-l
-                obj.sortorder = obj.plotCh2D.chshow;
-                obj.plotCh2D.chshowstr = selCh;
-                disp(['zobrazeno ' num2str(numel(obj.plotCh2D.chshow)) ' kanalu']);  
-                filtered = true;                
+                chshow = 1:numel(obj.H.channels);
+                assert (numel(selCh)<=2,'maximum of 2 letter could be in selCh ');
+                if find(ismember(klavesy,selCh)) %vrati index klavesy nektereho selCh v klavesy
+                    if ~isfield(obj.plotCh2D,'selCh')
+                        warning('No selCh in CH object, first run the ChannelPlot2D');
+                    else
+                        chshow = intersect(chshow,find(obj.plotCh2D.selCh(:,ismember(klavesy,selCh)))'); %indexy kanalu se znackou f-l                    
+                        filtered = true;  
+                    end
+                end
+                if ismember('r',selCh) %rejected channels, nekde v selCh je r
+                    chshow = intersect(chshow,obj.RjCh);
+                    %obj.plotCh2D.chshowstr = 'rj'; 
+                    filtered = true;
+                elseif ismember('n',selCh) %NOT rejected channels,, nekde v selCh je r
+                    chshow = intersect(chshow,setdiff(obj.H.selCh_H,obj.RjCh));
+                    %obj.plotCh2D.chshowstr = 'nrj'; 
+                    filtered = true;                
+                end
+                if filtered
+                    obj.plotCh2D.chshow = chshow;
+                    obj.sortorder = obj.plotCh2D.chshow;
+                    obj.plotCh2D.chshowstr = selCh; 
+                    disp(['zobrazeno ' num2str(numel(obj.plotCh2D.chshow)) ' kanalu']); 
+                end
+                                
             end
             if ~filtered
                 obj.plotCh2D.chshow = 1:numel(obj.H.channels);
