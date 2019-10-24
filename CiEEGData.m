@@ -145,11 +145,13 @@ classdef CiEEGData < matlab.mixin.Copyable
            disp(['nacteno ' num2str(size(obj.DE.d,1)) ' epileptickych udalosti']);
         end
 
-        function obj = RejectChannels(obj,RjCh)
+        function obj = RejectChannels(obj,RjCh,noprint)
             %ulozi cisla vyrazenych kanalu - kvuli pocitani bipolarni reference 
             obj.RjCh = RjCh;
             obj.CH.RejectChannels(RjCh); %ulozim to i do headeru
-            disp(['vyrazeno ' num2str(numel(RjCh)) ' kanalu']); 
+            if ~exist('noprint','var') || isempty(noprint)
+                disp(['vyrazeno ' num2str(numel(RjCh)) ' kanalu']); 
+            end
         end
         
         function obj = RejectEpochs(obj,RjEpoch,RjEpochCh)
@@ -1467,7 +1469,13 @@ classdef CiEEGData < matlab.mixin.Copyable
             if find(obj.RjCh==ch) %skrtnu vyrazene kanaly
                 line([obj.epochtime(1) obj.epochtime(2)],[ymin ymax],'Color','r','LineWidth',2);
             end
-            chstr = iff(isempty(obj.CH.sortedby),num2str(ch), [ num2str(ch) '(' obj.CH.sortedby  num2str(obj.plotRCh.ch) ')' ]);
+            if ~isempty(obj.CH.sortedby) %pokud jsou kanaly serazene jinak nez podle cisla kanalu
+                chstr = [ num2str(ch) '(' obj.CH.sortedby  num2str(obj.plotRCh.ch) ')' ];
+            elseif numel(obj.CH.sortorder) < obj.channels %pokud jsou kanaly nejak vyfiltrovane pomoci obj.CH.FilterChannels(); 
+                chstr = [ num2str(ch) '(' num2str(obj.plotRCh.ch) '/'  num2str(numel(obj.CH.sortorder)) ')' ];
+            else
+                chstr = num2str(ch);
+            end
             title(['channel ' chstr '/' num2str(obj.channels) ' - ' obj.PacientID()], 'Interpreter', 'none'); % v titulu obrazku bude i pacientID napriklad p132-VT18
             text(-0.1,ymax*.95,[ obj.CH.H.channels(1,ch).name ' : ' obj.CH.H.channels(1,ch).neurologyLabel ',' obj.CH.H.channels(1,ch).ass_brainAtlas]);
             if  isfield(obj.CH.H.channels,'MNI_x') %vypisu MNI souradnice
@@ -1734,7 +1742,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             if ~isprop(obj,'els') || isempty(obj.els), obj.els = els;  end   %#ok<CPROPLC,CPROP,PROP> %spis pouziju els sestavane z headeru
             obj.LoadPlots(filename,vars);
             %obj.plotH = plotH;             %#ok<CPROPLC,CPROP,PROP> 
-            obj.RjCh = RjCh;                %#ok<CPROPLC,CPROP,PROP>     
+            obj.RejectChannels(RjCh,1);     %#ok<CPROPLC,CPROP,PROP>     
             obj.RjEpoch = RjEpoch;          %#ok<CPROPLC,CPROP,PROP> 
             if exist('epochTags','var'),  obj.epochTags = epochTags;   else obj.epochTags = []; end         %#ok<CPROPLC,CPROP,PROP>     
             if exist('epochLast','var'),  obj.epochLast = epochLast;   else obj.epochLast = []; end         %#ok<CPROPLC,CPROP,PROP>             
@@ -1843,11 +1851,11 @@ classdef CiEEGData < matlab.mixin.Copyable
             channels = obj.CH.H.channels(obj.CH.sortorder); %vyberu kanaly, podle aktualniho razeni a ty ktere jsou zobrazene podle CH.FilterChannels()
             selChFiltered = obj.plotRCh.selCh(obj.CH.sortorder,:); %filter kanalu ve vyberu fghjkl
             
-            if isfield(obj.plotRCh,'kategories') 
-                kategories = obj.plotRCh.kategories; %hodnoty drive pouzite v grafu, ty maji prednost pred statistikou
-            elseif ~isempty(obj.Wp) && isfield(obj.Wp(obj.WpActive), 'kats')
+            if ~isempty(obj.Wp) && isfield(obj.Wp(obj.WpActive), 'kats')               
                 kategories = flip(obj.Wp(obj.WpActive).kats); %dalsi volba je pouzit cisla kategorii z jiz vypocitane aktivni statistiky
-                % ve statistice jsou ty nejdulezitejsi kategorie na konci, tady je chci na zacatku
+                % ve statistice jsou ty nejdulezitejsi kategorie na konci, tady je chci na zacatku                
+            elseif isfield(obj.plotRCh,'kategories') 
+                kategories = obj.plotRCh.kategories; %hodnoty drive pouzite v grafu, ty maji prednost pred statistikou
             else    
                 kategories = obj.PsyData.Categories();
             end

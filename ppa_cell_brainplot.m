@@ -64,14 +64,14 @@ CM.SelChannelStat({1, 2, 3, 5, 6,{'&',5,6}},[3 2 1 5 4, 6],0,signum); % {[Face],
 
 
 %% 2.5 vyslednou sumarni tridu si ulozim, podobne jako kdyz ukladam data tridy CHilbert
-CM.Save([setup.basedir '0sumarne\CM ' M(testname) ' ' label ' ' frekvence ' ' reference ' ' epochtime ' Ep' datumEP ' '  datum]);
+CM.Save(['d:\eeg\motol\CHilbertMulti\PPA\CM ' M(testname) ' ' label ' ' frekvence ' ' reference ' ' epochtime ' Ep' datumEP ' '  datum]);
 
 %% 2.6 sumarni graf odpovedi
 CM.IntervalyResp([],[],signum); %graf velikosti odpovedi pres vsechny kanaly
 CM.PlotResponseCh(); %odpoved pro kazdy kanal zvlast 
 
 %% 2.7 nactu starsi data
-CM.Load([setup.basedir '0sumarne\CM ' M(testname) ' ' label ' ' frekvence ' ' reference ' ' epochtime ' Ep' datumEP ' '  datum '_CHilb.mat']);
+CM.Load(['d:\eeg\motol\CHilbertMulti\PPA\' M(testname) ' ' label ' ' frekvence ' ' reference ' ' epochtime ' Ep' datumEP ' '  datum '_CHilb.mat']);
 
 %% 3 OBRAZEK MOZKU 
 %  3.1 nastavim statistiku
