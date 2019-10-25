@@ -297,9 +297,9 @@ classdef ScatterPlot < handle
                     dx = diff(xlim)/100;
                     iData = iff( obj.connectChannels >= 0 , true(size(selChFiltered,1),1), logical(selChFiltered(:,k)) );   
                     if obj.is3D
-                        th = text(dataX+dx, dataY, obj.dispChannels, labels, 'FontSize', 8);
+                        th = text(dataX(iData)+dx, dataY(iData), obj.dispChannels(iData), labels(iData), 'FontSize', 8);
                     else
-                        th = text(dataX+dx, dataY, labels, 'FontSize', 8);
+                        th = text(dataX(iData)+dx, dataY(iData), labels(iData), 'FontSize', 8);
                     end
                     set(th, 'Clipping', 'on');
                     obj.numbers = [obj.numbers ; th]; % do dlouheho sloupce, kazda kategorie ma ruzny pocet zobrazenych kanalu a textu
@@ -318,13 +318,14 @@ classdef ScatterPlot < handle
         function drawConnectChannels(obj)
         % Nakresli linku spojujici stejne kanaly. Ruzne barvy musi byt samostatny plot (aby mohl scatter zustat ve stejnych osach)
             if length(obj.categoriesSelectionIndex) > 1
-                catIndex = zeros(size(obj.categoriesSelectionIndex(1)));
-                x = zeros(length(obj.categoriesSelectionIndex(1)), length(obj.stats(obj.categoriesSelectionIndex(1)).(obj.axisX)));
-                y = zeros(length(obj.categoriesSelectionIndex(1)), length(obj.stats(obj.categoriesSelectionIndex(1)).(obj.axisX)));
+                validCategoryIndex = obj.categoriesSelectionIndex(1);
+                catIndex = zeros(size(obj.categoriesSelectionIndex));
+                x = zeros(length(obj.categoriesSelectionIndex), length(obj.stats(validCategoryIndex).(obj.axisX)));
+                y = zeros(length(obj.categoriesSelectionIndex), length(obj.stats(validCategoryIndex).(obj.axisX)));
                 for cat = 1:length(obj.categoriesSelectionIndex)
                     catIndex(cat) = obj.categoriesSelectionIndex(cat);
-                    x(cat,:) = obj.stats(cat).(obj.axisX);
-                    y(cat,:) = obj.stats(cat).(obj.axisY);
+                    x(cat,:) = obj.stats(catIndex(cat)).(obj.axisX);
+                    y(cat,:) = obj.stats(catIndex(cat)).(obj.axisY);
                 end
                 l = length(obj.stats(catIndex(1)).(obj.axisX));
                 for k = 1:l
@@ -337,10 +338,9 @@ classdef ScatterPlot < handle
                         obj.connectionsPlot(end+1) = plot(xx, yy, 'Color', [0.5 0.5 0.5], 'HandleVisibility','off');
                     end
                 end
-                
             else
                 disp('No categories to connect');
-                obj.connectChannels = 0;
+                obj.connectChannels = -1;
             end
         end
                 
@@ -416,9 +416,10 @@ classdef ScatterPlot < handle
             p1 = mousept(1,:); p2 = mousept(2,:); % souradnice kliknuti v grafu - predni a zadni bod
             chs  = zeros(size(obj.categoriesSelectionIndex));
             dist = zeros(size(obj.categoriesSelectionIndex));
-            for k = obj.categoriesSelectionIndex % vsechny zobrazene kategorie
-              dataX = obj.stats(k).(obj.axisX);
-              dataY = obj.stats(k).(obj.axisY);
+            for k = 1:length(obj.categoriesSelectionIndex) % vsechny zobrazene kategorie
+              categoryIndex = obj.categoriesSelectionIndex(k);
+              dataX = obj.stats(categoryIndex).(obj.axisX);
+              dataY = obj.stats(categoryIndex).(obj.axisY);
               if obj.is3D
                   coordinates = [dataX; dataY; obj.dispChannels]; % souradnice zobrazenych kanalu
                   [chs(k), dist(k)] = findClosestPoint(p1, p2, coordinates, 0.05);    % najdu kanal nejblize mistu kliknuti
@@ -463,8 +464,10 @@ classdef ScatterPlot < handle
         end
 
         function channelChangedCallback(obj, ~, eventData)
+            %!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            %TODO: Pri kliknuti do ScatterPlotu se tohle zavola dvakrat!!! Nejspis problem se skoro-zacyklenim z PlotResponseCh. Sice to navenek funguje spravne, ale dvoji volani je nesmysl.
             obj.highlightSelected(eventData.AffectedObject.SelectedChannel);
-            disp(['change in SP: ' num2str(eventData.AffectedObject.SelectedChannel)]);
+            %disp(['change in SP: ' num2str(eventData.AffectedObject.SelectedChannel)]);
         end
         
         function tearDownFigCallback(obj,src,~)
