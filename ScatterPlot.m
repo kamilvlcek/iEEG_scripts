@@ -44,7 +44,7 @@ classdef ScatterPlot < handle
         
         categories %seznam cisel kategorii od nejdulezitejsi (podle poradi ve statistice)
         categoryNames %jmena kategorii odpovidajici obj.categories
-        categoriesSelectionIndex %1:numel(obj.categories)
+        categoriesSelectionIndex %aktualne zobrazene kategorie, na zacatku 1:numel(obj.categories)
         
         filterListener
         channelListener
@@ -315,7 +315,7 @@ classdef ScatterPlot < handle
                 if any(logical(selChRj(:,k))) %pocet rejectovanych pro tuto kategorii
                     pocty(k,3) = sum(logical(selChRj(:,k))); 
                 end
-                if obj.showNumbers > 0
+                if obj.showNumbers > 0 %pojmenovani bodu ve scatterplotu
                     if obj.showNumbers == 1
                         labels = cellstr(num2str(obj.dispChannels')); %cisla zobrazenych kanalu 
                     elseif obj.showNumbers==2
@@ -324,7 +324,7 @@ classdef ScatterPlot < handle
                         labels = {obj.ieegdata.CH.H.channels(obj.dispChannels).neurologyLabel}'; %anatomicke oznaceni kanalu
                     end
                     dx = diff(xlim)/100;
-                    iData = iff( obj.connectChannels >= 0 , true(size(selChFiltered,1),1), logical(selChFiltered(:,k)) );   
+                    iData = iff( obj.connectChannels >= 0 , true(size(selChFiltered,1),1), logical(selChFiltered(:,k)) ); %jestli zobrazit vsechny labels, nebo jen signifikantni
                     if obj.is3D
                         th = text(dataX(iData)+dx, dataY(iData), obj.dispChannels(iData), labels(iData), 'FontSize', 8);
                     else
@@ -347,8 +347,8 @@ classdef ScatterPlot < handle
         function drawConnectChannels(obj)
         % Nakresli linku spojujici stejne kanaly. Ruzne barvy musi byt samostatny plot (aby mohl scatter zustat ve stejnych osach)
             if length(obj.categoriesSelectionIndex) > 1
-                validCategoryIndex = obj.categoriesSelectionIndex(1);
-                catIndex = zeros(size(obj.categoriesSelectionIndex));
+                validCategoryIndex = obj.categoriesSelectionIndex(1); %cislo prvni se zobrazenych kategorii
+                catIndex = zeros(size(obj.categoriesSelectionIndex)); %kopie obj.categoriesSelectionIndex ?
                 x = zeros(length(obj.categoriesSelectionIndex), length(obj.stats(validCategoryIndex).(obj.axisX)));
                 y = zeros(length(obj.categoriesSelectionIndex), length(obj.stats(validCategoryIndex).(obj.axisX)));
                 if ~strcmp(obj.axisZ, 'channel') && ~strcmp(obj.axisZ, 'category')
