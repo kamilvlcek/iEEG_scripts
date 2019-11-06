@@ -191,6 +191,7 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         end
         function opak = GetOpakovani(obj)
             %vraci cislo opakovani obrazku pro kazdou epochu
+            %TODO tohle nefunguje v CHilbertMulti, pokud ruzni pacienti ruzny pocet epoch
             S = obj.P.sloupce;
             if isfield(S,'opakovani_obrazku')
                 opak = obj.P.data(:,S.opakovani_obrazku); % ppa test

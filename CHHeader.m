@@ -14,7 +14,8 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         sortedby; %podle ceho jsou kanaly serazeny
         plotCh2D; %udaje o 2D grafu kanalu ChannelPlot2D, hlavne handle
         plotCh3D; %udaje o 3D grafu kanalu ChannelPlot, hlavne handle
-        reference; %aby trida vedela, jestli je bipolarni nebo ne
+        reference; %aby trida vedela, jestli je bipolarni nebo ne        
+        classname; %trida v ktere je Header vytvoren
     end
     %#ok<*PROPLC>
     
@@ -23,7 +24,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
     end
     
     methods (Access = public)
-        function obj = CHHeader(H,filename,reference)
+        function obj = CHHeader(H,filename,reference,classname)
             %konstruktor
             %filename se zatim na nic nepouziva
             obj.H = H;     
@@ -44,14 +45,16 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
              obj.sortorder = 1:numel(obj.H.channels); %defaultni sort order
              obj.sortedby = '';
              if exist('reference','var'), obj.reference = reference; else, obj.reference = []; end
+             if exist('classname','var'), obj.classname = classname; else, obj.classname = []; end
         end
         
-        function [obj, chgroups, els] = ChannelGroups(obj,chnsel,subjname)
+        function [obj, chgroups, els] = ChannelGroups(obj,chnsel,subjname,forcechgroups)
             %vraci skupiny kanalu (cisla vsech channels na elekrode) + cisla nejvyssiho kanalu v na kazde elektrode v poli els
-            % subjname - jestli jsou skupiny podle subjname (napr p173) nebo elektrod (napr A)  
-            if ~exist('subjname','var'), subjname = 0; end %defaultne skupiny podle elektrod
+            % subjname - jestli jsou skupiny podle subjname (napr p173, u CHibertMulti) nebo elektrod (napr A)  
+            if ~exist('subjname','var') || isempty(chnsel), subjname = iff( strcmp(obj.classname,'CHilbertMulti')); end %defaultne podle classname, pokud neni CHilbertMulti, pouzivaji se jmena elektrod
             if ~exist('chnsel','var') || isempty(chnsel) %pokud nenam zadny vyber kanalu, pouziva se pri load dat
-                if isempty(obj.chgroups)                    
+            if ~exist('forcechgroups','var') || isempty(forcechgroups), forcechgroups = 0; end %chci prepocitat chgroups 
+                if isempty(obj.chgroups) || forcechgroups               
                     chgroups = obj.getChannelGroups(subjname); %pouziju vlastni funkci, getChannelGroups_kisarg je hrozne pomale
                     els = zeros(1,numel(chgroups)); 
                     for j = 1:numel(chgroups)
@@ -173,7 +176,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             if ~isfield(obj.plotCh3D,'allpoints'), obj.plotCh3D.allpoints = 0; end
             if ~isfield(obj.plotCh3D,'zoom'), obj.plotCh3D.zoom = 0; end            
             if ~isfield(obj.plotCh3D,'reorder'), obj.plotCh3D.reorder = 0; end   %defaultne se neprerazuji kanaly podle velikosti
-            if ~isfield(obj.plotCh3D,'lines'), obj.plotCh3D.lines = 0; end   %defaultne se nespojuji pacienti spojnicemi
+            if ~isfield(obj.plotCh3D,'lines'), obj.plotCh3D.lines = 0; end   %defaultne se nespojuji pacienti spojnicemi            
             assert(numel(chnvals) == numel(chnsel), 'unequal size of chnvals and chnsel');
             nblocks = numel(chnvals); %pocet barev bude odpovidat poctu kanalu
             cmap = parula(nblocks+1); %+1 protoze hodnoty se budou zaokrouhlovat nahoru nebo dolu
@@ -356,6 +359,8 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 if isfield(plotRCh,'selCh')
                     obj.plotCh2D.selCh = plotRCh.selCh;
                     selCh = plotRCh.selCh; 
+                else
+                    selCh = []; 
                 end
                 if isfield(plotRCh,'selChNames')
                     obj.plotCh2D.selChNames = plotRCh.selChNames;
@@ -387,6 +392,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             if ~isfield(obj.plotCh2D,'transparent'), obj.plotCh2D.transparent=0; end %defaltne se kresli body nepruhledne
             if ~isfield(obj.plotCh2D,'chshow'), obj.plotCh2D.chshow = 1:numel(obj.H.channels); end %defaltne se kresli body nepruhledne
             if ~isfield(obj.plotCh2D,'ch_displayed'), obj.plotCh2D.ch_displayed=obj.plotCh2D.chshow; end %defaltne jsou zobrazeny vsechny vybrane kanaly (podle filtru)
+            if ~isfield(obj.plotCh2D,'chshowstr'), obj.plotCh2D.chshowstr = ''; end   %defaultne bez filtrovani
             %------------------------- vytvoreni figure -----------------------------------
             x = [obj.H.channels(:).MNI_x];
             y = [obj.H.channels(:).MNI_y];
@@ -701,9 +707,14 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     selCh_H(ch) = ch;
                 end 
                 H.selCh_H = selCh_H; 
-%                 obj.ChangeReferenceRjEpochCh(filterMatrix); %prepocitam na bipolarni referenci i RjEpochCh 
+%                 obj.ChangeReferenceRjEpochCh(filterMatrix); %prepocitam na bipolarni referenci i RjEpochCh                                
             end
             obj.H = H; %prepisu puvodni ulozeny header
+            switch ref
+                case 'h', obj.reference = 'perHeadbox'; 
+                case 'e', obj.reference = 'perElectrode';  
+                case 'b', obj.reference = 'Bipolar';  obj.ChannelGroups([],[],1); %forcechgroups , recompute channel groups and els
+            end
             obj.SetFilterMatrix(filterMatrix); %uchovam si filterMatrix na pozdeji, kvuli prepoctu RjEpochCh
         end
         function obj = SortChannels(obj,by)
@@ -849,8 +860,8 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
              %vraci cell array, kazda bunka jsou cisla kanalu ve skupine
              % subjname - jestli jsou skupiny podle subjname (napr p173) nebo elektrod (napr A)             
              
-             if ~exist('subjname','var'), subjname = 0; end %defaultne podle elektod
-             if ~exist('chnsel','var'), chnsel = 1:numel(obj.H.channels); end %defaultne podle elektod
+             if ~exist('subjname','var') || isempty(subjname), subjname = iff(  strcmp(obj.classname,'CHilbertMulti')'); end %defaultne podle elektod
+             if ~exist('chnsel','var') || isempty(chnsel), chnsel = 1:numel(obj.H.channels); end %defaultne podle elektod
              strprev = '';
              groups = cell(1,1);
              groupN = 1;

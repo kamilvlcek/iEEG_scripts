@@ -94,7 +94,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             else
                     disp('no epievents');
             end
-            if ~isempty(obj.CH) && isprop(obj,'CH') && isfield(obj.CH,'H') %kontroly H kvuli obj.CH.reference viz vyse
+            if ~isempty(obj.CH) && isprop(obj,'CH') && isprop(obj.CH,'H') %kontroly H kvuli obj.CH.reference viz vyse
                 if ~isfield(obj.CH.H,'subjName')
                     obj.CH.H.subjName = [obj.CH.H.patientTag ' ' obj.CH.H.patientNick];
                 end
@@ -129,7 +129,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             if isfield(H,'selCh_H'),  H_channels = size(H.selCh_H,2); else, H_channels = 0; end
             assert(H_channels == size(obj.d,2) || size(H.channels,2)==size(obj.d,2), ...
                  ['nesouhlasi pocet elektrod (data:' num2str(size(obj.d,2)) ',H_channels:' num2str(H_channels) ', header' num2str(size(H.channels,2)) ') - spatny header?']);
-            obj.CH = CHHeader(H,filename,obj.reference); %vypocita i selCh_H
+            obj.CH = CHHeader(H,filename,obj.reference, class(obj)); %vypocita i selCh_H
             [~, ~, obj.els] = obj.CH.ChannelGroups();  
             assert(max(obj.els)<=size(obj.d,2),['nesouhlasi pocet elektrod (data:' num2str(size(obj.d,2)) ',header:' num2str(max(obj.els)) ') - spatny header?']);
             disp(['header nacten: ' obj.CH.PacientTag() ', triggerch: ' num2str(obj.CH.GetTriggerCh())]);
@@ -403,6 +403,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 obj.DatumCas.ChangeReference = datestr(now);
                 obj.header.RjChOriginal = obj.RjCh; %zazalohuju si puvodni rjch, kvuli referenci
                 obj.RjCh = []; %rejectovane kanaly uz byly vyrazeny, ted nejsou zadne  
+                obj.els = obj.CH.els; %ty uz prepocitany v obj.CH.ChangeReference
             end          
            
             obj.filename = []; %nechci si omylem prepsat puvodni data 
@@ -1354,15 +1355,15 @@ classdef CiEEGData < matlab.mixin.Copyable
                
                 for k= 1 : numel(kategories) %index 1-3 (nebo 4)
                     if ~isempty(obj.Wp)
-                        if iscell(obj.Wp(WpA).kats), kk = obj.Wp(WpA).kats{k}(1);  else,   kk = obj.Wp(WpA).kats(k);    end % aby barvy odpovidaly kategoriim podnetum spis nez kategoriim podle statistiky
+                        if iscell(kategories), kk = kategories{k}(1);  else,   kk = kategories(k);    end % aby barvy odpovidaly kategoriim podnetum spis nez kategoriim podle statistiky
                     else                        
                         kk =k-1;
                     end
                     %to se hodi zvlast, kdyz se delaji jen dve kategorie vuci sobe ane vsechny, nebo dve vuci jedne nebo dve vuci dvema
                     colorkatk = [colorskat{1,kk+1} ; colorskat{2,kk+1}]; %dve barvy, na caru a stderr plochu kolem
                     if exist('opakovani','var') && ~isempty(opakovani)
-                        opaknum = kategories{k}; %v kategories jsou opakovani k vykresleni, a je to cell array
-                        [katdata,~,RjEpCh] = obj.CategoryData(KATNUM,[],opaknum,ch); %eegdata - epochy pro tato opakovani
+                        katnum = kategories{k}; %v kategories jsou opakovani k vykresleni, a je to cell array
+                        [katdata,~,RjEpCh] = obj.CategoryData(KATNUM,[],katnum,ch); %eegdata - epochy pro tato opakovani
                     elseif iscell(kategories) %iff tady nefunguje, to by bylo samozrejme lepsi85858
                         katnum = kategories{k}; %cislo kategorie, muze byt cell, pokud vice kategorii proti jedne
                         [katdata,~,RjEpCh] = obj.CategoryData(katnum,[],[],ch); %eegdata - epochy jedne kategorie
@@ -1383,7 +1384,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                     if ~isempty(obj.Wp) && isfield(obj.Wp(WpA),'WpKat') %signifikance mezi kategoriemi
                         Tr = linspace(obj.Wp(WpA).baseline(2),obj.Wp(WpA).epochtime(2),size(obj.Wp(WpA).D2,1)); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
                         for l = k+1:numel(kategories) %katnum jde od nuly 
-                            if iscell(obj.Wp(WpA).kats), colorkatl = obj.Wp(WpA).kats{l}(1)+1; else, colorkatl = obj.Wp(WpA).kats(l)+1; end
+                            if iscell(kategories), colorkatl = kategories{l}(1)+1; else, colorkatl = kategories(l)+1; end
                             
                             y = ymin + (ymax-ymin)*(ybottom - (yposkat(l-1,k))*0.05)  ; %pozice na ose y
                             if k==1, color=colorskat{1,colorkatl}; else, color = colorskat{1,1}; end %green a red jsou proti kategorii 0, cerna je kat 1 vs kat 2
@@ -1625,6 +1626,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 end
             else
                 PsyDataP = []; %#ok<NASGU>
+                PsyData = []; %#ok<NASGU>
                 testname = ''; %#ok<NASGU>
             end
             epochtime = obj.epochtime;      %#ok<PROP,NASGU>
@@ -1693,11 +1695,13 @@ classdef CiEEGData < matlab.mixin.Copyable
                 load(filename,'PsyData');                 
                 obj.PsyData = PsyData ; %#ok<CPROPLC>  %  %drive ulozeny objekt, nez jsem zavedl ukladani struct nebo CPsyDataMulti                
             end
-            if ismember('testname', {vars.name})
-                load(filename,'testname');
-                obj.PsyData.GetTestName(testname); %#ok<CPROPLC> %  %zjisti jmeno testu
-            else
-                obj.PsyData.GetTestName(''); %#ok<CPROPLC> %  %zjisti jmeno testu
+            if ~isempty(obj.PsyData) %muzu ulozit tridu i bez psydata
+                if ismember('testname', {vars.name})
+                    load(filename,'testname');
+                    obj.PsyData.GetTestName(testname); %#ok<CPROPLC> %  %zjisti jmeno testu
+                else
+                    obj.PsyData.GetTestName(''); %#ok<CPROPLC> %  %zjisti jmeno testu
+                end
             end
             if obj.epochs > 1
                 if ismember('epochData', {vars.name}), load(filename,'epochData');  obj.epochData = epochData;   end  %#ok<CPROPLC,CPROP,PROP> 
@@ -1710,7 +1714,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 obj.epochData = [];
             end
             if ismember('CH_H', {vars.name})
-                load(filename,'CH_H');      obj.CH = CHHeader(CH_H,[],obj.reference);
+                load(filename,'CH_H');      obj.CH = CHHeader(CH_H,[],obj.reference, class(obj));
                 [~, ~, obj.els] = obj.CH.ChannelGroups([],isa(obj,'CHilbertMulti'));  
             else
                 load(filename,'CH');
