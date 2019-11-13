@@ -323,10 +323,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             else
                 disp('No MNI data');
             end
-        end
-        
-        
-        
+        end             
         function ChannelPlot2D(obj,chsel,plotRCh,plotChH,label)
             %vstupni promenne
             %plotRCh - cela struktura plotRCh z CiEEGData
@@ -641,21 +638,25 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             obj.filterMatrix = filterMatrix;
         end
         function [mozek] = GetBrainNames(obj)
-            % najde popisy mist v mozku podle tabulky od Martina
-            % TODO jeste neumi dve struktury s /
-            % a s otaznikem na konci
-            load('BrainAtlas_zkratky.mat'); %nactu tabulku od Martina Tomaska
-            obj.BrainAtlas_zkratky = BrainAtlas_zkratky; %#ok<CPROP>
-            mozek = cell(numel(obj.H.channels),3);
-            for ch=1:numel(obj.H.channels)
-                label = obj.H.channels(ch).neurologyLabel;   % Martinovo label tohoto kanalu
-                mozek{ch,1} = obj.H.channels(ch).name;
-                mozek{ch,2} = label;
-                [C,matches] = strsplit(label,{'(',')','-','/'},'CollapseDelimiters',false);                
-                for j = 1:numel(C)
-                    C{j} = obj.brainlabel(C{j});                    
+            % najde popisy mist v mozku podle tabulky od Martina    
+            % TODO, co kdyz jmeno obsahuje pomlcku nebo zavorku?
+            obj = load('BrainAtlas_zkratky.mat'); %nactu tabulku od Martina Tomaska, primo do obj.BrainAtlas_zkratky
+            % sloupce plnynazev, structure,region, zkratka, alt zkratka 2-4            
+            mozek = cell(numel(obj.sortorder),6);
+            for ich=1:numel(obj.sortorder)  %kanaly podle aktualniho filtru              
+                ch = obj.sortorder(ich);
+                mozek{ich,1} = ch;
+                mozek{ich,2} = obj.H.channels(ch).name; %jmeno kanalu
+                mozek{ich,3} = obj.H.channels(ch).neurologyLabel; %neurologyLabel
+                [C,matches] = strsplit(obj.H.channels(ch).neurologyLabel,{'(',')','-','/'},'CollapseDelimiters',false);                
+                structure = cell(numel(C),2);
+                for j = 1:numel(C) %pro kazdou strukturu v neurologylabel
+                    [C{j},structure(j,:)] = obj.brainlabel(C{j});  %predelam zkratku na plny nazev                  
                 end
-                mozek{ch,3} = strjoin(C,matches);                                
+                mozek{ich,4} = strjoin(C,matches);  %puvodni label zase slozim, pri pouziti plnych jmen struktur
+                %structure(cellfun(@isempty,C),:) = []; %vymazu ty casti structure, pro ktere nebyl zadny match
+                mozek{ich,5} = CHHeader.joinNoDuplicates(structure(:,1),matches); 
+                mozek{ich,6} = CHHeader.joinNoDuplicates(structure(:,2),matches);                 
             end
         end
         function [seizureOnset,interIctal]=GetSeizures(obj)
@@ -890,33 +891,39 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
              end
              groups{groupN} = chgroup;
           end
-          function [bl] = brainlabel(obj,label)
+          function [bl,structure] = brainlabel(obj,label)
             %vrati jmeno struktury podle tabulky, pripadne doplni otaznik na konec             
-            if isempty(label), bl = ''; return; end
+            if isempty(label)
+                bl = ''; structure={'',''}; return; 
+            end
             znak = strfind(label,'?');
             if ~isempty(znak)
                 label = label(1:znak-1); % label bez otazniku
             end
-            iL = ''; col = 1;
+            iL = ''; %index=radek v BrainAtlas_zkratky
+            col = 3; %slopec ve zkratkach v BrainAtlas_zkratky
             %nejdriv zkusim najit presny vyskyt
             while isempty(iL) && col < size(obj.BrainAtlas_zkratky,2)
-                col = col + 1; %zkratky zacinaji v druhem sloupci
+                col = col + 1; %zkratky zacinaji v ctvrtem sloupci
                 if isempty(obj.BrainAtlas_zkratky(:,col)) %pokud je tahle alternativa zkratky prazdna, nebudu hledat dal
                     break; 
                 end
                 iL = find(strcmpi(obj.BrainAtlas_zkratky(:,col),label)); %nezavisle na velikosti pismen
             end
             if isempty(iL) %zadne label nenalezeno
-                bl = '';                
+                bl = '';  structure={'',''};
             elseif(numel(iL)>1) % vic nez jedno label nalezeno
                 bl = [num2str(numel(iL)) ' labels'];
+                structure={'',''}; 
             else
                 bl = obj.BrainAtlas_zkratky{iL,1};            
                 if ~isempty(znak)
                     bl = [bl '?'];
                 end
+                structure={obj.BrainAtlas_zkratky{iL,2},obj.BrainAtlas_zkratky{iL,3}}; 
+                structure(cellfun(@isempty,structure))={''}; %potrebuju mit prvky chararray
             end
-          end
+          end         
           function obj = hybejPlot3D(obj,~,eventDat)
               switch eventDat.Key
                   case 's'    %sagital view                                       
@@ -1122,6 +1129,58 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     figure(obj.plotCh2D.fh); %dam puvodni obrazek dopredu
                   end
                   
+              end
+          end
+    end
+    methods (Access = private,Static)
+         function str = joinNoDuplicates(C,delim)
+              switch numel(C)
+                  case 1 %nasel jsem i v bipolarni referenci neurologyLabel jen PHG, bez pomlcky a zavorek, nevim jak
+                      str = C{1};
+                  case 4 %jen dve struktury napriklad PHG-PHG
+                      if strcmp(C{2},C{3})
+                          str = strjoin(C([1 2 4]),delim([1 3]));
+                      else
+                          str = strjoin(C,delim); 
+                      end
+                  case 5 %tri struktury, treba PHG/FG-FG aj
+                      if strcmp(C{2},C{3}) && strcmp(C{3},C{4}) %vsechny stejne
+                          str = strjoin(C([1 2 5]),delim([1 4]));
+                      elseif strcmp(C{2},C{3}) %prvni a druhy stejny
+                          str = strjoin(C([1 2 4 5]),delim([1 3 4]));
+                      elseif strcmp(C{3},C{4}) %druhy a treti stejny
+                          str = strjoin(C([1 2 3 5]),delim([1 2 4]));
+                      else
+                          str = strjoin(C,delim); 
+                      end
+                  otherwise %ctyri struktury, napriklad PHG/FG-PHG/FG a ruzne jine divnosti
+                      if strcmp(C{2},C{3}) && strcmp(C{3},C{4}) && strcmp(C{4},C{5}) 
+                          str = strjoin(C([1 2 6]),delim([1 5]));
+                      else      
+                          if strcmp(C{4},C{5})
+                            C(5)=[]; delim(4) = [];
+                          end
+                          if strcmp(C{2},C{3})
+                            C(3)=[]; delim(2) = [];
+                          end 
+                          if numel(C)>=3 && isempty(C{2}), C(2) = []; delim(2) = []; end
+                          if numel(C)>=4 && isempty(C{3}), C(3) = []; delim(2) = []; end
+                          if numel(C)>=5 && isempty(C{4})
+                              C(4) = []; delim(end-1) = []; 
+                          end
+                          if numel(C)>=6 && isempty(C{5}), C(5) = []; delim(end-1) = []; end                                                    
+                          if numel(C)>=6 && strcmp(C{4},C{5})
+                            C(5)=[]; delim(4) = [];
+                          end
+                          if numel(C)>=4 && strcmp(C{2},C{3})
+                            C(3)=[]; delim(2) = [];
+                          end
+                          if numel(delim)>numel(C)+1, delim(2)=[]; end
+                          delim{1} = '(';
+                          delim{end}=')';
+                          if(numel(delim)==3), delim{2} = '-'; end
+                          str = strjoin(C,delim);                       
+                      end                    
               end
           end
     end

@@ -5,6 +5,8 @@
 *.png
 *.log
 *.mat
+!BrainAtlas_zkratky.mat
+
 *.nii
 *.graphml
 mindmaps/
