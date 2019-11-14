@@ -871,7 +871,9 @@ classdef CiEEGData < matlab.mixin.Copyable
                         end
                     end
                 end 
-                if DoAnd, KN = {[KN{1} 'A' KN{2}]}; end 
+                if numel(KN) > 1                    
+                   KN = iff(DoAnd, {[KN{1} 'A' KN{2}]},  {[KN{1} 'O' KN{2}]} ); %pokud kombinuju vic kategorii, musim vytvorit 1 bunku cellarray se string
+                end
                 pocty(kat)= sum(selCh(:,marks(kat))); %kolik vybrano v teto kategorii kanalu
                 katname(kat) =KN; %nazvy kategorii a jejich kombinacim, kvuli popiskum do grafu               
             end
@@ -1865,7 +1867,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 kategories = obj.PsyData.Categories();
             end
             
-           cellout = cell(numel(channels), 10 + length(obj.plotRCh.selChNames) + 4*numel(kategories));
+           cellout = cell(numel(channels), 13 + length(obj.plotRCh.selChNames) + 4*numel(kategories));
            
            RespVALS = struct; %struct array, kam si predpocitam hodnoty
            for k = 1:numel(kategories)
@@ -1873,11 +1875,12 @@ classdef CiEEGData < matlab.mixin.Copyable
                [RespVALS(k).valmax, RespVALS(k).tmax,  RespVALS(k).tfrac, RespVALS(k).tint] = obj.ResponseTriggerTime(val_fraction, int_fraction, katnum, obj.CH.sortorder);                  
            end
            
+           BrainNames = obj.CH.GetBrainNames();
            %pres vsechny kanaly plnim tabulku
            for ch=1:numel(channels)              
                channelHeader = channels(ch);
                RjCh = double(any(obj.RjCh==obj.CH.sortorder(ch))); %vyrazeni kanalu v CiEEGData
-               lineIn = [{ obj.CH.sortorder(ch), channelHeader.name, channelHeader.neurologyLabel, ...
+               lineIn = [{ obj.CH.sortorder(ch), channelHeader.name, channelHeader.neurologyLabel, BrainNames{ch,4}, BrainNames{ch,5}, BrainNames{ch,6}...
                         channelHeader.MNI_x, channelHeader.MNI_y, channelHeader.MNI_z, channelHeader.seizureOnset, channelHeader.interictalOften, ...
                         mat2str(channelHeader.rejected), RjCh} , ...
                         num2cell(selChFiltered(ch, :))];  %vybery kanalu fghjkl               
@@ -1887,7 +1890,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                     selChNames{n} = ['V' num2str(n) ]; %jednotliv promenne ani nesmi mit stejna jmena
                end
                if ch==1
-                   variableNames = [{ 'channel' 'name'  'neurologyLabel'  'MNI_x'  'MNI_y'  'MNI_z'  'seizureOnset'  'interictalOften' 'rejected' 'RjCh'}, ...
+                   variableNames = [{ 'channel' 'name'  'neurologyLabel' 'fullBrainName' 'structure' 'region' 'MNI_x'  'MNI_y'  'MNI_z'  'seizureOnset'  'interictalOften' 'rejected' 'RjCh'}, ...
                     selChNames];               
                end
                %chci mit kategorie v tabulce vedle sebe, protoze patri k jednomu kanalu. Treba kvuli 2way ANOVA
@@ -1903,8 +1906,8 @@ classdef CiEEGData < matlab.mixin.Copyable
             
             %export tabulky
             tablelog = cell2table(cellout,'VariableNames', variableNames); 
-
-            [~,mfilename,~] = fileparts(obj.hfilename);
+            assert(~isempty(obj.hfilename),'the object is not saved, please save the object first');
+            [~,mfilename,~] = fileparts(obj.hfilename); %hfilename se naplni az pri ulozeni objektu
             mfilename = strrep(mfilename, ' ', '_');
             logfilename = ['ChannelResponse_' mfilename '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') ];  
             xlsfilename = fullfile('logs', [logfilename '.xls']);            

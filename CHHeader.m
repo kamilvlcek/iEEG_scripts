@@ -637,12 +637,13 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             %ulozi filterMatrix pri zmene reference pro pozdejsi pouziti pri RjEpochCh
             obj.filterMatrix = filterMatrix;
         end
-        function [mozek] = GetBrainNames(obj)
+        function [mozek] = GetBrainNames(obj) %#ok<MANU>
             % najde popisy mist v mozku podle tabulky od Martina    
             % TODO, co kdyz jmeno obsahuje pomlcku nebo zavorku?
-            obj = load('BrainAtlas_zkratky.mat'); %nactu tabulku od Martina Tomaska, primo do obj.BrainAtlas_zkratky
+            BA = load('BrainAtlas_zkratky.mat'); %nactu tabulku od Martina Tomaska, 
+            obj.BrainAtlas_zkratky = BA.BrainAtlas_zkratky; %ulozim do obj.BrainAtlas_zkratky
             % sloupce plnynazev, structure,region, zkratka, alt zkratka 2-4            
-            mozek = cell(numel(obj.sortorder),6);
+            mozek = cell(numel(obj.sortorder),6);            
             for ich=1:numel(obj.sortorder)  %kanaly podle aktualniho filtru              
                 ch = obj.sortorder(ich);
                 mozek{ich,1} = ch;
