@@ -3,61 +3,62 @@ classdef ScatterPlot < handle
     %   Detailed explanation goes here
     
     properties
-        ieegdata
-        header; %handle na kopii ieegdata.CH, kvuli PlotBrain
-        dispChannels %zobrazene kanaly v grafu
-        dispData; %vyobrazena data ve scatterplotu
+        ieegdata@CiEEGData; % handle na zdroj dat
+        header; % handle na kopii ieegdata.CH, kvuli PlotBrain
+        dispChannels; % zobrazene kanaly v grafu
+        dispData; % vyobrazena data ve scatterplotu
         
         stats; % spocitane statistiky
         
-        is3D
+        is3D;   % urcuje, zda se jedna o 3D plot
         
-        selCh ; %kopie ieegdata.plotRCh.selCh;
-        selChNames ; %kopie ieegdata.plotRCh.selChNames;
+        selCh ; % kopie ieegdata.plotRCh.selCh;
+        selChNames ; % kopie ieegdata.plotRCh.selChNames;
         dispSelCh % vyber klavesami fghjkl 
         dispSelChName
         
         dispFilterCh % CH.sortorder
         
-        connectChannels
-        connectionsPlot
+        connectChannels;    % urcuje, zda se maji propojit stejne kanaly pro ruzne podnety
+        connectionsPlot;    % handle na plot se spojnicemi mezi kanaly
         
-        fig
-        ax
-        plots
-        sbox
-        pbox
-        texthandles ; %handle na texty v obrazku, abych je mohl smazat
+        fig;    % handle na hlavni figure scatter plotu
+        ax;     % handle na osy patrici k fig
+        plots;  % vsechny vykreslene plty
+        sbox;   % handle na info text s vybranym kanalem
+        pbox;   % handle na info text s vybranymi kategoriemi
+        texthandles;  % handle na texty v obrazku, abych je mohl smazat
         
-        highlights
+        highlights; % handle na plot se zvyraznenim vybraneho kanalu
         
-        showNumbers; %zobrazit popisky hodnot, 0=nic 1=cisla 2=jmena kanalu
-        numbers
-        markerSize
+        showNumbers; % zobrazit popisky hodnot, 0=nic 1=cisla 2=jmena kanalu
+        numbers;    % handle na zobrazene popisky hodnot
+        markerSize; % velikost markery ve scatter plotu
         
-        axisX
-        axisY
-        axisZ
+        axisX;  % strin identifikujici typ dat na osach x,y,z
+        axisY;  % nastavuje se pri inicializaci scatter plotu (initAxes)
+        axisZ;  % pro mozne hodnoty viz funkci initAxes
         
-        valFraction
-        intFraction
+        valFraction;    % podil z maximalni hodnoty pro trigger tfrac
+        intFraction;    % podil z maximalni hodnoty pro trigger tint
         
         categories %seznam cisel kategorii od nejdulezitejsi (podle poradi ve statistice)
         categoryNames %jmena kategorii odpovidajici obj.categories
         categoriesSelectionIndex %aktualne zobrazene kategorie, na zacatku 1:numel(obj.categories)
         
-        filterListener
-        channelListener
+        filterListener;  % reaguje na zmenu filtru pres CH.FilterChannels
+        channelListener;    % reaguje na zmenu zvyraznenho kanalu
         
-        baseColors = [0 1 0; 0 0 1; 1 0 0; 1 1 0; 1 0 1; 0 1 0];
-        categoryMarkers = {'o', 's', 'd', 'x'};
+        baseColors = [0 1 0; 0 0 1; 1 0 0; 1 1 0; 1 0 1; 0 1 0]; % zakladni barvy pro ruzne kategorie
+        categoryMarkers = {'o', 's', 'd', 'x'}; % markery pro kategorie
         transparent; % jestli maji byt markers nakreslene s pruhlednosti
     end
     
     methods
-        function obj = ScatterPlot(ieegdata, is3D)
-            %SCATTERPLOT Construct an instance of this class
-            %   Detailed explanation goes here
+        function obj = ScatterPlot(ieegdata, is3D, axisX, axisY, axisZ)
+            %SCATTERPLOT Vytvori novy ScatterPlot
+            %   is3D urcuje zda se jedna o 2D nebo 3D graf
+            %   parametry axis* urcuji typ dat zobrazeny na osach
             obj.ieegdata = ieegdata;
             obj.header = copy(obj.ieegdata.CH); %vytvorim nezavislou kopii kvuli PlotBrain, aby ne kolize z AUCPlotM grafem
             obj.selCh = ieegdata.plotRCh.selCh; %vyber kanalu fghjkl * pocet kanalu
@@ -77,15 +78,30 @@ classdef ScatterPlot < handle
             else
                 obj.is3D = is3D;
             end
+            if ~exist('axisX', 'var')
+                obj.axisX = 'tmax';
+            else
+                obj.axisX = axisX;
+            end
+            if ~exist('axisY', 'var')
+                obj.axisY = 'valmax';
+            else
+                obj.axisY = axisY;
+            end
+            if ~exist('axisZ', 'var')
+                obj.axisZ = 'category';
+            else
+                obj.axisZ = axisZ;
+            end
             
             obj.setCategories();
             
-            obj.drawScatterPlot(0.5, 0.5, 'tmax', 'valmax', 'category');
+            obj.drawScatterPlot(0.5, 0.5);
         end
         
-        function drawScatterPlot(obj, valFraction, intFraction, axisX, axisY, axisZ)
+        function drawScatterPlot(obj, valFraction, intFraction)
             obj.setTriggerValues(valFraction, intFraction);
-            obj.initAxes(axisX, axisY, axisZ);
+            obj.initAxes();
             obj.updatePlot();
             obj.fixAxesLimits();
         end
@@ -140,63 +156,41 @@ classdef ScatterPlot < handle
             obj.categoriesSelectionIndex = 1:numel(obj.categories);
         end
  
-        function initAxes(obj, axisX, axisY, axisZ)
-           switch axisX
-                case 'valmax'
-                    labelX = 'v_{max}';
-                case 'tmax'
-                    labelX = 't_{max}';
-                case 'tfrac'
-                    labelX = ['t_{' num2str(obj.valFraction) '}'];
-                case 'tint'
-                    labelX =  ['t_{int, ' num2str(obj.intFraction) '}'];
-                otherwise
-                    disp('X axis specification must be one of: valmax, tmax, tfrac, tint');
-                    return;
+        function initAxes(obj)
+            axesSelection = {obj.axisX, obj.axisY, obj.axisZ}; % pozadovane parametry na vsech osach
+            axesLabels = cell(1,3); % nazvy vsech os
+            for i=1:3   % projdu vsechny osy a nastavim jejich label
+                switch axesSelection{i}
+                    case 'valmax'
+                        axesLabels{i} = 'v_{max}';
+                    case 'tmax'
+                        axesLabels{i} = 't_{max}';
+                    case 'tfrac'
+                        axesLabels{i} = ['t_{' num2str(obj.valFraction) '}'];
+                    case 'tint'
+                        axesLabels{i} =  ['t_{int, ' num2str(obj.intFraction) '}'];
+                    case 'channel'
+                        axesLabels{i} = 'channel';
+                    case 'category'
+                        axesLabels{i} = 'category';
+                    case 'mnix'
+                        axesLabels{i} = 'MNI_x';
+                    case 'mniy'
+                        axesLabels{i} = 'MNI_y';
+                    case 'mniz'
+                        axesLabels{i} = 'MNI_z';
+                    otherwise
+                        disp('Axis specification must be one of: valmax, tmax, tfrac, tint, channel, category, mnix, mniy, mniz');
+                        return;
+                end
             end
             
-            switch axisY
-                case 'valmax'
-                    labelY = 'v_{max}';
-                case 'tmax'
-                    labelY = 't_{max}';
-                case 'tfrac'
-                    labelY = ['t_{' num2str(obj.valFraction) '}'];
-                case 'tint'
-                    labelY =  ['t_{int, ' num2str(obj.intFraction) '}'];
-                otherwise
-                    disp('Y axis specification must be one of: valmax, tmax, tfrac, tint');
-                    return;
-            end
-
-            switch axisZ
-                case 'valmax'
-                    labelZ = 'v_{max}';
-                case 'tmax'
-                    labelZ = 't_{max}';
-                case 'tfrac'
-                    labelZ = ['t_{' num2str(obj.valFraction) '}'];
-                case 'tint'
-                    labelZ =  ['t_{int, ' num2str(obj.intFraction) '}'];
-                case 'category'
-                    labelZ = 'category';
-                case 'channel'
-                    labelZ = 'channel';
-                otherwise
-                    disp('Z axis specification must be one of: valmax, tmax, tfrac, tint, channel, category');
-                    return;
-            end
-            
-            obj.axisX = axisX;
-            obj.axisY = axisY;
-            obj.axisZ = axisZ;
-
             obj.fig = figure('CloseRequestFcn', @obj.tearDownFigCallback, 'Name', 'ScatterPlot');
             
             obj.ax = axes(obj.fig);
-            xlabel(obj.ax, labelX);
-            ylabel(obj.ax, labelY);
-            zlabel(obj.ax, labelZ);
+            xlabel(obj.ax, axesLabels{1});
+            ylabel(obj.ax, axesLabels{2});
+            zlabel(obj.ax, axesLabels{3});
 
             obj.filterListener = addlistener(obj.ieegdata.CH, 'FilterChanged', @obj.filterChangedCallback);
             obj.channelListener = addlistener(obj.ieegdata, 'SelectedChannel', 'PostSet', @obj.channelChangedCallback);
@@ -276,20 +270,37 @@ classdef ScatterPlot < handle
             end
         end
         
+        function data = getData(obj, dataType, categoryIndex)
+        % getData vraci data pro jednu osu.
+        %       dataType je druh pozadovanych dat (viz initAxes)
+        %       categoryIndex je index aktualni kategorie
+            dataSize = size(obj.stats(categoryIndex).tmax); % rozmer vsech dat
+            %TODO: Predpokladam, ze tmax je vzdy nastaveno, to zatim funguje, ale v obecnejsim pripade by to nemusela byt pravda
+            switch dataType
+                case 'channel'
+                    data = obj.dispChannels;
+                case 'category'
+                    data = categoryIndex * ones(dataSize);
+                case 'mnix'
+                    data = [obj.ieegdata.CH.H.channels.MNI_x];
+                case 'mniy'
+                    data = [obj.ieegdata.CH.H.channels.MNI_y];
+                case 'mniz'
+                    data = [obj.ieegdata.CH.H.channels.MNI_z];
+                otherwise
+                    data = obj.stats(categoryIndex).(dataType);
+            end
+        end
+        
         function drawPlot(obj, selChFiltered, selChRj)
             pocty = zeros(numel(obj.categoriesSelectionIndex),3); %pocty zobrazenych kanalu  
             for k = flip(obj.categoriesSelectionIndex) %nejpozdeji, cili nejvic na vrchu, chci mit prvni kategorii %1:numel(obj.categories)
-                dataX = obj.stats(k).(obj.axisX);
-                dataY = obj.stats(k).(obj.axisY);
-                if obj.is3D %TODO: Zobecnit a ukladat nekde na zacatku (u vypoctu stats?) - opakuje se to napr. v drawConnectChannels, highlighSelected, nebo hybejPlotClick
-                    if strcmp(obj.axisZ, 'channel')
-                        dataZ = obj.dispChannels;
-                    elseif strcmp(obj.axisZ, 'category')
-                        dataZ = k * ones(size(dataX));
-                    else
-                        dataZ = obj.stats(k).(obj.axisZ);
-                    end
+                dataX = obj.getData(obj.axisX, k);
+                dataY = obj.getData(obj.axisY, k);
+                if obj.is3D
+                    dataZ = obj.getData(obj.axisZ, k);
                 end
+                
                 iData = logical(selChFiltered(:,k)); %kanaly se signifikantim rozdilem vuci baseline v teto kategorii
                 if any(iData)
                     if obj.is3D
@@ -347,33 +358,34 @@ classdef ScatterPlot < handle
         function drawConnectChannels(obj)
         % Nakresli linku spojujici stejne kanaly. Ruzne barvy musi byt samostatny plot (aby mohl scatter zustat ve stejnych osach)
             if length(obj.categoriesSelectionIndex) > 1
-                validCategoryIndex = obj.categoriesSelectionIndex(1); %cislo prvni se zobrazenych kategorii
-                catIndex = zeros(size(obj.categoriesSelectionIndex)); %kopie obj.categoriesSelectionIndex ?
-                x = zeros(length(obj.categoriesSelectionIndex), length(obj.stats(validCategoryIndex).(obj.axisX)));
-                y = zeros(length(obj.categoriesSelectionIndex), length(obj.stats(validCategoryIndex).(obj.axisX)));
-                if ~strcmp(obj.axisZ, 'channel') && ~strcmp(obj.axisZ, 'category')
-                    z = zeros(length(obj.categoriesSelectionIndex), length(obj.stats(validCategoryIndex).(obj.axisX)));
+                validCategoryIndex = obj.categoriesSelectionIndex(1); % cislo prvni se zobrazenych kategorii - pro inicializaci poli musim znat velikost nejkae jiz spocitane (platne) kategorie
+                x = zeros(length(obj.categoriesSelectionIndex), length(obj.getData(obj.axisX, validCategoryIndex)));
+                y = zeros(length(obj.categoriesSelectionIndex), length(obj.getData(obj.axisY, validCategoryIndex)));
+                if obj.is3D
+                    z = zeros(length(obj.categoriesSelectionIndex), length(obj.getData(obj.axisZ, validCategoryIndex)));
                 end
                 for cat = 1:length(obj.categoriesSelectionIndex)
-                    catIndex(cat) = obj.categoriesSelectionIndex(cat);
-                    x(cat,:) = obj.stats(catIndex(cat)).(obj.axisX);
-                    y(cat,:) = obj.stats(catIndex(cat)).(obj.axisY);
-                    if ~strcmp(obj.axisZ, 'channel') && ~strcmp(obj.axisZ, 'category')
-                        z(cat,:) = obj.stats(catIndex(cat)).(obj.axisZ);
+                    catIndex = obj.categoriesSelectionIndex(cat); % aktualni kategorie
+                    x(cat,:) = obj.getData(obj.axisX, catIndex);
+                    y(cat,:) = obj.getData(obj.axisY, catIndex);
+                    if obj.is3D
+                        z(cat,:) = obj.getData(obj.axisZ, catIndex);
                     end
                 end
-                l = length(obj.stats(catIndex(1)).(obj.axisX));
+                l = length(obj.stats(obj.categoriesSelectionIndex(1)).(obj.axisX));
                 for k = 1:l
                     xx = [x(:,k); x(1,k)]; %tri body za vsechny kategorie + pridam prvni na konec znovu, aby se spojily
                     yy = [y(:,k); y(1,k)]; %kvuli zrychleni u velkeho mnozstvi bodu
                     if obj.is3D
-                        if strcmp(obj.axisZ, 'channel')
-                            zz = obj.dispChannels(k) * ones(size(xx));
-                        elseif strcmp(obj.axisZ, 'category')
-                            zz = [obj.categoriesSelectionIndex obj.categoriesSelectionIndex(1)] * ones(1, size(xx,2));
-                        else
-                            zz = [z(:,k); z(1,k)];
-                        end
+                        zz = [z(:,k); z(1,k)];
+                        
+                        %if strcmp(obj.axisZ, 'channel')
+                        %    zz = obj.dispChannels(k) * ones(size(xx));
+                        %elseif strcmp(obj.axisZ, 'category')
+                        %    zz = [obj.categoriesSelectionIndex obj.categoriesSelectionIndex(1)] * ones(1, size(xx,2));
+                        %else
+                        %    zz = [z(:,k); z(1,k)];
+                        %end
                                 
                         obj.connectionsPlot(end+1) = plot3(xx, yy, zz, 'Color', [0.5 0.5 0.5], 'HandleVisibility', 'off');
                     else
@@ -395,16 +407,13 @@ classdef ScatterPlot < handle
             hold(obj.ax, 'on');
             if idx
                 for k = obj.categoriesSelectionIndex
-                    dataX = obj.stats(k).(obj.axisX);
-                    dataY = obj.stats(k).(obj.axisY);
+                    dataX = obj.getData(obj.axisX, k);
+                    dataY = obj.getData(obj.axisY, k);
                     if obj.is3D
-                        if strcmp(obj.axisZ, 'channel')
-                            dataZ = obj.dispChannels;
-                        elseif strcmp(obj.axisZ, 'category')
-                            dataZ = k * ones(size(dataX));
-                        else
-                            dataZ = obj.stats(k).(obj.axisZ);
-                        end
+                        dataZ = obj.getData(obj.axisZ, k);
+                    end
+                    
+                    if obj.is3D
                         obj.highlights(k) = scatter3(obj.ax, dataX(idx), dataY(idx), dataZ(idx), 3*obj.markerSize, 0.75*obj.baseColors(k,:), 'o', 'MarkerFaceColor', 'none', 'LineWidth', 2, 'HandleVisibility','off');
                     else
                         obj.highlights(k) = scatter(obj.ax, dataX(idx), dataY(idx), 3*obj.markerSize, 0.75*obj.baseColors(k,:), 'o', 'MarkerFaceColor', 'none', 'LineWidth', 2, 'HandleVisibility','off');
@@ -456,7 +465,7 @@ classdef ScatterPlot < handle
             end
         end
         
-        function hybejScatterPlotClick(obj,h,~)
+        function hybejScatterPlotClick(obj,~,~)
             if isempty(obj.dispChannels) % Pokud nejsou zobrazene zadne kanaly, nedelam nic
               return;
             end
@@ -467,22 +476,21 @@ classdef ScatterPlot < handle
             dist = zeros(size(obj.categoriesSelectionIndex));
             for k = 1:length(obj.categoriesSelectionIndex) % vsechny zobrazene kategorie
               categoryIndex = obj.categoriesSelectionIndex(k);
-              dataX = obj.stats(categoryIndex).(obj.axisX);
-              dataY = obj.stats(categoryIndex).(obj.axisY);
+              dataX = obj.getData(obj.axisX, categoryIndex);
+              dataY = obj.getData(obj.axisY, categoryIndex);
               if obj.is3D
-                  if strcmp(obj.axisZ, 'channel')
-                      dataZ = obj.dispChannels;
-                  elseif strcmp(obj.axisZ, 'category')
-                      dataZ = k * ones(size(dataX));
-                  else
-                      dataZ = obj.stats(k).(obj.axisZ);
-                  end
+                  dataZ = obj.getData(obj.axisZ, categoryIndex);
+              end
+              if obj.is3D
                   coordinates = [dataX; dataY; dataZ]; % souradnice zobrazenych kanalu
                   [chs(k), dist(k)] = findClosestPoint(p1, p2, coordinates, 0.05);    % najdu kanal nejblize mistu kliknuti
               else
+                  %TODO: Tohle hledani nafunguje dobre, pokud maji osy vyrazne
+                  %jine meritko (napr. tmax vs mnix). Pro hledani a nasledne
+                  %porovnani min(dist) by bylo lepsi napred obe osy normalizovat.
                   x = p1(1); y = p1(2); % souradnice v grafu (ve 2D pouze "predni" bod)
                   [chs(k), dist(k)] = dsearchn([dataX' dataY'], [x y]); %najde nejblizsi kanal a vzdalenost k nemu
-                  if dist(k) > mean([diff(ylim(obj.ax)), diff(xlim(obj.ax))])/20 % kdyz kliknu moc daleko od kanalu, nechci nic vybrat - nastavim [0 inf] stejne jako to dela funkce findClosestPoint
+                  if abs(dataX(chs(k))-x) > diff(xlim(obj.ax))/20 || abs(dataY(chs(k))-y) > diff(ylim(obj.ax))/20
                       chs(k) = 0;
                       dist(k) = inf;
                   end
