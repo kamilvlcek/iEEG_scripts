@@ -522,14 +522,16 @@ classdef CiEEGData < matlab.mixin.Copyable
             %vola ResponseSearch pro kazdy kontrast, nastavi vsechny statistiky
             if ~exist('opakovani','var'), opakovani = []; end
             if ~exist('method','var'), method = []; end
-            if iscelldeep(stat_kats) %pokud mam nekolik ruznych statistik na spocitani
+            %TODO - nefunguje pro statistiku {[2 3 1],[1 3 2],[1 2 3]};
+            if iscell(stat_kats) && numel(stat_kats)>1 && iscelldeep(stat_kats) %pokud mam nekolik ruznych statistik na spocitani
+                %vsechny prvnky maji dalsich nekolik prvku
                 for WpA = 1:numel(stat_kats)
                     obj.SetStatActive(WpA);
                     disp(['pocitam kontrast' cell2str(stat_kats{WpA}) ]);
                     obj.ResponseSearch(timewindow,stat_kats{WpA},opakovani,method);
                 end
             else
-                obj.E.ResponseSearch(timewindow,stat_kats, opakovani,method);
+                obj.ResponseSearch(timewindow,stat_kats, opakovani,method);
             end
         end
         function obj = SetStatActive(obj,WpActive)
@@ -1505,7 +1507,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             if isprop(obj,'label') && ~isempty(obj.label)
                 text(-0.1,ymax*.78,strrep(obj.label,'_','\_'), 'FontSize', 10,'Color','blue'); 
             end            
-            if isfield(obj.CH.plotCh2D,'chshow') && ~isempty(obj.CH.plotCh2D.chshow) && ~isempty(obj.CH.plotCh2D.chshowstr) %% plot chshow
+            if isfield(obj.CH.plotCh2D,'chshow') && isfield(obj.CH.plotCh2D,'chshowstr') && ~isempty(obj.CH.plotCh2D.chshow) && ~isempty(obj.CH.plotCh2D.chshowstr) %% plot chshow
                 text(-0.1,ymax*.72, ['show:  ' obj.CH.plotCh2D.chshowstr '=' mat2str(obj.CH.plotCh2D.chshow)], 'FontSize', 10);
             end
             methodhandle = @obj.hybejPlotCh;
@@ -2049,7 +2051,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                      answ = inputdlg('Enter channel number:','Go to channel', 1,{num2str(obj.CH.sortorder(obj.plotRCh.ch))});
                      if numel(answ)>0
                          ch = find(obj.CH.sortorder>=str2double(answ{1}),1); %chci index v sortorder
-                         obj.PlotResponseCh( ch); 
+                         if ~isempty(ch), obj.PlotResponseCh( ch); end
                      end
                 case {'multiply','8'} %hvezdicka na numericke klavesnici, nebo hvezdicka nad osmickou
                     %dialog na vlozeni minima a maxima osy y

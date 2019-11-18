@@ -106,7 +106,11 @@ classdef ScatterPlot < handle
                 dataName = obj.axisY;
             end
             obj.header.plotCh3D.selch = []; %nechci mit vybrany zadny kanal z minula
-            chshowstr = obj.header.plotCh2D.chshowstr; %musim udelat kopii jinak se do grafu preda odkaz
+            if isfield(obj.header.plotCh2D,'chshowstr')
+                chshowstr = obj.header.plotCh2D.chshowstr; %musim udelat kopii jinak se do grafu preda odkaz
+            else
+                chshowstr = '';
+            end
             obj.header.ChannelPlot([],0,data,... %param chnvals
                 obj.dispChannels(iData),... %chnsel jsou cisla kanalu, pokud chci jen jejich vyber
                 [],[],{[dataName '(' obj.categoryNames{katnum} '), SelCh: ' cell2str(obj.dispSelChName) ], ... %popis grafu = title - prvni radek

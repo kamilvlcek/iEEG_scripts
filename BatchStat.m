@@ -50,7 +50,7 @@ for f = 1:numel(filenames) %muzu zpracovavat vic souboru za sebou
                     pacienti(p).todo = 0; %nechci ho dal zpracovavat
                     continue;
                 end
-                if iscelldeep(stat_kats) %pokud mam nekolik ruznych statistik na spocitani
+                if iscell(stat_kats) && numel(stat_kats)>1 && iscelldeep(stat_kats)   %pokud mam nekolik ruznych statistik na spocitani
                     for WpA = 1:numel(stat_kats)
                         E.SetStatActive(WpA);
                         disp(['pocitam kontrast' cell2str(stat_kats{WpA}) ]);
