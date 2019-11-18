@@ -274,19 +274,18 @@ classdef ScatterPlot < handle
         % getData vraci data pro jednu osu.
         %       dataType je druh pozadovanych dat (viz initAxes)
         %       categoryIndex je index aktualni kategorie
-            dataSize = size(obj.stats(categoryIndex).tmax); % rozmer vsech dat
-            %TODO: Predpokladam, ze tmax je vzdy nastaveno, to zatim funguje, ale v obecnejsim pripade by to nemusela byt pravda
+            numChannels = size(obj.dispChannels); % Pocet zobrazenych kanalu
             switch dataType
                 case 'channel'
                     data = obj.dispChannels;
                 case 'category'
-                    data = categoryIndex * ones(dataSize);
+                    data = categoryIndex * ones(numChannels);
                 case 'mnix'
-                    data = [obj.ieegdata.CH.H.channels.MNI_x];
+                    data = [obj.ieegdata.CH.H.channels(obj.dispChannels).MNI_x];
                 case 'mniy'
-                    data = [obj.ieegdata.CH.H.channels.MNI_y];
+                    data = [obj.ieegdata.CH.H.channels(obj.dispChannels).MNI_y];
                 case 'mniz'
-                    data = [obj.ieegdata.CH.H.channels.MNI_z];
+                    data = [obj.ieegdata.CH.H.channels(obj.dispChannels).MNI_z];
                 otherwise
                     data = obj.stats(categoryIndex).(dataType);
             end
@@ -327,12 +326,21 @@ classdef ScatterPlot < handle
                     pocty(k,3) = sum(logical(selChRj(:,k))); 
                 end
                 if obj.showNumbers > 0 %pojmenovani bodu ve scatterplotu
-                    if obj.showNumbers == 1
-                        labels = cellstr(num2str(obj.dispChannels')); %cisla zobrazenych kanalu 
-                    elseif obj.showNumbers==2
-                        labels = {obj.ieegdata.CH.H.channels(obj.dispChannels).name}'; %jmena kanalu
-                    else
-                        labels = {obj.ieegdata.CH.H.channels(obj.dispChannels).neurologyLabel}'; %anatomicke oznaceni kanalu
+                    switch obj.showNumbers
+                        case 1
+                            labels = cellstr(num2str(obj.dispChannels')); %cisla zobrazenych kanalu 
+                        case 2
+                            labels = {obj.ieegdata.CH.H.channels(obj.dispChannels).name}'; %jmena kanalu
+                        case 3
+                            labels = {obj.ieegdata.CH.H.channels(obj.dispChannels).neurologyLabel}'; %anatomicke oznaceni kanalu
+                        case 4
+                            if isa(obj.ieegdata, 'CHilbertMulti')
+                                names = {obj.ieegdata.CH.H.channels(obj.dispChannels).name}; % jmena pacientu
+                                labels = cellstr(extractBefore(names,' ')); %vsechno pred mezerou - pro CHilbertMulti
+                            else
+                                labels = cellstr(num2str(obj.dispChannels'));
+                                disp('Cannot show paient names, iEEG data not a CHilbertMulti object');
+                            end
                     end
                     dx = diff(xlim)/100;
                     iData = iff( obj.connectChannels >= 0 , true(size(selChFiltered,1),1), logical(selChFiltered(:,k)) ); %jestli zobrazit vsechny labels, nebo jen signifikantni
@@ -453,8 +461,7 @@ classdef ScatterPlot < handle
                     if obj.connectChannels >1,  obj.connectChannels = -1; end
                     obj.updatePlot(0); %neprepocitat hodnoty
                 case {'n'}
-                    obj.showNumbers =  obj.showNumbers + 1;
-                    if obj.showNumbers > 3, obj.showNumbers=0; end %0->1->2->3->0
+                    obj.showNumbers =  mod(obj.showNumbers + 1, 5); % cykluje cisla od 0 do 4
                     obj.updatePlot(0); %neprepocitat hodnoty
                 case {'add'}
                     obj.markerSize = obj.markerSize + 8;
