@@ -35,17 +35,17 @@ classdef ScatterPlot < handle
         numbers;    % handle na zobrazene popisky hodnot
         markerSize; % velikost markery ve scatter plotu
         
-        axisX;  % strin identifikujici typ dat na osach x,y,z
-        axisY;  % nastavuje se pri inicializaci scatter plotu (initAxes)
-        axisZ;  % pro mozne hodnoty viz funkci initAxes
+        axisX@char;  % strin identifikujici typ dat na osach x,y,z
+        axisY@char;  % nastavuje se pri inicializaci scatter plotu (initAxes)
+        axisZ@char;  % pro mozne hodnoty viz funkci initAxes
         
-        valFraction;    % podil z maximalni hodnoty pro trigger tfrac
-        intFraction;    % podil z maximalni hodnoty pro trigger tint
+        valFraction@double;    % podil z maximalni hodnoty pro trigger tfrac
+        intFraction@double;    % podil z maximalni hodnoty pro trigger tint
         
         categories %seznam cisel kategorii od nejdulezitejsi (podle poradi ve statistice)
         categoryNames %jmena kategorii odpovidajici obj.categories
         categoriesSelectionIndex %aktualne zobrazene kategorie, na zacatku 1:numel(obj.categories)
-        
+
         filterListener;  % reaguje na zmenu filtru pres CH.FilterChannels
         channelListener;    % reaguje na zmenu zvyraznenho kanalu
         
@@ -472,32 +472,33 @@ classdef ScatterPlot < handle
 
             mousept = get(gca,'currentPoint');
             p1 = mousept(1,:); p2 = mousept(2,:); % souradnice kliknuti v grafu - predni a zadni bod
-            chs  = zeros(size(obj.categoriesSelectionIndex));
-            dist = zeros(size(obj.categoriesSelectionIndex));
+            chs  = zeros(size(obj.categoriesSelectionIndex));     % kanaly v blikosti kliknuti
+            normDist = zeros(size(obj.categoriesSelectionIndex)); % vzdalenost normalizovana na meritko os
             for k = 1:length(obj.categoriesSelectionIndex) % vsechny zobrazene kategorie
               categoryIndex = obj.categoriesSelectionIndex(k);
               dataX = obj.getData(obj.axisX, categoryIndex);
               dataY = obj.getData(obj.axisY, categoryIndex);
+              xRange = diff(xlim(obj.ax)); % hledani nejblizsiho bodu probehne az po normalizaci os, jinak je problem u os s vyrazne jinymi meritky
+              yRange = diff(ylim(obj.ax));
               if obj.is3D
                   dataZ = obj.getData(obj.axisZ, categoryIndex);
+                  zRange = diff(zlim(obj.ax));
+                  cNorm = [1/xRange 1/yRange 1/zRange]; % normalizace vsech souradnic
               end
               if obj.is3D
-                  coordinates = [dataX; dataY; dataZ]; % souradnice zobrazenych kanalu
-                  [chs(k), dist(k)] = findClosestPoint(p1, p2, coordinates, 0.05);    % najdu kanal nejblize mistu kliknuti
+                  coordinates = [dataX./xRange; dataY./yRange; dataZ./zRange]; % souradnice zobrazenych kanalu
+                  [chs(k), normDist(k)] = findClosestPoint(cNorm.*p1, cNorm.*p2, coordinates, 0.02);    % najdu kanal nejblize mistu kliknuti
               else
-                  %TODO: Tohle hledani nafunguje dobre, pokud maji osy vyrazne
-                  %jine meritko (napr. tmax vs mnix). Pro hledani a nasledne
-                  %porovnani min(dist) by bylo lepsi napred obe osy normalizovat.
                   x = p1(1); y = p1(2); % souradnice v grafu (ve 2D pouze "predni" bod)
-                  [chs(k), dist(k)] = dsearchn([dataX' dataY'], [x y]); %najde nejblizsi kanal a vzdalenost k nemu
-                  if abs(dataX(chs(k))-x) > diff(xlim(obj.ax))/20 || abs(dataY(chs(k))-y) > diff(ylim(obj.ax))/20
+                  [chs(k), normDist(k)] = dsearchn([dataX'./xRange dataY'./yRange], [x/xRange y/yRange]); %najde nejblizsi kanal a vzdalenost k nemu
+                  if normDist(k) > mean([yRange xRange])/20 % kliknuti prilis daleko od jakehokoliv bodu
                       chs(k) = 0;
-                      dist(k) = inf;
+                      normDist(k) = inf;
                   end
               end
             end
 
-            [mindist, k_min] = min(dist); % vyberu skutecne nejblizsi kanal ze vsech kategorii
+            [mindist, k_min] = min(normDist); % vyberu skutecne nejblizsi kanal ze vsech kategorii
 
             if mindist < inf
               ch = obj.dispChannels(chs(k_min));
