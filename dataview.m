@@ -115,10 +115,10 @@ yrange = [-ymax ymax];
     disp( ['konec: ' num2str(konec) 's, timestamp: ' datestr(tsEND,'dd-mmm-yyyy HH:MM:SS.FFF') ', iEND: ' num2str(iEND)]);
    %keyboard; %zastavi a muzu se divat na promenne, pokracuju pomoci return
     %casove znaèky po 10 minutách
-    for ix = 1:600*fs:numel(tabs)
-        line([xtime(ix) xtime(ix)],[2500 3000],'Color','black');
-        text(xtime(ix),2500,datestr(tabs(ix),'dd-mmm-yyyy HH:MM:SS.FFF'),'Color','black');
-    end
+%     for ix = iSTART:600*fs:iEND
+%         line([xtime(ix) xtime(ix)],[2500 3000],'Color','black');
+%         text(xtime(ix),2500,datestr(tabs(ix),'dd-mmm-yyyy HH:MM:SS.FFF'),'Color','black');
+%     end
     text(xtime(end),1000,datestr(tabs(end),'dd-mmm-yyyy HH:MM:SS.FFF'),'Color','black');
     if numel(pauzyvdatech) > 0
        for ip = 1:size(pauzyvdatech,1)
