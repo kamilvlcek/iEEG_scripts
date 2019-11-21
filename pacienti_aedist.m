@@ -272,5 +272,24 @@ pacienti(p).rjepoch = 'p173_aedist_rjepoch.mat'; %2018-05
 pacienti(p).epievents = 'p173_aedist_epievents.mat'; %2018
 pacienti(p).rjch = [47]; 
 
+p=p+1;
+pacienti(p).todo = 1; %20.11.2019 Sofiia
+pacienti(p).folder = 'p180 Van VT35';
+pacienti(p).data = 'VT35_2018-05-22_17-19_001_500hz_5_concat_aedist';
+pacienti(p).header = 'p180_64ch_header.mat';
+pacienti(p).psychopy = 'p180_aedist.mat';
+pacienti(p).rjepoch = 'p180_aedist_rjepoch.mat'; 
+pacienti(p).epievents = 'p180_aedist_epievents.mat'; 
+pacienti(p).rjch = [33]; 
+
+p=p+1;
+pacienti(p).todo = 1; %21.11.2019 Sofiia
+pacienti(p).folder = 'p181 Tis VT36';
+pacienti(p).data = 'VT36_2018-06-04_18-05_001_512hz_2_concat_aedist.mat';
+pacienti(p).header = 'p181_header.mat';
+pacienti(p).psychopy = 'p181_aedist.mat';
+pacienti(p).rjepoch = 'p181_aedist_rjepoch.mat'; 
+pacienti(p).epievents = 'p181_aedist_epievents.mat'; 
+pacienti(p).rjch = []; 
 end
 
