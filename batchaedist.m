@@ -6,7 +6,7 @@ podilcasuodpovedi =0;
 %% nejdriv normalni analyzu s razenim podle podnetu
  if podnet
     disp(' ++++ ANALYZA 1 - RAZENI PODLE PODNETU ++++');
-    pacienti = {'p073'}; 
+    pacienti = {'p180', 'p181'}; 
     cfg = struct('hybernovat',0,'suffix','Ep2018-07'); %'Ep2018-04', 'Ep2018-06'
     cfg.pacienti = pacienti; %kdyz to tam vlozim rovnou, tak se mi udela struct array
     %cfg.overwrite=1; %vyjimecne
