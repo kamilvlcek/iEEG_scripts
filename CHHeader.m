@@ -758,9 +758,11 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                    obj.SortChannels();
             end 
         end
-        function obj = FilterChannels(obj,chlabels,notchnlabels,selCh)
+        function obj = FilterChannels(obj,chlabels,notchnlabels,selCh, chnum,label)
             %vyberu podle neurologylabel jen nektere kanaly k zobrazeni
             %selCh - jedno pismeno fghjkl podle oznaceni kanalu. 
+            %chnum - primo zadam cisla kanalu k filtrovani
+            %label - muzu nazvat vyber jak potrebuju
             % Pozor - funguje na zaklade obj.plotCh2D.selCh, ktere se vytvari pri volani ChannelPlot2D, takze to se musi spusti nejdriv a i po zmene vyberu kanalu
             % zatim se nedaji pouzit obe metody filtrovani dohromady
             
@@ -804,10 +806,25 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 if filtered
                     obj.plotCh2D.chshow = chshow;
                     obj.sortorder = obj.plotCh2D.chshow;
-                    obj.plotCh2D.chshowstr = selCh; 
-                    disp(['zobrazeno ' num2str(numel(obj.plotCh2D.chshow)) ' kanalu']); 
+                    if exist('label','var') && ~isempty(label)
+                        obj.plotCh2D.chshowstr = label;
+                    else
+                        obj.plotCh2D.chshowstr = selCh; 
+                    end
+                    disp(['zobrazeno ' num2str(numel(obj.plotCh2D.chshow)) ' kanalu: ' obj.plotCh2D.chshowstr]); 
+                end                                
+            end
+            if exist('chnum','var') && ~isempty(chnum)
+                if size(chnum,1) > size(chnum,2), chnum = chnum'; end %chci mit cisla kanalu v radku
+                obj.plotCh2D.chshow = chnum; %priradim primo cisla kanalu
+                obj.sortorder = obj.plotCh2D.chshow; %defaultni sort order pro tento vyber - nejsou tam cisla od 1 to n, ale cisla kanalu
+                if exist('label','var') && ~isempty(label)
+                    obj.plotCh2D.chshowstr = label;
+                else
+                    obj.plotCh2D.chshowstr = 'chnum';
                 end
-                                
+                disp(['zobrazeno ' num2str(numel(obj.plotCh2D.chshow)) ' kanalu: ' obj.plotCh2D.chshowstr]);                
+                filtered = true;
             end
             if ~filtered
                 obj.plotCh2D.chshow = 1:numel(obj.H.channels);

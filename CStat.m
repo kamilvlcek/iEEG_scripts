@@ -227,7 +227,7 @@ classdef CStat < handle
         function obj = AUCPlotM(obj,channels,chSelection,selch)
             %vykresli vic AUC krivek pres sebe z vybranych kanalu
             %channels je seznam kanalu k vykresleni
-            %chSelection je pojmenovani vyberu kanalu, napr [Scene], index v obj.plotAUC.selChNames
+            %chSelection je pojmenovani vyberu kanalu, napr [Scene], index v obj.plotAUC.selChNames, 0 pro all channels
             %selch je cislo kanalu z chsort(channels), ktery je zobrazen vyrazne            
             assert(sum(obj.plotAUC.katplot)==1,'one kontrast for plot is not selected'); %nechci kreslit vic kontrastu jako ScenexObject a ScenexFace dohromady
             
@@ -425,7 +425,12 @@ classdef CStat < handle
             obj.plotAUC_m.xlsvals = cell2mat(cellout(:,[10 14 15])); %ulozim hodnoty aucmax, tmax, thalf 
             %TODO: Identifikace nazvu souboru? 
             kat = strrep([obj.plotAUC.katnames{find(obj.plotAUC.katplot)}], ' ', '_'); %#ok<FNDSB>
-            chnls = regexprep(cell2str(obj.plotAUC.selChNames{obj.plotAUC_m.chSelection}), {' ','[',']'}, {'_','(',')'}); %writetable cant use [] in filenames
+            if obj.plotAUC_m.chSelection==0
+                selChNames = 'all';
+            else
+                selChNames = obj.plotAUC.selChNames{obj.plotAUC_m.chSelection}; %iff nejde pouzit, protoze se vyhodnotit oba argumenty vzdy
+            end            
+            chnls = regexprep(cell2str(selChNames), {' ','[',']'}, {'_','(',')'}); %writetable cant use [] in filenames
             [~,mfilename,~] = fileparts(obj.plotAUC.Eh.hfilename);
             mfilename = strrep(mfilename, ' ', '_');
             logfilename = ['AUCPlotM_' kat '_chnls_' chnls '_' mfilename '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') ];  
@@ -434,8 +439,9 @@ classdef CStat < handle
             disp([ 'XLS table saved: ' xlsfilename]);
         end
         function Scatter(obj,names)
-            assert(~isempty(obj.plotAUC_m.xlsvals),'no xls data');
-            if ~exist('names','var'), names = 1; end;
+            %vykresli scatterplot z hodnot valmax a tmax, exportovanych drive do xls tabulky
+            assert(isfield(obj.plotAUC_m,'xlsvals') && ~isempty(obj.plotAUC_m.xlsvals),'no xls data');
+            if ~exist('names','var'), names = 1; end
             figure('Name','AUCPlotM Scatter');
             scatter(obj.plotAUC_m.xlsvals(:,2),obj.plotAUC_m.xlsvals(:,1),'filled');
             xlim(obj.plotAUC.Eh.epochtime(1:2));
@@ -445,6 +451,28 @@ classdef CStat < handle
                     text(obj.plotAUC_m.xlsvals(ch,2)+0.02,obj.plotAUC_m.xlsvals(ch,1)-0.02,num2str(obj.plotAUC_m.channels(ch)));
                 end
             end
+        end
+        function AUCPlotMean(obj)
+            %vykresli graf s prumerem auc krivek, pro vybrane kategorie
+            ikat = find(obj.plotAUC.katplot); % index dvojice kategorii v legendkomb
+            [l,k] = find(obj.plotAUC.setup.legendkomb==ikat);
+            channels = obj.plotAUC_m.channels;
+            aucch = obj.plotAUC.aucdata(channels(1)).AUC{k(1),l(1)};  %docasna hodnota pro prvni kanal v poradi
+            X = linspace(obj.plotAUC.time(1),obj.plotAUC.time(2),size(aucch,1));
+            figure('Name','AUCPlotMean');
+            AUC = zeros(numel(channels),size(aucch,1)); %hodnoty pro vsechy kanaly, ktere budu prumerovat
+            for ch = 1:numel(channels)                
+                aucch  = obj.plotAUC.aucdata(channels(ch)).AUC{k(1),l(1)};                 
+                plot(X,aucch(:,1)); 
+                AUC(ch,:) = aucch(:,1);
+                hold on;
+            end
+            M = mean(AUC,1);
+            E = std(AUC,[],1)/sqrt(size(AUC,1));            
+            ciplot(M+E, M-E, X,[1 0.8 0.8]);
+            plot(X,M,'-','LineWidth',3,'Color',[1 0 0]);
+            ylim([0 1]);
+            line([X(1) X(end)],[.5 .5]);             
         end
     end
     methods (Static,Access = public)        
