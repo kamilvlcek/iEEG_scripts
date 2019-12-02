@@ -3,6 +3,7 @@ function [files] = concatCVUT(adresar,spojit,testrozdil)
 % CVUT data
 % nefunguje to na notebooku protoze to potrebuje prilis mnoho pameti - 18.6.2015
 % funguje na Amygdale - 23.6.2015
+% files sloupce: {filename, spojeno, delka, rozdil_sec}
 
 %spojit = {
 %        'f:\eeg\motol\pacienti\p97 Novak VT13\VT13_2016-02-11_09-20_001.mat',...
@@ -28,12 +29,13 @@ j0 = 1; %index prvniho souboru, ktere spojuji
 files = cell(0,4); %tam budu uklada jmena vytvorenych souboru
 for j = 1:numel(spojit)
     disp([ num2str(j) '/' num2str(numel(spojit)) ': ' adresar spojit{j}]);
-    load([adresar spojit{j}]);
-    if ~exist('mults','var'), mults = []; end
-    if ~exist('evts','var'), evts = []; end
-    if ~exist('header','var'), header = []; end
+    SP = load([adresar spojit{j}]);
+    d = SP.d; tabs = SP.tabs; fs = SP.fs; %nacitam specificke promenne, aby nebyla kolize s j0 ulozenym v souboru 
+    if isfield(SP,'mults'), mults = SP.mults; else, mults = []; end
+    if isfield(SP,'evts'), evts = SP.evts; else, evts = []; end
+    if isfield(SP,'header'), header = SP.header; else, header = []; end
     
-    disp(['delka ' num2str(size(tabs,1)) ' vzorku']); %#ok<NODEF> 
+    disp(['delka ' num2str(size(tabs,1)) ' vzorku']); 
     if numel(tabs)<3, continue; end %kratke zaznamy preskakuju
     if j> j0 %pokud se nejedna o prvni soubor
         rozdil_sec = (tabs(1)-tabs0(end))*24*3600; %rozdil mezi koncem jednoho a zacatkem druheho
@@ -72,14 +74,14 @@ for j = 1:numel(spojit)
         else
             evts0 = [];
         end
-        d0 = d;  %#ok<NODEF>
+        d0 = d;  
         clear d;
         spojeno = 1; 
     else %nasledujici soubory
         
         tabs0 = [tabs0; tabs]; %#ok<AGROW>        
         clear tabs;
-        d0 = [d0; d]; %#ok<NODEF,AGROW>
+        d0 = [d0; d]; %#ok<AGROW>
         clear d;
         if exist('evts','var')
             evts0 = [evts0, evts]; %#ok<AGROW>
@@ -129,7 +131,13 @@ function [filename,delka] = ulozdata(j0,spojeno,adresar,spojit,d,tabs,fs,header,
     disp(['vysledna delka ' num2str(delka) ' vzorku']);
     if isempty(mults), clear mults; end
     if isempty(header), clear header; end
-    if isempty(evts), clear evts; end
+    if isempty(evts)
+        clear evts; 
+    else
+        [~, idx] = unique({evts.dateStr}', 'stable');
+        evts = evts(idx); %#ok<NASGU>
+    end
+    
     %if spojeno > 1 - ulozim i jen jeden soubor, aby to bylo prehledne
         dot = strfind(spojit{j0},'.');
         filename = [adresar  spojit{j0}(1:dot(1)-1) '_' num2str(spojeno) '_concat.mat'];

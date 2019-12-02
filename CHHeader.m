@@ -383,7 +383,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             else
                 obj.plotCh2D.label = label;
             end
-            if ~isfield(obj.plotCh2D,'chseltop'), obj.plotCh2D.chseltop = 0; end %jestli se ma vybrany kanal zobrazovat na popredi ostatnych  - zlute kolecko
+            if ~isfield(obj.plotCh2D,'chseltop'), obj.plotCh2D.chseltop = 1; end %jestli se ma vybrany kanal zobrazovat na popredi ostatnych  - zlute kolecko
             if ~isfield(obj.plotCh2D,'names'), obj.plotCh2D.names = 1; end %jestli se maji vypisovat jmena kanalu
             if ~isfield(obj.plotCh2D,'lines'), obj.plotCh2D.lines=1; end %defaltne se kresli cary mezi kanaly jedne elektrody
             if ~isfield(obj.plotCh2D,'transparent'), obj.plotCh2D.transparent=0; end %defaltne se kresli body nepruhledne
@@ -447,9 +447,11 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                         end
                 end
                 end                              
-            end
-            if ~isempty(chsel) %pokud je vybrany nejaky kanal                
-                h_selection = plot(x(chselo),y(chselo),'o','MarkerSize',size_ch,'MarkerEdgeColor','y','MarkerFaceColor','y'); 
+            end 
+            if ~isempty(chsel) %pokud je vybrany nejaky kanal - zobrazit jako zlute kolecko
+                if obj.plotCh2D.chseltop > 0 %pokud 0 , nechci ho vybrany kanal vubec vubec zobrazit
+                    h_selection = plot(x(chselo),y(chselo),'o','MarkerSize',size_ch,'MarkerEdgeColor','y','MarkerFaceColor','y'); 
+                end
                 chstr = iff(isempty(obj.sortedby),num2str(chsel), [ num2str(obj.sortorder(chsel)) '(' obj.sortedby  num2str(chsel) ')' ]);
                 title( [ 'channel ' chstr ]);
                 
@@ -457,7 +459,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             if ~isempty(selCh) %vybery kanalu fghjkl
                 barvy = 'gbrcmk';
                 ch_displayed = cell(1,6);
-                for m = size(selCh,2):-1:1 %jednu znacku za druhou
+                for m = 1:1:size(selCh,2) %jednu znacku za druhou m = size(selCh,2):-1:1 
                    if  obj.plotCh2D.marks(m) %pokud se ma znacka zobrazovat
                        ch = find(selCh(:,m)); %seznam cisel vybranych kanalu pro danou znacku
                        ch = intersect(chshow,ch); 
@@ -473,7 +475,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     obj.plotCh2D.ch_displayed = chshow;
                 end
             end
-            if obj.plotCh2D.chseltop, uistack(h_selection, 'top'); end
+            if obj.plotCh2D.chseltop>1, uistack(h_selection, 'top'); end
             text(-70,70,'LEVA');
             text(55,70,'PRAVA');  
             axis equal;  
@@ -516,7 +518,9 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 end
             end  
             if ~isempty(chsel) %pokud je vybrany nejaky kanal
-                h_selection = plot(y(chselo),z(chselo),'o','MarkerSize',size_ch,'MarkerEdgeColor','y','MarkerFaceColor','y'); 
+                if obj.plotCh2D.chseltop > 0 %pokud 0 , nechci ho vybrany kanal vubec vubec zobrazit
+                    h_selection = plot(y(chselo),z(chselo),'o','MarkerSize',size_ch,'MarkerEdgeColor','y','MarkerFaceColor','y'); 
+                end
                 
                 text(x_text,110,[ obj.H.channels(1,chselo).name]);
                 text(x_text,100,[ obj.H.channels(1,chselo).neurologyLabel ',' obj.H.channels(1,chselo).ass_brainAtlas]);
@@ -529,7 +533,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             if ~isempty(selCh) %hromadne vybrane kanaly, zobrazne cernym koleckem                
                 barvy = 'gbrcmk';
                 klavesy = 'fghjkl'; %abych mohl vypsat primo nazvy klaves vedle hvezdicky podle selCh
-                for m = size(selCh,2):-1:1 %jednu znacku za druhou - naposled ty prvni aby byly nahore
+                for m = 1:1:size(selCh,2) %:-1:1 %jednu znacku za druhou - naposled ty prvni aby byly nahore
                     if  obj.plotCh2D.marks(m) %pokud se ma znacka zobrazovat
                        ch = find(selCh(:,m)); %seznam cisel vybranych kanalu pro danou znacku
                        ch = intersect(chshow,ch); 
@@ -557,7 +561,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     text(0,-90,['chshow:' obj.plotCh2D.chshowstr] ,'Color','red');
                 end
             end
-            if obj.plotCh2D.chseltop, uistack(h_selection, 'top'); end
+            if obj.plotCh2D.chseltop>1, uistack(h_selection, 'top'); end
             axis equal;
             if isfield(obj.plotCh2D,'grid') && obj.plotCh2D.grid==1
                 grid on;
@@ -1097,7 +1101,8 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                       end
                       obj.ChannelPlot2D();
                   case 'p' %vybrany kanal je zluty na popredi /pozadi
-                      obj.plotCh2D.chseltop = 1-obj.plotCh2D.chseltop;
+                      obj.plotCh2D.chseltop = obj.plotCh2D.chseltop + 1;
+                      if obj.plotCh2D.chseltop > 2, obj.plotCh2D.chseltop = 0; end %0-nezobrazen, 1-v pozadi, 2-v popredi
                       obj.ChannelPlot2D();
                   case 'n' %moznost vypnout / zapnout zobrazeni jmen kanalu
                       obj.plotCh2D.names = obj.plotCh2D.names + 1; 
