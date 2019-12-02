@@ -9,7 +9,7 @@ if alignresponse %zarovnani epoch podle odpovedi %to u PPA nema smysl
     setup.baseline = [-0.8 -0.5]; %baseline [-1 0.8]; [-0.5 -0.2] Aedist 2017. 2017/11 - zase [-.2 0]
 else %zarovnani epoch podle podnetu (tj. normalne)
     setup.epochtime =  [-0.2 0.8];  % hranice epochy: [-0.2 0.8] PPA (epochy nekdy cele 1s)
-    setup.baseline = [-.2 0]  ; %baseline [-1 0.8]; 
+    setup.baseline = [-.05 0]  ; %baseline [-1 0.8]; 
     
 end
 setup.suffix = 'Ep2017-11'; %Ep

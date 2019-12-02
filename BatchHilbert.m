@@ -223,15 +223,16 @@ for f=1:numel(frekvence)
                                     E.Decimate(4); %ze 256 na 64hz, protoze jsem predtim v PasmoFrekvence decimoval jen 2x
                                 end
                                 %vypocet statistiky
-                                if iscell(stat_kats) && numel(stat_kats)>1 && iscelldeep(stat_kats)  %pokud mam nekolik ruznych kontrastu na spocitani
-                                    for WpA = 1:numel(stat_kats)
-                                        E.SetStatActive(WpA);
-                                        disp(['pocitam kontrast ' num2str(WpA) ': ' cell2str(stat_kats{WpA}) ]);
-                                        E.ResponseSearch(0.1,stat_kats{WpA},stat_opak);
-                                    end
-                                else  %jen jeden kontrast
-                                    E.ResponseSearch(0.1,stat_kats, stat_opak); %statistika s klouzavym oknem 100ms
-                                end  
+                                E.ResponseSearchMulti(0.1,stat_kats);
+%                                 if iscell(stat_kats) && numel(stat_kats)>1 && iscelldeep(stat_kats)  %pokud mam nekolik ruznych kontrastu na spocitani
+%                                     for WpA = 1:numel(stat_kats)
+%                                         E.SetStatActive(WpA);
+%                                         disp(['pocitam kontrast ' num2str(WpA) ': ' cell2str(stat_kats{WpA}) ]);
+%                                         E.ResponseSearch(0.1,stat_kats{WpA},stat_opak);
+%                                     end
+%                                 else  %jen jeden kontrast
+%                                     E.ResponseSearch(0.1,stat_kats, stat_opak); %statistika s klouzavym oknem 100ms
+%                                 end  
                             end
                             disp('saving data ...');                            
                             E.Save(outfilename);                            

@@ -56,7 +56,7 @@ if sum(data>3000)>5e4
     disp('range increased to 5e5');
 end
 yrange = [-ymax ymax];
-    xtime = x:1/fs:x+delka-1/fs;
+    xtime = x:1/fs:x+delka-1/fs; %cas ve vterinach - osa x zobrazenych dat
     plot( xtime, data ); %,'-o'
     axis([x x+delka yrange])    
     sekund_zac = x; % cas v sekundach,cisla s desetinnymi teckami se do grafu na osu x nevejdou
@@ -77,6 +77,8 @@ yrange = [-ymax ymax];
         end
     end
     if exist('evts','var') && isstruct(evts)
+        [~, idx] = unique({evts.dateStr}',  'stable'); %'rows', jen unikatni dateStr ve strukture. 
+        evts = evts(idx);
         for a = 1:numel(evts)
             secs = find(tabs >= datenum(evts(a).dateStr),1) / fs; %v kolika vterichan od zacatku tabs
             if ~isempty(secs) && secs>sekund_zac && secs<sekund_konec && isfield(evts(a),'annotation') && ~isempty(evts(a).annotation)                
@@ -113,13 +115,14 @@ yrange = [-ymax ymax];
     end
     tsEND = tabs(iEND); %timestamp konce
     disp( ['konec: ' num2str(konec) 's, timestamp: ' datestr(tsEND,'dd-mmm-yyyy HH:MM:SS.FFF') ', iEND: ' num2str(iEND)]);
-   %keyboard; %zastavi a muzu se divat na promenne, pokracuju pomoci return
+    %keyboard; %zastavi a muzu se divat na promenne, pokracuju pomoci return
     %casove znaèky po 10 minutách
-%     for ix = iSTART:600*fs:iEND
-%         line([xtime(ix) xtime(ix)],[2500 3000],'Color','black');
+    tabsX = tabs(iSTART:iEND); %tabs odpovidajici ose X=zobrazenym datum 
+    for ix = 1:600*fs:numel(tabsX)        
 %         text(xtime(ix),2500,datestr(tabs(ix),'dd-mmm-yyyy HH:MM:SS.FFF'),'Color','black');
-%     end
-    text(xtime(end),1000,datestr(tabs(end),'dd-mmm-yyyy HH:MM:SS.FFF'),'Color','black');
+        text(xtime(ix),2500,datestr(tabsX(ix),'dd-mmm-yyyy HH:MM:SS.FFF'),'Color','black');        
+    end
+    text(xtime(end),1000,datestr(tabsX(end),'dd-mmm-yyyy HH:MM:SS.FFF'),'Color','black');
     if numel(pauzyvdatech) > 0
        for ip = 1:size(pauzyvdatech,1)
            line([pauzyvdatech(ip,2) pauzyvdatech(ip,2)],yrange,'Color','red');
