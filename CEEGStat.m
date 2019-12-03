@@ -37,7 +37,7 @@ classdef CEEGStat
             WpA = CStat.Wilcox2D(response,baselineA,1,[],'mean vs baseline A',RjEpCh(:,iEp),RjEpCh(:,iEp));  %1=mene striktni pdep, 2=striktnejsi dep;
             WpB = CStat.Wilcox2D(response,baselineB,1,[],'mean vs baseline B',RjEpCh(:,iEp),RjEpCh(:,iEp));  %1=mene striktni pdep, 2=striktnejsi dep;
                 %z vyrazenych epoch pro kazdy kanal (RjEpCh) vezmu jen ty celkove nevyrazene
-            Wp = max(WpA,WpB); % %vyssi hodnota z kazde poloviny baseline
+            Wp = max(WpA,WpB); % %vyssi hodnota z kazde poloviny baseline, time x channels
             if numel(itimewindow) == 1 %chci maximalni hodnotu p z casoveho okna
                 P = CStat.Klouzaveokno(Wp,itimewindow(1),'max',1); % %pole 2D signifikanci si ulozim kvuli kresleni - cas x channels                
             else

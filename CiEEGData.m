@@ -1423,7 +1423,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                             end
                             text(0.04+obj.Wp(WpA).epochtime(1),y, ['\color[rgb]{' num2str(colorskat{1,colorkatl}) '}' kat1name ...
                                     '\color[rgb]{' num2str(color) '} *X* '  ...
-                                    '\color[rgb]{' num2str(colorkatk(1,:)) '}' kat2name kat3name]);  
+                                    '\color[rgb]{' num2str(colorkatk(1,:)) '}' kat2name kat3name]); 
                               
                         end                                              
                     end
@@ -1868,10 +1868,12 @@ classdef CiEEGData < matlab.mixin.Copyable
             else    
                 kategories = obj.PsyData.Categories();
             end
-            
-           cellout = cell(numel(channels), 13 + length(obj.plotRCh.selChNames) + 4*numel(kategories));
            
-           RespVALS = struct; %struct array, kam si predpocitam hodnoty
+           comb = combinator(numel(kategories),2,'c'); %kombinace bez opakovani o dvou prvcich - pocitam kolik je kombinaci kategorii podnetu
+           cellout = cell(numel(channels), 13 + length(obj.plotRCh.selChNames) + 5*numel(kategories) + size(comb,1));
+           
+           RespVALS = struct; %struct array, kam si predpocitam hodnoty z ResponseTriggerTime
+           [SigTimeBaseline,SigTimeKat]=obj.CS.StatDiffStart(obj.CH.sortorder,obj.Wp(obj.WpActive),kategories,0.05); %casy zacatku signifikanci 
            for k = 1:numel(kategories)
                katnum = cellval(kategories,k); %funkce cellval funguje at je to cell array nebo neni
                [RespVALS(k).valmax, RespVALS(k).tmax,  RespVALS(k).tfrac, RespVALS(k).tint] = obj.ResponseTriggerTime(val_fraction, int_fraction, katnum, obj.CH.sortorder);                  
@@ -1898,9 +1900,16 @@ classdef CiEEGData < matlab.mixin.Copyable
                %chci mit kategorie v tabulce vedle sebe, protoze patri k jednomu kanalu. Treba kvuli 2way ANOVA
                for k = 1 : numel(kategories) 
                     katname = obj.PsyData.CategoryName(cellval(kategories,k));
-                    lineIn = [lineIn,{RespVALS(k).tmax(ch), RespVALS(k).valmax(ch),  RespVALS(k).tfrac(ch), RespVALS(k).tint(ch)}]; %#ok<AGROW>
+                    lineIn = [lineIn,{RespVALS(k).tmax(ch), RespVALS(k).valmax(ch),  RespVALS(k).tfrac(ch), RespVALS(k).tint(ch), SigTimeBaseline(ch,k)}]; %#ok<AGROW>
+                    for l= k+1:numel(kategories)
+                        lineIn = [lineIn,{SigTimeKat(ch,k,l)}];  %#ok<AGROW>
+                    end
                     if ch==1
-                        variableNames = [ variableNames, {[katname '_tmax'],[katname '_valmax'],[katname '_t' percent{1}],[katname '_tint' percent{2}]}]; %#ok<AGROW>
+                        variableNames = [ variableNames, {[katname '_tmax'],[katname '_valmax'],[katname '_t' percent{1}],[katname '_tint' percent{2}], [katname '_tsig']}]; %#ok<AGROW>
+                        for l= k+1:numel(kategories) %casy zacatku rozdilu mezi kategoriemi
+                            katname2 = obj.PsyData.CategoryName(cellval(kategories,l));
+                            variableNames = [ variableNames, {[katname 'X' katname2 '_tsig']}]; %#ok<AGROW>
+                        end
                     end                    
                end
                cellout(ch, :) =  lineIn;

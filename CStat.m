@@ -536,17 +536,17 @@ classdef CStat < handle
                         
             if oknosirka >= 1 
                 if dimension == 1 %pokud chci pocitat klouzave okno v prvnim rozmeru, transponuju na zacatku i na konci
-                    W = W';
+                    W = W'; %vysledne rozmery channel x time(samples)
                 end                
                 pulsirka = ceil(oknosirka/2); %ktery sloupec se povazuje za pulku okna - tam se hodnota ulozi
                 W2 = zeros(size(W,1),size(W,2)); %musim udelat kopii, jinak si prepisuju hodnoty ze kterych pak pocitam
-                for sloupec = 1:size(W,2) 
-                    iW = max([1 sloupec-pulsirka+1]) : min([size(W,2) sloupec-pulsirka+oknosirka]); 
+                for sloupec = 1:size(W,2)  %pro vsechny samply
+                    iW = max([1 sloupec-pulsirka+1]) : min([size(W,2) sloupec-pulsirka+oknosirka]); %1234 pro sloupec 1, 234567 pro sloupec 4 atd
                     switch funkce
                         case 'min'
                             W2(:,sloupec)=min(W(:,iW),[],2);
                         case 'max'
-                            W2(:,sloupec)=max(W(:,iW),[],2);
+                            W2(:,sloupec)=max(W(:,iW),[],2); % pro vsechny kanaly najednou
                         case 'mean'
                             W2(:,sloupec)=mean(W(:,iW),2);
                         otherwise
@@ -697,6 +697,42 @@ classdef CStat < handle
             se = sqrt( (q0 + (n(1)-1)*q1 + (n(2)-1)*q2) / (n(1)*n(2)) );
             zcrit = norminv(1-p/2); %two tailed z critical value from p value
             ci = [auc - se*zcrit , auc + se*zcrit];
+        end
+        
+        function [timeB,timeK]=StatDiffStart(channels,Wp,kategories,plevel)  
+            %vraci casy zacatku signifikantnich rozdilu vuci baseline a kategorii vuci sobe
+            %nezohlednuje smer rozdilu, signum, jako ktere se pouziva treba v CiEEGData.SelChannelStat
+            if ~exist('kategories','var'), kategories = Wp.kats; end
+            if ~exist('plevel','var'), plevel = 0.05; end
+            timeB = NaN(numel(channels),numel(Wp.kats)); % %casy rozdilu vuci baseline
+            timeK = NaN(numel(channels),numel(Wp.kats),numel(Wp.kats)); % casy rozdilu mezi kat
+            Tr = linspace(Wp.baseline(2),Wp.epochtime(2),size(Wp.D2,1)); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
+            for k = 1:numel(kategories) %pro vsechny zadane kategorie
+                ik = find(Wp.kats==kategories(k)); %index kde je cislo kategorie v seznamu kategorii pro tuto statistiku
+                iWp = Wp.WpKatBaseline{ik,1}(:,channels)  <= plevel; 
+                for ch = 1:numel(channels)
+                    iWpfirst = find(iWp(:,ch),1,'first'); %index zacatku signifikance
+                    if ~isempty(iWpfirst)
+                        timeB(ch,k) = Tr(iWpfirst); %cas zacatku signifikance
+                    end
+                end
+                for l = k+1:numel(kategories)
+                    il = find(Wp.kats==kategories(l));
+                    if ~isempty(Wp.WpKat{ik,il}) %pro jistotu, nevim v jakem poradi prijdou kategorie
+                        WpKat = Wp.WpKat{ik,il}; 
+                    else 
+                        WpKat = Wp.WpKat{il,ik}; %jestli neni obsazena ta prvni kombinace, tahle bude
+                    end
+                    iWp = WpKat(:,channels)  <= plevel;  
+                    for ch = 1:numel(channels)
+                        iWpfirst = find(iWp(:,ch),1,'first'); %index zacatku signifikance
+                        if ~isempty(iWpfirst)
+                            timeK(ch,k,l) = Tr(iWpfirst); %cas zacatku signifikance
+                        end
+                    end
+                    
+                end
+            end
         end
     end
     methods (Access = private)
