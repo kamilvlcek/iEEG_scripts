@@ -549,6 +549,9 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                            end
                        end
                     end
+                    if exist('plotRCh','var') && isfield(plotRCh,'selChN') && ~isempty(plotRCh.selChN) && m==1  %cislo zobrazeneho vyberu kanalu, viz E.SetSelChActive
+                        text(x_text+100,-60-m*7,['SelCh Active: ' num2str(plotRCh.selChN)], 'FontSize', 9);
+                    end
                 end
                 if any(selCh(chselo,:),2)==1 %pokud je aktualni kanal jeden z vybranych                
                     klavesy = 'fghjkl'; %abych mohl vypsat primo nazvy klaves vedle hvezdicky podle selCh

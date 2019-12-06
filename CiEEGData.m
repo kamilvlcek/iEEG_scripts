@@ -1925,6 +1925,43 @@ classdef CiEEGData < matlab.mixin.Copyable
             writetable(tablelog, xlsfilename); %zapisu do xls tabulky            
             disp([ 'XLS table saved: ' xlsfilename]);
         end
+        function SetSelChActive(obj,n,save)
+            %activates other channel marks fghjkl. 
+            %n - number of the selection set. Save - force save active selection set
+            %non-existing n activates new selection set. 
+            %existing n activates the previously saved set. Saves the active one before. 
+            if ~exist('n','var'), n =  obj.plotRCh.selChN; end %defaultne se vybere aktualni set - zadna zmena
+            if ~exist('save','var'), save = 0; end %jestli se ma ulozit aktualni vyber jako n, a tim prepsat existujici
+            if ~isfield(obj.plotRCh, 'selChN') || isempty(obj.plotRCh.selChN)
+                obj.plotRCh.selChN = 1;
+            end
+            if ~isfield(obj.plotRCh, 'selChSave') 
+                obj.plotRCh.selChSave = {};
+                obj.plotRCh.selChSave(1).selCh = obj.plotRCh.selCh;
+                obj.plotRCh.selChSave(1).selChNames = obj.plotRCh.selChNames;
+                obj.plotRCh.selChSave(1).selChSignum = obj.plotRCh.selChSignum;                
+            end
+            n = max(1,min(numel(obj.plotRCh.selChSave)+1,n)); %osetreni n mimo limity. Maximalne muze byt o 1 vetsi nez aktualni rozsah
+            if n ~= obj.plotRCh.selChN  || save            
+                obj.plotRCh.selChSave(obj.plotRCh.selChN).selCh = obj.plotRCh.selCh;
+                obj.plotRCh.selChSave(obj.plotRCh.selChN).selChNames = obj.plotRCh.selChNames;
+                obj.plotRCh.selChSave(obj.plotRCh.selChN).selChSignum = obj.plotRCh.selChSignum;                  
+                disp(['ulozen aktualni vyber jako c. ' num2str(obj.plotRCh.selChN)]);                
+            end
+            if n <= numel(obj.plotRCh.selChSave) && n~= obj.plotRCh.selChN
+                obj.SetSelCh(obj.plotRCh.selChSave(n).selCh);
+                obj.plotRCh.selChNames = obj.plotRCh.selChSave(n).selChNames;
+                obj.plotRCh.selChSignum = obj.plotRCh.selChSave(n).selChSignum;
+                obj.plotRCh.selChN = n;
+                disp(['nacten vyber c. ' num2str(n) ]);
+            elseif n > numel(obj.plotRCh.selChSave)
+                obj.SetSelCh([]); 
+                obj.plotRCh.selChN = n;
+                disp(['nacteny prazdny vyber c.' num2str(n)]);
+            else
+                disp(['zadna zmena vyberu c.' num2str(obj.plotRCh.selChN)]);
+            end
+        end
     end
     %% staticke metody
     methods (Static,Access = public)
@@ -2148,7 +2185,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                     obj.CH.RejectChannels(obj.RjCh);
                     obj.PlotResponseCh();
                 otherwise
-                    disp(['You just pressed: ' eventDat.Key]);
+                    %disp(['You just pressed: ' eventDat.Key]);
             end
         end
         
