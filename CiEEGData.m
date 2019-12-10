@@ -1066,7 +1066,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
             
             % -------- nastavim rozsah elektrod k zobrazeni -----------------
-            [~,els2plot] = obj.CH.ElsForPlot();
+            [~,els2plot,triggerCH] = obj.CH.ElsForPlot();
             if  allels==1  %chci zobrazit vsechny elektrody
                 elektrodvsade = iff(obj.channels/numel(els2plot) > 6, 5, 8);  %31.8.2016 - chci zobrazovat vzdy pet elektrod, indexy v els jsou tedy 1 6 11
                 elsmax = 0; %kolik zobrazim kontaktu - rozliseni osy y v poctu kontaktu
@@ -1076,7 +1076,8 @@ classdef CiEEGData < matlab.mixin.Copyable
                 end
                 pocetsad = ceil(numel(els2plot)/elektrodvsade); %kolik ruznych sad petic elektrod budu zobrazovat, 2 pokud <= 10 els, jinak 3 pokud <=15 els%                 
                 emod = mod(e-1,pocetsad);
-                if emod==0, elmin=1; else elmin=els2plot(emod*elektrodvsade)+1; end                
+                if emod==0, elmin=1; else, elmin=els2plot(emod*elektrodvsade)+1; end                
+                while ismember(elmin,triggerCH), elmin = elmin+1; end
                 elmaxmax = elmin + elsmax -1 ; % horni cislo el v sade, i kdyz bude pripadne prazdne
                 ielmax = find(els2plot <= min(elmaxmax,els2plot(end)) , 1, 'last') ; %horni cislo skutecne elektrody v sade
                 elmax = els2plot(ielmax);
@@ -1084,8 +1085,10 @@ classdef CiEEGData < matlab.mixin.Copyable
                 els(2,1) = elmin;%#ok<PROP>
                 els(2,2:end) = els(1,1:end-1)+1; %#ok<PROP> %doplnim dolni radku - zacatky kazde elektrody
             else
-                if e==1, elmin = 1; else elmin = els2plot(e-1)+1; end %index prvni elektrody kterou vykreslit
+                if e==1, elmin = 1; else, elmin = els2plot(e-1)+1; end %index prvni elektrody kterou vykreslit
+                while ismember(elmin,triggerCH), elmin = elmin+1; end
                 elmax = els2plot(e);            % index posledni elektrody kterou vykreslit
+                while ismember(elmax,triggerCH), elmax = elmax-1; end
                 els = [elmax; elmin]; %#ok<PROP>
                 elmaxmax = elmax;
             end
