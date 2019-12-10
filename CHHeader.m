@@ -78,7 +78,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 els = obj.els;
             end
         end
-        function [obj,els2plot ] = ElsForPlot(obj)
+        function [obj,els2plot,triggerCH ] = ElsForPlot(obj)
             %vrati cisla nejvyssiho kanalu pro zobrazeni - kdyz je nejaka elektroda moc dlouha, tak ji rozdeli
             els2plot = zeros(1,numel(obj.els));
             e0 = 0; %cislo elektrody z minuleho cyklu
@@ -100,6 +100,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 end
             end 
             els2plot(els2plot==0)=[];
+            triggerCH = obj.H.triggerCH;
         end
         function obj = RejectChannels(obj,RjCh)
             %ulozi cisla vyrazenych kanalu - kvuli pocitani bipolarni reference 
@@ -549,6 +550,9 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                            end
                        end
                     end
+                    if exist('plotRCh','var') && isfield(plotRCh,'selChN') && ~isempty(plotRCh.selChN) && m==1  %cislo zobrazeneho vyberu kanalu, viz E.SetSelChActive
+                        text(x_text+100,-60-m*7,['SelCh Active: ' num2str(plotRCh.selChN)], 'FontSize', 9);
+                    end
                 end
                 if any(selCh(chselo,:),2)==1 %pokud je aktualni kanal jeden z vybranych                
                     klavesy = 'fghjkl'; %abych mohl vypsat primo nazvy klaves vedle hvezdicky podle selCh
@@ -896,8 +900,9 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
              else
                 expr = '^[a-zA-Z]+';
              end
+             iSEEG = find(strcmp({obj.H.channels.signalType}, 'SEEG')==1); %index kanalu, ktere jsou SEEG. Protoze u deti muze byt i na zacatku
+             chnsel = intersect(chnsel,iSEEG); %prunik obou seznamu kanalu
              for ch = chnsel
-                 if strcmp(obj.H.channels(ch).signalType,'SEEG')                     
                      str = regexp(obj.H.channels(ch).name,expr,'match');   %jeden nebo vice pismen na zacatku                  
                      if ~strcmp(str{1},strprev) %jiny nez predchozi pacient/elektroda
                          if ch ~= chnsel(1) %pokud to neni prvni kanal
@@ -909,7 +914,6 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                      else %stejny pacient/elektroda jako u minuleho kanalu
                          chgroup = [chgroup ch]; %#ok<AGROW>
                      end
-                 end
              end
              groups{groupN} = chgroup;
           end
