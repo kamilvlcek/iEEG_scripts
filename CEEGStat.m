@@ -73,22 +73,24 @@ classdef CEEGStat
             end
             
             %rozdily kategorii vuci sobe
+            paired = 0; %pouziju parovy test
+            pairedstr = iff(paired,'paired','non-paired'); %text do vypisu
             WpKat = cell(numel(kats)); %rozdily mezi kategorieme
             for k = 1:numel(kats) %budu statisticky porovnavat kazdou kat s kazdou, bez ohledu na poradi
                 for j = k+1:numel(kats)
                     if strcmp(method,'wilcox')
                         if exist('Pbaseline','var') && ~isempty(Pbaseline) %nova verze, statistika pro kazdy kanal zvlast, tam kde je odpoved vuci baseline
                             Wr = ones(size(WpKatBaseline{1})); %vysoke pravdepodobnosti
-                            fprintf('kat %i vs %i Channels Wilcox2D: 1 ... ',k,j);
+                            fprintf('kat %i vs %i Channels Wilcox2D %s: 1 ... ',k,j,pairedstr);
                             for ch = 1:size(Wr,2)                                
                                 if min(WpKatBaseline{k}(:,ch))<.05 || min(WpKatBaseline{j}(:,ch))<.05
-                                    Wr(:,ch) = CStat.Wilcox2D(responsekat{k}(:,ch,:), responsekat{j}(:,ch,:),0,[],['kat ' num2str(k) ' vs ' num2str(j)],rjepchkat{k}(ch,:),rjepchkat{j}(ch,:)); % -------- WILCOX kazda kat s kazdou                                     
+                                    Wr(:,ch) = CStat.Wilcox2D(responsekat{k}(:,ch,:), responsekat{j}(:,ch,:),0,[],['kat ' num2str(k) ' vs ' num2str(j)],rjepchkat{k}(ch,:),rjepchkat{j}(ch,:),paired); % -------- WILCOX kazda kat s kazdou                                     
                                     %fprintf('%i,',ch);
                                 end                                
                             end
                             fprintf('... %i \n',ch);
                         else  %puvodni verze, statistika pro vsechny kanaly najednou  
-                            Wr = CStat.Wilcox2D(responsekat{k}, responsekat{j},1,[],['kat ' num2str(k) ' vs ' num2str(j)],rjepchkat{k},rjepchkat{j}); % -------- WILCOX kazda kat s kazdou 
+                            Wr = CStat.Wilcox2D(responsekat{k}, responsekat{j},1,[],['kat ' num2str(k) ' vs ' num2str(j)],rjepchkat{k},rjepchkat{j}, paired); % -------- WILCOX kazda kat s kazdou 
                         end
                     elseif strcmp(method,'permut')
                         Wr = CStat.PermStat(responsekat{k}, responsekat{j},1,['kat ' num2str(k) ' vs ' num2str(j)],rjepchkat{k},rjepchkat{j}); % -------- Permutacni test kazda kat s kazdou 

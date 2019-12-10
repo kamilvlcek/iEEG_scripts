@@ -476,7 +476,7 @@ classdef CStat < handle
         end
     end
     methods (Static,Access = public)        
-        function W = Wilcox2D(A,B,print,fdr,msg,RjEpChA,RjEpChB)
+        function W = Wilcox2D(A,B,print,fdr,msg,RjEpChA,RjEpChB,paired)
             %Wilcox2D(A,B,print,fdr,msg,RjEpChA,RjEpChB)
             %srovna dve 3D matice proti sobe, ohledne hodnot v poslednim rozmeru
             %A musi mit oba prvni rozmery > rozmery B, 
@@ -485,19 +485,31 @@ classdef CStat < handle
             %pokud print = 0 nebo prazne, netiskne nic
             if ~exist('print','var'), print = 0; end
             if ~exist('fdr','var') || isempty(fdr), fdr = 1; end %min striktni je default           
-            if ~exist('msg','var'), msg = ''; end
-            if ~exist('RjEpChA','var'), RjEpChA = false(size(A,2),size(A,3)); end
-            if ~exist('RjEpChB','var'), RjEpChB = false(size(B,2),size(B,3)); end
+            if ~exist('msg','var') || isempty(msg), msg = ''; end
+            if ~exist('RjEpChA','var') || isempty(RjEpChA), RjEpChA = false(size(A,2),size(A,3)); end
+            if ~exist('RjEpChB','var') || isempty(RjEpChB), RjEpChB = false(size(B,2),size(B,3)); end
+            if ~exist('paired','var'), paired = 0; end %pokud se ma pouzit parovy neparametricky test, defaulte ne
             W = zeros(size(A,1),size(A,2));
            
             if print, fprintf(['Wilcox Test 2D - ' msg ': ']); end
             for j = 1:size(A,1) % napr cas
                 if print && mod(j,50)==0, fprintf('%d ', j); end %tisknu jen cele padesatky
-                for k = 1:size(A,2) %napr kanaly                  
-                   aa = squeeze (A(j,k,~RjEpChA(k,:))); %jen nevyrazene epochy 
-                   bb = squeeze (B( min(j,size(B,1)) , min(k,size(B,2)) , ~RjEpChB(k,:) )); %jen nevyrazene epochy
+                for k = 1:size(A,2) %napr kanaly   
+                   if paired %pri parovem testu musim porovnavat stejny kanal, takze musi vyradit epochy parove
+                       RjEpChA_k = RjEpChA(k,:) | RjEpChB(k,:); %binarni OR
+                       RjEpChB_k = RjEpChA(k,:) | RjEpChB(k,:);
+                   else
+                       RjEpChA_k = RjEpChA(k,:);
+                       RjEpChB_k = RjEpChB(k,:);
+                   end    
+                   aa = squeeze (A(j,k,~RjEpChA_k)); %jen nevyrazene epochy 
+                   bb = squeeze (B( min(j,size(B,1)) , min(k,size(B,2)) , ~RjEpChB_k )); %jen nevyrazene epochy
                    if numel(aa) >= 2 && numel(bb) >= 2 
-                      W(j,k) = ranksum(aa,bb); % Statistics and Machine Learning Toolbox
+                      if paired
+                        W(j,k) = signrank(aa,bb); %  Wilcoxon signed rank test  paired, two-sided , Statistics and Machine Learning Toolbox  
+                      else
+                        W(j,k) = ranksum(aa,bb); % Wilcoxon rank sum test, non-paired, Statistics and Machine Learning Toolbox
+                      end
                    else
                       W(j,k) = 1; %pokud jen jedna hodnota, nelze delat statistika
                    end

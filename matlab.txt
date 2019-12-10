@@ -1,0 +1,16 @@
+% chyba pri pokusu o export xls tabulky. 
+% Face je na zacatku a Scene na konci
+
+
+CB = CBrainPlot;
+CB.IntervalyResp('ppa', [0.2 0.8], 'PPA CHilbert 50-150Hz -0.2-0.8 refBipo Ep2018-08_CHilb.mat', 1,1);
+CB.katstr
+CM = CHilbertMulti;
+filenames=CM.ExtractData (CB.PAC {1,6},'ppa','PPA CHilbert 50-150Hz -0.2-0.8 refBipo Ep2018-08_CiEEG.mat', CB.CMLabel (1,6));
+CM.ImportExtract (filenames);
+setup=setup_ppa();
+CM.ResponseSearchMulti (0.1, setup.stat_kats);
+CM.SelChannelStat ({1, 2, 3, 4, [5 6]}, [3 2 1 5 4], 0, 1);
+CM.GetKatsNames ()
+CM.PlotResponseCh;
+SP = ScatterPlot(CM);
