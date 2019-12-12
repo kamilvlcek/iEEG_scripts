@@ -391,6 +391,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             if ~isfield(obj.plotCh2D,'chshow'), obj.plotCh2D.chshow = 1:numel(obj.H.channels); end %defaltne se kresli body nepruhledne
             if ~isfield(obj.plotCh2D,'ch_displayed'), obj.plotCh2D.ch_displayed=obj.plotCh2D.chshow; end %defaltne jsou zobrazeny vsechny vybrane kanaly (podle filtru)
             if ~isfield(obj.plotCh2D,'chshowstr'), obj.plotCh2D.chshowstr = ''; end   %defaultne bez filtrovani
+            if ~isfield(obj.plotCh2D,'colorindex'), obj.plotCh2D.colorindex = 1; end   %defaultne bez filtrovani
             %------------------------- vytvoreni figure -----------------------------------
             x = [obj.H.channels(:).MNI_x];
             y = [obj.H.channels(:).MNI_y];
@@ -422,6 +423,8 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             end
             
             subplot(1,2,1);
+            barvy_def= 'gbrcmk'; 
+            barvy = [barvy_def(obj.plotCh2D.colorindex:end) barvy_def(1:obj.plotCh2D.colorindex-1)]; %barvy od poradi colorindexu
             % ----------------- axialni plot   ---------------------------           
             if isfield(obj.plotCh2D,'boundary') && obj.plotCh2D.boundary
                 %defaultne budu vykreslovat scatter, ale kvuli kopirovani se bude hodit i jen boundary
@@ -457,8 +460,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 title( [ 'channel ' chstr ]);
                 
             end
-            if ~isempty(selCh) %vybery kanalu fghjkl
-                barvy = 'gbrcmk';
+            if ~isempty(selCh) %vybery kanalu fghjkl                
                 ch_displayed = cell(1,6);
                 for m = 1:1:size(selCh,2) %jednu znacku za druhou m = size(selCh,2):-1:1 
                    if  obj.plotCh2D.marks(m) %pokud se ma znacka zobrazovat
@@ -531,8 +533,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     text(x_text,90,'no MNI');
                 end                
             end
-            if ~isempty(selCh) %hromadne vybrane kanaly, zobrazne cernym koleckem                
-                barvy = 'gbrcmk';
+            if ~isempty(selCh) %hromadne vybrane kanaly, zobrazne cernym koleckem                                
                 klavesy = 'fghjkl'; %abych mohl vypsat primo nazvy klaves vedle hvezdicky podle selCh
                 for m = 1:1:size(selCh,2) %:-1:1 %jednu znacku za druhou - naposled ty prvni aby byly nahore
                     if  obj.plotCh2D.marks(m) %pokud se ma znacka zobrazovat
@@ -1032,7 +1033,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
           function obj = hybejPlot2D(obj,~,eventDat) 
               iCh = find(obj.plotCh2D.ch_displayed==obj.sortorder(obj.plotCh2D.chsel)); %index v obj.plotCh2D.ch_displayed
               switch eventDat.Key
-                  case {'rightarrow','c'} %dalsi kanal
+                  case {'rightarrow','q'} %dalsi kanal
                       if numel(obj.plotCh2D.ch_displayed) >= iCh + 1
                         ch = min( [obj.plotCh2D.ch_displayed(iCh + 1), obj.plotCh2D.ch_displayed(end)]);
                         obj.ChannelPlot2D( find(obj.sortorder==ch)); %#ok<FNDSB>
@@ -1042,7 +1043,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                         ch = min( [obj.plotCh2D.ch_displayed(iCh + 10) , obj.plotCh2D.ch_displayed(end)]);
                         obj.ChannelPlot2D( find(obj.sortorder==ch)); %#ok<FNDSB>
                       end
-                  case {'leftarrow','z'} %predchozi kanal
+                  case {'leftarrow','e'} %predchozi kanal
                       if iCh - 1 >= 1
                         ch = max( [obj.plotCh2D.ch_displayed(iCh - 1) , obj.plotCh2D.ch_displayed(1)]);
                         obj.ChannelPlot2D( find(obj.sortorder==ch)); %#ok<FNDSB>
@@ -1119,6 +1120,10 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                   case 't' %barvy oznaceni kanalu fghhjkl jsou pruhledne nebo ne
                       obj.plotCh2D.transparent = 1-obj.plotCh2D.transparent;
                       obj.ChannelPlot2D();
+                  case 'c' %prepinani index barevne skaly
+                      obj.plotCh2D.colorindex = 1+obj.plotCh2D.colorindex;
+                      if obj.plotCh2D.colorindex > 6, obj.plotCh2D.colorindex = 1; end
+                      obj.ChannelPlot2D();  
 %                   case 'r' %zobrazi obrazek mozku s vybranych kanalem                   
 %                       obj.plotCh2D.plotAUCH(obj.plotCh2D.chsel); %vykreslim @obj.PlotResponseCh    %tady to hlasi error Undefined function or variable 'obj.CS.AUCPlot'. Jak to?                  
 %                       figure(obj.plotCh2D.fh); %dam puvodni obrazek dopredu     

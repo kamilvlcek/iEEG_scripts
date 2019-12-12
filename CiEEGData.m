@@ -850,9 +850,11 @@ classdef CiEEGData < matlab.mixin.Copyable
                             DoAnd = true;
                             %TODO - tohle reseni nebere v uvahu cas, muze byt SxF a SxO v ruznem case! 
                             % Krome toho maximalni odpoved muze byt spolecna, a pak chvilku SxO & SxF
-                        end
-                        q = cellfun(@(x) isnumeric(x) && numel(x)==1,K); %index numerickych scalars 
-                        K = cell2mat(K(q)); %vytahnu numericke hodnoty
+                        end                        
+                        if DoAnd % to je asi jedina moznost, kdy chci vytahnout ciselne hodnoty  
+                            q = cellfun(@(x) isnumeric(x) && numel(x)==1,K); %index numerickych scalars
+                            K = cell2mat(K(q)); %vytahnu numericke hodnoty                       
+                        end  %jinak zustava K cellarray
                     end
                     KN = cell(1,numel(K)); %KategoryNames - bude tu vic kategorii, jmena z katsnames
                 else
@@ -861,20 +863,55 @@ classdef CiEEGData < matlab.mixin.Copyable
                 end
                 for iK = 1:numel(K) %pro vsechny prvky tehle kategorie - muze jich byt vic pokud kategorie je cellarray
                     %K(iK) je ted cislo kategorie
-                    if(K(iK)<=size(prumery,3)) && marks(kat) <= 6 %pokud je cislo kategorie v poradku
-                        iP = prumery(:,1,K(iK))~=0; %index kanalu se signif rozdilem v tehle kategorii - v prumery jsou nesignif hodnoty 0                   
-                        if DoAnd && iK > 1 %pro prvni kategorii nemuzu delat AND vuci nulam
-                            selCh(:,marks(kat)) = selCh(:,marks(kat)) & iP; %AND mezi soucasnym a predchozimi signif rozdily pro tuto mark
-                        else
-                            selCh(:,marks(kat)) = selCh(:,marks(kat)) | iP; %OR mezi soucasnym a predchozimi signif rozdily pro tuto mark - default
-                        end                        
-                        if iscell(KN) 
-                            KN(iK) = katsnames(K(iK));
-                        end
+                    katnum = cellval(K,iK);
+                    if isnumeric(katnum)
+                      if(katnum<=size(prumery,3)) && marks(kat) <= 6 %pokud je cislo kategorie v poradku
+                          iP = prumery(:,1,katnum)~=0; %index kanalu se signif rozdilem v tehle kategorii - v prumery jsou nesignif hodnoty 0                   
+                          if DoAnd && iK > 1 %pro prvni kategorii nemuzu delat AND vuci nulam
+                              selCh(:,marks(kat)) = selCh(:,marks(kat)) & iP; %AND mezi soucasnym a predchozimi signif rozdily pro tuto mark
+                          else
+                              selCh(:,marks(kat)) = selCh(:,marks(kat)) | iP; %OR mezi soucasnym a predchozimi signif rozdily pro tuto mark - default
+                          end                        
+                          if iscell(KN)
+                             if iK == 1
+                               KN(iK) = katsnames(katnum);
+                             else
+                               KN(iK) = {[iff(DoAnd && iK > 1,'A','O') katsnames{katnum}]};
+                             end
+                          end
+                      end
+                    else
+                      %katnum muze byt napriklad &~1 &1 nebo ~1
+                      Not = 0; And=0;
+                      if katnum(1) == '&' %kategorie se ma pridat jako AND, defaultni pridani dalsi kategorie je OR. 
+                          And = 1; %pokud bylo uvedeno NOT, pouzije se AND NOT
+                          katnum = katnum(2:end);
+                      end
+                      if katnum(1) == '~' %kategorie se ma pridat jako NOT. Pokud neni dalsi operator uveden pouzije se NOT OR
+                          Not = 1;
+                          katnum = katnum(2:end);
+                      end                     
+                      while isempty(str2double(katnum)) && numel(katnum)>0, katnum = katnum(2:end); end
+                      katnum = str2double(katnum);
+                      iP = prumery(:,1,katnum)~=0;
+                      if Not, iP = ~iP; end
+                      if And && iK > 1
+                         selCh(:,marks(kat)) = selCh(:,marks(kat)) & iP; 
+                      else
+                         selCh(:,marks(kat)) = selCh(:,marks(kat)) | iP; 
+                      end
+                      if iscell(KN)
+                         if iK == 1
+                            KN(iK) = katsnames(katnum);
+                         else
+                            KN(iK) = {[iff(And,'A','O') iff(Not,'N','') katsnames{katnum}]};
+                         end
+                      end
                     end
                 end 
-                if numel(KN) > 1                    
-                   KN = iff(DoAnd, {[KN{1} 'A' KN{2}]},  {[KN{1} 'O' KN{2}]} ); %pokud kombinuju vic kategorii, musim vytvorit 1 bunku cellarray se string
+                if numel(KN) > 1   
+                   KN = join(KN,''); %spojim do jednoho retezce
+                   %KN = iff(DoAnd, {[KN{1} 'A' KN{2}]},  {[KN{1} 'O' KN{2}]} ); %pokud kombinuju vic kategorii, musim vytvorit 1 bunku cellarray se string
                 end
                 pocty(kat)= sum(selCh(:,marks(kat))); %kolik vybrano v teto kategorii kanalu
                 katname(kat) =KN; %nazvy kategorii a jejich kombinacim, kvuli popiskum do grafu               
