@@ -298,7 +298,7 @@ pacienti(p).folder = 'p183 Tur VT47';
 pacienti(p).data = 'VT47_2019-05-28_17-35_001_512hz_39_concat.menrot.mat';
 pacienti(p).header = 'p183_header.mat';
 pacienti(p).psychopy = 'p183VT47_menrot.mat';
-pacienti(p).rjepoch = '';
+pacienti(p).rjepoch = 'p183VT47_menrot_RjEpoch.mat';
 pacienti(p).epievents = 'p183VT47_menrot_epievents.mat'; 
 pacienti(p).rjch = []; %#ok<NBRAK>
 
