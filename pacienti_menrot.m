@@ -261,5 +261,48 @@ pacienti(p).psychopy = 'p181_menrot.mat';
 pacienti(p).rjepoch = 'p181_menrot_rjepoch.mat';
 pacienti(p).epievents = 'p181_menrot_epievents.mat';  
 pacienti(p).rjch = []; %#ok<NBRAK>
+
+p=p+1; %anna 4.12.2019, 512Hz
+pacienti(p).todo = 1; 
+pacienti(p).folder = 'p129 Kuch VT40';
+pacienti(p).data = 'VT40_2018-11-13_10-10_001_concat_menrot.mat';
+pacienti(p).header = 'p129_headerVT40.mat';
+pacienti(p).psychopy = 'p129VT40_menrot.mat';
+pacienti(p).rjepoch = 'p129VT40_menrot_rjepoch.mat';
+pacienti(p).epievents = 'p129VT40_menrot_epievents.mat';  
+pacienti(p).rjch = []; %#ok<NBRAK>
+
+p=p+1; %anna 6.12.2019, 512Hz
+pacienti(p).todo = 1; 
+pacienti(p).folder = 'p200 Hav VT45';
+pacienti(p).data = 'VT45_2019-05-02_15-35_006_34_concat_512hz_menrot.mat';
+pacienti(p).header = 'p200_header.mat';
+pacienti(p).psychopy = 'p200VT45_menrot.mat';
+pacienti(p).rjepoch = 'p200VT45_menrot_RjEpoch.mat';
+pacienti(p).epievents = 'p200VT45_menrot_epievents.mat';  
+pacienti(p).rjch = []; %#ok<NBRAK>
+
+p=p+1; %anna 9.12.2019, 512Hz
+pacienti(p).todo = 1; 
+pacienti(p).folder = 'p190 Hau VT43';
+pacienti(p).data = 'VT43_2019-03-11_15-30_001_24_concat_512hz_menrot.mat';
+pacienti(p).header = 'p190_header2.mat';
+pacienti(p).psychopy = 'p190VT43_menrot.mat';
+pacienti(p).rjepoch = 'p190VT43_menrot_RjEpoch.mat';
+pacienti(p).epievents = 'p190VT43_menrot_epievents.mat';
+pacienti(p).rjch = []; %#ok<NBRAK>
+
+p=p+1; %anna 9.12.2019, 512Hz
+pacienti(p).todo = 0; 
+pacienti(p).folder = 'p183 Tur VT47';
+pacienti(p).data = 'VT47_2019-05-28_17-35_001_512hz_39_concat.menrot.mat';
+pacienti(p).header = 'p183_header.mat';
+pacienti(p).psychopy = 'p183VT47_menrot.mat';
+pacienti(p).rjepoch = 'p183VT47_menrot_RjEpoch.mat';
+pacienti(p).epievents = 'p183VT47_menrot_epievents.mat'; 
+pacienti(p).rjch = []; %#ok<NBRAK>
+
+
+
 end
 
