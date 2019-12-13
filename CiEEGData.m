@@ -1313,7 +1313,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             
             %ZACINAM VYKRESLOVAT - NEJDRIV MEAN VSECH KATEGORII
             if ~exist('kategories','var') && ~exist('opakovani','var') %26.5.2017 - jen kdyz neexistuji kategorie
-                katdata =  obj.CategoryData(KATNUM,[],[],ch);
+                katdata =  obj.CategoryData(KATNUM,[],[],ch);                         
                 M = mean(katdata(:,ch,:),3);             
                 E = std(katdata(:,ch,:),[],3)/sqrt(size(katdata,3)); %std err of mean          
                 h_errbar = errorbar(T,M,E,'.','Color',[.6 .6 1]); %nejdriv vykreslim errorbars aby byly vzadu [.8 .8 .8]
@@ -1375,15 +1375,29 @@ classdef CiEEGData < matlab.mixin.Copyable
                         katnum = kategories(k); %cislo kategorie, muze byt cell, pokud vice kategorii proti jedne
                         [katdata,~,RjEpCh] = obj.CategoryData(katnum,[],[],ch); %eegdata - epochy jedne kategorie                       
                     end   %7.8.2018 - RjEpCh obsahuje jen aktualni kanal, takze rozmer 1x samples 
-                    M = mean(katdata(:,ch,~RjEpCh(1,:)),3);
-                    E = std(katdata(:,ch,~RjEpCh(1,:)),[],3)/sqrt(size(katdata,3)); %std err of mean
-                    %h_kat(k,2) = errorbar(T,M,E,'.','color',colorskat{2,k}); %nejdriv vykreslim errorbars aby byly vzadu[.8 .8 .8]
-                    %h_kat(k,2) = plotband(T, M, E, colorskat{2,k}); %nejlepsi, je pruhledny, ale nejde kopirovat do corelu
-                    h_kat(k,2) = ciplot(M+E, M-E, T, colorkatk(2,:)); %funguje dobre pri kopii do corelu, ulozim handle na barevny pas
+                    
+                    
+                    % 13.12.2019 Sofiia - to compute median, 25th and 75th percentiles and switch between median and mean
+                    if ~isfield(obj.plotRCh,'usemedian'), obj.plotRCh.usemedian=0; end                                             
+                    if obj.plotRCh.usemedian == 1        % 1 for median, 0 for mean
+                        M = median(katdata(:,ch,~RjEpCh(1,:)),3); % median
+                        Q1 = prctile(katdata(:,ch,~RjEpCh(1,:)),25,3);% 25th and 75th percentiles
+                        Q2 = prctile(katdata(:,ch,~RjEpCh(1,:)),75,3);                       
+                        h_kat(k,2) = ciplot(Q2, Q1, T, colorkatk(2,:));
+%                         h_kat(k,2) = plotband(T, M, E, colorskat{2,k}); %nejlepsi, je pruhledny, ale nejde kopirovat do corelu
+                        obj.plotRCh.range = [ min(obj.plotRCh.range(1),min(M)-max(Q1)) max(obj.plotRCh.range(2),max(M)+max(Q2))]; %pouziju to pak pri stlaceni / z obrazku           
+                    else
+                       M = mean(katdata(:,ch,~RjEpCh(1,:)),3);
+                       E = std(katdata(:,ch,~RjEpCh(1,:)),[],3)/sqrt(size(katdata,3)); %std err of mean
+                       %h_kat(k,2) = errorbar(T,M,E,'.','color',colorskat{2,k}); %nejdriv vykreslim errorbars aby byly vzadu[.8 .8 .8]
+                       %h_kat(k,2) = plotband(T, M, E, colorskat{2,k}); %nejlepsi, je pruhledny, ale nejde kopirovat do corelu
+                       h_kat(k,2) = ciplot(M+E, M-E, T, colorkatk(2,:)); %funguje dobre pri kopii do corelu, ulozim handle na barevny pas                       
+                       obj.plotRCh.range = [ min(obj.plotRCh.range(1),min(M)-max(E)) max(obj.plotRCh.range(2),max(M)+max(E))]; %pouziju to pak pri stlaceni / z obrazku                    
+                    end                    
+                    
                     xlim(obj.epochtime(1:2)); 
                     hold on;
-                    h_kat(k,1) = plot(T,M,'LineWidth',katlinewidth,'Color',colorkatk(1,:));  %prumerna odpoved,  ulozim si handle na krivku  
-                    obj.plotRCh.range = [ min(obj.plotRCh.range(1),min(M)-max(E)) max(obj.plotRCh.range(2),max(M)+max(E))]; %pouziju to pak pri stlaceni / z obrazku                    
+                    h_kat(k,1) = plot(T,M,'LineWidth',katlinewidth,'Color',colorkatk(1,:));  %prumerna odpoved,  ulozim si handle na krivku                      
                     
                     if ~isempty(obj.Wp) && isfield(obj.Wp(WpA),'WpKat') %signifikance mezi kategoriemi
                         Tr = linspace(obj.Wp(WpA).baseline(2),obj.Wp(WpA).epochtime(2),size(obj.Wp(WpA).D2,1)); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
@@ -2137,6 +2151,9 @@ classdef CiEEGData < matlab.mixin.Copyable
                         obj.RjCh = [obj.RjCh ch]; %obsahuje realna cisla kanalu
                     end  
                     obj.CH.RejectChannels(obj.RjCh);
+                    obj.PlotResponseCh();
+                case 'm'  
+                    obj.plotRCh.usemedian = 1 - obj.plotRCh.usemedian;                 
                     obj.PlotResponseCh();
                 otherwise
                     disp(['You just pressed: ' eventDat.Key]);
