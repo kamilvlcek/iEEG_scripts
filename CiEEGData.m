@@ -375,27 +375,27 @@ classdef CiEEGData < matlab.mixin.Copyable
         
         function obj = ChangeReference(obj,ref)            
             assert(any(ref=='heb'),'neznama reference, mozne hodnoty: h e b');
-            assert(isobject(obj.CH),'Hammer header not loaded');
-            
+            assert(isobject(obj.CH),'Header not loaded');            
             selCh_H = obj.CH.H.selCh_H; %kopie protoze se mi to zmeni v nasledujicim prikazu         
             obj.CH.ChangeReference(ref); %zmeni referenci u headeru - 18.1.2018            
             % zmena EEG dat v poli d
-            if obj.epochs <= 1 %ne epochovana data
-                filtData = obj.d(:,selCh_H) * obj.CH.filterMatrix;
+            if obj.epochs <= 1 %ne epochovana data                
+                filtData = obj.d(:,selCh_H) * obj.CH.filterMatrix(selCh_H,:); %selCh_H abych mel stejny pocet kanalu
                 assert(size(filtData,1) == size(obj.d,1),'zmenila se delka zaznamu'); %musi zustat stejna delka zaznamu  
                 obj.d=filtData;                
             else %epochovana data
                 dd = zeros(obj.samples*obj.epochs,numel(selCh_H));
                 for ch = 1:numel(selCh_H) %predelam matici 3D na 2D
-                    dd(:,ch) = reshape(obj.d(:,ch,:),obj.samples*obj.epochs,1);
+                    dd(:,ch) = reshape(obj.d(:,selCh_H(ch),:),obj.samples*obj.epochs,1);
                 end                
-                filtData = dd(:,selCh_H) * obj.CH.filterMatrix;
+                filtData = dd(:,:) * obj.CH.filterMatrix(selCh_H,:); %kdyz je vynechany kanal (prvni u detskych pac, kvuli triggeru), tak ho radky fM stejne obsahuji
                 assert(size(filtData,1) == size(dd,1),'zmenila se delka zaznamu'); %musi zustat stejna delka zaznamu  
-                obj.d = zeros(obj.samples,size(filtData,2),obj.epochs); %nove pole dat s re-referencovanymi daty
+                d2 = zeros(obj.samples,size(filtData,2),obj.epochs); %nove pole dat s re-referencovanymi daty
                 for ch=1:size(filtData,2) %vratim puvodni 3D tvar matice
-                    obj.d(:,ch,:) = reshape(filtData(:,ch),obj.samples,obj.epochs); % !! tohle strasne dlouho trva - ZRYCHLIT
+                    d2(:,ch,:) = reshape(filtData(:,ch),obj.samples,obj.epochs);  %docasnou d2 pouzivam, protoze to vyrazne zrychli cyklus
                 end
-                obj.ChangeReferenceRjEpochCh(obj.CH.filterMatrix); %prepocitam na tuhle  referenci i RjEpochCh
+                obj.d = d2; 
+                obj.ChangeReferenceRjEpochCh(obj.CH.filterMatrix,selCh_H); %prepocitam na tuhle  referenci i RjEpochCh
                 %pocet elektrod se meni jejen u bipolarni ref, kdyz jsou nektere kanaly na konci vyrazene
             end
             [obj.samples,obj.channels, obj.epochs] = obj.DSize();
@@ -2303,12 +2303,13 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
         end
 
-        function [obj] = ChangeReferenceRjEpochCh(obj,filterMatrix)
-            %kod Nada 2017-12-07 - prepocitani RjEpochCh na bipolarni referenci            
-            RjEpochCh = obj.RjEpochCh(1:size(filterMatrix,1),:)';  %u zadneho z pacientu jsem nenasel trigger channel uprostred kanalu, vzdy je na konci. To by jinak byl problem            
+        function [obj] = ChangeReferenceRjEpochCh(obj,filterMatrix,selCh_H)
+            %kod Nada 2017-12-07 - prepocitani RjEpochCh na bipolarni referenci 
+            if ~exist('selCh_H','var'), selCh_H = 1:obj.channels; end                       
+            RjEpochCh = obj.RjEpochCh(selCh_H,:)';  %u zadneho z pacientu jsem nenasel trigger channel uprostred kanalu, vzdy je na konci. To by jinak byl problem            
             filterMatrix(filterMatrix<0) = 0; %oprava pro bipolarni referenci - chci mit v kazdem slouci je jednu 1
             filterMatrix(filterMatrix>0) = 1; %pridano kvuli jine = ele a head referenci
-            RjEpochCh = RjEpochCh * filterMatrix; 
+            RjEpochCh = RjEpochCh * filterMatrix(selCh_H,:); %kdyz je vynechany kanal (prvni u detskych pac, kvuli triggeru), tak ho radky fM stejne obsahuji
             RjEpochCh(RjEpochCh >= 2) = 1;
             obj.RjEpochCh = RjEpochCh'; %vyrazeni kazdeho kanalu puvodni reference znamena vyrazeni dvou kanalu bipolarni reference 
         end

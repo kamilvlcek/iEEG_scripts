@@ -293,7 +293,7 @@ pacienti(p).epievents = 'p190VT43_menrot_epievents.mat';
 pacienti(p).rjch = []; %#ok<NBRAK>
 
 p=p+1; %anna 9.12.2019, 512Hz
-pacienti(p).todo = 0; 
+pacienti(p).todo = 1; 
 pacienti(p).folder = 'p183 Tur VT47';
 pacienti(p).data = 'VT47_2019-05-28_17-35_001_512hz_39_concat.menrot.mat';
 pacienti(p).header = 'p183_header.mat';
