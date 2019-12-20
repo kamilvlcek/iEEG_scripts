@@ -392,14 +392,17 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             if ~isfield(obj.plotCh2D,'ch_displayed'), obj.plotCh2D.ch_displayed=obj.plotCh2D.chshow; end %defaltne jsou zobrazeny vsechny vybrane kanaly (podle filtru)
             if ~isfield(obj.plotCh2D,'chshowstr'), obj.plotCh2D.chshowstr = ''; end   %defaultne bez filtrovani
             if ~isfield(obj.plotCh2D,'colorindex'), obj.plotCh2D.colorindex = 1; end   %defaultne bez filtrovani
+            if ~isfield(obj.plotCh2D,'coronalview'), obj.plotCh2D.coronalview = 0; end   %defaultne vlevo axial view
             %------------------------- vytvoreni figure -----------------------------------
             x = [obj.H.channels(:).MNI_x];
             y = [obj.H.channels(:).MNI_y];
-            z = [obj.H.channels(:).MNI_z];            
+            z = [obj.H.channels(:).MNI_z];                
+            
             load('GMSurfaceMesh.mat'); %seda hmota v MNI
             if isfield(obj.plotCh2D,'boundary') && obj.plotCh2D.boundary && ~isfield(obj.plotCh2D,'BrainBoundaryXY') %trva docela dlouho nez se to spocita
                 obj.plotCh2D.BrainBoundaryXY = boundary(GMSurfaceMesh.node(:,1),GMSurfaceMesh.node(:,2)); %vnejsi hranice mozku
                 obj.plotCh2D.BrainBoundaryYZ = boundary(GMSurfaceMesh.node(:,2),GMSurfaceMesh.node(:,3));
+                obj.plotCh2D.BrainBoundaryXZ = boundary(GMSurfaceMesh.node(:,1),GMSurfaceMesh.node(:,3)); %coronal view
             end
             
             size_ch = 12; %velikosti krouzko oznacujicich kanaly
@@ -425,27 +428,32 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             subplot(1,2,1);
             barvy_def= 'gbrcmk'; 
             barvy = [barvy_def(obj.plotCh2D.colorindex:end) barvy_def(1:obj.plotCh2D.colorindex-1)]; %barvy od poradi colorindexu
-            % ----------------- axialni plot   ---------------------------           
+            % ----------------- axialni plot   ---------------------------   
+            xyz = iff(obj.plotCh2D.coronalview, [1 3], [1 2]); %jesti zobrazovat MNI souradnice xy (=axial) nebo xz (=coronal)
+            MNIxyz = vertcat(x,y,z); %abych mohl pouzivat souradnice xyz dynamicky podle coronalview
+            Yaxislabel = iff(obj.plotCh2D.coronalview, 'MNI Z', 'MNI Y'); 
             if isfield(obj.plotCh2D,'boundary') && obj.plotCh2D.boundary
                 %defaultne budu vykreslovat scatter, ale kvuli kopirovani se bude hodit i jen boundary
-                plot(GMSurfaceMesh.node(obj.plotCh2D.BrainBoundaryXY,1),GMSurfaceMesh.node(obj.plotCh2D.BrainBoundaryXY,2));
+                BrainBoundary = iff(obj.plotCh2D.coronalview,obj.plotCh2D.BrainBoundaryXZ,obj.plotCh2D.BrainBoundaryXY); 
+                plot(GMSurfaceMesh.node(BrainBoundary,xyz(1)),GMSurfaceMesh.node(BrainBoundary,xyz(2)));
             else
-                scatter(GMSurfaceMesh.node(:,1),GMSurfaceMesh.node(:,2),'.','MarkerEdgeAlpha',.1); %seda hmota normalizovaneho mozku
+                %scatter celeho mozku
+                scatter(GMSurfaceMesh.node(:,xyz(1)),GMSurfaceMesh.node(:,xyz(2)),'.','MarkerEdgeAlpha',.1); %seda hmota normalizovaneho mozku
             end           
             hold on;             
             
             for ie = 1:numel(els) 
                 plotstyle = iff(obj.plotCh2D.lines,'-o','o'); %,'ok' pro cernobile
                 if obj.plotCh2D.lines >= 0 %-1 znamena, ze se nemaji zobrazovat neoznacene kanaly pomoci fghjkl, cili tady se nekresli nic
-                    plot(x(els0(ie):els(ie)),y(els0(ie):els(ie)),plotstyle); %plot kontaktu jedne elektrody
+                    plot(MNIxyz(xyz(1),els0(ie):els(ie)),MNIxyz(xyz(2),els0(ie):els(ie)),plotstyle); %plot kontaktu jedne elektrody
                 end
                 if obj.plotCh2D.names > 0
                 for ch = els0(ie):els(ie)
                         if obj.plotCh2D.lines >= 0 || isempty(selCh) || any(selCh(ch,logical(obj.plotCh2D.marks))) %pokud je kanal oznacen jednou ze zobrazenych znacek
                             if obj.plotCh2D.names == 2
-                                th = text(x(ch),y(ch),obj.H.channels(ch).name); %jmeno kanalu
+                                th = text(MNIxyz(xyz(1),ch),MNIxyz(xyz(2),ch),obj.H.channels(ch).name); %jmeno kanalu
                             else
-                                th = text(x(ch),y(ch),num2str(ch)); %cislo kazdeho kanalu
+                                th = text(MNIxyz(xyz(1),ch),MNIxyz(xyz(2),ch),num2str(ch)); %cislo kazdeho kanalu
                             end
                             th.FontSize = 8;
                         end
@@ -467,7 +475,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                        ch = find(selCh(:,m)); %seznam cisel vybranych kanalu pro danou znacku
                        ch = intersect(chshow,ch); 
                        %plot(x(ch),y(ch),'o','MarkerSize',size_selCh,'MarkerEdgeColor',barvy(m),'MarkerFaceColor',barvy(m));
-                       sh = scatter(x(ch),y(ch),size_selCh,barvy(m),'filled');
+                       sh = scatter(MNIxyz(xyz(1),ch),MNIxyz(xyz(2),ch),size_selCh,barvy(m),'filled');
                        if obj.plotCh2D.transparent, alpha(sh,.5); end %volitelne pridani pruhlednosti
                        ch_displayed{m} = ch';
                    end
@@ -489,7 +497,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             set(gca, 'XTick',-70:10:70); %xticks(-70:10:70); %xtics jsou az od 2016b
             set(gca, 'YTick',-100:10:70); %yticks(-100:10:70); %ytics jsou az od 2016b
             xlabel('MNI X'); %levoprava souradnice
-            ylabel('MNI Y'); %predozadni souradnice
+            ylabel(Yaxislabel); %predozadni/hodnodolni souradnice
             if isfield(obj.plotCh2D,'background') && obj.plotCh2D.background==0
                 set(gca,'color','none'); %zadne bile pozadi, pak ani v corelu
             end
@@ -1124,6 +1132,9 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                       obj.plotCh2D.colorindex = 1+obj.plotCh2D.colorindex;
                       if obj.plotCh2D.colorindex > 6, obj.plotCh2D.colorindex = 1; end
                       obj.ChannelPlot2D();  
+                  case 'v' %prepinani view vlevo coronal/axial
+                      obj.plotCh2D.coronalview = 1-obj.plotCh2D.coronalview;
+                      obj.ChannelPlot2D();    
 %                   case 'r' %zobrazi obrazek mozku s vybranych kanalem                   
 %                       obj.plotCh2D.plotAUCH(obj.plotCh2D.chsel); %vykreslim @obj.PlotResponseCh    %tady to hlasi error Undefined function or variable 'obj.CS.AUCPlot'. Jak to?                  
 %                       figure(obj.plotCh2D.fh); %dam puvodni obrazek dopredu     

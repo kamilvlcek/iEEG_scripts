@@ -1,5 +1,5 @@
 classdef CRefOrigVals < matlab.mixin.Copyable 
-    %CREFORIGVALS Summary of this class goes here
+    %CREFORIGVALS trida shromazdujici udaje o odpovedich v originalni referenci
     %   Detailed explanation goes here
     
     properties (Access = public)
@@ -61,7 +61,7 @@ classdef CRefOrigVals < matlab.mixin.Copyable
         end
         function PlotCh(obj,ch)
             assert(~isempty(obj.ValMax),'CRefOrigVals: nejsou nactena data');
-            if isempty(ishghandle(obj.PlotChH))
+            if ~ishghandle(obj.PlotChH)
                 obj.PlotChH = figure('Name',['CRefOrigVals - ch' num2str(ch)]);
             else
                 figure(obj.PlotChH);

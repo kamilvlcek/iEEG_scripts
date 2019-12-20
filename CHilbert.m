@@ -332,7 +332,7 @@ classdef CHilbert < CiEEGData
                 caxis([miny,maxy]);               
                 title( obj.PsyData.CategoryName(cellval(kategories,k)));
                 if k == 1
-                    chstr = iff(isempty(obj.CH.sortedby),num2str(ch), [ num2str(ch) '(' obj.CH.sortedby  num2str(obj.plotRCh.ch) ')' ]);
+                    chstr = iff(isempty(obj.CH.sortedby),num2str(ch), [ num2str(ch) '(' obj.CH.sortedby  num2str(obj.plotF.ch) ')' ]);
                     ylabel(['channel ' chstr ' - freq [Hz]']); 
                     if isprop(obj,'plotRCh') && isfield(obj.plotRCh,'selCh') && any(obj.plotRCh.selCh(ch,:),2)==1        
                         klavesy = 'fghjkl'; %abych mohl vypsat primo nazvy klaves vedle hvezdicky podle selCh
