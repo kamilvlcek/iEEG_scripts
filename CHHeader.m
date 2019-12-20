@@ -16,6 +16,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         plotCh3D; %udaje o 3D grafu kanalu ChannelPlot, hlavne handle
         reference; %aby trida vedela, jestli je bipolarni nebo ne        
         classname; %trida v ktere je Header vytvoren
+        brainlabels; %struct array, obsahuje ruzna vlastni olabelovani kanalu
     end
     %#ok<*PROPLC>
     
@@ -785,14 +786,29 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             
             filtered = false;
             if exist('chlabels','var') && ~isempty(chlabels)
-                ChLabels = {obj.H.channels(:).neurologyLabel}';
+                if strcmp(chlabels{1},'label')
+                    ChLabels = {obj.brainlabels(:).label}';
+                    chlabels = chlabels(2:end); 
+                    showstr = 'label:';
+                elseif strcmp(chlabels{1},'lobe')
+                    ChLabels = {obj.brainlabels(:).lobe}';
+                    chlabels = chlabels(2:end);
+                    showstr = 'lobe:';
+                elseif strcmp(chlabels{1},'class')
+                    ChLabels = {obj.brainlabels(:).class}';
+                    chlabels = chlabels(2:end);
+                    showstr = 'class:';
+                else
+                    ChLabels = {obj.H.channels(:).neurologyLabel}';
+                    showstr = 'nlabel:';
+                end                
                 iL = contains(lower(ChLabels),lower(chlabels)); %prevedu oboji na mala pismena
                 if exist('notchnlabels','var') && numel(notchnlabels) > 0
                     iLx = contains(lower(ChLabels),lower(notchnlabels));
                     iL = iL & ~iLx;
                     obj.plotCh2D.chshowstr = [ cell2str(chlabels) ' not:' cell2str(notchnlabels)];
                 else
-                    obj.plotCh2D.chshowstr = cell2str(chlabels);
+                    obj.plotCh2D.chshowstr = [ showstr cell2str(chlabels)];
                 end
                 obj.plotCh2D.chshow = find(iL)'; %vyber kanalu k zobrazeni  , chci je mit v radku     
                 obj.sortorder = obj.plotCh2D.chshow; %defaultni sort order pro tento vyber - nejsou tam cisla od 1 to n, ale cisla kanalu
@@ -872,6 +888,29 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 plot3(XYZ(:,1),XYZ(:,2),XYZ(:,3));               
             end
             
+        end
+        function obj = BrainLabelsImport(obj,brainlbs)
+            %naimportuje cell array do struct array. Hlavne kvuli tomu, ze v cell array nemusi byt vsechny kanaly
+            %predpoklada ctyri cloupce - cislo kanalu, brainclass	brainlabel	lobe
+            BL = struct('class',{},'label',{},'lobe',{}); %empty struct with 3 fields
+            for j = 1:size(brainlbs,1)
+                BL(brainlbs{j,1}).class = brainlbs{j,2};
+                BL(brainlbs{j,1}).label = brainlbs{j,3};
+                BL(brainlbs{j,1}).lobe = brainlbs{j,4};
+            end
+            emptyIndex = find(arrayfun(@(BL) isempty(BL.class),BL)); %nasel jsem https://www.mathworks.com/matlabcentral/answers/328326-check-if-any-field-in-a-given-structure-is-empty
+            for j = emptyIndex
+                BL(j).class = ' '; %nejaky znak asi musim vlozit
+            end
+            emptyIndex = find(arrayfun(@(BL) isempty(BL.label),BL)); %nasel jsem https://www.mathworks.com/matlabcentral/answers/328326-check-if-any-field-in-a-given-structure-is-empty
+            for j = emptyIndex
+                BL(j).label = ' ';
+            end
+            emptyIndex = find(arrayfun(@(BL) isempty(BL.lobe),BL)); %nasel jsem https://www.mathworks.com/matlabcentral/answers/328326-check-if-any-field-in-a-given-structure-is-empty
+            for j = emptyIndex
+                BL(j).lobe = ' ';
+            end
+            obj.brainlabels = BL;
         end
     end
     

@@ -1548,7 +1548,9 @@ classdef CiEEGData < matlab.mixin.Copyable
                 text(-0.1,ymax*.78,strrep(obj.label,'_','\_'), 'FontSize', 10,'Color','blue'); 
             end            
             if isfield(obj.CH.plotCh2D,'chshow') && isfield(obj.CH.plotCh2D,'chshowstr') && ~isempty(obj.CH.plotCh2D.chshow) && ~isempty(obj.CH.plotCh2D.chshowstr) %% plot chshow
-                text(-0.1,ymax*.72, ['show:  ' obj.CH.plotCh2D.chshowstr '=' mat2str(obj.CH.plotCh2D.chshow)], 'FontSize', 10);
+                chnshow = mat2str(obj.CH.plotCh2D.chshow(1:(min(20,numel(obj.CH.plotCh2D.chshow)))));
+                if numel(obj.CH.plotCh2D.chshow) > 20, chnshow = [chnshow ' ...']; end
+                text(-0.1,ymax*.72, ['show:  ' obj.CH.plotCh2D.chshowstr '=' chnshow], 'FontSize', 10);
             end
             methodhandle = @obj.hybejPlotCh;
             set(obj.plotRCh.fh,'KeyPressFcn',methodhandle);      
@@ -1678,9 +1680,9 @@ classdef CiEEGData < matlab.mixin.Copyable
             CH_H=obj.CH.H;                  %#ok<NASGU>            
             CH_plots = {obj.CH.plotCh2D obj.CH.plotCh3D}; % ulozeni parametru plotu mozku                        
             CS_plots = {obj.CS.plotAUC obj.CS.plotAUC_m}; % ulozeni parametru plotu AUC krivek                        
-            [CH_plots,CS_plots,RCh_plots] = obj.SaveRemoveFh(CH_plots,CS_plots,obj.plotRCh);  %#ok<ASGLU> %smazu vsechny handely na obrazky 
-            
+            [CH_plots,CS_plots,RCh_plots] = obj.SaveRemoveFh(CH_plots,CS_plots,obj.plotRCh);  %#ok<ASGLU> %smazu vsechny handely na obrazky             
             CH_filterMatrix = obj.CH.filterMatrix; %#ok<NASGU>  
+            CH_brainlabels = obj.CH.brainlabels;
             els = obj.els;                  %#ok<PROP,NASGU>
             plotES = obj.plotES;            %#ok<PROP,NASGU>          
             RjCh = obj.RjCh;                %#ok<PROP,NASGU>
@@ -1696,7 +1698,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             if isa(obj,'CHilbertMulti'), label = obj.label; else label = []; end %#ok<NASGU>
             [pathstr,fname,ext] = CiEEGData.matextension(filename);        
             filename2 = fullfile(pathstr,[fname ext]);
-            save(filename2,'d','tabs','tabs_orig','fs','header','sce','PsyDataP','PsyData','testname','epochtime','baseline','CH_H','CH_plots', 'CS_plots','els',...
+            save(filename2,'d','tabs','tabs_orig','fs','header','sce','PsyDataP','PsyData','testname','epochtime','baseline','CH_H','CH_plots','CH_brainlabels', 'CS_plots','els',...
                     'plotES','RCh_plots','RjCh','RjEpoch','RjEpochCh','epochTags','epochLast','reference','epochData','Wp','DE','DatumCas', 'label', ...
                     'CH_filterMatrix','-v7.3');  
             disp(['ulozeno do ' filename2]); 
@@ -1767,7 +1769,9 @@ classdef CiEEGData < matlab.mixin.Copyable
             if ismember('CH_filterMatrix', {vars.name})
                 load(filename,'CH_filterMatrix');      obj.CH.filterMatrix = CH_filterMatrix;                              
             end 
-            
+            if ismember('CH_brainlabels', {vars.name})
+                load(filename,'CH_brainlabels');      obj.CH.brainlabels = CH_brainlabels;                              
+            end 
             if ismember('Wp', {vars.name})
                 load(filename,'Wp');      obj.Wp = Wp; %#ok<CPROPLC,CPROP,PROP>
             else
