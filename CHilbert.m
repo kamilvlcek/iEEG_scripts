@@ -559,6 +559,39 @@ classdef CHilbert < CiEEGData
                 end
             end            
         end
+        function obj = RemoveChannels(obj,channels)       
+            %smaze se souboru vybrane kanaly. Kvuli redukci velikost aj
+            keepch = setdiff(1:obj.channels,channels); %channels to keep
+            obj.channels = obj.channels - numel(channels);
+            obj.d = obj.d(:,keepch,:);
+            if isprop(obj,'mults'), obj.mults = obj.mults(:,keepch); end
+            obj.HFreq = obj.HFreq(:,keepch,:,:);
+            if isprop(obj,'HFreqEpochs'), obj.HFreqEpochs = obj.HFreqEpochs(:,keepch,:,:); end
+            if isprop(obj,'fphaseEpochs'), obj.fphaseEpochs = obj.fphaseEpochs(:,keepch,:,:); end
+            if isprop(obj,'frealEpochs'), obj.frealEpochs = obj.frealEpochs(:,keepch,:,:); end            
+            if isprop(obj,'plotRCh') && isfield(obj.plotRCh,'selCh')
+               obj.plotRCh.selCh = obj.plotRCh.selCh(keepch,:); 
+            end
+            if isprop(obj,'RjEpochCh'), obj.RjEpochCh = obj.RjEpochCh(keepch,:); end
+            obj.CH.RemoveChannels(channels);
+            obj.els = obj.CH.els; %ty uz se redukuji v CHHeader
+            obj.RjCh = obj.CH.RjCh;      
+            
+            for j = 1:numel(obj.Wp)
+                obj.Wp(j).D2 = obj.Wp(j).D2(:,keepch);
+                obj.Wp(j).DiEpCh = obj.Wp(j).DiEpCh(keepch,:);
+                for k = 1:numel(obj.Wp(j).WpKat)
+                    if numel(obj.Wp(j).WpKat{k}) > 0
+                        obj.Wp(j).WpKat{k} = obj.Wp(j).WpKat{k}(:,keepch);
+                    end
+                end
+                for k = 1:numel(obj.Wp(j).WpKatBaseline)
+                    if numel(obj.Wp(j).WpKatBaseline{k}) > 0
+                        obj.Wp(j).WpKatBaseline{k} = obj.Wp(j).WpKatBaseline{k}(:,keepch);
+                    end
+                end
+            end
+        end
         
     end 
     methods (Static,Access = public)

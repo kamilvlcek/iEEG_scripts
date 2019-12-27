@@ -912,6 +912,43 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             end
             obj.brainlabels = BL;
         end
+        function obj = RemoveChannels(obj,channels)  
+            %smaze se souboru vybrane kanaly. Kvuli redukci velikost aj                        
+            keepch = setdiff(1:numel(obj.H.channels),channels); %channels to keep            
+            channelmap = zeros(1,numel(obj.H.channels));
+            channelmap(keepch) = 1:numel(keepch); %prevod ze starych cisel kanalu na nove
+            
+            obj.RjCh = setdiff(obj.RjCh,channels,'stable'); %kanaly ktere zbydou s puvodnimi cisly
+            obj.RjCh = channelmap(obj.RjCh); %nova cisla zbylych kanalu
+            
+            obj.H.channels = obj.H.channels(keepch);
+            obj.H.selCh_H = channelmap(setdiff(obj.H.selCh_H,channels,'stable')); %keep the order             
+            %kanaly musim precislovat, napriklad z 11 se ma stat 4 atd
+            %TODO tohle funguje, jen kdyz tam jsou vsechny
+            obj.sortorder = channelmap(setdiff(obj.sortorder,channels,'stable')); %cisla 1:n v poradi puvodniho sortorder   
+            if isprop(obj,'plotCh2D') && isfield(obj.plotCh2D,'chshow')
+                obj.plotCh2D.chshow = channelmap(setdiff(obj.plotCh2D.chshow,channels,'stable')); 
+                obj.plotCh2D.ch_displayed = channelmap(setdiff(obj.plotCh2D.ch_displayed,channels,'stable')); 
+            end
+            
+            
+            obj.filterMatrix = obj.filterMatrix(:,keepch'); 
+            for j = 1:numel(obj.els)
+                if j == 1
+                    n = sum(channels<=obj.els(j));
+                else
+                    n = sum(channels > obj.els(j-1) & channels < obj.els(j));
+                end
+                if n > 0
+                    obj.els(j:end) = obj.els(j:end) - n; %potrebuju snizit i vsechny nasledujici
+                else
+                    obj.els(j) = [];
+                end
+            end
+            for j = 1:numel(obj.chgroups)
+                obj.chgroups{j} = channelmap(setdiff( obj.chgroups{j},channels,'stable'));
+            end
+        end
     end
     
     %  --------- privatni metody ----------------------
