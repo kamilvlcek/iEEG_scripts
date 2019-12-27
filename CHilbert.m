@@ -299,25 +299,23 @@ classdef CHilbert < CiEEGData
             set(obj.plotF.fh, 'KeyPressFcn', @obj.hybejPlotF);
         end
         
+        %Buffering of the plot or taking settings from saved structs
+        % if we are only redrawing existing plots
         function obj = PreparePlotPowerTime(obj, ch, categories)
-            % uchovani stavu grafu, abych ho mohl obnovit a ne kreslit novy
-            if ~numel(ch) == 0 && ~isfield(obj.plotF, 'ch') 
-                obj.plotF.ch = 1;
-            else
-                obj.plotF.ch = ch; %tady bude ulozeny index sortorder, parametr ch urcuje index v sortorder
-            end
+            if ~numel(ch) == 0 && ~isfield(obj.plotF, 'ch'), obj.plotF.ch = 1;
+            else, obj.plotF.ch = ch; end
             
-            if numel(categories) == 0
+            if numel(categories) > 0
+                obj.plotF.kategories = categories;
+            % Only rewrites categorties if not already set
+            elseif ~isfield(obj.plotF, 'kategories') && numel(obj.plotF.kategories) == 0
                 if isfield(obj.Wp(obj.WpActive), 'kats'), categories = obj.Wp(obj.WpActive).kats;
                 else, categories = obj.PsyData.Categories(); end
-                obj.plotF.kategories = categories;
-            else
                 obj.plotF.kategories = categories;
             end
             
             if isfield(obj.plotF, 'fh') && ishandle(obj.plotF.fh)
-                figure(obj.plotF.fh); %pouziju uz vytvoreny graf
-                %clf(obj.plotF.fh); %graf vycistim
+                figure(obj.plotF.fh);
             else
                 obj.plotF.fh = figure('Name', 'ResponseFreq', 'Position', [20, 500, 1200, 300]);
                 colormap jet;
