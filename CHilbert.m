@@ -252,7 +252,7 @@ classdef CHilbert < CiEEGData
         end
         
         %% Function description???
-        function obj = Decimate(obj,podil,rtrim)
+        function obj = Decimate(obj, podil, rtrim)
             %zmensi frekvencni data na nizsi vzorkovaci frekvenci
             if ~exist('rtrim','var') || isempty(rtrim), rtrim = []; end 
             Decimate@CiEEGData(obj,podil,rtrim);
@@ -286,74 +286,31 @@ classdef CHilbert < CiEEGData
             end
         end
         
-        %% Function description??
+        %% Plot Response Frequency
         % ch: max number of channels to plot (from 1 to ch)
         % categories: which category to plot - if not defined, plots all
         function obj = PlotResponseFreq(obj, ch, categories)
-            obj.PreparePlotPowerTime(obj, ch, categories);
-            ch = obj.CH.sortorder(ch);
-            categories = obj.plotF.kategories;
-            
-            maxy = 0;
-            miny = 0;
-            % What this does?
-            for k = 1:numel(categories)
-                subplot(1, numel(categories), k);
-                T = obj.epochtime(1):0.1:obj.epochtime(2);
-                F =  obj.Hfmean;
-                if iscell(categories(k))                    
-                    dd = zeros(size(obj.HFreq,1), size(obj.HFreq,3), numel(categories{k}));
-                    for ikat = 1:numel(categories{k})
-                        dd(:,:,ikat) = squeeze(obj.HFreq(:, ch,:, categories{k}(ikat)+1));
-                    end
-                    D = mean(dd,3);
-                else
-                    D = squeeze(obj.HFreq(:, ch,:,categories(k)+1));
-                end
-                imagesc(T,F, D');
-                maxy = max([maxy max(max( D ))]);
-                miny = min([miny min(min( D ))]);
-                axis xy;
-                xlabel('time [s]');
-            end
-            % BUFFERING miny maxy for when the plot is called again
-            [miny, maxy] = obj.BufferPlotYLimit(miny, maxy);
-            % What this does?
-            for k = 1:numel(categories)
-                subplot(1, numel(categories), k);
-                caxis([miny, maxy]);
-                title(obj.PsyData.CategoryName(cellval(categories, k)));
-                if k == 1
-                    chstr = iff(isempty(obj.CH.sortedby), num2str(ch), [ num2str(ch) '(' obj.CH.sortedby  num2str(obj.plotF.ch) ')' ]);
-                    ylabel(['channel ' chstr ' - freq [Hz]']);
-                    if isprop(obj,'plotRCh') && isfield(obj.plotRCh, 'selCh') && any(obj.plotRCh.selCh(ch,:), 2) == 1        
-                        klavesy = 'fghjkl'; %abych mohl vypsat primo nazvy klaves vedle hvezdicky podle selCh
-                        text(0,obj.Hf(1),['*' klavesy(logical(obj.plotRCh.selCh(ch,:)))], 'FontSize', 15, 'Color', 'red');
-                    end
-                end
-                if k == numel(categories), colorbar('Position',[0.92 0.1 0.02 0.82]); end
-            end
-            
-            set(obj.plotF.fh,'KeyPressFcn', @obj.hybejPlotF);
+            if ~exist('ch', 'var'), ch = []; end
+            if ~exist('categories', 'var'), categories = []; end
+           
+            obj.PreparePlotPowerTime(ch, categories);
+            obj.PlotCategoriesPowerTime(obj.CH.sortorder(ch), obj.plotF.kategories);
+            obj.PlotLabels(obj.CH.sortorder(ch), obj.plotF.kategories);
+            set(obj.plotF.fh, 'KeyPressFcn', @obj.hybejPlotF);
         end
         
         function obj = PreparePlotPowerTime(obj, ch, categories)
             % uchovani stavu grafu, abych ho mohl obnovit a ne kreslit novy
-            if ~exist('ch', 'var')
-                % vytahnu cislo kanalu podle ulozeneho indexu
-                if isfield(obj.plotF, 'ch'), ch = obj.CH.sortorder(obj.plotF.ch);
-                else, obj.plotF.ch = 1; ch = obj.CH.sortorder(1); end
+            if ~numel(ch) == 0 && ~isfield(obj.plotF, 'ch') 
+                obj.plotF.ch = 1;
             else
                 obj.plotF.ch = ch; %tady bude ulozeny index sortorder, parametr ch urcuje index v sortorder
             end
             
-            if ~exist('categories', 'var')
-                if isfield(obj.Wp(obj.WpActive), 'kats'), categories = obj.Wp(obj.WpActive).kats; 
-                elseif isfield(obj.plotF, 'categories'), categories = obj.plotF.kategories;
-                else
-                    categories = obj.PsyData.Categories(); 
-                    obj.plotF.kategories = categories;
-                end
+            if numel(categories) == 0
+                if isfield(obj.Wp(obj.WpActive), 'kats'), categories = obj.Wp(obj.WpActive).kats;
+                else, categories = obj.PsyData.Categories(); end
+                obj.plotF.kategories = categories;
             else
                 obj.plotF.kategories = categories;
             end
@@ -367,12 +324,59 @@ classdef CHilbert < CiEEGData
             end
         end
         
-        function [miny, maxy] = BufferPlotYLimit(obj, miny, maxy)
+        function obj = BufferPlotYLimit(obj, miny, maxy)
+            obj.plotF.ylim = [miny maxy];
+        end
+        
+        function [miny, maxy] = GetPlotYLimit(obj)
              if isfield(obj.plotF, 'ylim') && numel(obj.plotF.ylim) >= 2 %nactu nebo ulozim hodnoty y
-                miny = obj.plotF.ylim(1); 
-                maxy = obj.plotF.ylim(2);
-            else
-                obj.plotF.ylim = [miny maxy];
+                miny = obj.plotF.ylim(1); maxy = obj.plotF.ylim(2);
+             else
+                miny = 0; maxy = 0;
+             end
+        end
+        
+        function obj = PlotCategoriesPowerTime(obj, ch, categories)
+             maxy = 0;
+             miny = 0;
+             for k = 1:numel(categories)
+                subplot(1, numel(categories), k);
+                T = obj.epochtime(1):0.1:obj.epochtime(2);
+                F =  obj.Hfmean;
+                if iscell(categories(k))                    
+                    dd = zeros(size(obj.HFreq,1), size(obj.HFreq,3), numel(categories{k}));
+                    for ikat = 1:numel(categories{k})
+                        dd(:,:,ikat) = squeeze(obj.HFreq(:, ch,:, categories{k}(ikat)+1));
+                    end
+                    D = mean(dd,3);
+                else % TODO - what this does??
+                    D = squeeze(obj.HFreq(:, ch, :, categories(k)+1));
+                end
+                imagesc(T, F, D');
+                maxy = max([maxy max(max( D ))]);
+                miny = min([miny min(min( D ))]);
+                axis xy;
+                xlabel('time [s]');   
+            end
+            obj.BufferPlotYLimit(miny, maxy);
+        end
+        
+        function obj = PlotLabels(obj, ch, categories)
+            [miny, maxy] = obj.GetPlotYLimit();
+            for k = 1:numel(categories)
+                subplot(1, numel(categories), k);
+                caxis([miny, maxy]);
+                title(obj.PsyData.CategoryName(cellval(categories, k)));
+                if k == 1
+                    chstr = iff(isempty(obj.CH.sortedby), num2str(ch), [ num2str(ch) '(' obj.CH.sortedby  num2str(obj.plotF.ch) ')' ]);
+                    ylabel(['channel ' chstr ' - freq [Hz]']);
+                    if isprop(obj,'plotRCh') && isfield(obj.plotRCh, 'selCh') && ...
+                            any(obj.plotRCh.selCh(ch,:), 2) == 1        
+                        klavesy = 'fghjkl'; %abych mohl vypsat primo nazvy klaves vedle hvezdicky podle selCh
+                        text(0,obj.Hf(1),['*' klavesy(logical(obj.plotRCh.selCh(ch, :)))], 'FontSize', 15, 'Color', 'red');
+                    end
+                end
+                if k == numel(categories), colorbar('Position', [0.92 0.1 0.02 0.82]); end
             end
         end
         
