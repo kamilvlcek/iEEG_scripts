@@ -6,3 +6,5 @@ open(patient_file)
 hilbert = CHilbert(filename); % filename kterehokoli v tech dvou
 % Stats are run immediately after initialization - not recommended
 % 
+
+hilbert.PlotResponseCh(20)

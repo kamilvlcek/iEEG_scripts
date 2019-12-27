@@ -20,30 +20,38 @@ classdef CHilbert < CiEEGData
     end
     
     % -------------- public instance methods -------------------------
-    methods (Access = public)  
+    methods (Access = public)
+        %% Constructor description??
+        % Loads data into the hilbert object or already processed data if 
+        % passed 'd' parameter is a filename
+        % TODO - never actually ceccks for the filename existance
+        % TODO constructor should be redone to basic constructor and to 
+        % file loading separately - too many iffs
         function obj = CHilbert(d,tabs,fs,mults,header)            
             if ~exist('header','var'), header = []; end %nejakou hodnotu dat musim
             if ~exist('mults','var'),  mults = []; end %nejakou hodnotu dat musim
-            if ~exist('d','var') || isempty(d) %konstruktor uplne bez parametru - kvuli CHilbertMulti
+            if ~exist('d','var') || isempty(d) % konstruktor uplne bez parametru - kvuli CHilbertMulti
                 d = []; tabs = []; fs = [];
-            elseif ischar(d) && ~exist('fs','var') %pokud je prvni parametr retezec, tak ho beru jako nazev souboru, ktery nactu
+            % If the first param is a string, it is considered a filename
+            elseif ischar(d) && ~exist('fs', 'var')
                 fs = []; 
                 if ~exist('tabs','var'), tabs=[]; end
-                % volani Load z CiEEGData mi zavola Load z CHilbert, takze d=filename predelavat nemusim
-            end            
-            obj@CiEEGData(d,tabs,fs,mults,header); %volani konstruktoru nemuze byt v if bloku 
-            try                
+            end
+            obj@CiEEGData(d, tabs, fs, mults, header); 
+            try
                 if ~isempty(obj.Hf)
-                    disp(['Frequency bands: ' num2str(numel(obj.Hf)) ': ' num2str(obj.Hf(1)) ':' num2str(obj.Hf(2)-obj.Hf(1)) ':' num2str(obj.Hf(end)) ' Hz' ]);
+                    disp(['Frequency bands: ' ...
+                        num2str(numel(obj.Hf)) ': ' num2str(obj.Hf(1)) ':' ...
+                        num2str(obj.Hf(2)-obj.Hf(1)) ':' num2str(obj.Hf(end)) ' Hz' ]);
                 else
                     disp('no Frequency bands');
                 end
             catch exception %#ok<NASGU>
                 disp('no Frequency bands');
             end
-            
         end        
         
+        %% DEscription??
         function obj = PasmoFrekvence(obj,freq,channels,prekryv,decimatefactor)
             %EEG2HILBERT prevede vsechny kanaly na prumer hilbertovych obalek
             %   podle puvodni funkce EEG2Hilbert
@@ -94,10 +102,9 @@ classdef CHilbert < CiEEGData
             disp(['vytvoreno ' num2str(numel(obj.Hfmean)) ' frekvencnich pasem v case ' num2str(toc(timer)) 's']); 
         end
         
+        %% function for different normalization methods to use after PasmoFrekvence
+        % TODO musi se osetrit, kdyz je prumer 0
         function obj = Normalize(obj, type, channels)
-         %function for different normalization methods
-         %to be used after PasmoFrekvence
-         %TODO musi se osetrit, kdyz je prumer 0
             if ~exist('channels','var'), channels = 1:obj.channels; end
             switch type
                 case 'orig' %(fpower./mean(fpower)) - povodna normalizacia
@@ -131,59 +138,62 @@ classdef CHilbert < CiEEGData
             obj.normalization = type; %pro zpetnou referenci
         end
         
-        % rozdeli hilbertovu obalku podle epoch
-        % i u ni odecte baseline pred podnetem
+        %% Splits CHilbert per epoch and substracts baseline
         % freqepochs - urcuje jestli ukladat freq pasma pro vsechny epochy do pole obj.HFreqEpochs
-        function obj = ExtractEpochs(obj, PsyData,epochtime,baseline,freqepochs)
+        % PsyData: ------
+        % epochtime: ------
+        % baseline: -------
+        % freqepochs: -------
+        function obj = ExtractEpochs(obj, PsyData, epochtime, baseline, freqepochs)
             if ~exist('baseline','var') || isempty(baseline), baseline = [epochtime(1) 0]; end %defaultni baseline je do 0 sec
             if ~exist('freqepochs','var') || isempty(freqepochs), freqepochs = 0; end %defaultne se neukladaji frekvencni pasma pro vsechny epochy
             ExtractEpochs@CiEEGData(obj,PsyData, epochtime,baseline); %to mi zepochuje prumernou obalku za frekvencni pasma v poli d
-            if(numel(obj.HFreq)>0)
-                %ted epochace vsech frekvencnich pasem zvlast, hlavne kvuli obrazkum
-                %prumer za kazdou kategorii, statistiku z toho delat nechci
-                 iepochtime = round(epochtime(1:2).*obj.fs); %v poctu vzorku cas pred a po udalosti, prvni cislo je zaporne druhe kladne             
-                 ibaseline =  round(baseline.*obj.fs); %v poctu vzorku cas pred a po udalosti
-                 kategorie = cell2mat(obj.PsyData.P.strings.podminka(:,2)); %cisla karegorii ve sloupcich
-                 Hfreq2 = zeros(iepochtime(2)-iepochtime(1), size(obj.d,2), numel(obj.Hfmean),size(kategorie,1)); %nova epochovana data time x channel x freq x kategorie=podminka
-                 if freqepochs
-                     obj.HFreqEpochs = zeros(iepochtime(2)-iepochtime(1),size(obj.HFreq,2),size(obj.HFreq,3),obj.epochs); % time x channel x frequency x epoch
-                     obj.fphaseEpochs = zeros(iepochtime(2)-iepochtime(1),size(obj.HFreq,2),size(obj.HFreq,3),obj.epochs); % time x channel x frequency x epoch
-                     obj.frealEpochs = zeros(iepochtime(2)-iepochtime(1),size(obj.HFreq,2),size(obj.HFreq,3),obj.epochs); % time x channel x frequency x epoch
-                 else
-                     obj.HFreqEpochs = [];
-                     obj.fphaseEpochs = [];
-                     obj.frealEpochs = [];
-                 end
-                 %cyklus po kategoriich ne po epochach
-                 for katnum = kategorie' %potrebuji to v radcich
-                     Epochy = find(cell2mat(obj.epochData(:,2))==katnum); %seznam epoch v ramci kategorie ve sloupci 
-                     for epoch = Epochy' %potrebuji to v radcich
-                         izacatek = find(obj.tabs_orig==obj.epochData{epoch,3}); %najdu index podnetu, podle jeho timestampu. v tretim sloupci epochData jsou timestampy
-                         for ch=1:obj.channels
-                            baseline_mean = mean(obj.HFreq(izacatek + ibaseline(1) : izacatek+ibaseline(2)-1,ch,:),1); %baseline pro vsechny frekvencni pasma dohromady
-                            epoch_data = bsxfun(@minus,obj.HFreq(izacatek + iepochtime(1) : izacatek+iepochtime(2)-1,ch,:) , baseline_mean); %odecteni baseline pro aktualni epochu a kanal
+            if(~numel(obj.HFreq) > 0), return; end
+            % ted epochace vsech frekvencnich pasem zvlast, hlavne kvuli obrazkum
+            % prumer za kazdou kategorii, statistiku z toho delat nechci
+             iepochtime = round(epochtime(1:2).*obj.fs); %v poctu vzorku cas pred a po udalosti, prvni cislo je zaporne druhe kladne             
+             ibaseline =  round(baseline.*obj.fs); %v poctu vzorku cas pred a po udalosti
+             kategorie = cell2mat(obj.PsyData.P.strings.podminka(:,2)); %cisla karegorii ve sloupcich
+             Hfreq2 = zeros(iepochtime(2)-iepochtime(1), size(obj.d,2), numel(obj.Hfmean),size(kategorie,1)); %nova epochovana data time x channel x freq x kategorie=podminka
+             if freqepochs
+                 obj.HFreqEpochs = zeros(iepochtime(2)-iepochtime(1),size(obj.HFreq,2),size(obj.HFreq,3),obj.epochs); % time x channel x frequency x epoch
+                 obj.fphaseEpochs = zeros(iepochtime(2)-iepochtime(1),size(obj.HFreq,2),size(obj.HFreq,3),obj.epochs); % time x channel x frequency x epoch
+                 obj.frealEpochs = zeros(iepochtime(2)-iepochtime(1),size(obj.HFreq,2),size(obj.HFreq,3),obj.epochs); % time x channel x frequency x epoch
+             else
+                 obj.HFreqEpochs = [];
+                 obj.fphaseEpochs = [];
+                 obj.frealEpochs = [];
+             end
+             %cyklus po kategoriich ne po epochach
+             for katnum = kategorie' %potrebuji to v radcich
+                 Epochy = find(cell2mat(obj.epochData(:,2))==katnum); %seznam epoch v ramci kategorie ve sloupci 
+                 for epoch = Epochy' %potrebuji to v radcich
+                     izacatek = find(obj.tabs_orig==obj.epochData{epoch,3}); %najdu index podnetu, podle jeho timestampu. v tretim sloupci epochData jsou timestampy
+                     for ch=1:obj.channels
+                        baseline_mean = mean(obj.HFreq(izacatek + ibaseline(1) : izacatek+ibaseline(2)-1,ch,:),1); %baseline pro vsechny frekvencni pasma dohromady
+                        epoch_data = bsxfun(@minus,obj.HFreq(izacatek + iepochtime(1) : izacatek+iepochtime(2)-1,ch,:) , baseline_mean); %odecteni baseline pro aktualni epochu a kanal
 
-                            if freqepochs
-                                obj.HFreqEpochs(:,ch,:,epoch) = epoch_data; 
-                                if isprop(obj,'fphase') && ~isempty(obj.fphase)
-                                    obj.fphaseEpochs(:,ch,:,epoch) = obj.fphase(izacatek + iepochtime(1) : izacatek + iepochtime(2)-1, ch, :);
-                                end
-                                
-                                if isprop(obj,'freal') && ~isempty(obj.freal)
-                                    obj.frealEpochs(:,ch,:,epoch) = obj.freal(izacatek + iepochtime(1) : izacatek + iepochtime(2)-1, ch, :);
-                                end
-
+                        if freqepochs
+                            obj.HFreqEpochs(:,ch,:,epoch) = epoch_data; 
+                            if isprop(obj,'fphase') && ~isempty(obj.fphase)
+                                obj.fphaseEpochs(:,ch,:,epoch) = obj.fphase(izacatek + iepochtime(1) : izacatek + iepochtime(2)-1, ch, :);
                             end
-                            Hfreq2(:,ch,:,katnum+1) = Hfreq2(:,ch,:,katnum+1) + epoch_data; %soucet power pro kategorii, pres prislusne epochy
-                            %tady se mi to mozna odecetlo blbe? KOntrola
-                         end
+
+                            if isprop(obj,'freal') && ~isempty(obj.freal)
+                                obj.frealEpochs(:,ch,:,epoch) = obj.freal(izacatek + iepochtime(1) : izacatek + iepochtime(2)-1, ch, :);
+                            end
+
+                        end
+                        Hfreq2(:,ch,:,katnum+1) = Hfreq2(:,ch,:,katnum+1) + epoch_data; %soucet power pro kategorii, pres prislusne epochy
+                        %tady se mi to mozna odecetlo blbe? KOntrola
                      end
-                     Hfreq2(:,:,:,katnum+1) = Hfreq2(:,:,:,katnum+1)./numel(Epochy); %prumer pred epochy - soucet podelim prumerem
-                 end             
-                 obj.HFreq = Hfreq2;
-            end
+                 end
+                 Hfreq2(:,:,:,katnum+1) = Hfreq2(:,:,:,katnum+1)./numel(Epochy); %prumer pred epochy - soucet podelim prumerem
+             end             
+             obj.HFreq = Hfreq2;
         end
         
+        %% Function description??
         function GetITPC(obj)
             assert(obj.epochs > 1, 'data musi byt epochovana');
             PN = CPlotsN(obj);
@@ -222,8 +232,8 @@ classdef CHilbert < CiEEGData
                 stat = itpc_pmean(:,obj.Wp(obj.WpActive).kats(k)+1,abs(iepochtime(1)-ibaseline(2))+1 : end ); %vsechny hodnoty po konci baseline  
                 obj.Wp(obj.WpActive).WpKatBaseline{k,1} = permute(squeeze(stat),[2 1]); %chci mit rozmer time x ch
                 %TODO pridat FDR korekci
-                %pridat korekci na podminky, nebo jinou kterou navrhuje Cohen? Korekce pro cas neni potreba, pocita se to podle hladiny, ktera je zavisla na poctu epoch. 
-                
+                %pridat korekci na podminky, nebo jinou kterou navrhuje Cohen? 
+                % Korekce pro cas neni potreba, pocita se to podle hladiny, ktera je zavisla na poctu epoch. 
                 %obj.Wp(obj.WpActive).WpKatBaseline{w} = ones(size(obj.Wp(obj.WpActive).WpKatBaseline{w}));
             end            
             
@@ -241,6 +251,7 @@ classdef CHilbert < CiEEGData
             fprintf('done\n');
         end
         
+        %% Function description???
         function obj = Decimate(obj,podil,rtrim)
             %zmensi frekvencni data na nizsi vzorkovaci frekvenci
             if ~exist('rtrim','var') || isempty(rtrim), rtrim = []; end 
@@ -275,84 +286,82 @@ classdef CHilbert < CiEEGData
             end
         end
         
-        % Missing description
-        
-        function obj = PlotResponseFreq(obj,ch,kategories)
-            %uchovani stavu grafu, abych ho mohl obnovit a ne kreslit novy
-            if ~exist('ch','var')
-                if isfield(obj.plotF,'ch'), ch =  obj.CH.sortorder(obj.plotF.ch); %vytahnu cislo kanalu podle ulozeneho indexu
+        %% Function description??
+        % ch: -------
+        % categories: ------
+        function obj = PlotResponseFreq(obj, ch, categories)
+            % uchovani stavu grafu, abych ho mohl obnovit a ne kreslit novy
+            if ~exist('ch', 'var')
+                % vytahnu cislo kanalu podle ulozeneho indexu
+                if isfield(obj.plotF, 'ch'), ch = obj.CH.sortorder(obj.plotF.ch);
                 else, obj.plotF.ch = 1; ch =  obj.CH.sortorder(1); end
             else
                 obj.plotF.ch = ch; %tady bude ulozeny index sortorder, parametr ch urcuje index v sortorder
-                ch =  obj.CH.sortorder(ch); %promenna ch uz urcuje skutecne cislo kanalu
+                ch = obj.CH.sortorder(ch); %promenna ch uz urcuje skutecne cislo kanalu
             end
             
-            if ~exist('kategories','var')
-                if isfield(obj.Wp(obj.WpActive), 'kats')
-                    kategories = obj.Wp(obj.WpActive).kats; 
-                elseif isfield(obj.plotF,'kategories')
-                    kategories = obj.plotF.kategories;
+            if ~exist('categories', 'var')
+                if isfield(obj.Wp(obj.WpActive), 'kats'), categories = obj.Wp(obj.WpActive).kats; 
+                elseif isfield(obj.plotF, 'categories'), categories = obj.plotF.kategories;
                 else
-                    kategories = obj.PsyData.Categories(); 
-                    obj.plotF.kategories = kategories;
+                    categories = obj.PsyData.Categories(); 
+                    obj.plotF.kategories = categories;
                 end
             else
-                obj.plotF.kategories = kategories;
+                obj.plotF.kategories = categories;
             end
             
-            if isfield(obj.plotF,'fh') && ishandle(obj.plotF.fh)
+            if isfield(obj.plotF, 'fh') && ishandle(obj.plotF.fh)
                 figure(obj.plotF.fh); %pouziju uz vytvoreny graf
                 %clf(obj.plotF.fh); %graf vycistim
             else
-                obj.plotF.fh = figure('Name','ResponseFreq','Position', [20, 500, 1200, 300]);
-                colormap jet; %aby to bylo jasne u vsech verzi matlabu - i 2016
-            end   
+                obj.plotF.fh = figure('Name', 'ResponseFreq', 'Position', [20, 500, 1200, 300]);
+                colormap jet;
+            end
             
             maxy = 0;
             miny = 0;
-            for k = 1:numel(kategories)
-                subplot(1,numel(kategories),k);
+            for k = 1:numel(categories)
+                subplot(1,numel(categories),k);
                 T = obj.epochtime(1):0.1:obj.epochtime(2);
                 F =  obj.Hfmean;
-                if iscell(kategories(k))                    
-                    dd = zeros(size(obj.HFreq,1),size(obj.HFreq,3),numel(kategories{k}));
-                    for ikat = 1:numel(kategories{k})
-                        dd(:,:,ikat) = squeeze(obj.HFreq(:,ch,:,kategories{k}(ikat)+1));
+                if iscell(categories(k))                    
+                    dd = zeros(size(obj.HFreq,1), size(obj.HFreq,3), numel(categories{k}));
+                    for ikat = 1:numel(categories{k})
+                        dd(:,:,ikat) = squeeze(obj.HFreq(:,ch,:, categories{k}(ikat)+1));
                     end
                     D = mean(dd,3);
                 else
-                    D = squeeze(obj.HFreq(:,ch,:,kategories(k)+1));
+                    D = squeeze(obj.HFreq(:,ch,:,categories(k)+1));
                 end
                 imagesc(T,F, D');
                 maxy = max([maxy max(max( D ))]);
-                miny = min([miny min(min( D ))]);                
-                axis xy;               
-                xlabel('time [s]');                
+                miny = min([miny min(min( D ))]);
+                axis xy;
+                xlabel('time [s]');
             end
-            if isfield(obj.plotF,'ylim') && numel(obj.plotF.ylim)>=2 %nactu nebo ulozim hodnoty y
+            if isfield(obj.plotF, 'ylim') && numel(obj.plotF.ylim) >= 2 %nactu nebo ulozim hodnoty y
                 miny = obj.plotF.ylim(1); maxy = obj.plotF.ylim(2);
             else
                 obj.plotF.ylim = [miny maxy];
             end
-            for k = 1:numel(kategories)
-                subplot(1,numel(kategories),k);
-                caxis([miny,maxy]);               
-                title( obj.PsyData.CategoryName(cellval(kategories,k)));
+            for k = 1:numel(categories)
+                subplot(1,numel(categories),k);
+                caxis([miny,maxy]);
+                title( obj.PsyData.CategoryName(cellval(categories, k)));
                 if k == 1
                     chstr = iff(isempty(obj.CH.sortedby),num2str(ch), [ num2str(ch) '(' obj.CH.sortedby  num2str(obj.plotF.ch) ')' ]);
-                    ylabel(['channel ' chstr ' - freq [Hz]']); 
+                    ylabel(['channel ' chstr ' - freq [Hz]']);
                     if isprop(obj,'plotRCh') && isfield(obj.plotRCh,'selCh') && any(obj.plotRCh.selCh(ch,:),2)==1        
                         klavesy = 'fghjkl'; %abych mohl vypsat primo nazvy klaves vedle hvezdicky podle selCh
                         text(0,obj.Hf(1),['*' klavesy(logical(obj.plotRCh.selCh(ch,:)))], 'FontSize', 15,'Color','red');
                     end
                 end
-                
-                if k == numel(kategories), colorbar('Position',[0.92 0.1 0.02 0.82]); end
+                if k == numel(categories), colorbar('Position',[0.92 0.1 0.02 0.82]); end
             end
             
-            
             methodhandle = @obj.hybejPlotF;
-            set(obj.plotF.fh,'KeyPressFcn',methodhandle);             
+            set(obj.plotF.fh,'KeyPressFcn', methodhandle);
         end     
 
         %% SAVE AND LOAD FILE
