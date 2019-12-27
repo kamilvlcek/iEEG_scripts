@@ -1,9 +1,11 @@
 classdef CHilbert < CiEEGData
     %HILBERT.CLASS sbirka funkci na analyzu pomoci hilbert trasform
     %   Kamil Vlcek, FGU AVCR, since 2016 04
+    
     properties (Constant = true)
         decimatefactor = 8; %o kolik decimuju hiblertovu obalku oproti puvodi sampling rate; 2 je dostatecne konzervativni, 8 hodne setri pamet
     end
+    
     properties (Access = public)
         HFreq; %hilberova obalka pro kazde frekvenci pasmo - time x channel x freq (x kategorie)
         HFreqEpochs; %Hf bez priemerovania cez epochy - time x channel x frequency x epoch
@@ -16,8 +18,9 @@ classdef CHilbert < CiEEGData
         frealEpochs; % epochovane filtrovane eeg
         normalization; %typ normalizace
     end
-    methods (Access = public)
-        %% ELEMENTAL FUNCTIONS 
+    
+    % -------------- public instance methods -------------------------
+    methods (Access = public)  
         function obj = CHilbert(d,tabs,fs,mults,header)            
             if ~exist('header','var'), header = []; end %nejakou hodnotu dat musim
             if ~exist('mults','var'),  mults = []; end %nejakou hodnotu dat musim
@@ -48,7 +51,7 @@ classdef CHilbert < CiEEGData
             %   freq    seznam freqvenci pro ktere se ma delat prumer - lo, .., ..., .., hi
             if ~exist('channels','var') || isempty(channels), channels = 1:obj.channels; end
             if ~exist('prekryv','var'), prekryv = 0; end %kolik se maji prekryvat sousedni frekvencni pasma, napriklad 0.5
-            if ~exist('decimatefactor','var') || isempty(decimatefactor), decimatefactor = obj.decimatefactor; end; %volitelny parametr decimatefactor 
+            if ~exist('decimatefactor','var') || isempty(decimatefactor), decimatefactor = obj.decimatefactor; end %volitelny parametr decimatefactor 
             samples = ceil(obj.samples/decimatefactor); 
             disp(['vytvarim pole ' num2str(samples) 'x' num2str(obj.channels) 'x' num2str(numel(freq)-1) ... 
                 '=' num2str(samples*obj.channels*(numel(freq)-1)*8/1024/1024) ' MBytes']); %zpravu abych vedel, v jakych velikostech se pohybuju
@@ -59,8 +62,8 @@ classdef CHilbert < CiEEGData
             fs = obj.fs; %jen kvuli parfor  
             fnocyclenum = numel(freq)-1; %kvuli parfor, aby jasny pocet cyklu
             for ch = channels %jednotlive elektrody 
-                % outer parfor mi zatim nefunguje, hrozne pameti se nacetlo (d se asi ze ctyrnasobilo pro 4 workers) a pak to vyhodilo chybu:
-                  
+                % outer parfor mi zatim nefunguje, hrozne pameti se nacetlo 
+                % (d se asi ze ctyrnasobilo pro 4 workers) a pak to vyhodilo chybu:
                 %fprintf('channel %i: Hz ',ch);                         
                 fprintf('%i,',ch); 
                 d = obj.d(:,ch);
@@ -128,10 +131,10 @@ classdef CHilbert < CiEEGData
             obj.normalization = type; %pro zpetnou referenci
         end
         
+        % rozdeli hilbertovu obalku podle epoch
+        % i u ni odecte baseline pred podnetem
+        % freqepochs - urcuje jestli ukladat freq pasma pro vsechny epochy do pole obj.HFreqEpochs
         function obj = ExtractEpochs(obj, PsyData,epochtime,baseline,freqepochs)
-            % rozdeli hilbertovu obalku podle epoch
-            % i u ni odecte baseline pred podnetem
-            % freqepochs - urcuje jestli ukladat freq pasma pro vsechny epochy do pole obj.HFreqEpochs
             if ~exist('baseline','var') || isempty(baseline), baseline = [epochtime(1) 0]; end %defaultni baseline je do 0 sec
             if ~exist('freqepochs','var') || isempty(freqepochs), freqepochs = 0; end %defaultne se neukladaji frekvencni pasma pro vsechny epochy
             ExtractEpochs@CiEEGData(obj,PsyData, epochtime,baseline); %to mi zepochuje prumernou obalku za frekvencni pasma v poli d
@@ -180,6 +183,7 @@ classdef CHilbert < CiEEGData
                  obj.HFreq = Hfreq2;
             end
         end
+        
         function GetITPC(obj)
             assert(obj.epochs > 1, 'data musi byt epochovana');
             PN = CPlotsN(obj);
@@ -236,6 +240,7 @@ classdef CHilbert < CiEEGData
             end
             fprintf('done\n');
         end
+        
         function obj = Decimate(obj,podil,rtrim)
             %zmensi frekvencni data na nizsi vzorkovaci frekvenci
             if ~exist('rtrim','var') || isempty(rtrim), rtrim = []; end 
@@ -269,6 +274,8 @@ classdef CHilbert < CiEEGData
                 end
             end
         end
+        
+        % Missing description
         
         function obj = PlotResponseFreq(obj,ch,kategories)
             %uchovani stavu grafu, abych ho mohl obnovit a ne kreslit novy
@@ -346,8 +353,7 @@ classdef CHilbert < CiEEGData
             
             methodhandle = @obj.hybejPlotF;
             set(obj.plotF.fh,'KeyPressFcn',methodhandle);             
-        end 
-        
+        end     
 
         %% SAVE AND LOAD FILE
         %dve funkce na ulozeni a nacteni vypocitane Hilbertovy obalky, protoze to trva hrozne dlouho
@@ -560,7 +566,9 @@ classdef CHilbert < CiEEGData
             end            
         end
         
-    end 
+    end
+    
+    % ---------- static methods -----------------------
     methods (Static,Access = public)
         function filename2 = filenameE(filename)
             %vraci jmeno souboru s daty tridy CiEEGData
