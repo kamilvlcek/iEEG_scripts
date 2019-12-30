@@ -434,7 +434,6 @@ classdef CHilbert < CiEEGData
         end 
         
         function [filename,basefilename] = ExtractData(obj,chns,label,overwrite)
-            %ExtractData(obj,chns,filename)
             %vytvori data z vyberu elektrod, pro sdruzeni elektrod pres vsechny pacienty. 
             %pole d, tabs, RjEpochCh a header H
             %jen epochovana data, bipolarni reference
@@ -479,10 +478,14 @@ classdef CHilbert < CiEEGData
                 Hf = obj.Hf; %#ok<PROPLC> 
                 Hfmean = obj.Hfmean;  %#ok<PROPLC> 
                 if isempty(Hfmean), Hfmean = (Hf(1:end-1) + Hf(2:end)) ./ 2; end %#ok<PROPLC,NASGU>             
-                HFreq = obj.HFreq(:,chns,:,:); %#ok<PROPLC,NASGU>  %time x channel x freq (x kategorie)            
+                HFreq = obj.HFreq(:,chns,:,:); %#ok<PROPLC,NASGU>  %time x channel x freq (x kategorie)             
                 Wp = obj.Wp;  %#ok<NASGU>  %exportuju statistiku
                 reference = obj.reference; %#ok<NASGU>  %exportuju referenci
                 save(filename,'d','tabs','tabs_orig','fs','P','epochtime','baseline','RjEpochCh','RjEpoch','epochData','DatumCas','H','Hf','Hfmean','HFreq','Wp','reference','-v7.3'); 
+                if isprop(obj,'HFreqEpochs') %pokud jsem ukladal vsechny epochy ze vsech frekvenci
+                    HFreqEpochs = obj.HFreqEpochs(:,chns,:,:); %#ok<NASGU,PROPLC> % time x channel x frequency x epoch
+                    save(filename,'HFreqEpochs','-append'); %pridam k existujicimu souboru 
+                end
                 disp(['extract saved to "' basefilename '"']);
             else
                 disp(['extract already exists, skipped: "' basefilename '"']);
