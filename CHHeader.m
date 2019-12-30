@@ -595,9 +595,14 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
 %         function obj = SaveAUCPlotHandle(obj,fh) 
 %             obj.plotCh2D.plotAUCH = fh; %ulozim handle na CStat.AUCPlot funkci,abych ji mohl volat z grafu ChannelPlot2D
 %         end
-        function tag= PacientTag(obj)
+        function tag= PacientTag(obj,ch)
             %vraci tag pacienta, napriklad p73
-            if isfield(obj.H,'patientTag'), tag = obj.H.patientTag; else, tag=obj.H.subjName; end
+            if strcmp(obj.classname,'CHilbertMulti') && exist('ch','var') && ch > 0
+                str = split(obj.H.channels(ch).name);
+                tag = str{1}; %pokud se jedna o CHilbertMulti a zadam cislo kanalu, vracim cislo pacienta z tohoto kanalu
+            else
+                if isfield(obj.H,'patientTag'), tag = obj.H.patientTag; else, tag=obj.H.subjName; end
+            end
         end
         function [MNI_coors]= GetMNI(obj,channels)   
             %vraci koordinaty MNI pro Jirkovy skripty na SEEG-vizualizaci
@@ -1201,7 +1206,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                       obj.plotCh2D.lines = obj.plotCh2D.lines + 1;
                       if obj.plotCh2D.lines == 2, obj.plotCh2D.lines = -1; end %hodnoty -1 0 1, -1=nezobrazovat neoznacene kanaly, 0=nezobrazovat cary, 1=zobrazovat
                       obj.ChannelPlot2D();
-                  case 't' %barvy oznaceni kanalu fghhjkl jsou pruhledne nebo ne
+                  case 't' %barvy oznaceni kanalu fghjkl jsou pruhledne nebo ne
                       obj.plotCh2D.transparent = 1-obj.plotCh2D.transparent;
                       obj.ChannelPlot2D();
                   case 'c' %prepinani index barevne skaly
