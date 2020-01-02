@@ -894,27 +894,53 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             end
             
         end
-        function obj = BrainLabelsImport(obj,brainlbs)
+        function obj = BrainLabelsImport(obj,brainlbs,filename)
             %naimportuje cell array do struct array. Hlavne kvuli tomu, ze v cell array nemusi byt vsechny kanaly
             %predpoklada ctyri cloupce - cislo kanalu, brainclass	brainlabel	lobe
-            BL = struct('class',{},'label',{},'lobe',{}); %empty struct with 3 fields
-            for j = 1:size(brainlbs,1)
-                BL(brainlbs{j,1}).class = brainlbs{j,2};
-                BL(brainlbs{j,1}).label = brainlbs{j,3};
-                BL(brainlbs{j,1}).lobe = brainlbs{j,4};
+            %filename - jmeno CHilbertMulti _CiEEG.mat souboru, ze ktereho se maji brainlabels najit podle jmen kanalu
+            
+            if isempty(brainlbs) && exist('filename','var')
+                 assert(exist(filename,'file')==2,'soubor filename neexistuje');
+                 vars = whos('-file',filename) ;
+                 assert(ismember('CH_H', {vars.name}), 'soubor neobsahuje promennou H'); 
+                 assert(ismember('CH_brainlabels', {vars.name}), 'soubor neobsahuje promennou brainlabels'); 
+                 CH = load(filename,'CH_H','CH_brainlabels'); %nactu do struktury
+                 names = {CH.CH_H.channels.name};
+                 loaded = 0; %pocet nactenych kanalu
+                 for ch = 1:numel(obj.H.channels)
+                     idx = find(ismember(names,obj.H.channels(ch).name));
+                     if ~isempty(idx)
+                        obj.brainlabels(ch).class = CH.CH_brainlabels(idx).class;
+                        obj.brainlabels(ch).label = CH.CH_brainlabels(idx).label;
+                        obj.brainlabels(ch).lobe = CH.CH_brainlabels(idx).lobe;
+                        loaded = loaded + 1;
+                     end 
+                 end
+                 disp(['loaded brainlabels of ' num2str(loaded) ' channels']);
+            else
+                %BL = struct('class',{},'label',{},'lobe',{}); %empty struct with 3 fields
+                %nechci mazat ty existujici, to muzu kdyz tak udelat rucne
+                for j = 1:size(brainlbs,1)
+                    obj.brainlabels(brainlbs{j,1}).class = brainlbs{j,2};
+                    obj.brainlabels(brainlbs{j,1}).label = brainlbs{j,3};
+                    obj.brainlabels(brainlbs{j,1}).lobe = brainlbs{j,4};
+                end    
+                %obj.brainlabels = BL;
             end
+            %chci mit vsude string, zadne prazdne, kvuli exportu. Takze prazdna nahradim mezerou
+            BL = obj.brainlabels';
             emptyIndex = find(arrayfun(@(BL) isempty(BL.class),BL)); %nasel jsem https://www.mathworks.com/matlabcentral/answers/328326-check-if-any-field-in-a-given-structure-is-empty
-            for j = emptyIndex
+            for j = emptyIndex'
                 BL(j).class = ' '; %nejaky znak asi musim vlozit
             end
             emptyIndex = find(arrayfun(@(BL) isempty(BL.label),BL)); %nasel jsem https://www.mathworks.com/matlabcentral/answers/328326-check-if-any-field-in-a-given-structure-is-empty
-            for j = emptyIndex
+            for j = emptyIndex'
                 BL(j).label = ' ';
             end
             emptyIndex = find(arrayfun(@(BL) isempty(BL.lobe),BL)); %nasel jsem https://www.mathworks.com/matlabcentral/answers/328326-check-if-any-field-in-a-given-structure-is-empty
-            for j = emptyIndex
+            for j = emptyIndex'
                 BL(j).lobe = ' ';
-            end
+            end  
             obj.brainlabels = BL;
         end
         function obj = RemoveChannels(obj,channels)  
@@ -928,15 +954,14 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             
             obj.H.channels = obj.H.channels(keepch);
             obj.H.selCh_H = channelmap(setdiff(obj.H.selCh_H,channels,'stable')); %keep the order             
-            %kanaly musim precislovat, napriklad z 11 se ma stat 4 atd
-            %TODO tohle funguje, jen kdyz tam jsou vsechny
+            %kanaly musim precislovat, napriklad z 11 se ma stat 4 atd            
             obj.sortorder = channelmap(setdiff(obj.sortorder,channels,'stable')); %cisla 1:n v poradi puvodniho sortorder   
             if isprop(obj,'plotCh2D') && isfield(obj.plotCh2D,'chshow')
                 obj.plotCh2D.chshow = channelmap(setdiff(obj.plotCh2D.chshow,channels,'stable')); 
                 obj.plotCh2D.ch_displayed = channelmap(setdiff(obj.plotCh2D.ch_displayed,channels,'stable')); 
             end
             
-            
+            %TODO - vyradit i radky z obj.brainlabels
             obj.filterMatrix = obj.filterMatrix(:,keepch'); 
             for j = 1:numel(obj.els)
                 if j == 1
@@ -954,6 +979,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 obj.chgroups{j} = channelmap(setdiff( obj.chgroups{j},channels,'stable'));
             end
         end
+        
     end
     
     %  --------- privatni metody ----------------------
