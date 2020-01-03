@@ -241,14 +241,14 @@ classdef CHilbert < CiEEGData
             
             for d = 1:size(diffs,1)
                 stat = squeeze(ditpc_p(:,diffs(d,1),diffs(d,2),abs(iepochtime(1)-ibaseline(2))+1 : end,:));
-                [~,iminp] = min(mean(stat,2),[],3);  %mean pres cas, min pres frekvence              
-                stat2 = zeros(size(stat,1),size(stat,2));
+                [~,iminp] = min(mean(stat,2),[],3); % mean pres cas, min pres frekvence
+                stat2 = zeros(size(stat, 1), size(stat, 2));
                 for ch = 1:size(stat,1)
-                    stat2(ch,:) = stat(ch,:,iminp(ch));
+                    stat2(ch,:) = stat(ch, :, iminp(ch));
                 end
                 obj.Wp(obj.WpActive).WpKat{diffs(d,1),diffs(d,2)} = permute(stat2,[2 1]);  %chci mit rozmer time x ch 
-                %obj.Wp(obj.WpActive).WpKat{w} = ones(size(obj.Wp(obj.WpActive).WpKat{w}));    
-                %TODO - kontrola - vracet frekvence s maximalni signif a do d ukladat ne prumer ale tu frekvenci
+                % obj.Wp(obj.WpActive).WpKat{w} = ones(size(obj.Wp(obj.WpActive).WpKat{w}));    
+                % TODO - kontrola - vracet frekvence s maximalni signif a do d ukladat ne prumer ale tu frekvenci
             end
             fprintf('done\n');
         end
@@ -257,24 +257,24 @@ classdef CHilbert < CiEEGData
         function obj = Decimate(obj, podil, rtrim)
             %zmensi frekvencni data na nizsi vzorkovaci frekvenci
             if ~exist('rtrim','var') || isempty(rtrim), rtrim = []; end 
-            Decimate@CiEEGData(obj,podil,rtrim);
-            if obj.decimatefactor == 1 %zatim pouzivam pouze, pokud nejsou data uz decimovana vuci CiEEGdata
-                fprintf('channels to decimate HFreq (z %i):',numel(obj.channels));
-                HFreq = zeros(ceil(size(obj.HFreq,1)/podil) , size(obj.HFreq,2), size(obj.HFreq,3),size(obj.HFreq,4));  %#ok<PROPLC>
+            Decimate@CiEEGData(obj, podil, rtrim);
+            if obj.decimatefactor == 1 % zatim pouzivam pouze, pokud nejsou data uz decimovana vuci CiEEGdata
+                fprintf('channels to decimate HFreq (z %i):', numel(obj.channels));
+                HFreq = zeros(ceil(size(obj.HFreq, 1)/podil), size(obj.HFreq, 2), size(obj.HFreq,3), size(obj.HFreq, 4));  %#ok<PROPLC>
                 if ~isempty(obj.HFreqEpochs)
-                    HFreqEpochs = zeros(ceil(size(obj.HFreq,1)/podil) , size(obj.HFreq,2), size(obj.HFreq,3),obj.epochs); %#ok<PROPLC>
+                    HFreqEpochs = zeros(ceil(size(obj.HFreq,1)/podil), size(obj.HFreq,2), size(obj.HFreq,3),obj.epochs); %#ok<PROPLC>
                 else
                     HFreqEpochs = []; %#ok<PROPLC>
                 end
                 for ch = 1:obj.channels                    
-                    fprintf('%i, ',ch);
-                    for f = 1:size(obj.HFreq,3) %pocet frekvencnich pasem
-                       for kat = 1:size(obj.HFreq,4) %pocet kategorii podnetu     
-                            HFreq(:,ch,f,kat) = decimate(obj.HFreq(:,ch,f,kat),podil); %#ok<PROPLC>                            
+                    fprintf('%i, ', ch);
+                    for f = 1:size(obj.HFreq, 3) %pocet frekvencnich pasem
+                       for kat = 1:size(obj.HFreq, 4) %pocet kategorii podnetu
+                            HFreq(:, ch, f, kat) = decimate(obj.HFreq(:, ch, f, kat), podil); %#ok<PROPLC>                            
                        end
                        if ~isempty(obj.HFreqEpochs)
                        for ep = 1:obj.epochs %frekvencni data se vsemi epochami
-                            HFreqEpochs(:,ch,f,ep) = decimate(obj.HFreqEpochs(:,ch,f,ep),podil); %#ok<PROPLC>    
+                            HFreqEpochs(:,ch,f,ep) = decimate(obj.HFreqEpochs(:, ch, f, ep), podil); %#ok<PROPLC>    
                        end
                        end
                     end                    
@@ -297,21 +297,21 @@ classdef CHilbert < CiEEGData
             if ~exist('ch', 'var'), ch = []; end
             if ~exist('categories', 'var'), categories = []; end
            
-            obj.PreparePlotPowerTime(ch, categories);
-            % Shouldn't the Ch be obj.plotF.ch?? - WHAT IS THE
+            obj.prepareplotcategoriespowertime(ch, categories);
+            % Shouldn't the Ch be obj.plotF.ch? - WHAT IS THE
             % DIFFERENCE? the CHHeader has it as a field not afunction
             % and thus it is very difficult to unravel :(
             % The original function has the ch in plotF.ch, but uses the
             % obj.CH.sortorder(ch) to plot things - don't fully understand
             % if that is correct
-            obj.PlotCategoriesPowerTime(obj.CH.sortorder(ch), obj.plotF.kategories);
-            obj.PlotLabels(obj.CH.sortorder(ch), obj.plotF.kategories);
+            obj.plotcategoriespowertime(obj.CH.sortorder(ch), obj.plotF.kategories);
+            obj.plotlabels(obj.CH.sortorder(ch), obj.plotF.kategories);
             set(obj.plotF.fh, 'KeyPressFcn', @obj.hybejPlotF);
         end
         
         % Buffering of the plot or taking settings from saved structs
         % if we are only redrawing existing plots
-        function obj = PreparePlotPowerTime(obj, ch, categories)
+        function obj = prepareplotcategoriespowertime(obj, ch, categories)
             if ~numel(ch) == 0 && ~isfield(obj.plotF, 'ch'), obj.plotF.ch = 1;
             else, obj.plotF.ch = ch; end
             
@@ -333,12 +333,9 @@ classdef CHilbert < CiEEGData
         end
         
         % TODO - deprecate option to pass cells into categories
-        function obj = PlotCategoriesPowerTime(obj, ch, categories)
-             [miny, maxy] = obj.GetPlotYLimit();
+        function obj = plotcategoriespowertime(obj, ch, categories)
+             [miny, maxy] = obj.getplotylimit();
              for k = 1:numel(categories)
-                subplot(1, numel(categories), k);
-                T = obj.epochtime(1):0.1:obj.epochtime(2);
-                F =  obj.Hfmean;
                 % QUESTION - If I pass it a cell I'd expect the
                 % cell to contain NAMES of categories, but that is not what
                 % is happening. The categories are not taken as strings,
@@ -355,7 +352,9 @@ classdef CHilbert < CiEEGData
                 else
                     D = obj.averageenvelopes(ch, categories(k));
                 end
-                imagesc(T, F, D');
+                subplot(1, numel(categories), k);
+                T = obj.epochtime(1):0.1:obj.epochtime(2);
+                imagesc(T, obj.Hfmean, D');
                 maxy = max([maxy max(D(:))]); miny = min([miny min(D(:))]);
                 axis xy;
                 xlabel('time [s]');   
@@ -363,8 +362,8 @@ classdef CHilbert < CiEEGData
             obj.plotF.ylim = [miny maxy];
         end
         
-        function obj = PlotLabels(obj, ch, categories)
-            [miny, maxy] = obj.GetPlotYLimit();
+        function obj = plotlabels(obj, ch, categories)
+            [miny, maxy] = obj.getplotylimit();
             for k = 1:numel(categories)
                 subplot(1, numel(categories), k);
                 caxis([miny, maxy]);
@@ -387,7 +386,7 @@ classdef CHilbert < CiEEGData
             end
         end
                 
-        function [miny, maxy] = GetPlotYLimit(obj)
+        function [miny, maxy] = getplotylimit(obj)
              if isfield(obj.plotF, 'ylim') && numel(obj.plotF.ylim) >= 2
                 miny = obj.plotF.ylim(1); maxy = obj.plotF.ylim(2);
              else
@@ -396,6 +395,7 @@ classdef CHilbert < CiEEGData
         end
         
         %% Getters
+        % QUESTION - not sure why we add 1 to the categories
         % returns contents for hfreq for given set of channels and
         % categories
         % channels: array of channels. eg. [1, 5, 20]
