@@ -339,7 +339,7 @@ classdef CHilbert < CiEEGData
                 subplot(1, numel(categories), k);
                 T = obj.epochtime(1):0.1:obj.epochtime(2);
                 F =  obj.Hfmean;
-                % TODO - This is WEIRD. If I pass it a cell I'd expect the
+                % QUESTION - If I pass it a cell I'd expect the
                 % cell to contain NAMES of categories, but that is not what
                 % is happening. The categories are not taken as strings,
                 % and are not correlated to obj.PsyData.Category name.
@@ -348,12 +348,12 @@ classdef CHilbert < CiEEGData
                 if iscell(categories(k))                    
                     dd = zeros(size(obj.HFreq, 1), size(obj.HFreq, 3), numel(categories{k}));
                     for ikat = 1:numel(categories{k})
-                        dd(:, :, ikat) = squeeze(obj.HFreq(:, ch, :, categories{k}(ikat) + 1));
+                        dd(:, :, ikat) = squeeze(obj.getenvelopes(ch, categories{k}(ikat)));
                     end
-                    % WHY IS THIS AVERAGING?
+                    % QUESTION - WHY IS THIS AVERAGING?
                     D = mean(dd, 3);
                 else
-                    D = squeeze(obj.HFreq(:, ch, :, categories(k) + 1));
+                    D = squeeze(obj.getenvelopes(ch, categories(k)));
                 end
                 imagesc(T, F, D');
                 maxy = max([maxy max(D(:))]); miny = min([miny min(D(:))]);
@@ -391,6 +391,26 @@ classdef CHilbert < CiEEGData
                 miny = 0; maxy = 0;
              end
         end
+        
+        %% Getters
+        % returns contents for hfreq for given set of channels and
+        % categories
+        % channels: array of channels. eg. [1, 5, 20]
+        % categories: array of categories. eg. [1,3]
+        % RETURN: matrix [time x channel x frequency x category]
+        function envelopes = getenvelopes(obj, channels, categories)
+            envelopes = obj.HFreq(:, channels, :, categories + 1);
+        end
+        
+        % averages envelopes per channels and categories
+        % RETURN: matrix [time x frequency]
+        function envelopes = averageenvelopes(obj, channels, categories)
+            envelopes = obj.getenvelopes(channels, categories);
+            if numel(channels) >= 2, envelopes = mean(envelopes, 2); end
+            if numel(categories) >= 2, envelopes = mean(envelopes, 4); end
+            envelopes = squeeze(envelopes);
+        end
+        
         %% SAVE AND LOAD FILE
         %dve funkce na ulozeni a nacteni vypocitane Hilbertovy obalky, protoze to trva hrozne dlouho
         %uklada se vcetne dat parenta CiEEGData
@@ -607,7 +627,7 @@ classdef CHilbert < CiEEGData
     end
     
     % ---------- static methods -----------------------
-    methods (Static,Access = public)
+    methods (Static, Access = public)
         function filename2 = filenameE(filename)
            % vraci jmeno souboru s daty tridy CiEEGData
            filename=strrep(filename,'_CHilb',''); %odstranim pripony vytvorene pri save
@@ -629,7 +649,7 @@ classdef CHilbert < CiEEGData
     end
         
     %  --------- privatni metody ----------------------
-    methods (Static,Access = private)
+    methods (Static, Access = private)
         function [ freqPow ] = hilbertJirka(rawData, loF, hiF, srate)
             % HILBERTJIRKA hilbertJirka( rawData, loF, hiF, srate )
             %   vrati Power vybraneho frekvencniho pasma
@@ -701,4 +721,3 @@ classdef CHilbert < CiEEGData
         end       
      end
 end
-
