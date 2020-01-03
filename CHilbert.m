@@ -3,11 +3,13 @@ classdef CHilbert < CiEEGData
     %   Kamil Vlcek, FGU AVCR, since 2016 04
     
     properties (Constant = true)
-        decimatefactor = 8; %o kolik decimuju hiblertovu obalku oproti puvodi sampling rate; 2 je dostatecne konzervativni, 8 hodne setri pamet
+        % o kolik decimuju hiblertovu obalku oproti puvodi sampling rate; 
+        % 2 je dostatecne konzervativni, 8 hodne setri pamet
+        decimatefactor = 8;
     end
     
     properties (Access = public)
-        HFreq; %hilberova obalka pro kazde frekvenci pasmo - time x channel x freq (x kategorie)
+        HFreq; % hilberova obalka pro kazde frekvenci pasmo - time x channel x freq (x kategorie)
         HFreqEpochs; %Hf bez priemerovania cez epochy - time x channel x frequency x epoch
         fphaseEpochs; % epochovane fazy fphase ~HFreqEpochs
         Hf; %frekvencni pasma pro ktere jsou pocitany obalky - okraje pasem, pocet je tedy vetsi o 1 nez pocet spocitanych pasem
@@ -27,9 +29,9 @@ classdef CHilbert < CiEEGData
         % TODO - never actually ceccks for the filename existance
         % TODO constructor should be redone to basic constructor and to 
         % file loading separately - too many iffs
-        function obj = CHilbert(d,tabs,fs,mults,header)            
-            if ~exist('header','var'), header = []; end %nejakou hodnotu dat musim
-            if ~exist('mults','var'),  mults = []; end %nejakou hodnotu dat musim
+        function obj = CHilbert(d, tabs, fs, mults, header)            
+            if ~exist('header','var'), header = []; end
+            if ~exist('mults','var'),  mults = []; end
             if ~exist('d','var') || isempty(d) % konstruktor uplne bez parametru - kvuli CHilbertMulti
                 d = []; tabs = []; fs = [];
             % If the first param is a string, it is considered a filename
@@ -51,24 +53,24 @@ classdef CHilbert < CiEEGData
             end
         end        
         
-        %% DEscription??
-        function obj = PasmoFrekvence(obj,freq,channels,prekryv,decimatefactor)
+        %% Description??
+        function obj = PasmoFrekvence(obj, freq, channels, prekryv, decimatefactor)
             %EEG2HILBERT prevede vsechny kanaly na prumer hilbertovych obalek
             %   podle puvodni funkce EEG2Hilbert
             %   pouziva data d z parentu a take fs
             %   freq    seznam freqvenci pro ktere se ma delat prumer - lo, .., ..., .., hi
             if ~exist('channels','var') || isempty(channels), channels = 1:obj.channels; end
-            if ~exist('prekryv','var'), prekryv = 0; end %kolik se maji prekryvat sousedni frekvencni pasma, napriklad 0.5
-            if ~exist('decimatefactor','var') || isempty(decimatefactor), decimatefactor = obj.decimatefactor; end %volitelny parametr decimatefactor 
+            if ~exist('prekryv','var'), prekryv = 0; end % kolik se maji prekryvat sousedni frekvencni pasma, napriklad 0.5
+            if ~exist('decimatefactor', 'var') || isempty(decimatefactor), decimatefactor = obj.decimatefactor; end % volitelny parametr decimatefactor 
             samples = ceil(obj.samples/decimatefactor); 
             disp(['vytvarim pole ' num2str(samples) 'x' num2str(obj.channels) 'x' num2str(numel(freq)-1) ... 
-                '=' num2str(samples*obj.channels*(numel(freq)-1)*8/1024/1024) ' MBytes']); %zpravu abych vedel, v jakych velikostech se pohybuju
-            HFreq = zeros(samples,obj.channels,numel(freq)-1); %#ok<PROPLC> %inicializace pole   
-            timer = tic; %zadnu merit cas
-            fprintf('kanal ze %i: ', max(channels) );
-            freq1 = freq(2:end); %kvuli parfor, aby bylo konzistentni indexovani
-            fs = obj.fs; %jen kvuli parfor  
-            fnocyclenum = numel(freq)-1; %kvuli parfor, aby jasny pocet cyklu
+                '=' num2str(samples*obj.channels*(numel(freq) - 1)*8/1024/1024) ' MBytes']); % zpravu abych vedel, v jakych velikostech se pohybuju
+            HFreq = zeros(samples, obj.channels, numel(freq) - 1); % #ok<PROPLC> %inicializace pole   
+            timer = tic; % zadnu merit cas
+            fprintf('kanal ze %i: ', max(channels));
+            freq1 = freq(2:end); % kvuli parfor, aby bylo konzistentni indexovani
+            fs = obj.fs; % jen kvuli parfor  
+            fnocyclenum = numel(freq) - 1; % kvuli parfor, aby jasny pocet cyklu
             for ch = channels %jednotlive elektrody 
                 % outer parfor mi zatim nefunguje, hrozne pameti se nacetlo 
                 % (d se asi ze ctyrnasobilo pro 4 workers) a pak to vyhodilo chybu:
@@ -90,8 +92,8 @@ classdef CHilbert < CiEEGData
             toc(timer); %ukoncim mereni casu a vypisu, skore inner parfor=136s, for=175s
             obj.d = squeeze(mean(obj.HFreq,3)); %11.5.2016 - prepisu puvodni data prumerem
             obj.fs = obj.fs/decimatefactor;
-            obj.tabs = downsample(obj.tabs,decimatefactor);
-            obj.tabs_orig = downsample(obj.tabs_orig,decimatefactor); %potrebuju zdecimovat i druhy tabs. Orig znamena jen ze nepodleha epochovani
+            obj.tabs = downsample(obj.tabs, decimatefactor);
+            obj.tabs_orig = downsample(obj.tabs_orig, decimatefactor); %potrebuju zdecimovat i druhy tabs. Orig znamena jen ze nepodleha epochovani
             obj.Hf = freq;
             obj.Hfmean = (freq(1:end-1) + freq(2:end)) ./ 2;            
             obj.mults = ones(1,size(obj.d,2)); %nove pole uz je double defaultove jednicky pro kazdy kanal
@@ -222,7 +224,7 @@ classdef CHilbert < CiEEGData
                epochData2(k,:) = obj.epochData(ikat,:);
             end
             obj.epochData = epochData2;
-            %smazu statistiku, aby nebyla na obrazcich
+            % smazu statistiku, aby nebyla na obrazcich
             EEEGStat = CEEGStat(obj.d,obj.fs);
             baseline = EEEGStat.Baseline(obj.epochtime,obj.baseline);
             ibaseline = round(baseline.*obj.fs);       
@@ -294,26 +296,32 @@ classdef CHilbert < CiEEGData
             if ~exist('categories', 'var'), categories = []; end
            
             obj.PreparePlotPowerTime(ch, categories);
+            % SHouldn't the Ch be obj.plotF.ch?? - WHAT IS THE
+            % DIFFERENCE? the CHHeader has it as a field not afunction
+            % and thus it is very difficult to unravel :(
+            % The original function has the ch in plotF.ch, but uses the
+            % obj.CH.sortorder(ch) to plot things - don't fully understand
+            % if that is correct
             obj.PlotCategoriesPowerTime(obj.CH.sortorder(ch), obj.plotF.kategories);
             obj.PlotLabels(obj.CH.sortorder(ch), obj.plotF.kategories);
             set(obj.plotF.fh, 'KeyPressFcn', @obj.hybejPlotF);
         end
         
-        %Buffering of the plot or taking settings from saved structs
+        % Buffering of the plot or taking settings from saved structs
         % if we are only redrawing existing plots
         function obj = PreparePlotPowerTime(obj, ch, categories)
             if ~numel(ch) == 0 && ~isfield(obj.plotF, 'ch'), obj.plotF.ch = 1;
             else, obj.plotF.ch = ch; end
             
-            if numel(categories) > 0
-                obj.plotF.kategories = categories;
             % Only rewrites categorties if not already set
+            if numel(categories) > 0, obj.plotF.kategories = categories;
             elseif ~isfield(obj.plotF, 'kategories') && numel(obj.plotF.kategories) == 0
                 if isfield(obj.Wp(obj.WpActive), 'kats'), categories = obj.Wp(obj.WpActive).kats;
                 else, categories = obj.PsyData.Categories(); end
                 obj.plotF.kategories = categories;
             end
             
+            % redraws the plot or creates one
             if isfield(obj.plotF, 'fh') && ishandle(obj.plotF.fh)
                 figure(obj.plotF.fh);
             else
@@ -322,12 +330,8 @@ classdef CHilbert < CiEEGData
             end
         end
         
-        function obj = BufferPlotYLimit(obj, miny, maxy)
-            obj.plotF.ylim = [miny maxy];
-        end
-        
         function [miny, maxy] = GetPlotYLimit(obj)
-             if isfield(obj.plotF, 'ylim') && numel(obj.plotF.ylim) >= 2 %nactu nebo ulozim hodnoty y
+             if isfield(obj.plotF, 'ylim') && numel(obj.plotF.ylim) >= 2
                 miny = obj.plotF.ylim(1); maxy = obj.plotF.ylim(2);
              else
                 miny = 0; maxy = 0;
@@ -335,8 +339,7 @@ classdef CHilbert < CiEEGData
         end
         
         function obj = PlotCategoriesPowerTime(obj, ch, categories)
-             maxy = 0;
-             miny = 0;
+             maxy = 0; miny = 0;
              for k = 1:numel(categories)
                 subplot(1, numel(categories), k);
                 T = obj.epochtime(1):0.1:obj.epochtime(2);
@@ -344,19 +347,18 @@ classdef CHilbert < CiEEGData
                 if iscell(categories(k))                    
                     dd = zeros(size(obj.HFreq,1), size(obj.HFreq,3), numel(categories{k}));
                     for ikat = 1:numel(categories{k})
-                        dd(:,:,ikat) = squeeze(obj.HFreq(:, ch,:, categories{k}(ikat)+1));
+                        dd(:, :, ikat) = squeeze(obj.HFreq(:, ch, :, categories{k}(ikat) + 1));
                     end
                     D = mean(dd,3);
                 else % TODO - what this does??
-                    D = squeeze(obj.HFreq(:, ch, :, categories(k)+1));
+                    D = squeeze(obj.HFreq(:, ch, :, categories(k) + 1));
                 end
                 imagesc(T, F, D');
-                maxy = max([maxy max(max( D ))]);
-                miny = min([miny min(min( D ))]);
+                maxy = max([maxy max(D(:))]); miny = min([miny min(D(:))]);
                 axis xy;
                 xlabel('time [s]');   
             end
-            obj.BufferPlotYLimit(miny, maxy);
+            obj.plotF.ylim = [miny maxy];
         end
         
         function obj = PlotLabels(obj, ch, categories)
@@ -366,12 +368,14 @@ classdef CHilbert < CiEEGData
                 caxis([miny, maxy]);
                 title(obj.PsyData.CategoryName(cellval(categories, k)));
                 if k == 1
-                    chstr = iff(isempty(obj.CH.sortedby), num2str(ch), [ num2str(ch) '(' obj.CH.sortedby  num2str(obj.plotF.ch) ')' ]);
+                    chstr = iff(isempty(obj.CH.sortedby), num2str(ch), ...
+                        [num2str(ch) '(' obj.CH.sortedby  num2str(obj.plotF.ch) ')']);
                     ylabel(['channel ' chstr ' - freq [Hz]']);
                     if isprop(obj,'plotRCh') && isfield(obj.plotRCh, 'selCh') && ...
                             any(obj.plotRCh.selCh(ch,:), 2) == 1        
-                        klavesy = 'fghjkl'; %abych mohl vypsat primo nazvy klaves vedle hvezdicky podle selCh
-                        text(0,obj.Hf(1),['*' klavesy(logical(obj.plotRCh.selCh(ch, :)))], 'FontSize', 15, 'Color', 'red');
+                        klavesy = 'fghjkl';
+                        text(0, obj.Hf(1), ['*' klavesy(logical(obj.plotRCh.selCh(ch, :)))], ...
+                            'FontSize', 15, 'Color', 'red');
                     end
                 end
                 if k == numel(categories), colorbar('Position', [0.92 0.1 0.02 0.82]); end
@@ -462,7 +466,7 @@ classdef CHilbert < CiEEGData
             obj.hfilename = filename; 
         end 
         
-        function [filename,basefilename] = ExtractData(obj,chns,label,overwrite)
+        function [filename, basefilename] = ExtractData(obj,chns,label,overwrite)
             %ExtractData(obj,chns,filename)
             %vytvori data z vyberu elektrod, pro sdruzeni elektrod pres vsechny pacienty. 
             %pole d, tabs, RjEpochCh a header H
@@ -473,15 +477,15 @@ classdef CHilbert < CiEEGData
             
             [filepath,fname,ext] = CHilbert.matextension(obj.filename);
             podtrzitko = strfind(fname,'_'); %chci zrusit cast za poslednim podtrzitkem
-            basefilename = [fname(1:podtrzitko(end)-1) ' ' label '_Extract' ext]; %jmeno bez cesty
+            basefilename = [fname(1:podtrzitko(end) - 1) ' ' label '_Extract' ext]; %jmeno bez cesty
             extracts_path = [filepath filesep 'Extracts']; %podadresar pro extrakty dat
-            if exist(extracts_path,'dir') ~= 7, mkdir(extracts_path);   end
+            if exist(extracts_path,'dir') ~= 7, mkdir(extracts_path); end
             filename =[extracts_path filesep basefilename]; %podadresar pro extrakty
             
-            if exist(filename','file')~=2 || overwrite 
-                %pokraduju jen pokud extrakt neexistuje nebo se ma prepsat
-                %assert(strcmp(obj.reference,'Bipolar'),'neni bipolarni reference');
-                d = obj.d(:,chns,:); %#ok<NASGU> %vsechny casy a epochy, vyber kanalu
+            if exist(filename','file') ~= 2 || overwrite 
+                % pokraduju jen pokud extrakt neexistuje nebo se ma prepsat
+                % assert(strcmp(obj.reference,'Bipolar'),'neni bipolarni reference');
+                d = obj.d(:, chns, :); %#ok<NASGU> %vsechny casy a epochy, vyber kanalu
                 tabs = obj.tabs; %#ok<NASGU> %to je spolecne pro vsechny kanaly; time x epochs
                 tabs_orig = obj.tabs_orig; %#ok<NASGU> 
                 fs = obj.fs; %#ok<NASGU> 
@@ -497,9 +501,9 @@ classdef CHilbert < CiEEGData
                 DatumCas = obj.DatumCas;
                 DatumCas.Extracted = datestr(now);          
                 H = obj.CH.H;
-                H = rmfield(H,'electrodes'); %smazu nepotrebna pole
-                H = rmfield(H,'selCh_H');
-                H = rmfield(H,'triggerCH');
+                H = rmfield(H, 'electrodes'); %smazu nepotrebna pole
+                H = rmfield(H, 'selCh_H');
+                H = rmfield(H, 'triggerCH');
                 H.channels = H.channels(chns); %vyfiltruju kanaly
                 subjName = obj.PacientID(false);
                 for ch = 1:numel(H.channels)
@@ -511,7 +515,9 @@ classdef CHilbert < CiEEGData
                 HFreq = obj.HFreq(:,chns,:,:); %#ok<PROPLC,NASGU>  %time x channel x freq (x kategorie)            
                 Wp = obj.Wp;  %#ok<NASGU>  %exportuju statistiku
                 reference = obj.reference; %#ok<NASGU>  %exportuju referenci
-                save(filename,'d','tabs','tabs_orig','fs','P','epochtime','baseline','RjEpochCh','RjEpoch','epochData','DatumCas','H','Hf','Hfmean','HFreq','Wp','reference','-v7.3'); 
+                save(filename,'d', 'tabs', 'tabs_orig', 'fs', 'P', 'epochtime', 'baseline', ...
+                    'RjEpochCh', 'RjEpoch', 'epochData', 'DatumCas', 'H', 'Hf', 'Hfmean', ...
+                    'HFreq','Wp','reference', '-v7.3'); 
                 disp(['extract saved to "' basefilename '"']);
             else
                 disp(['extract already exists, skipped: "' basefilename '"']);
@@ -594,20 +600,21 @@ classdef CHilbert < CiEEGData
     % ---------- static methods -----------------------
     methods (Static,Access = public)
         function filename2 = filenameE(filename)
-            %vraci jmeno souboru s daty tridy CiEEGData
+           % vraci jmeno souboru s daty tridy CiEEGData
            filename=strrep(filename,'_CHilb',''); %odstranim pripony vytvorene pri save
            filename=strrep(filename,'_CiEEG','');
            filename=strrep(filename,'_CHMult','');
            [pathstr,fname,ext] = CiEEGData.matextension(filename);         
            filename2 = fullfile(pathstr,[fname '_CiEEG' ext]);
         end
+        
         function filename2 = filenameH(filename)
-             %vraci jmeno souboru s daty teto tridy
-           filename=strrep(filename,'_CHilb',''); %odstranim pripony vytvorene pri save
-           filename=strrep(filename,'_CiEEG','');
-           filename=strrep(filename,'_CHMult','');
+           % vraci jmeno souboru s daty teto tridy
+           filename=strrep(filename, '_CHilb', ''); % odstranim pripony vytvorene pri save
+           filename=strrep(filename, '_CiEEG', '');
+           filename=strrep(filename, '_CHMult', '');
            [pathstr,fname,ext] = CiEEGData.matextension(filename);            
-           filename2 = fullfile(pathstr,[fname '_CHilb' ext]);
+           filename2 = fullfile(pathstr, [fname '_CHilb' ext]);
         end
         
     end
@@ -615,14 +622,14 @@ classdef CHilbert < CiEEGData
     %  --------- privatni metody ----------------------
     methods (Static,Access = private)
         function [ freqPow ] = hilbertJirka(rawData, loF, hiF, srate)
-            %HILBERTJIRKA hilbertJirka( rawData, loF, hiF, srate )
+            % HILBERTJIRKA hilbertJirka( rawData, loF, hiF, srate )
             %   vrati Power vybraneho frekvencniho pasma
 
             % Hilberova obalka podle Jirky Hammera - mail 1.8.2014
-            %loF = pasmo; hiF = pasmo + 10; srate = 1000;
-            %rawData = yy;
+            % loF = pasmo; hiF = pasmo + 10; srate = 1000;
+            % rawData = yy;
 
-            %1) filrovani v gamma pasmu: loF = 60, hiF = 100, srate = sampling rate
+            % 1) filrovani v gamma pasmu: loF = 60, hiF = 100, srate = sampling rate
             Wn = [loF, hiF]/(srate/2); % normalized bandpass frequencies
             n = 4; % butterworth order
             [b,a] = butter(n, Wn); % returns polynoms of Butterw. filter
@@ -644,43 +651,43 @@ classdef CHilbert < CiEEGData
            %reaguje na udalosti v grafu PlotResponseCh
            switch eventDat.Key
                case 'rightarrow' 
-                   obj.PlotResponseFreq( min( [obj.plotF.ch + 1 , obj.channels]));
+                   obj.PlotResponseFreq(min([obj.plotF.ch + 1 , obj.channels]));
                case 'pagedown' 
-                   obj.PlotResponseFreq( min( [obj.plotF.ch + 10 , obj.channels]));
+                   obj.PlotResponseFreq(min([obj.plotF.ch + 10 , obj.channels]));
                case 'leftarrow'
-                   obj.PlotResponseFreq( max( [obj.plotF.ch - 1 , 1]));
+                   obj.PlotResponseFreq(max([obj.plotF.ch - 1 , 1]));
                case 'pageup'
-                   obj.PlotResponseFreq( max( [obj.plotF.ch - 10 , 1]));
+                   obj.PlotResponseFreq(max([obj.plotF.ch - 10 , 1]));
                case 'space' %zobrazi i prumerne krivky
                    obj.PlotResponseCh(obj.plotF.ch);
                    obj.PlotEpochs(obj.plotRCh.ch,obj.Wp(obj.WpActive).kats); %vykreslim prumery freq u vsech epoch
                    figure(obj.plotF.fh); %dam puvodni obrazek dopredu
-               case {'multiply', '8'} %hvezdicka na numericke klavesnici
+               case {'multiply', '8'}
                    %dialog na vlozeni minima a maxima osy y
-                   answ = inputdlg('Enter ymax and min:','Yaxis limits', [1 50],{num2str(obj.plotF.ylim)});
-                   if numel(answ)>0  %odpoved je vzdy cell 1x1 - pri cancel je to cell 0x0
-                       if isempty(answ{1}) || any(answ{1}=='*') %pokud vlozim hvezdicku nebo nic, chci znovy spocitat max a min
+                   answ = inputdlg('Enter ymax and min:', 'Yaxis limits', [1 50], {num2str(obj.plotF.ylim)});
+                   if numel(answ) > 0  %odpoved je vzdy cell 1x1 - pri cancel je to cell 0x0
+                       if isempty(answ{1}) || any(answ{1}=='*') 
                            obj.plotF.ylim = [];
-                       else %jinak predpokladam dve hodnoty
-                           data = str2num(answ{:});  %#ok<ST2NM>
-                           if numel(data)>= 2 %pokud nejsou dve hodnoty, nedelam nic
-                             obj.plotF.ylim = [data(1) data(2)];
-                           end
+                       else
+                           data = str2num(answ{:}); %#ok<ST2NM>
+                           if numel(data) >= 2, obj.plotF.ylim = [data(1) data(2)]; end
                        end
                    end
-                   obj.PlotResponseFreq( obj.plotF.ch); %prekreslim grafy
-                case {'divide','slash'} %lomeno na numericke klavesnici - automaticke meritko na ose z - power
+                   obj.PlotResponseFreq(obj.plotF.ch); %prekreslim grafy
+                case {'divide', 'slash'} %lomeno na numericke klavesnici - automaticke meritko na ose z - power
                    obj.plotF.ylim = [];
-                   obj.PlotResponseFreq( obj.plotF.ch); %prekreslim grafy
-                case {'add' ,  'equal','s'}     % + oznaceni kanalu
+                   obj.PlotResponseFreq(obj.plotF.ch); %prekreslim grafy
+                case {'add', 'equal','s'} % + oznaceni kanalu
                    obj.SelChannel(obj.plotF.ch);
-                   obj.PlotResponseFreq( obj.plotF.ch); %prekreslim grafy
-                case {'numpad6','d'}     % + oznaceni kanalu                   
-                   chn2 = obj.plotRCh.selCh( find(obj.plotRCh.selCh>obj.plotF.ch,1) );
-                   obj.PlotResponseFreq( iff(isempty(chn2),obj.plotF.ch,chn2) ); %prekreslim grafy
-               case {'numpad4','a'}     % + oznaceni kanalu
-                   chn2 = obj.plotRCh.selCh( find(obj.plotRCh.selCh<obj.plotF.ch,1,'last') );
-                   obj.PlotResponseFreq( iff(isempty(chn2),obj.plotF.ch,chn2) ); %prekreslim grafy
+                   obj.PlotResponseFreq(obj.plotF.ch);
+                case {'numpad6', 'd'} % + oznaceni kanalu
+                   ch2 = obj.plotRCh.selCh(find(obj.plotRCh.selCh > obj.plotF.ch, 1));
+                   ch = iff(isempty(ch2), obj.plotF.ch, ch2);
+                   obj.PlotResponseFreq(ch); 
+               case {'numpad4', 'a'} % + oznaceni kanalu
+                   ch2 = obj.plotRCh.selCh(find(obj.plotRCh.selCh < obj.plotF.ch, 1, 'last'));
+                   ch = iff(isempty(ch2), obj.plotF.ch, ch2);
+                   obj.PlotResponseFreq(ch); %prekreslim grafy
            end
         end       
      end

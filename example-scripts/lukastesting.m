@@ -3,8 +3,7 @@ open(patient_file)
 % Notes
 % file has no information about referencing
 % 
-hilbert = CHilbert(filename); % filename kterehokoli v tech dvou
+hilbert = CHilbert(patient_file); % filename kterehokoli v tech dvou
 % Stats are run immediately after initialization - not recommended
-% 
 
-hilbert.PlotResponseCh(20)
+hilbert.PlotResponseFreq(20, 1)
