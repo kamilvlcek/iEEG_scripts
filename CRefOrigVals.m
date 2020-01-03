@@ -61,7 +61,9 @@ classdef CRefOrigVals < matlab.mixin.Copyable
         end
         function PlotCh(obj,ch)
             assert(~isempty(obj.ValMax),'CRefOrigVals: nejsou nactena data');
-            if ~ishghandle(obj.PlotChH)
+            if isempty(obj.PlotChH) % Pokud je obj.PlotChH prazdne pole, ishghandle() vraci prazdne logicke pole, ktere se interpertuje jako true a nejde porovnat se skalarni logickou hodnotou isempty() (R2018a linux)
+                obj.PlotChH = figure('Name',['CRefOrigVals - ch' num2str(ch)]);
+            elseif ~ishghandle(obj.PlotChH)
                 obj.PlotChH = figure('Name',['CRefOrigVals - ch' num2str(ch)]);
             else
                 figure(obj.PlotChH);
@@ -116,6 +118,38 @@ classdef CRefOrigVals < matlab.mixin.Copyable
             else
                 disp(['not found: ' fname ]);
             end
+        end
+        function ExportXLS(obj)
+            cellOut = cell(numel(obj.chnums) * numel(obj.kats), 8);
+            variableNames = {'channel' 'name' 'neurologyLabel' 'katname' 'valmax1' 'valmax2' 'maxChName' 'maxChNeurologyLabel'};
+            
+            for ch = 1:size(obj.chnums,1)    % projdu vsechny kanaly
+                for k = 1:numel(obj.kats)   % projdu vsechny kategorie (ruzne kategorie pro stejny kanal budou v tabulce pod sebou)
+                    neurologyLabel = obj.Eh.CH.H.channels(ch).neurologyLabel;
+                    katname = obj.Eh.PsyData.CategoryName(obj.kats(k));
+                    vals = squeeze(obj.ValMax(k,ch,:));
+                    if vals(1) > vals(2)
+                        maxChName = obj.chnames{ch,1};
+                        %maxChNeurologyLabel = obj.Eh.CH.H.channels(obj.chnums(1)).neurologyLabel;
+                        maxChNeurologyLabel = '???';
+                    else
+                        maxChName = obj.chnames{ch,2};
+                        %maxChNeurologyLabel = obj.Eh.CH.H.channels(obj.chnums(2)).neurologyLabel;
+                        maxChNeurologyLabel = '???';
+                    end
+                    lineOut = {obj.chnums(ch), obj.chnames{ch,3}, neurologyLabel, katname, vals(1), vals(2), maxChName, maxChNeurologyLabel};
+                    cellOut(numel(obj.kats)*(ch-1)+k+1, :) =  lineOut;
+                end
+            end
+            
+            %export tabulky
+            tablelog = cell2table(cellOut,'VariableNames', variableNames); 
+            [~,mfilename,~] = fileparts(obj.Eh.hfilename); 
+            mfilename = strrep(mfilename, ' ', '_');
+            logfilename = ['OrigChannelResponse_' mfilename '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') ];  
+            xlsfilename = fullfile('logs', [logfilename '.xls']);            
+            writetable(tablelog, xlsfilename); %zapisu do xls tabulky            
+            disp([ 'XLS table saved: ' xlsfilename]);
         end
     end
     methods (Access = private)
