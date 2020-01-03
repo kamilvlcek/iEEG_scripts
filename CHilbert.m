@@ -290,13 +290,15 @@ classdef CHilbert < CiEEGData
         
         %% Plot Response Frequency
         % ch: max number of channels to plot (from 1 to ch)
-        % categories: which category to plot - if not defined, plots all
+        % categories: which category to plot - if not defined, plots all.
+        % Takes array of category indices beginning with 1? e.g. [1,3]
+        % TODO - DEPRECATE the possibility to use cells in categories {}
         function obj = PlotResponseFreq(obj, ch, categories)
             if ~exist('ch', 'var'), ch = []; end
             if ~exist('categories', 'var'), categories = []; end
            
             obj.PreparePlotPowerTime(ch, categories);
-            % SHouldn't the Ch be obj.plotF.ch?? - WHAT IS THE
+            % Shouldn't the Ch be obj.plotF.ch?? - WHAT IS THE
             % DIFFERENCE? the CHHeader has it as a field not afunction
             % and thus it is very difficult to unravel :(
             % The original function has the ch in plotF.ch, but uses the
@@ -330,27 +332,27 @@ classdef CHilbert < CiEEGData
             end
         end
         
-        function [miny, maxy] = GetPlotYLimit(obj)
-             if isfield(obj.plotF, 'ylim') && numel(obj.plotF.ylim) >= 2
-                miny = obj.plotF.ylim(1); maxy = obj.plotF.ylim(2);
-             else
-                miny = 0; maxy = 0;
-             end
-        end
-        
+        % TODO - deprecate option to pass cells into categories
         function obj = PlotCategoriesPowerTime(obj, ch, categories)
              maxy = 0; miny = 0;
              for k = 1:numel(categories)
                 subplot(1, numel(categories), k);
                 T = obj.epochtime(1):0.1:obj.epochtime(2);
                 F =  obj.Hfmean;
+                % TODO - This is WEIRD. If I pass it a cell I'd expect the
+                % cell to contain NAMES of categories, but that is not what
+                % is happening. The categories are not taken as strings,
+                % and are not correlated to obj.PsyData.Category name.
+                % Neither here, nor in PlotLabels. They are merely taken in
+                % their order - this should be DEPRECATED
                 if iscell(categories(k))                    
-                    dd = zeros(size(obj.HFreq,1), size(obj.HFreq,3), numel(categories{k}));
+                    dd = zeros(size(obj.HFreq, 1), size(obj.HFreq, 3), numel(categories{k}));
                     for ikat = 1:numel(categories{k})
                         dd(:, :, ikat) = squeeze(obj.HFreq(:, ch, :, categories{k}(ikat) + 1));
                     end
-                    D = mean(dd,3);
-                else % TODO - what this does??
+                    % WHY IS THIS AVERAGING?
+                    D = mean(dd, 3);
+                else
                     D = squeeze(obj.HFreq(:, ch, :, categories(k) + 1));
                 end
                 imagesc(T, F, D');
@@ -381,7 +383,14 @@ classdef CHilbert < CiEEGData
                 if k == numel(categories), colorbar('Position', [0.92 0.1 0.02 0.82]); end
             end
         end
-        
+                
+        function [miny, maxy] = GetPlotYLimit(obj)
+             if isfield(obj.plotF, 'ylim') && numel(obj.plotF.ylim) >= 2
+                miny = obj.plotF.ylim(1); maxy = obj.plotF.ylim(2);
+             else
+                miny = 0; maxy = 0;
+             end
+        end
         %% SAVE AND LOAD FILE
         %dve funkce na ulozeni a nacteni vypocitane Hilbertovy obalky, protoze to trva hrozne dlouho
         %uklada se vcetne dat parenta CiEEGData
