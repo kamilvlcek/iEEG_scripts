@@ -334,7 +334,7 @@ classdef CHilbert < CiEEGData
         
         % TODO - deprecate option to pass cells into categories
         function obj = PlotCategoriesPowerTime(obj, ch, categories)
-             maxy = 0; miny = 0;
+             [miny, maxy] = obj.GetPlotYLimit();
              for k = 1:numel(categories)
                 subplot(1, numel(categories), k);
                 T = obj.epochtime(1):0.1:obj.epochtime(2);
@@ -348,12 +348,12 @@ classdef CHilbert < CiEEGData
                 if iscell(categories(k))                    
                     dd = zeros(size(obj.HFreq, 1), size(obj.HFreq, 3), numel(categories{k}));
                     for ikat = 1:numel(categories{k})
-                        dd(:, :, ikat) = squeeze(obj.getenvelopes(ch, categories{k}(ikat)));
+                        dd(:, :, ikat) = obj.averageenvelopes(ch, categories{k}(ikat));
                     end
                     % QUESTION - WHY IS THIS AVERAGING?
                     D = mean(dd, 3);
                 else
-                    D = squeeze(obj.getenvelopes(ch, categories(k)));
+                    D = obj.averageenvelopes(ch, categories(k));
                 end
                 imagesc(T, F, D');
                 maxy = max([maxy max(D(:))]); miny = min([miny min(D(:))]);
@@ -373,8 +373,11 @@ classdef CHilbert < CiEEGData
                     chstr = iff(isempty(obj.CH.sortedby), num2str(ch), ...
                         [num2str(ch) '(' obj.CH.sortedby  num2str(obj.plotF.ch) ')']);
                     ylabel(['channel ' chstr ' - freq [Hz]']);
-                    if isprop(obj,'plotRCh') && isfield(obj.plotRCh, 'selCh') && ...
-                            any(obj.plotRCh.selCh(ch,:), 2) == 1        
+                    % TODO - Temporary fix for the multiple channel
+                    % selection original:`any(obj.plotRCh.selCh(ch, :), 2) == 1`
+                    % QUESTION - not sure what the plotRch.selCh does
+                    if isprop(obj, 'plotRCh') && isfield(obj.plotRCh, 'selCh') && ...
+                            any(any(obj.plotRCh.selCh(ch, :)))
                         klavesy = 'fghjkl';
                         text(0, obj.Hf(1), ['*' klavesy(logical(obj.plotRCh.selCh(ch, :)))], ...
                             'FontSize', 15, 'Color', 'red');
@@ -676,48 +679,50 @@ classdef CHilbert < CiEEGData
     end
 
     methods  (Access = private)
-        function obj = hybejPlotF(obj,~,eventDat)  
-           %reaguje na udalosti v grafu PlotResponseCh
-           switch eventDat.Key
-               case 'rightarrow' 
-                   obj.PlotResponseFreq(min([obj.plotF.ch + 1 , obj.channels]));
-               case 'pagedown' 
-                   obj.PlotResponseFreq(min([obj.plotF.ch + 10 , obj.channels]));
-               case 'leftarrow'
-                   obj.PlotResponseFreq(max([obj.plotF.ch - 1 , 1]));
-               case 'pageup'
-                   obj.PlotResponseFreq(max([obj.plotF.ch - 10 , 1]));
-               case 'space' %zobrazi i prumerne krivky
-                   obj.PlotResponseCh(obj.plotF.ch);
-                   obj.PlotEpochs(obj.plotRCh.ch,obj.Wp(obj.WpActive).kats); %vykreslim prumery freq u vsech epoch
-                   figure(obj.plotF.fh); %dam puvodni obrazek dopredu
-               case {'multiply', '8'}
-                   %dialog na vlozeni minima a maxima osy y
-                   answ = inputdlg('Enter ymax and min:', 'Yaxis limits', [1 50], {num2str(obj.plotF.ylim)});
-                   if numel(answ) > 0  %odpoved je vzdy cell 1x1 - pri cancel je to cell 0x0
-                       if isempty(answ{1}) || any(answ{1}=='*') 
-                           obj.plotF.ylim = [];
-                       else
-                           data = str2num(answ{:}); %#ok<ST2NM>
-                           if numel(data) >= 2, obj.plotF.ylim = [data(1) data(2)]; end
-                       end
-                   end
-                   obj.PlotResponseFreq(obj.plotF.ch); %prekreslim grafy
-                case {'divide', 'slash'} %lomeno na numericke klavesnici - automaticke meritko na ose z - power
-                   obj.plotF.ylim = [];
-                   obj.PlotResponseFreq(obj.plotF.ch); %prekreslim grafy
+        function obj = hybejPlotF(obj, ~, eventDat)
+            if numel(obj.plotF.ch) == 1
+                switch eventDat.Key
+                   case 'rightarrow'
+                       obj.PlotResponseFreq(min([obj.plotF.ch + 1 , obj.channels]));
+                   case 'pagedown'
+                       obj.PlotResponseFreq(min([obj.plotF.ch + 10 , obj.channels]));
+                   case 'leftarrow'
+                       obj.PlotResponseFreq(max([obj.plotF.ch - 1 , 1]));
+                   case 'pageup'
+                       obj.PlotResponseFreq(max([obj.plotF.ch - 10 , 1]));
+                   case 'space' % zobrazi i prumerne krivky
+                       obj.PlotResponseCh(obj.plotF.ch);
+                       obj.PlotEpochs(obj.plotRCh.ch, obj.Wp(obj.WpActive).kats);
+                       figure(obj.plotF.fh);
+                end
+            end
+            switch eventDat.Key
+                case {'multiply', '8'} % dialog na vlozeni minima a maxima osy y
+                    answ = inputdlg('Enter ymax and min:', 'Yaxis limits', [1 50], {num2str(obj.plotF.ylim)});
+                    if numel(answ) == 0, return; end
+                    % answ cell 1x1 - cancel is cell 0x0
+                    if isempty(answ{1}) || any(answ{1} == '*'), obj.plotF.ylim = [];
+                    else
+                        data = str2num(answ{:}); %#ok<ST2NM>
+                        if numel(data) >= 2, obj.plotF.ylim = [data(1) data(2)]; end
+                    end
+                    obj.PlotResponseFreq(obj.plotF.ch);
+                case {'divide', 'slash'} % automaticke meritko na ose z - power
+                    obj.plotF.ylim = [];
+                    obj.PlotResponseFreq(obj.plotF.ch);
                 case {'add', 'equal','s'} % + oznaceni kanalu
-                   obj.SelChannel(obj.plotF.ch);
-                   obj.PlotResponseFreq(obj.plotF.ch);
+                    obj.SelChannel(obj.plotF.ch);
+                    obj.PlotResponseFreq(obj.plotF.ch);
                 case {'numpad6', 'd'} % + oznaceni kanalu
-                   ch2 = obj.plotRCh.selCh(find(obj.plotRCh.selCh > obj.plotF.ch, 1));
-                   ch = iff(isempty(ch2), obj.plotF.ch, ch2);
-                   obj.PlotResponseFreq(ch); 
+                    ch2 = obj.plotRCh.selCh(find(obj.plotRCh.selCh > obj.plotF.ch, 1));
+                    ch = iff(isempty(ch2), obj.plotF.ch, ch2);
+                    obj.PlotResponseFreq(ch);
+               % QUESTION - this keeps returning 0
                case {'numpad4', 'a'} % + oznaceni kanalu
-                   ch2 = obj.plotRCh.selCh(find(obj.plotRCh.selCh < obj.plotF.ch, 1, 'last'));
-                   ch = iff(isempty(ch2), obj.plotF.ch, ch2);
-                   obj.PlotResponseFreq(ch); %prekreslim grafy
-           end
+                    ch2 = obj.plotRCh.selCh(find(obj.plotRCh.selCh < obj.plotF.ch, 1, 'last'));
+                    ch = iff(isempty(ch2), obj.plotF.ch, ch2);
+                    obj.PlotResponseFreq(ch);
+            end
         end       
      end
 end
