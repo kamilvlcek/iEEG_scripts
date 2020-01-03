@@ -444,7 +444,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             
         end
             
-        function obj = ResponseSearch(obj,timewindow,kats,opakovani,method)
+        function obj = ResponseSearch(obj, timewindow, kats, opakovani, method)
             %projede vsechny kanaly a hleda signif rozdil proti periode pred podnetem
             %timewindow - pokud dve hodnoty - porovnava prumernou hodnotu mezi nimi - sekundy relativne k podnetu/odpovedi
             % -- pokud jedna hodnota, je to sirka klouzaveho okna - maximalni p z teto delky

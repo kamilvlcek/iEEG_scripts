@@ -56,8 +56,8 @@ classdef CEEGStat
             WpKatBaseline = cell(numel(kats), 1);  %rozdily kategorii vuci baseline   
             for k = 1: numel(kats)
                  baselineall = baselinekat{k};
-                 baselineA = mean(baselineall(1:floor(size(baselineall,1)/2), :, :));
-                 baselineB = mean(baselineall(floor(size(baselineall,1)/2)+1:end, :, :));
+                 baselineA = mean(baselineall(1:floor(size(baselineall, 1)/2), :, :));
+                 baselineB = mean(baselineall(floor(size(baselineall, 1)/2) + 1:end, :, :));
                  if exist('Pbaseline', 'var') && ~isempty(Pbaseline)
                      % statistika pro kazdy kanal zvlast, tam kde je odpoved vuci baseline
                      WpKatBaseline{k, 1} = ones(size(responsekat{k},1), size(responsekat{k},2)); %time x channels

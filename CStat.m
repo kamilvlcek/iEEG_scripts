@@ -481,8 +481,9 @@ classdef CStat < handle
         % srovna dve 3D matice proti sobe, ohledne hodnot v poslednim rozmeru
         % uses signrank for paired and ranksum for non paired tests
         % Requires Statistics and Machine Learning Toolbox for 
-        % A: --------
-        % B: --------
+        % A: data to be tested - needs to be larger than B
+        % B: usually baseline data. Data to be tested against.
+        % ....DIMENSIONS
         % print: --------
         % fdr (numeric): FDR correction uses `fdr_bh` function. 1 = 'dep', 2 = 'pdep'; default 1.
         % msg: ---------
