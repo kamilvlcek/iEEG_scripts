@@ -839,7 +839,16 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 elseif ismember('n',selCh) %NOT rejected channels,, nekde v selCh je r
                     chshow = intersect(chshow,setdiff(obj.H.selCh_H,obj.RjCh));
                     %obj.plotCh2D.chshowstr = 'nrj'; 
-                    filtered = true;                
+                    filtered = true;
+                end
+                if contains(selCh, '~e')    % not epileptic je dvojice znaku "~e"
+                    flt = [obj.H.channels.seizureOnset] == 0 & [obj.H.channels.interictalOften] == 0;
+                    chshow = chshow(flt);
+                    filtered = true;
+                elseif contains(selCh, 'e') % epileptic je pouze "e" (mohlo by se pouzit i ismemeber)
+                    flt = [obj.H.channels.seizureOnset] == 1 | [obj.H.channels.interictalOften] == 1;
+                    chshow = chshow(flt);
+                    filtered = true;
                 end
                 if filtered
                     obj.plotCh2D.chshow = chshow;
