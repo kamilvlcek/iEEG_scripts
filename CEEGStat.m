@@ -22,10 +22,10 @@ classdef CEEGStat
             ibaseline = round(baseline.*obj.fs); %zaporna cisla pokud pred synchro eventem
             ibaselineA = [ibaseline(1), floor((ibaseline(2) - ibaseline(1))/2) + ibaseline(1)]; %prvni pulka baseline - 28.3.2017
             ibaselineB = [ibaselineA(2) + 1, ibaseline(2)]; %druha pulka baseline
-            itimewindow = round(timewindow.*obj.fs); %
+            itimewindow = round(timewindow.*obj.fs);
             
             %proc driv?  mean(obj.d( abs(iepochtime(1)-ibaselineA(1))+1 : abs(iepochtime(1)-ibaselineA(2))  - 28.3.2017            
-            baselineA = mean(obj.d(ibaselineA(1) - iepochtime(1) + 1 : ibaselineA(2) - iepochtime(1), :, iEp),1); 
+            baselineA = mean(obj.d(ibaselineA(1) - iepochtime(1) + 1 : ibaselineA(2) - iepochtime(1), :, iEp), 1); 
             baselineB = mean(obj.d(ibaselineB(1) - iepochtime(1) : ibaselineB(2) - iepochtime(1), :, iEp), 1); 
             % cas x kanaly x epochy - prumer za cas pred podnetem, pro vsechny kanaly a vsechny nevyrazene epochy
             if numel(itimewindow) == 2 % chci prumernou hodnotu eeg odpovedi d od do

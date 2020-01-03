@@ -483,13 +483,14 @@ classdef CStat < handle
         % Requires Statistics and Machine Learning Toolbox for 
         % A: data to be tested - needs to be larger than B
         % B: usually baseline data. Data to be tested against.
-        % ....DIMENSIONS
+        % ....Dimensions of A and B should be time x channel x epoch
         % print: --------
         % fdr (numeric): FDR correction uses `fdr_bh` function. 1 = 'dep', 2 = 'pdep'; default 1.
-        % msg: ---------
-        % RjEpChA: --------
-        % RjEpChB: -------
-        % paired (logical): should paired test be used? default 0
+        % msg: message to be displayed in the console
+        % RjEpChA: logical matrix of size size(A, 2), size(A, 3). 1 = rejected
+        % RjEpChB: logical matrix of size size(B, 2), size(B, 3). 1 = rejected
+        % paired (logical): should paired test be used? 
+        %   uses signrank for paired and ranksum for non paired tests. default 0.
         % RETURN: returns 1 if errors out during epoch rejection
         % A musi mit oba prvni rozmery > rozmery B
         % B muze mit jeden nebo oba prvni rozmer = 1 - pak se porovnava se vsemi hodnotami v A
@@ -498,18 +499,23 @@ classdef CStat < handle
         % QUESTION - why isn't fdr set to 'dep' or 'pdep' by default and is
         % translated from 1/2/0?
         function W = Wilcox2D(A, B, print, fdr, msg, RjEpChA, RjEpChB, paired)
-            if ~exist('print','var'), print = 0; end
-            if ~exist('fdr','var') || isempty(fdr), fdr = 1; end % defaults to 'pdep'          
-            if ~exist('msg','var') || isempty(msg), msg = ''; end
-            if ~exist('RjEpChA','var') || isempty(RjEpChA), RjEpChA = false(size(A,2),size(A,3)); end
-            if ~exist('RjEpChB','var') || isempty(RjEpChB), RjEpChB = false(size(B,2),size(B,3)); end
-            if ~exist('paired','var'), paired = 0; end
+            if ~exist('print', 'var'), print = 0; end
+            if ~exist('fdr', 'var') || isempty(fdr), fdr = 1; end % defaults to 'pdep'          
+            if ~exist('msg', 'var') || isempty(msg), msg = ''; end
+            if ~exist('paired', 'var'), paired = 0; end
+            if ~exist('RjEpChA', 'var') || isempty(RjEpChA)
+                RjEpChA = false(size(A, 2), size(A, 3)); 
+            end
+            if ~exist('RjEpChB', 'var') || isempty(RjEpChB)
+                RjEpChB = false(size(B, 2), size(B, 3));
+            end
+            
             W = zeros(size(A, 1), size(A, 2));
            
             if print, fprintf(['Wilcox Test 2D - ' msg ': ']); end
             for j = 1:size(A, 1) % across time
                 if print && mod(j, 50) == 0, fprintf('%d ', j); end % tisknu jen cele padesatky
-                for k = 1:size(A, 2) %napr kanaly   
+                for k = 1:size(A, 2) % across channels  
                    if paired % pri parovem testu musim porovnavat stejny kanal, takze musi vyradit epochy parove
                        RjEpChA_k = RjEpChA(k, :) | RjEpChB(k, :); % binarni OR
                        RjEpChB_k = RjEpChA(k, :) | RjEpChB(k, :);

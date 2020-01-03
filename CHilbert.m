@@ -397,7 +397,7 @@ classdef CHilbert < CiEEGData
         
         %% Getters
         % QUESTION - not sure why we add 1 to the categories
-        % returns contents for hfreq for given set of channels and
+        % returns contents for HFreq for given set of channels and
         % categories
         % channels: array of channels. eg. [1, 5, 20]
         % categories: array of categories. eg. [1,3]
@@ -413,6 +413,19 @@ classdef CHilbert < CiEEGData
             if numel(channels) >= 2, envelopes = mean(envelopes, 2); end
             if numel(categories) >= 2, envelopes = mean(envelopes, 4); end
             envelopes = squeeze(envelopes);
+        end
+        
+        %% Statistics
+        % epochtime: numeric(2) vector defining start and an end of the
+        % response
+        % baselinetime: numeric(2) vector defining start and end of
+        % baseline
+        function wp = wilcoxbaseline(obj, responsetime, baselinetime)
+            iResponse = responsetime; % TODO - redo as per time definition of a single "tick" 
+            response = obj.HFreqEpochs(iResponse(1):iResponse(2), :, :, :);
+            iBaseline = baselinetime; % TODO - redo as per time definition of a single "tick"
+            baseline = obj.HFreqEpochs(iBaseline(1):iBaseline(2), :, :, :);
+            wp = CStat.Wilcox2D(response, baseline, 1, [], 'mean vs baseline');
         end
         
         %% SAVE AND LOAD FILE
