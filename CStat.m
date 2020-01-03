@@ -17,6 +17,7 @@ classdef CStat < handle
     end
     
     methods (Access = public)
+        
         function obj = CStat(~)
             obj.AUCReset();
             obj.AUCPlotIni();
@@ -34,7 +35,7 @@ classdef CStat < handle
             obj.plotAUC.aucdata = struct('AUC',{},'AVG',{}); %empty struct array            
             obj.plotAUC.sig = [];
         end
-        function c = ColorKomb(obj,kat1,kat2) 
+        function c = ColorKomb(obj,kat1,kat2)
             %nova funkce kvuli jinym kategoriim nez u PPA plotu. U Menrot jsou treba kategorie od 0
             if min([kat1 kat2])==0
                 kategorie = [kat1 kat2]+1;
@@ -475,53 +476,66 @@ classdef CStat < handle
             line([X(1) X(end)],[.5 .5]);             
         end
     end
-    methods (Static,Access = public)        
-        function W = Wilcox2D(A,B,print,fdr,msg,RjEpChA,RjEpChB,paired)
-            %Wilcox2D(A,B,print,fdr,msg,RjEpChA,RjEpChB)
-            %srovna dve 3D matice proti sobe, ohledne hodnot v poslednim rozmeru
-            %A musi mit oba prvni rozmery > rozmery B, 
-            %B muze mit jeden nebo oba prvni rozmer = 1 - pak se porovnava se vsemi hodnotami v A
-            %pokud fdr=1 nebo prazne, provadi fdr korekci
-            %pokud print = 0 nebo prazne, netiskne nic
+    
+    methods (Static, Access = public)
+        % srovna dve 3D matice proti sobe, ohledne hodnot v poslednim rozmeru
+        % uses signrank for paired and ranksum for non paired tests
+        % Requires Statistics and Machine Learning Toolbox for 
+        % A: --------
+        % B: --------
+        % print: --------
+        % fdr (numeric): FDR correction uses `fdr_bh` function. 1 = 'dep', 2 = 'pdep'; default 1.
+        % msg: ---------
+        % RjEpChA: --------
+        % RjEpChB: -------
+        % paired (logical): should paired test be used? default 0
+        % RETURN: returns 1 if errors out during epoch rejection
+        % A musi mit oba prvni rozmery > rozmery B
+        % B muze mit jeden nebo oba prvni rozmer = 1 - pak se porovnava se vsemi hodnotami v A
+        % pokud fdr=1 nebo prazdne, provadi fdr korekci
+        % pokud print = 0 nebo prazne, netiskne nic
+        % QUESTION - why isn't fdr set to 'dep' or 'pdep' by default and is
+        % translated from 1/2/0?
+        function W = Wilcox2D(A, B, print, fdr, msg, RjEpChA, RjEpChB, paired)
             if ~exist('print','var'), print = 0; end
-            if ~exist('fdr','var') || isempty(fdr), fdr = 1; end %min striktni je default           
+            if ~exist('fdr','var') || isempty(fdr), fdr = 1; end % defaults to 'pdep'          
             if ~exist('msg','var') || isempty(msg), msg = ''; end
             if ~exist('RjEpChA','var') || isempty(RjEpChA), RjEpChA = false(size(A,2),size(A,3)); end
             if ~exist('RjEpChB','var') || isempty(RjEpChB), RjEpChB = false(size(B,2),size(B,3)); end
-            if ~exist('paired','var'), paired = 0; end %pokud se ma pouzit parovy neparametricky test, defaulte ne
-            W = zeros(size(A,1),size(A,2));
+            if ~exist('paired','var'), paired = 0; end
+            W = zeros(size(A, 1), size(A, 2));
            
             if print, fprintf(['Wilcox Test 2D - ' msg ': ']); end
-            for j = 1:size(A,1) % napr cas
-                if print && mod(j,50)==0, fprintf('%d ', j); end %tisknu jen cele padesatky
-                for k = 1:size(A,2) %napr kanaly   
-                   if paired %pri parovem testu musim porovnavat stejny kanal, takze musi vyradit epochy parove
-                       RjEpChA_k = RjEpChA(k,:) | RjEpChB(k,:); %binarni OR
-                       RjEpChB_k = RjEpChA(k,:) | RjEpChB(k,:);
+            for j = 1:size(A, 1) % across time
+                if print && mod(j, 50) == 0, fprintf('%d ', j); end % tisknu jen cele padesatky
+                for k = 1:size(A, 2) %napr kanaly   
+                   if paired % pri parovem testu musim porovnavat stejny kanal, takze musi vyradit epochy parove
+                       RjEpChA_k = RjEpChA(k, :) | RjEpChB(k, :); % binarni OR
+                       RjEpChB_k = RjEpChA(k, :) | RjEpChB(k, :);
                    else
-                       RjEpChA_k = RjEpChA(k,:);
-                       RjEpChB_k = RjEpChB(k,:);
-                   end    
-                   aa = squeeze (A(j,k,~RjEpChA_k)); %jen nevyrazene epochy 
-                   bb = squeeze (B( min(j,size(B,1)) , min(k,size(B,2)) , ~RjEpChB_k )); %jen nevyrazene epochy
-                   if numel(aa) >= 2 && numel(bb) >= 2 
-                      if paired
-                        W(j,k) = signrank(aa,bb); %  Wilcoxon signed rank test  paired, two-sided , Statistics and Machine Learning Toolbox  
-                      else
-                        W(j,k) = ranksum(aa,bb); % Wilcoxon rank sum test, non-paired, Statistics and Machine Learning Toolbox
-                      end
+                       RjEpChA_k = RjEpChA(k, :);
+                       RjEpChB_k = RjEpChB(k, :);
+                   end
+                   % removing rejected epochs
+                   aa = squeeze(A(j, k, ~RjEpChA_k));
+                   bb = squeeze(B(min(j, size(B, 1)), min(k,size(B,2)), ~RjEpChB_k));
+                   if numel(aa) >= 2 && numel(bb) >= 2
+                      if paired, W(j, k) = signrank(aa, bb); 
+                      else, W(j, k) = ranksum(aa, bb); end
                    else
-                      W(j,k) = 1; %pokud jen jedna hodnota, nelze delat statistika
+                      W(j, k) = 1; 
                    end
                 end
             end
             if fdr
-                if fdr == 2, method = 'dep'; else method = 'pdep'; end
-                [~, ~, adj_p]=fdr_bh(W,0.05,method,'no'); %dep je striktnejsi nez pdep
-                W = adj_p; %prepisu puvodni hodnoty korigovanymi podle FDR
+                if fdr == 2, method = 'dep';
+                else, method = 'pdep'; end
+                [~, ~, adj_p] = fdr_bh(W, 0.05, method, 'no'); %dep je striktnejsi nez pdep
+                W = adj_p; % prepisu puvodni hodnoty korigovanymi podle FDR
             end
-            if print, fprintf('%d .. done\n',j); end
+            if print, fprintf('%d .. done\n', j); end
         end
+        
         function p_corrected = PermStat(A,B,print,msg,RjEpChA,RjEpChB) %#ok<INUSD>
             %P = PermStat(A,B,print,msg,RjEpChA,RjEpChB)            
             % A a B jsou cas x channels x epochs
@@ -542,6 +556,7 @@ classdef CStat < handle
             cas = toc(timer); %ukoncim mereni casu a vypisu
             if print, fprintf(' .. done in %.1f min \n',cas/60); end            
         end
+        
         function [W] = Klouzaveokno(W,oknosirka, funkce,dimension)
             % oknosirka je v poctu bodu, funkce muze byt min, max, mean
             % 27.4.2015 - vynato z wilcoxmap, 21.6.2016 presunuto do CStat      
@@ -573,10 +588,11 @@ classdef CStat < handle
             end
         end
         
-        function N = round(n,dig)
-            %zakrouhuje na dany pocet desetinnych mist
+        function N = round(n, dig)
+            % zakrouhuje na dany pocet desetinnych mist
             N = round(n * 10^dig) / 10 ^ dig;
         end
+        
         function [frequencies,fft_d_abs]=Fourier(dd,fs,method)
             %[frequencies,fft_d_abs]=Fourier(dd,fs) 
             % spocita Fourierovu fransformaci dat z jednoho kanalu 
@@ -684,6 +700,7 @@ classdef CStat < handle
             end
             
         end
+        
         function [labels]= epochData2Labels(epochData,katnames)
             %pokud je v katnames vice kategorii, musim k tomu uzpusobit i katnames 
             labels = epochData(:,1);
