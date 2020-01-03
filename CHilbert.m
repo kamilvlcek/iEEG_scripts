@@ -109,28 +109,29 @@ classdef CHilbert < CiEEGData
         function obj = Normalize(obj, type, channels)
             if ~exist('channels','var'), channels = 1:obj.channels; end
             switch type
-                case 'orig' %(fpower./mean(fpower)) - povodna normalizacia
+                case 'orig' % (fpower./mean(fpower)) - povodna normalizacia
                     for ch = channels
-                        for f = 1:size(obj.HFreq,3)
-                            obj.HFreq(:,ch,f) = obj.HFreq(:,ch,f)./mean(obj.HFreq(:,ch,f)); 
+                        for f = 1:size(obj.HFreq, 3)
+                            obj.HFreq(:, ch, f) = obj.HFreq(:,ch,f)./mean(obj.HFreq(:, ch, f)); 
                         end                        
                     end
-                case 'mean' %(fpower./mean(fpower))*100 ~ Bastin 2012   
+                case 'mean' % (fpower./mean(fpower))*100 ~ Bastin 2012   
                     for ch = channels
-                        for f = 1:size(obj.HFreq,3)
-                            obj.HFreq(:,ch,f) = (obj.HFreq(:,ch,f)/mean(obj.HFreq(:,ch,f)))*100;
+                        for f = 1:size(obj.HFreq, 3)
+                            obj.HFreq(:, ch, f) = (obj.HFreq(:, ch, f)/mean(obj.HFreq(:, ch, f)))*100;
                         end
                     end
-                case 'z' %z-transform (fpower-mean(fwpower))/std(fpower)
+                case 'z' % z-transform (fpower-mean(fwpower))/std(fpower)
                     for ch = channels
-                        for f = 1:size(obj.HFreq,3)
-                            obj.HFreq(:,ch,f) = (obj.HFreq(:,ch,f)-mean(obj.HFreq(:,ch,f)))./std(obj.HFreq(:,ch,f));
+                        for f = 1:size(obj.HFreq, 3)
+                            obj.HFreq(:, ch, f) = (obj.HFreq(:, ch, f) - ...
+                                mean(obj.HFreq(:, ch, f)))./std(obj.HFreq(:, ch, f));
                         end
                     end
-                case 'log' %log = 1/fpower
+                case 'log' % log = 1/fpower
                     for ch = channels
-                        for f = 1:size(obj.HFreq,3)
-                            obj.HFreq(:,ch,f) = (obj.HFreq(:,ch,f)-mean(obj.HFreq(:,ch,f)))./std(obj.HFreq(:,ch,f));
+                        for f = 1:size(obj.HFreq, 3)
+                            obj.HFreq(:, ch, f) = 1/(obj.HFreq(:, ch, f));
                         end
                     end
                 otherwise
