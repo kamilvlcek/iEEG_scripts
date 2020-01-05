@@ -120,13 +120,17 @@ classdef CRefOrigVals < matlab.mixin.Copyable
             end
         end
         function ExportXLS(obj)
-            cellOut = cell(numel(obj.chnums) * numel(obj.kats), 8);
-            variableNames = {'channel' 'name' 'neurologyLabel' 'katname' 'valmax1' 'valmax2' 'maxChName' 'maxChNeurologyLabel'};
+            cellOut = cell(numel(obj.chnums), 3 + 4*numel(obj.kats));
+            variableNames = {'channel' 'name' 'neurologyLabel'};
+            for k = 1:numel(obj.kats)   % projdu vsechny kategorie a nastavim headery pro prislusne sloupce
+                katname = obj.Eh.PsyData.CategoryName(obj.kats(k));
+                variableNames = [variableNames [katname '_valmax1'] [katname '_valmax2'] [katname '_valmaxdiff'] [katname '_maxChName']]; %TODO: Co ten maxChNeurologyLabel???
+            end
             
             for ch = 1:size(obj.chnums,1)    % projdu vsechny kanaly
+                neurologyLabel = obj.Eh.CH.H.channels(ch).neurologyLabel;
+                lineOut = {obj.chnums(ch), obj.chnames{ch,3}, neurologyLabel};
                 for k = 1:numel(obj.kats)   % projdu vsechny kategorie (ruzne kategorie pro stejny kanal budou v tabulce pod sebou)
-                    neurologyLabel = obj.Eh.CH.H.channels(ch).neurologyLabel;
-                    katname = obj.Eh.PsyData.CategoryName(obj.kats(k));
                     vals = squeeze(obj.ValMax(k,ch,:));
                     if vals(1) > vals(2)
                         maxChName = obj.chnames{ch,1};
@@ -137,9 +141,9 @@ classdef CRefOrigVals < matlab.mixin.Copyable
                         %maxChNeurologyLabel = obj.Eh.CH.H.channels(obj.chnums(2)).neurologyLabel;
                         maxChNeurologyLabel = '???';
                     end
-                    lineOut = {obj.chnums(ch), obj.chnames{ch,3}, neurologyLabel, katname, vals(1), vals(2), maxChName, maxChNeurologyLabel};
-                    cellOut(numel(obj.kats)*(ch-1)+k+1, :) =  lineOut;
+                    lineOut = [lineOut, vals(1), vals(2), abs(vals(1)-vals(2)), maxChName];
                 end
+                cellOut(ch, :) =  lineOut;
             end
             
             %export tabulky
