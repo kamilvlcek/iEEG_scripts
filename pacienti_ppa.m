@@ -276,5 +276,25 @@ pacienti(p).rjepoch = 'p209_ppa_rjepoch.mat';
 pacienti(p).epievents = 'p209_ppa_epievents.mat'; 
 pacienti(p).rjch = [122];
 
+p=p+1; %3.1.2020 Kamil
+pacienti(p).todo = 1;
+pacienti(p).folder = 'p183 Tur VT47';
+pacienti(p).data = 'VT47_2019-05-28_17-35_001_512hz_39_concat_ppa.mat';
+pacienti(p).header = 'p183_headerX.mat';
+pacienti(p).psychopy = 'p183_ppa.mat';
+pacienti(p).rjepoch = 'p183_ppa_rjepochs.mat';
+pacienti(p).epievents = 'p183_ppa_epievents.mat'; 
+pacienti(p).rjch = [];
+
+p=p+1; %3.1.2020 Kamil
+pacienti(p).todo = 1;
+pacienti(p).folder = 'p222 Zich VT49';
+pacienti(p).data = 'VT49_2019-09-20_14-41_001_512hz_12_concat_ppa.mat';
+pacienti(p).header = 'p222_headerX.mat';
+pacienti(p).psychopy = 'p222_ppa.mat';
+pacienti(p).rjepoch = 'p222_ppa_rjepoch.mat';
+pacienti(p).epievents = 'p222_ppa_epievents.mat'; 
+pacienti(p).rjch = [85 125];
+
 end
 

@@ -20,7 +20,7 @@ frekvence(f).todo = 0;
 frekvence(f).freq = 50:5:120;
 frekvence(f).freqname = '50-120Hz'; %gamma 2
 f=f+1;
-frekvence(f).todo = 1;
+frekvence(f).todo = 0;
 frekvence(f).freq = 30:1:50; %20 pasem
 frekvence(f).freqname = '30-50Hz'; % gamma
 f=f+1;
@@ -29,13 +29,13 @@ frekvence(f).freq = 15:0.5:30;%30 pasem
 frekvence(f).freqname = '15-30Hz'; % beta
 
 f=f+1;
-frekvence(f).todo = 1;
+frekvence(f).todo = 0;
 frekvence(f).freq = 4:0.2:8; %20 pasem
 frekvence(f).freqname = '4-8HzM'; % theta fast Morlet
 frekvence(f).classname = 'Morlet'; % 
 
 f=f+1;
-frekvence(f).todo = 1;
+frekvence(f).todo = 0;
 frekvence(f).freq = 1:0.2:4; %15 pasem
 frekvence(f).freqname = '1-4HzM'; % theta slow Morlet
 frekvence(f).classname = 'Morlet'; % 

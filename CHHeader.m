@@ -823,7 +823,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             if exist('selCh','var') && ~isempty(selCh)
                 klavesy = 'fghjkl';
                 chshow = 1:numel(obj.H.channels);
-                assert (numel(selCh)<=2,'maximum of 2 letter could be in selCh ');
+                assert (numel(selCh)<=4,'maximum of 4 letter could be in selCh ');
                 if find(ismember(klavesy,selCh)) %vrati index klavesy nektereho selCh v klavesy
                     if ~isfield(obj.plotCh2D,'selCh')
                         warning('No selCh in CH object, first run the ChannelPlot2D');
@@ -839,7 +839,16 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 elseif ismember('n',selCh) %NOT rejected channels,, nekde v selCh je r
                     chshow = intersect(chshow,setdiff(obj.H.selCh_H,obj.RjCh));
                     %obj.plotCh2D.chshowstr = 'nrj'; 
-                    filtered = true;                
+                    filtered = true;
+                end
+                if contains(selCh, '~e')    % not epileptic je dvojice znaku "~e"
+                    flt = [obj.H.channels.seizureOnset] == 0 & [obj.H.channels.interictalOften] == 0;
+                    chshow = intersect(chshow,find(flt));
+                    filtered = true;
+                elseif contains(selCh, 'e') % epileptic je pouze "e" (mohlo by se pouzit i ismemeber)
+                    flt = [obj.H.channels.seizureOnset] == 1 | [obj.H.channels.interictalOften] == 1;
+                    chshow = intersect(chshow,find(flt));
+                    filtered = true;
                 end
                 if filtered
                     obj.plotCh2D.chshow = chshow;
@@ -868,7 +877,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 obj.plotCh2D.chshow = 1:numel(obj.H.channels);
                 obj.plotCh2D.chshowstr = '';
                 obj.sortorder = 1:numel(obj.H.channels); %defaultni sort order pro vsechny kanaly
-                disp('zobrazeny vsechny kanalu');
+                disp('zobrazeny vsechny kanaly');
             end
             notify(obj, 'FilterChanged');
         end
