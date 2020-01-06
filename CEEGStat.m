@@ -15,7 +15,7 @@ classdef CEEGStat
             obj.fs = fs;
         end
         
-        function [P, ibaseline, iepochtime, itimewindow] = WilcoxBaseline(obj,epochtime,baseline,timewindow,iEp,RjEpCh)
+        function [P, ibaseline, iepochtime, itimewindow] = WilcoxBaseline(obj, epochtime, baseline, timewindow, iEp, RjEpCh)
             % spocita signifikance vuci baseline
             % prevedeno z CiEEGData.ResponseSearch 18.7.2017
             iepochtime = round(epochtime(1:2).*obj.fs); %v poctu vzorku cas pred a po udalosti, pred je zaporne cislo           

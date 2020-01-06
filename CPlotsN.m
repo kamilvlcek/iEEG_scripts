@@ -13,7 +13,7 @@ classdef CPlotsN < handle
         function obj = CPlotsN(E, HOrigData)
             obj.E = E;
             if ~exist('HOrigData', 'var') || isempty(HOrigData)
-                obj.HOrigData = downsample(E.d,E.decimatefactor);
+                obj.HOrigData = downsample(E.d,E.decimatefactor); %do funkce plotUnepochedData
             else
                 obj.HOrigData = HOrigData;
             end

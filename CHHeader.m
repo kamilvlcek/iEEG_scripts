@@ -595,9 +595,14 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
 %         function obj = SaveAUCPlotHandle(obj,fh) 
 %             obj.plotCh2D.plotAUCH = fh; %ulozim handle na CStat.AUCPlot funkci,abych ji mohl volat z grafu ChannelPlot2D
 %         end
-        function tag= PacientTag(obj)
+        function tag= PacientTag(obj,ch)
             %vraci tag pacienta, napriklad p73
-            if isfield(obj.H,'patientTag'), tag = obj.H.patientTag; else, tag=obj.H.subjName; end
+            if strcmp(obj.classname,'CHilbertMulti') && exist('ch','var') && ch > 0
+                str = split(obj.H.channels(ch).name);
+                tag = str{1}; %pokud se jedna o CHilbertMulti a zadam cislo kanalu, vracim cislo pacienta z tohoto kanalu
+            else
+                if isfield(obj.H,'patientTag'), tag = obj.H.patientTag; else, tag=obj.H.subjName; end
+            end
         end
         function [MNI_coors]= GetMNI(obj,channels)   
             %vraci koordinaty MNI pro Jirkovy skripty na SEEG-vizualizaci
@@ -818,7 +823,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             if exist('selCh','var') && ~isempty(selCh)
                 klavesy = 'fghjkl';
                 chshow = 1:numel(obj.H.channels);
-                assert (numel(selCh)<=2,'maximum of 2 letter could be in selCh ');
+                assert (numel(selCh)<=4,'maximum of 4 letter could be in selCh ');
                 if find(ismember(klavesy,selCh)) %vrati index klavesy nektereho selCh v klavesy
                     if ~isfield(obj.plotCh2D,'selCh')
                         warning('No selCh in CH object, first run the ChannelPlot2D');
@@ -834,7 +839,16 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 elseif ismember('n',selCh) %NOT rejected channels,, nekde v selCh je r
                     chshow = intersect(chshow,setdiff(obj.H.selCh_H,obj.RjCh));
                     %obj.plotCh2D.chshowstr = 'nrj'; 
-                    filtered = true;                
+                    filtered = true;
+                end
+                if contains(selCh, '~e')    % not epileptic je dvojice znaku "~e"
+                    flt = [obj.H.channels.seizureOnset] == 0 & [obj.H.channels.interictalOften] == 0;
+                    chshow = intersect(chshow,find(flt));
+                    filtered = true;
+                elseif contains(selCh, 'e') % epileptic je pouze "e" (mohlo by se pouzit i ismemeber)
+                    flt = [obj.H.channels.seizureOnset] == 1 | [obj.H.channels.interictalOften] == 1;
+                    chshow = intersect(chshow,find(flt));
+                    filtered = true;
                 end
                 if filtered
                     obj.plotCh2D.chshow = chshow;
@@ -863,7 +877,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 obj.plotCh2D.chshow = 1:numel(obj.H.channels);
                 obj.plotCh2D.chshowstr = '';
                 obj.sortorder = 1:numel(obj.H.channels); %defaultni sort order pro vsechny kanaly
-                disp('zobrazeny vsechny kanalu');
+                disp('zobrazeny vsechny kanaly');
             end
             notify(obj, 'FilterChanged');
         end
@@ -889,29 +903,92 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             end
             
         end
-        function obj = BrainLabelsImport(obj,brainlbs)
+        function obj = BrainLabelsImport(obj,brainlbs,filename)
             %naimportuje cell array do struct array. Hlavne kvuli tomu, ze v cell array nemusi byt vsechny kanaly
             %predpoklada ctyri cloupce - cislo kanalu, brainclass	brainlabel	lobe
-            BL = struct('class',{},'label',{},'lobe',{}); %empty struct with 3 fields
-            for j = 1:size(brainlbs,1)
-                BL(brainlbs{j,1}).class = brainlbs{j,2};
-                BL(brainlbs{j,1}).label = brainlbs{j,3};
-                BL(brainlbs{j,1}).lobe = brainlbs{j,4};
+            %filename - jmeno CHilbertMulti _CiEEG.mat souboru, ze ktereho se maji brainlabels najit podle jmen kanalu
+            
+            if isempty(brainlbs) && exist('filename','var')
+                 assert(exist(filename,'file')==2,'soubor filename neexistuje');
+                 vars = whos('-file',filename) ;
+                 assert(ismember('CH_H', {vars.name}), 'soubor neobsahuje promennou H'); 
+                 assert(ismember('CH_brainlabels', {vars.name}), 'soubor neobsahuje promennou brainlabels'); 
+                 CH = load(filename,'CH_H','CH_brainlabels'); %nactu do struktury
+                 names = {CH.CH_H.channels.name};
+                 loaded = 0; %pocet nactenych kanalu
+                 for ch = 1:numel(obj.H.channels)
+                     idx = find(ismember(names,obj.H.channels(ch).name));
+                     if ~isempty(idx)
+                        obj.brainlabels(ch).class = CH.CH_brainlabels(idx).class;
+                        obj.brainlabels(ch).label = CH.CH_brainlabels(idx).label;
+                        obj.brainlabels(ch).lobe = CH.CH_brainlabels(idx).lobe;
+                        loaded = loaded + 1;
+                     end 
+                 end
+                 disp(['loaded brainlabels of ' num2str(loaded) ' channels']);
+            else
+                %BL = struct('class',{},'label',{},'lobe',{}); %empty struct with 3 fields
+                %nechci mazat ty existujici, to muzu kdyz tak udelat rucne
+                for j = 1:size(brainlbs,1)
+                    obj.brainlabels(brainlbs{j,1}).class = brainlbs{j,2};
+                    obj.brainlabels(brainlbs{j,1}).label = brainlbs{j,3};
+                    obj.brainlabels(brainlbs{j,1}).lobe = brainlbs{j,4};
+                end    
+                %obj.brainlabels = BL;
             end
+            %chci mit vsude string, zadne prazdne, kvuli exportu. Takze prazdna nahradim mezerou
+            BL = obj.brainlabels';
             emptyIndex = find(arrayfun(@(BL) isempty(BL.class),BL)); %nasel jsem https://www.mathworks.com/matlabcentral/answers/328326-check-if-any-field-in-a-given-structure-is-empty
-            for j = emptyIndex
+            for j = emptyIndex'
                 BL(j).class = ' '; %nejaky znak asi musim vlozit
             end
             emptyIndex = find(arrayfun(@(BL) isempty(BL.label),BL)); %nasel jsem https://www.mathworks.com/matlabcentral/answers/328326-check-if-any-field-in-a-given-structure-is-empty
-            for j = emptyIndex
+            for j = emptyIndex'
                 BL(j).label = ' ';
             end
             emptyIndex = find(arrayfun(@(BL) isempty(BL.lobe),BL)); %nasel jsem https://www.mathworks.com/matlabcentral/answers/328326-check-if-any-field-in-a-given-structure-is-empty
-            for j = emptyIndex
+            for j = emptyIndex'
                 BL(j).lobe = ' ';
-            end
+            end  
             obj.brainlabels = BL;
         end
+        function obj = RemoveChannels(obj,channels)  
+            %smaze se souboru vybrane kanaly. Kvuli redukci velikost aj                        
+            keepch = setdiff(1:numel(obj.H.channels),channels); %channels to keep            
+            channelmap = zeros(1,numel(obj.H.channels));
+            channelmap(keepch) = 1:numel(keepch); %prevod ze starych cisel kanalu na nove
+            
+            obj.RjCh = setdiff(obj.RjCh,channels,'stable'); %kanaly ktere zbydou s puvodnimi cisly
+            obj.RjCh = channelmap(obj.RjCh); %nova cisla zbylych kanalu
+            
+            obj.H.channels = obj.H.channels(keepch);
+            obj.H.selCh_H = channelmap(setdiff(obj.H.selCh_H,channels,'stable')); %keep the order             
+            %kanaly musim precislovat, napriklad z 11 se ma stat 4 atd            
+            obj.sortorder = channelmap(setdiff(obj.sortorder,channels,'stable')); %cisla 1:n v poradi puvodniho sortorder   
+            if isprop(obj,'plotCh2D') && isfield(obj.plotCh2D,'chshow')
+                obj.plotCh2D.chshow = channelmap(setdiff(obj.plotCh2D.chshow,channels,'stable')); 
+                obj.plotCh2D.ch_displayed = channelmap(setdiff(obj.plotCh2D.ch_displayed,channels,'stable')); 
+            end
+            
+            %TODO - vyradit i radky z obj.brainlabels
+            obj.filterMatrix = obj.filterMatrix(:,keepch'); 
+            for j = 1:numel(obj.els)
+                if j == 1
+                    n = sum(channels<=obj.els(j));
+                else
+                    n = sum(channels > obj.els(j-1) & channels < obj.els(j));
+                end
+                if n > 0
+                    obj.els(j:end) = obj.els(j:end) - n; %potrebuju snizit i vsechny nasledujici
+                else
+                    obj.els(j) = [];
+                end
+            end
+            for j = 1:numel(obj.chgroups)
+                obj.chgroups{j} = channelmap(setdiff( obj.chgroups{j},channels,'stable'));
+            end
+        end
+        
     end
     
     %  --------- privatni metody ----------------------
@@ -1164,7 +1241,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                       obj.plotCh2D.lines = obj.plotCh2D.lines + 1;
                       if obj.plotCh2D.lines == 2, obj.plotCh2D.lines = -1; end %hodnoty -1 0 1, -1=nezobrazovat neoznacene kanaly, 0=nezobrazovat cary, 1=zobrazovat
                       obj.ChannelPlot2D();
-                  case 't' %barvy oznaceni kanalu fghhjkl jsou pruhledne nebo ne
+                  case 't' %barvy oznaceni kanalu fghjkl jsou pruhledne nebo ne
                       obj.plotCh2D.transparent = 1-obj.plotCh2D.transparent;
                       obj.ChannelPlot2D();
                   case 'c' %prepinani index barevne skaly

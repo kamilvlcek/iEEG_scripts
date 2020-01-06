@@ -1826,7 +1826,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
             if ismember('CH_plots', {vars.name}) %nastaveni obou grafu mozku v CHHeader
                 load(filename,'CH_plots'); 
-                obj.CH.plotCh2D = CH_plots{1};   %#ok<USENS>
+                obj.CH.plotCh2D = CH_plots{1};   %#ok<IDISVAR,USENS>
                 obj.CH.plotCh3D = CH_plots{2};  
             end
             if isfield(obj.CH.plotCh2D,'chshow') && length(obj.CH.sortorder) > length(obj.CH.plotCh2D.chshow)
@@ -1914,7 +1914,12 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
            
            comb = combinator(numel(kategories),2,'c'); %kombinace bez opakovani o dvou prvcich - pocitam kolik je kombinaci kategorii podnetu
-           cellout = cell(numel(channels), 13 + length(obj.plotRCh.selChNames) + 5*numel(kategories) + size(comb,1));
+           if isprop(obj.CH,'brainlabels') && ~isempty(obj.CH.brainlabels) 
+               exportBrainlabels = 1;               
+           else
+               exportBrainlabels = 0;               
+           end
+           cellout = cell(numel(channels), 14 + exportBrainlabels*3+ length(obj.plotRCh.selChNames) + 5*numel(kategories) + size(comb,1));
            
            RespVALS = struct; %struct array, kam si predpocitam hodnoty z ResponseTriggerTime
            [SigTimeBaseline,SigTimeKat]=obj.CS.StatDiffStart(obj.CH.sortorder,obj.Wp(obj.WpActive),kategories,0.05); %casy zacatku signifikanci 
@@ -1927,9 +1932,12 @@ classdef CiEEGData < matlab.mixin.Copyable
            %pres vsechny kanaly plnim tabulku
            for ch=1:numel(channels)              
                channelHeader = channels(ch);
-               RjCh = double(any(obj.RjCh==obj.CH.sortorder(ch))); %vyrazeni kanalu v CiEEGData
-               lineIn = [{ obj.CH.sortorder(ch), channelHeader.name, channelHeader.neurologyLabel, BrainNames{ch,4}, BrainNames{ch,5}, BrainNames{ch,6}...
-                        channelHeader.MNI_x, channelHeader.MNI_y, channelHeader.MNI_z, channelHeader.seizureOnset, channelHeader.interictalOften, ...
+               RjCh = double(any(obj.RjCh==obj.CH.sortorder(ch))); %vyrazeni kanalu v CiEEGData               
+               if exportBrainlabels, bl = struct2cell(obj.CH.brainlabels(ch))'; else, bl = cell(0,0); end               
+               blnames = iff(exportBrainlabels,{'mybrainclass','mybrainlabel','mylobe'},cell(0,0)); %uzivatelska jmena struktur ve trech sloupcich             
+               lineIn = [{ obj.CH.sortorder(ch), channelHeader.name, obj.CH.PacientTag(ch), channelHeader.neurologyLabel, BrainNames{ch,4}, BrainNames{ch,5}, BrainNames{ch,6} } , ...
+                        bl, ...
+                        {channelHeader.MNI_x, channelHeader.MNI_y, channelHeader.MNI_z, channelHeader.seizureOnset, channelHeader.interictalOften, ...
                         mat2str(channelHeader.rejected), RjCh} , ...
                         num2cell(selChFiltered(ch, :))];  %vybery kanalu fghjkl               
                selChNames = obj.plotRCh.selChNames;
@@ -1938,8 +1946,8 @@ classdef CiEEGData < matlab.mixin.Copyable
                     selChNames{n} = ['V' num2str(n) ]; %jednotliv promenne ani nesmi mit stejna jmena
                end
                if ch==1
-                   variableNames = [{ 'channel' 'name'  'neurologyLabel' 'fullBrainName' 'structure' 'region' 'MNI_x'  'MNI_y'  'MNI_z'  'seizureOnset'  'interictalOften' 'rejected' 'RjCh'}, ...
-                    selChNames];               
+                   variableNames = [{ 'channel' 'name' 'pacient' 'neurologyLabel' 'fullBrainName' 'structure' 'region'} blnames ... 
+                    { 'MNI_x'  'MNI_y'  'MNI_z'  'seizureOnset'  'interictalOften' 'rejected' 'RjCh'}, selChNames];               
                end
                %chci mit kategorie v tabulce vedle sebe, protoze patri k jednomu kanalu. Treba kvuli 2way ANOVA
                for k = 1 : numel(kategories) 
