@@ -216,7 +216,7 @@ classdef ScatterPlot < handle
         function updatePlot(obj,recompute)
             if ~exist('recompute','var'), recompute = 1; end
             obj.setDisplayedChannels(); % Kombinace voleb pro zobrazeni kanalu
-            selChFiltered = obj.selCh(obj.dispChannels,:); %filter kanalu ve vyberu fghjkl
+            selChFiltered = obj.selCh(obj.dispChannels,:); %channels x marks - filter kanalu ve vyberu fghjkl
             RjCh = intersect(intersect(obj.dispFilterCh, obj.dispSelCh),obj.ieegdata.RjCh); %vyrazene kanaly z tech nyni zobrazenych - cisla kanalu
             selChRj = obj.selCh(RjCh,:); %filter vyrazenych kanalu ve vyberu fghjkl
             delete(obj.plots); obj.plots = [];

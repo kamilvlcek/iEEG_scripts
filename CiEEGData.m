@@ -1550,7 +1550,15 @@ classdef CiEEGData < matlab.mixin.Copyable
             if isfield(obj.CH.plotCh2D,'chshow') && isfield(obj.CH.plotCh2D,'chshowstr') && ~isempty(obj.CH.plotCh2D.chshow) && ~isempty(obj.CH.plotCh2D.chshowstr) %% plot chshow
                 chnshow = mat2str(obj.CH.plotCh2D.chshow(1:(min(20,numel(obj.CH.plotCh2D.chshow)))));
                 if numel(obj.CH.plotCh2D.chshow) > 20, chnshow = [chnshow ' ...']; end
-                text(-0.1,ymax*.72, ['show:  ' obj.CH.plotCh2D.chshowstr '=' chnshow], 'FontSize', 10);
+                text(-0.1,ymax*.72, ['ChShow:  ' obj.CH.plotCh2D.chshowstr '=' chnshow], 'FontSize', 10);
+            end
+            if isfield(obj.plotRCh,'selChN') && ~isempty(obj.plotRCh.selChN)  %cislo zobrazeneho vyberu kanalu, viz E.SetSelChActive
+                text(-0.1,ymax*0.64,['SetSelChActive: ' num2str(obj.plotRCh.selChN)], 'FontSize', 10);
+            end
+            if isfield(obj.plotRCh,'selChNames') && ~isempty(obj.plotRCh.selChNames)  %cislo zobrazeneho vyberu kanalu, viz E.SetSelChActive
+                marks = 'fghjkl';
+                iselChNames = ~cellfun(@isempty,obj.plotRCh.selChNames); %non empty elements
+                text(-0.1,ymax*0.56,[marks(iselChNames) '=' cell2str(obj.plotRCh.selChNames(iselChNames))], 'FontSize', 10);
             end
             methodhandle = @obj.hybejPlotCh;
             set(obj.plotRCh.fh,'KeyPressFcn',methodhandle);      
@@ -1977,13 +1985,14 @@ classdef CiEEGData < matlab.mixin.Copyable
             writetable(tablelog, xlsfilename); %zapisu do xls tabulky            
             disp([ 'XLS table saved: ' xlsfilename]);
         end
-        function SetSelChActive(obj,n,save)
+        function SetSelChActive(obj,n,save,noprint)
             %activates other channel marks fghjkl. 
             %n - number of the selection set. Save - force save active selection set
             %non-existing n activates new selection set. 
             %existing n activates the previously saved set. Saves the active one before. 
             if ~exist('n','var'), n =  obj.plotRCh.selChN; end %defaultne se vybere aktualni set - zadna zmena
-            if ~exist('save','var'), save = 0; end %jestli se ma ulozit aktualni vyber jako n, a tim prepsat existujici
+            if ~exist('save','var') || isempty(save), save = 0; end %jestli se ma ulozit aktualni vyber jako n, a tim prepsat existujici
+            if ~exist('noprint','var'), noprint = 0; end %jestli se ma ulozit aktualni vyber jako n, a tim prepsat existujici
             if ~isfield(obj.plotRCh, 'selChN') || isempty(obj.plotRCh.selChN)
                 obj.plotRCh.selChN = 1;
             end
@@ -1994,24 +2003,26 @@ classdef CiEEGData < matlab.mixin.Copyable
                 obj.plotRCh.selChSave(1).selChSignum = obj.plotRCh.selChSignum;                
             end
             n = max(1,min(numel(obj.plotRCh.selChSave)+1,n)); %osetreni n mimo limity. Maximalne muze byt o 1 vetsi nez aktualni rozsah
+            %saving of current channel marking set
             if n ~= obj.plotRCh.selChN  || save            
                 obj.plotRCh.selChSave(obj.plotRCh.selChN).selCh = obj.plotRCh.selCh;
                 obj.plotRCh.selChSave(obj.plotRCh.selChN).selChNames = obj.plotRCh.selChNames;
                 obj.plotRCh.selChSave(obj.plotRCh.selChN).selChSignum = obj.plotRCh.selChSignum;                  
-                disp(['ulozen aktualni vyber jako c. ' num2str(obj.plotRCh.selChN)]);                
+                if noprint==0, disp(['saved current marking set as no. ' num2str(obj.plotRCh.selChN)]);  end              
             end
+            %load the new channel marking set
             if n <= numel(obj.plotRCh.selChSave) && n~= obj.plotRCh.selChN
                 obj.SetSelCh(obj.plotRCh.selChSave(n).selCh);
                 obj.plotRCh.selChNames = obj.plotRCh.selChSave(n).selChNames;
                 obj.plotRCh.selChSignum = obj.plotRCh.selChSave(n).selChSignum;
                 obj.plotRCh.selChN = n;
-                disp(['nacten vyber c. ' num2str(n) ]);
+                if noprint==0, disp(['loaded marking set no. ' num2str(n) ]);end
             elseif n > numel(obj.plotRCh.selChSave)
                 obj.SetSelCh([]); 
                 obj.plotRCh.selChN = n;
-                disp(['nacteny prazdny vyber c.' num2str(n)]);
+                if noprint==0, disp(['loaded empty marking set no.' num2str(n)]); end
             else
-                disp(['zadna zmena vyberu c.' num2str(obj.plotRCh.selChN)]);
+                if noprint==0, disp(['no change of selected marking set no.' num2str(obj.plotRCh.selChN)]); end
             end
         end
     end
@@ -2216,6 +2227,16 @@ classdef CiEEGData < matlab.mixin.Copyable
                     if obj.WpActive > 1
                         obj.WpActive = obj.WpActive - 1;
                         obj.PlotResponseCh();
+                    end
+                case 'i' %zvyseni cisla aktivniho znaceni kanalu fghjkl
+                    if  obj.plotRCh.selChN < numel(obj.plotRCh.selChSave)
+                        obj.SetSelChActive(obj.plotRCh.selChN + 1,[],1);
+                        obj.PlotResponseCh();                       
+                    end
+                 case 'u' %snizeni cisla aktivniho znaceni kanalu fghjkl
+                    if obj.plotRCh.selChN > 1
+                        obj.SetSelChActive(obj.plotRCh.selChN - 1,[],1);
+                        obj.PlotResponseCh();                       
                     end
                 case 'period'     % prepinani razeni kanalu
                     sortorder0 = obj.CH.sortorder; %musi si ulozit stare razeni, abych potom nasel ten spravny kanal

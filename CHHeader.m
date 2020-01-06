@@ -924,32 +924,40 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                         obj.brainlabels(ch).lobe = CH.CH_brainlabels(idx).lobe;
                         loaded = loaded + 1;
                      end 
-                 end
-                 disp(['loaded brainlabels of ' num2str(loaded) ' channels']);
+                 end                 
             else
                 %BL = struct('class',{},'label',{},'lobe',{}); %empty struct with 3 fields
                 %nechci mazat ty existujici, to muzu kdyz tak udelat rucne
+                loaded = 0; %pocet nactenych kanalu
                 for j = 1:size(brainlbs,1)
                     obj.brainlabels(brainlbs{j,1}).class = brainlbs{j,2};
                     obj.brainlabels(brainlbs{j,1}).label = brainlbs{j,3};
                     obj.brainlabels(brainlbs{j,1}).lobe = brainlbs{j,4};
+                    loaded = loaded + 1;
                 end    
                 %obj.brainlabels = BL;
             end
+            disp(['loaded brainlabels of ' num2str(loaded) ' channels']);
             %chci mit vsude string, zadne prazdne, kvuli exportu. Takze prazdna nahradim mezerou
             BL = obj.brainlabels';
             emptyIndex = find(arrayfun(@(BL) isempty(BL.class),BL)); %nasel jsem https://www.mathworks.com/matlabcentral/answers/328326-check-if-any-field-in-a-given-structure-is-empty
-            for j = emptyIndex'
-                BL(j).class = ' '; %nejaky znak asi musim vlozit
+            if ~isempty(emptyIndex)
+                for j = emptyIndex'
+                    BL(j).class = ' '; %nejaky znak asi musim vlozit
+                end
             end
             emptyIndex = find(arrayfun(@(BL) isempty(BL.label),BL)); %nasel jsem https://www.mathworks.com/matlabcentral/answers/328326-check-if-any-field-in-a-given-structure-is-empty
-            for j = emptyIndex'
-                BL(j).label = ' ';
+            if ~isempty(emptyIndex)
+                for j = emptyIndex'
+                    BL(j).label = ' ';
+                end
             end
             emptyIndex = find(arrayfun(@(BL) isempty(BL.lobe),BL)); %nasel jsem https://www.mathworks.com/matlabcentral/answers/328326-check-if-any-field-in-a-given-structure-is-empty
-            for j = emptyIndex'
-                BL(j).lobe = ' ';
-            end  
+            if ~isempty(emptyIndex)
+                for j = emptyIndex'
+                    BL(j).lobe = ' ';
+                end  
+            end
             obj.brainlabels = BL;
         end
         function obj = RemoveChannels(obj,channels)  
