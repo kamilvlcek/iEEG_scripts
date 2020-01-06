@@ -432,15 +432,33 @@ classdef CHilbert < CiEEGData
             envelopes = squeeze(envelopes);
         end
         
+        % Returns indices in the envelope for given timewindow
+        %
+        % timewindow: numeric(2) with time in seconds
+        % RETURNS: numeric(2) defining indices or [] if failed
+        function indices = gettimewindowindices(obj, timewindow)
+            indices = [];
+            if numel(timewindow) ~= 2, return; end
+            
+            tick = (obj.epochtime(2) - obj.epochtime(1))/obj.fs;
+            time = obj.epochtime(1) + (0:(size(obj.HFreq, 1) - 1)) * tick;
+            % check if timewindow is in the epochtime boundaries
+            if timewindow(1) >= max(time), return; end
+            if timewindow(2) <= min(time), return; end
+            
+            indices = [find(time >= timewindow(1), 1) find(time <= timewindow(2), 1, 'last')];
+        end
+        
         %% Statistics
         % epochtime: numeric(2) vector defining start and an end of the
         % response
         % baselinetime: numeric(2) vector defining start and end of
         % baseline
-        function wp = wilcoxbaseline(obj, responsetime, baselinetime)
-            iResponse = responsetime; % TODO - redo as per time definition of a single "tick" 
+        function wp = wilcoxbaseline(obj, baselinetime, responsetime)
+            iResponse = obj.gettimewindowindices(responsetime);
+            iBaseline = obj.gettimewindowindices(baselinetime);
+            if any([numel(iBaseline) ~= 2, numel(iResponse) ~= 2]), return; end
             response = obj.HFreqEpochs(iResponse(1):iResponse(2), :, :, :);
-            iBaseline = baselinetime; % TODO - redo as per time definition of a single "tick"
             baseline = obj.HFreqEpochs(iBaseline(1):iBaseline(2), :, :, :);
             wp = CStat.Wilcox2D(response, baseline, 1, [], 'mean vs baseline');
         end
