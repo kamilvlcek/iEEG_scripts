@@ -120,29 +120,38 @@ classdef CRefOrigVals < matlab.mixin.Copyable
             end
         end
         function ExportXLS(obj)
-            cellOut = cell(numel(obj.chnums), 3 + 4*numel(obj.kats));
-            variableNames = {'channel' 'name' 'neurologyLabel'};
+            cellOut = cell(numel(obj.chnums), 1 + 5*numel(obj.kats));
+            variableNames = {'bipolarName'};
             for k = 1:numel(obj.kats)   % projdu vsechny kategorie a nastavim headery pro prislusne sloupce
                 katname = obj.Eh.PsyData.CategoryName(obj.kats(k));
-                variableNames = [variableNames [katname '_valmax1'] [katname '_valmax2'] [katname '_valmaxdiff'] [katname '_maxChName']]; %TODO: Co ten maxChNeurologyLabel???
+                variableNames = [variableNames [katname '_valmax1'] [katname '_valmax2'] [katname '_valmaxdiff'] [katname '_maxChName'] [katname '_maxNeurologyLabel']];
             end
             
+            previousPatient = []; previousFilename = []; E = [];   % jednoduche "cachovani". funguje dobre pro pripad, ze jsou data z jednoho pacienta razena za sebou
             for ch = 1:size(obj.chnums,1)    % projdu vsechny kanaly
-                neurologyLabel = obj.Eh.CH.H.channels(ch).neurologyLabel;
-                lineOut = {obj.chnums(ch), obj.chnames{ch,3}, neurologyLabel};
+                lineOut = {obj.chnames{ch,3}};
+                patient = obj.chnames{ch,4}; filename = obj.chnames{ch,5};
+                if ~strcmp(patient, previousPatient) || ~strcmp(filename, previousFilename)   % pokud jsou data ze stejneho souboru jako predchozi iterace, nebudu E nacitat znovu
+                    E = pacient_load(patient, obj.Eh.PsyData.testname, filename);
+                end
+                previousPatient = patient; previousFilename = filename;
+                
                 for k = 1:numel(obj.kats)   % projdu vsechny kategorie (ruzne kategorie pro stejny kanal budou v tabulce pod sebou)
                     vals = squeeze(obj.ValMax(k,ch,:));
                     if vals(1) > vals(2)
-                        maxChName = obj.chnames{ch,1};
-                        %maxChNeurologyLabel = obj.Eh.CH.H.channels(obj.chnums(1)).neurologyLabel;
-                        maxChNeurologyLabel = '???';
+                        maxId = 1;
                     else
-                        maxChName = obj.chnames{ch,2};
-                        %maxChNeurologyLabel = obj.Eh.CH.H.channels(obj.chnums(2)).neurologyLabel;
-                        maxChNeurologyLabel = '???';
+                        maxId = 2;
                     end
-                    lineOut = [lineOut, vals(1), vals(2), abs(vals(1)-vals(2)), maxChName];
+                    maxChName = obj.chnames{ch,maxId};
+                    if isempty(E)
+                        maxChNeurologyLabel = 'unknown';
+                    else
+                        maxChNeurologyLabel = E.CH.H.channels(obj.chnums(ch,maxId)).neurologyLabel;
+                    end
+                    lineOut = [lineOut, vals(1), vals(2), abs(vals(1)-vals(2)), maxChName, maxChNeurologyLabel];
                 end
+                
                 cellOut(ch, :) =  lineOut;
             end
             
