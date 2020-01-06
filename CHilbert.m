@@ -396,19 +396,36 @@ classdef CHilbert < CiEEGData
         end
         
         %% Getters
-        % QUESTION - not sure why we add 1 to the categories
-        % returns contents for HFreq for given set of channels and
-        % categories
-        % channels: array of channels. eg. [1, 5, 20]
-        % categories: array of categories. eg. [1,3]
+        % QUESTION - not sure why we add 1 to the categories returns
+        % contents for HFreq for given set of channels and categories
+        % 
+        % channels: array of channels. eg. [1, 5, 20]. If empty, returns
+        % all channels. default []
+        % categories: array of categories. eg. [1,3]. If empty, returns all
+        % categories. Adds +1 to category number because of reasons - so if
+        % you want category 1, you need to pass 0. default []
         % RETURN: matrix [time x channel x frequency x category]
         function envelopes = getenvelopes(obj, channels, categories)
+            if ~exist('channels', 'var') || numel(channels) == 0
+                channels = 1:(size(obj.HFreq, 4) - 1);
+            end
+            if ~exist('categories', 'var') || numel(categories) == 0
+                categories = 1:size(obj.HFreq, 2);
+            end
             envelopes = obj.HFreq(:, channels, :, categories + 1);
         end
         
         % averages envelopes per channels and categories
+        % 
+        % channels: vector(numeric) of channels to average across. If empty, returns
+        % data only averaged across categories
+        % categories: vector(numeric) of categories to average across. If
+        % empty, returns 
         % RETURN: matrix [time x frequency]
         function envelopes = averageenvelopes(obj, channels, categories)
+            if ~exist('channels', 'var'), channels = []; end
+            if ~exist('categories', 'var'), categories = []; end
+            
             envelopes = obj.getenvelopes(channels, categories);
             if numel(channels) >= 2, envelopes = mean(envelopes, 2); end
             if numel(categories) >= 2, envelopes = mean(envelopes, 4); end
