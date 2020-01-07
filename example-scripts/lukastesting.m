@@ -16,7 +16,15 @@ hilbert.PlotResponseFreq(20, [0:3]);
 hilbert.PlotResponseFreq([1:4], [0:3]);
 
 % Wilcox against a baseline 
+wBaseline = hilbert.wilcoxbaseline([-0.2 0], [0.01 0.8], [], {'Ovoce'});
+plotpintime(wBaseline, [0.01 0.8]);
 
-wBaseline = hilbert.wilcoxbaseline([-0.2 0], [0.01 0.8]);
+wBaseline = hilbert.wilcoxbaseline([-0.2 0], [0.01 0.8], [], {'Scene'});
+plotpintime(wBaseline, [0.01 0.8]);
+
+wBaseline = hilbert.wilcoxbaseline([-0.2 0], [0.01 0.8], [], {'Object'});
+plotpintime(wBaseline, [0.01 0.8]);
+
+% Wilcox category comparison
 wCategory = hilbert.wilcoxcategories([0 0.5], [{'Ovoce'} {'Scene'}]);
-plot(wCategory)
+plotpintime(wCategory, [0.01 0.8])

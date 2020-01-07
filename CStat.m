@@ -17,7 +17,6 @@ classdef CStat < handle
     end
     
     methods (Access = public)
-        
         function obj = CStat(~)
             obj.AUCReset();
             obj.AUCPlotIni();
@@ -564,11 +563,11 @@ classdef CStat < handle
             if print, fprintf(' .. done in %.1f min \n',cas/60); end            
         end
         
-        function [W] = Klouzaveokno(W,oknosirka, funkce,dimension)
+        function [W] = Klouzaveokno(W, oknosirka, funkce, dimension)
             % oknosirka je v poctu bodu, funkce muze byt min, max, mean
             % 27.4.2015 - vynato z wilcoxmap, 21.6.2016 presunuto do CStat      
                         
-            if oknosirka >= 1 
+            if oknosirka >= 1 %TODO - could be flipped to reduce nesting `if oknosirka < 1, return; end`
                 if dimension == 1 %pokud chci pocitat klouzave okno v prvnim rozmeru, transponuju na zacatku i na konci
                     W = W'; %vysledne rozmery channel x time(samples)
                 end                
@@ -824,7 +823,6 @@ classdef CStat < handle
                 figure(obj.plotAUC_m.fh);
             end
         end
-        
         function hybejPlot3Dclick(obj, ~, ~, ~)
           mousept = get(gca,'currentPoint');
           p1 = mousept(1,:); p2 = mousept(2,:); % souradnice kliknuti v grafu - predni a zadni bod
@@ -850,6 +848,5 @@ classdef CStat < handle
           end
         end           
     end
-    
 end
 
