@@ -346,12 +346,12 @@ classdef CHilbert < CiEEGData
                 if iscell(categories(k))                    
                     dd = zeros(size(obj.HFreq, 1), size(obj.HFreq, 3), numel(categories{k}));
                     for ikat = 1:numel(categories{k})
-                        dd(:, :, ikat) = obj.averageenvelopes(ch, categories{k}(ikat));
+                        dd(:, :, ikat) = obj.getaverageenvelopes(ch, categories{k}(ikat));
                     end
                     % QUESTION - WHY IS THIS AVERAGING?
                     D = mean(dd, 3);
                 else
-                    D = obj.averageenvelopes(ch, categories(k));
+                    D = obj.getaverageenvelopes(ch, categories(k));
                 end
                 subplot(1, numel(categories), k);
                 T = obj.epochtime(1):0.1:obj.epochtime(2);
@@ -396,8 +396,10 @@ classdef CHilbert < CiEEGData
         end
         
         %% Getters
-        % QUESTION - not sure why we add 1 to the categories returns
-        % contents for HFreq for given set of channels and categories
+        % QUESTION - not sure why we add 1 to the categories 
+        %
+        % returns HFreqEpochs for given set of channels and categories. For
+        % average call getaverageenvelopes
         % 
         % channels: array of channels. eg. [1, 5, 20]. If empty, returns
         % all channels. default []
@@ -407,12 +409,14 @@ classdef CHilbert < CiEEGData
         % RETURN: matrix [time x channel x frequency x category]
         function envelopes = getenvelopes(obj, channels, categories)
             if ~exist('channels', 'var') || numel(channels) == 0
-                channels = 1:(size(obj.HFreq, 4) - 1);
+                channels = 1:size(obj.HFreqEpochs, 2);
             end
             if ~exist('categories', 'var') || numel(categories) == 0
-                categories = 1:size(obj.HFreq, 2);
+                categories = 1:size(obj.HFreqEpochs, 4);
+            else
+                categories = obj.getcategoryindices(categories);
             end
-            envelopes = obj.HFreq(:, channels, :, categories + 1);
+            envelopes = obj.HFreqEpochs(:, channels, :, categories);
         end
         
         % averages envelopes per channels and categories
@@ -420,16 +424,61 @@ classdef CHilbert < CiEEGData
         % channels: vector(numeric) of channels to average across. If empty, returns
         % data only averaged across categories
         % categories: vector(numeric) of categories to average across. If
-        % empty, returns 
+        % empty, returns
         % RETURN: matrix [time x frequency]
-        function envelopes = averageenvelopes(obj, channels, categories)
-            if ~exist('channels', 'var'), channels = []; end
-            if ~exist('categories', 'var'), categories = []; end
-            
-            envelopes = obj.getenvelopes(channels, categories);
+        function envelopes = getaverageenvelopes(obj, channels, categories)
+            if ~exist('channels', 'var') || numel(channels) == 0
+                channels = 1:size(obj.HFreq, 2);
+            end
+            if ~exist('categories', 'var') || numel(categories) == 0
+                categories = 1:size(obj.HFreq, 4);
+            else
+                categories = obj.getaveragecategoryindices(categories);
+            end
+            envelopes = obj.HFreq(:, channels, :, categories);
             if numel(channels) >= 2, envelopes = mean(envelopes, 2); end
-            if numel(categories) >= 2, envelopes = mean(envelopes, 4); end
+            if numel(categories) >= 2, envelopes = mean(envelopes, 4);end
             envelopes = squeeze(envelopes);
+        end
+        
+        % Returns indices of given categories in the obj.HFreqEpochs
+        % categories: vector of either characters cells or numbers defining
+        % categories to be found int the obj.epochData. Zero based category
+        % numbering
+        % RETURN: indices of fitting categories
+        % example: 
+        %   obj.getcategoryindices([0 3])
+        %   obj.getcategoryindices([{'Scene'} {'Object'}])
+        function indices = getcategoryindices(obj, categories)
+            switch class(categories)
+                case 'double'
+                    comparing = cellfun(@(x)x, obj.epochData(:, 2));
+                case 'cell'
+                    comparing = obj.epochData(:, 1);
+                otherwise
+                    return
+            end
+            indices = find(ismember(comparing, categories));
+        end
+        
+        % Returns indices of categories as are in the obj.HFreq
+        % categories: vector of either characters cells or numbers defining
+        % categories to be found int the obj.epochData. Zero based category
+        % numbering
+        % example: 
+        %   obj.getaveragecategoryindices([0 3])
+        %   obj.getaveragecategoryindices([{'Scene'} {'Object'}])
+        function indices = getaveragecategoryindices(obj, categories)
+            conditions = obj.PsyData.P.strings.podminka;
+            switch class(categories)
+                case 'double'
+                    indices = categories + 1;
+                case 'cell'
+                    iCategory = ismember(conditions(:,1), categories);
+                    indices = cellfun(@(x)x + 1, conditions(iCategory, 2));
+                otherwise
+                    return
+            end
         end
         
         % Returns indices in the envelope for given timewindow
@@ -450,10 +499,11 @@ classdef CHilbert < CiEEGData
         end
         
         %% Statistics
-        % epochtime: numeric(2) vector defining start and an end of the
-        % response
-        % baselinetime: numeric(2) vector defining start and end of
-        % baseline
+        % 
+        % baselinetime: numeric(2) in seconds defining baseline timewindow
+        % responsetime: numeric(2) in seconds defining response timewindow
+        % RETURNS: calculated p values by CStat.Wilcox2D
+        % example: obj.wilcoxbaseline([-0.1 0], [0.2 0.5])
         function wp = wilcoxbaseline(obj, baselinetime, responsetime)
             iResponse = obj.gettimewindowindices(responsetime);
             iBaseline = obj.gettimewindowindices(baselinetime);
@@ -461,6 +511,20 @@ classdef CHilbert < CiEEGData
             response = obj.HFreqEpochs(iResponse(1):iResponse(2), :, :, :);
             baseline = obj.HFreqEpochs(iBaseline(1):iBaseline(2), :, :, :);
             wp = CStat.Wilcox2D(response, baseline, 1, [], 'mean vs baseline');
+        end
+        
+        % Compares two category response in given time
+        % responsetime: numeric(2) in seconds defining response timewindow
+        % categories: numeric(2) defining categories. Zero based. e.g [0 2]
+        % RETURNS: calculated p values by CStat.Wilcox2D
+        % example: obj.wilcoxcategories([0 0.6], [0 1])
+        function wp = wilcoxcategories(obj, responsetime, categories)
+            if any([numel(responsetime) ~= 2, numel(categories) ~= 2]), return; end
+            iResponse = obj.gettimewindowindices(responsetime);
+            
+            categoryAEpochs = obj.HFreqEpochs(iResponse(1):iResponse(2),:, :, :);
+            cateboryBEpochs = obj.HFreqEpochs(iResponse(1):iResponse(2),:, :, :);
+            wp = CStat.Wilcox2D(categoryAEpochs, cateboryBEpochs, 1, [], 'mean vs baseline');
         end
         
         %% SAVE AND LOAD FILE
