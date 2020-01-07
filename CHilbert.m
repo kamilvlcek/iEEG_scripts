@@ -520,15 +520,23 @@ classdef CHilbert < CiEEGData
         end
         
         % Compares two category response in given time
-        % responsetime: numeric(2) in seconds defining response timewindow
-        % categories: numeric(2) defining categories. Zero based. e.g [0 2]
+        % responsetime: numeric(2) in seconds defining response timewindow.
+        % defaults to the obj.epochtime
+        % categories: numeric(2) or cell(2){character} defining categories.
+        % Zero based. e.g [0 2]
         % RETURNS: calculated p values by CStat.Wilcox2D
-        % example: obj.wilcoxcategories([0 0.6], [0 1])
-        function wp = wilcoxcategories(obj, responsetime, categories, channels)
+        % example:
+        %   obj.wilcoxcategories([0 1])
+        %   obj.wilcoxcategories([{'Ovoce'} {'Scene'}], [0 0.5], 5:6)
+        function wp = wilcoxcategories(obj, categories, responsetime, channels)
+            if ~exist('responsetime', 'var') || numel(responsetime) == 0
+                responsetime = obj.epochtime(1:2);
+            end
             if ~exist('channels', 'var'), channels = []; end
-            if any([numel(responsetime) ~= 2, numel(categories) ~= 2]), return; end
             
             iResponse = obj.gettimewindowindices(responsetime);
+            if any([numel(iResponse) ~= 2, numel(categories) ~= 2]), return; end
+            
             responseA = obj.getenvelopes(channels, categories(1));
             responseA = responseA(iResponse(1):iResponse(2), :, :, :);
             responseB = obj.getenvelopes(channels, categories(2));

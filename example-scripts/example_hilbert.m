@@ -25,5 +25,14 @@ wBaseline = hilbert.wilcoxbaseline([-0.2 0], [0.01 0.8], [], {'Object'});
 plotpintime(wBaseline, [0.01 0.8]);
 
 % Wilcox category comparison
-wCategory = hilbert.wilcoxcategories([0 0.5], [{'Ovoce'} {'Scene'}]);
+wCategory = hilbert.wilcoxcategories([{'Object'} {'Scene'}], [0.01 0.8]);
 plotpintime(wCategory, [0.01 0.8])
+
+wCategory = hilbert.wilcoxcategories([{'Ovoce'} {'Scene'}], [0.0 0.2]);
+plotpintime(wCategory, [0.0 0.2])
+
+wCategory = hilbert.wilcoxcategories([{'Ovoce'} {'Scene'}], [0.0 0.5]);
+plotpintime(wCategory, [0.0 0.5])
+
+wCategory = hilbert.wilcoxcategories([{'Ovoce'} {'Scene'}], [], 5);
+plotpintime(wCategory, hilbert.epochtime(1:2))
