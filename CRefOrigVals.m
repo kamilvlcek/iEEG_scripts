@@ -9,6 +9,7 @@ classdef CRefOrigVals < matlab.mixin.Copyable
         Eh; %odkaz na objekt CHilbertMulti
         setup;  %nastaveni podle testu
         chnames = {}; %nazvy originalnich kanalu z kterych je to spocitane
+        neuroLabels = {}; %jmena neurologyLabels 
         chnums = []; %cisla originalnich kanalu, kvuli kontrole
         PlotChH; %handle na obrazek
     end
@@ -26,6 +27,7 @@ classdef CRefOrigVals < matlab.mixin.Copyable
             obj.kats = obj.Eh.Wp(obj.Eh.WpActive).kats;
             obj.chnames = cell(numel(obj.Eh.CH.H.channels),6);
             obj.chnums = zeros(numel(obj.Eh.CH.H.channels),2);
+            obj.neuroLabels = cell(numel(obj.Eh.CH.H.channels),2); %neurologyLabels pro ty dva originalni kanaly
             lastiFile = 0;
             for ch = 1:numel(obj.Eh.CH.H.channels) %pres vsechny bipolarni kanaly
                 iFile = find(obj.Eh.els >= ch,1); %cislo souboru, ze ktereho nactu data pro aktualni kanal
@@ -46,7 +48,7 @@ classdef CRefOrigVals < matlab.mixin.Copyable
                     ch2 = E.CH.ChannelNameFind(ch2name);
                     obj.chnums(ch,:) = [ch1,ch2];
                     if ch1 < 1 || ch2 < 1
-                        warning([chn2name 'or' chn2name 'not found in ' pacientId]);
+                        warning([ch2name 'or' ch2name 'not found in ' pacientId]);
                         continue;
                     end
                     for k = 1:numel(obj.kats) %index kategorie v aktualni statistice, zatim budu pracovat jen s jednoduchymi kontrasty, bez dvojic                        
@@ -55,6 +57,7 @@ classdef CRefOrigVals < matlab.mixin.Copyable
                         obj.TMax(k,ch,1) = tmax(ch1,k);
                         obj.TMax(k,ch,2) = tmax(ch2,k);
                     end
+                    obj.neuroLabels(ch,:)={E.CH.H.channels(ch1).neurologyLabel, E.CH.H.channels(ch2).neurologyLabel};
                 end
                 
             end
@@ -101,41 +104,40 @@ classdef CRefOrigVals < matlab.mixin.Copyable
             setup = obj.setup; %#ok<PROP,NASGU>
             chnames = obj.chnames; %#ok<PROP,NASGU>
             chnums = obj.chnums; %#ok<PROP,NASGU>
-            save(fname,'ValMax','TMax','kats','setup','chnames','chnums','-v7.3'); %do druheho souboru data z teto tridy
+            neuroLabels = obj.neuroLabels; %#ok<PROP,NASGU>
+            save(fname,'ValMax','TMax','kats','setup','chnames','chnums','neuroLabels','-v7.3'); %do noveho souboru data z teto tridy
             disp(['saved to ' fname ]);
         end
         function Load(obj)
             fname = obj.filenameM(obj.Eh.filename);
             if exist(fname,'file')
-                load(fname);
-                obj.ValMax = ValMax;  %#ok<CPROP>
-                obj.TMax = TMax; %#ok<CPROP>
-                obj.kats = kats; %#ok<CPROP>
-                obj.setup = setup; %#ok<CPROP>
-                obj.chnames = chnames; %#ok<CPROP>
-                obj.chnums = chnums; %#ok<CPROP>            
+                V = load(fname);
+                obj.ValMax = V.ValMax;  
+                obj.TMax = V.TMax; 
+                obj.kats = V.kats; 
+                obj.setup = V.setup; 
+                obj.chnames = V.chnames; 
+                obj.chnums = V.chnums; 
+                obj.neuroLabels = V.neuroLabels;
                 disp(['loaded ' fname ]);
             else
                 disp(['not found: ' fname ]);
             end
         end
         function ExportXLS(obj)
-            cellOut = cell(numel(obj.chnums), 1 + 5*numel(obj.kats));
-            variableNames = {'bipolarName'};
+            varsfirst = {'chnum' 'bipolarName','maxNeurologyLabel'};
+            cellOut = cell(size(obj.chnums,1), numel(varsfirst) + 5*numel(obj.kats));
+            variableNames = cell(1,numel(varsfirst)+5*numel(obj.kats));
+            variableNames(1:numel(varsfirst)) = varsfirst;
             for k = 1:numel(obj.kats)   % projdu vsechny kategorie a nastavim headery pro prislusne sloupce
                 katname = obj.Eh.PsyData.CategoryName(obj.kats(k));
-                variableNames = [variableNames [katname '_valmax1'] [katname '_valmax2'] [katname '_valmaxdiff'] [katname '_maxChName'] [katname '_maxNeurologyLabel']];
+                variableNames((k-1)*5 + numel(varsfirst) + (1:5)) = {[katname '_valmax1'] [katname '_valmax2'] [katname '_valmaxdiff'] [katname '_maxChName'] [katname '_maxNeurologyLabel']};
             end
-            
-            previousPatient = []; previousFilename = []; E = [];   % jednoduche "cachovani". funguje dobre pro pripad, ze jsou data z jednoho pacienta razena za sebou
+                        
             for ch = 1:size(obj.chnums,1)    % projdu vsechny kanaly
-                lineOut = {obj.chnames{ch,3}};
-                patient = obj.chnames{ch,4}; filename = obj.chnames{ch,5};
-                if ~strcmp(patient, previousPatient) || ~strcmp(filename, previousFilename)   % pokud jsou data ze stejneho souboru jako predchozi iterace, nebudu E nacitat znovu
-                    E = pacient_load(patient, obj.Eh.PsyData.testname, filename);
-                end
-                previousPatient = patient; previousFilename = filename;
-                
+                lineOut = cell(1,1+5*numel(obj.kats));
+                lineOut(1:2) = {ch , obj.chnames{ch,3}};
+                neuroLabelsKats = cell(numel(obj.kats),2); %hodnoty pro kategorie zvlast
                 for k = 1:numel(obj.kats)   % projdu vsechny kategorie (ruzne kategorie pro stejny kanal budou v tabulce pod sebou)
                     vals = squeeze(obj.ValMax(k,ch,:));
                     if vals(1) > vals(2)
@@ -143,15 +145,17 @@ classdef CRefOrigVals < matlab.mixin.Copyable
                     else
                         maxId = 2;
                     end
-                    maxChName = obj.chnames{ch,maxId};
-                    if isempty(E)
-                        maxChNeurologyLabel = 'unknown';
-                    else
-                        maxChNeurologyLabel = E.CH.H.channels(obj.chnums(ch,maxId)).neurologyLabel;
-                    end
-                    lineOut = [lineOut, vals(1), vals(2), abs(vals(1)-vals(2)), maxChName, maxChNeurologyLabel];
-                end
-                
+                    maxChName = obj.chnames{ch,maxId};                   
+                    maxChNeurologyLabel = obj.neuroLabels{ch,maxId};                   
+                    neuroLabelsKats(k,:) = {maxChNeurologyLabel ,  abs(vals(1)-vals(2))} ;
+                    lineOut((k-1)*5+ numel(varsfirst) + (1:5)) = {vals(1), vals(2), abs(vals(1)-vals(2)), maxChName, maxChNeurologyLabel};
+                end                
+                if numel(unique(neuroLabelsKats(:,1)))==1
+                    lineOut(3) = neuroLabelsKats(1,1);
+                else
+                    [~,im]= max(cell2mat(neuroLabelsKats(:,2))); %index neuroLabel s nejvyssim rozdilem mezi kanaly
+                    lineOut(3) = {['? ' neuroLabelsKats{im,1}]};
+                end   
                 cellOut(ch, :) =  lineOut;
             end
             
