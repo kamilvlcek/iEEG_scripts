@@ -343,7 +343,7 @@ classdef CHilbert < CiEEGData
                 % and are not correlated to obj.PsyData.Category name.
                 % Neither here, nor in PlotLabels. They are merely taken in
                 % their order - this should be DEPRECATED
-                if iscell(categories(k))                    
+                if iscell(categories(k))                  
                     dd = zeros(size(obj.HFreq, 1), size(obj.HFreq, 3), numel(categories{k}));
                     for ikat = 1:numel(categories{k})
                         dd(:, :, ikat) = obj.getaverageenvelopes(ch, categories{k}(ikat));
@@ -504,12 +504,18 @@ classdef CHilbert < CiEEGData
         % responsetime: numeric(2) in seconds defining response timewindow
         % RETURNS: calculated p values by CStat.Wilcox2D
         % example: obj.wilcoxbaseline([-0.1 0], [0.2 0.5])
-        function wp = wilcoxbaseline(obj, baselinetime, responsetime)
+        function wp = wilcoxbaseline(obj, baselinetime, responsetime, channels, categories)
+            if ~exist('channels', 'var'), channels = []; end
+            if ~exist('categories', 'var'), categories = []; end
+            
             iResponse = obj.gettimewindowindices(responsetime);
             iBaseline = obj.gettimewindowindices(baselinetime);
             if any([numel(iBaseline) ~= 2, numel(iResponse) ~= 2]), return; end
-            response = obj.HFreqEpochs(iResponse(1):iResponse(2), :, :, :);
-            baseline = obj.HFreqEpochs(iBaseline(1):iBaseline(2), :, :, :);
+            
+            envelopes = obj.getenvelopes(channels, categories);
+            response = envelopes(iResponse(1):iResponse(2), :, :, :);
+            baseline = envelopes(iBaseline(1):iBaseline(2), :, :, :);
+            
             wp = CStat.Wilcox2D(response, baseline, 1, [], 'mean vs baseline');
         end
         
@@ -518,13 +524,17 @@ classdef CHilbert < CiEEGData
         % categories: numeric(2) defining categories. Zero based. e.g [0 2]
         % RETURNS: calculated p values by CStat.Wilcox2D
         % example: obj.wilcoxcategories([0 0.6], [0 1])
-        function wp = wilcoxcategories(obj, responsetime, categories)
+        function wp = wilcoxcategories(obj, responsetime, categories, channels)
+            if ~exist('channels', 'var'), channels = []; end
             if any([numel(responsetime) ~= 2, numel(categories) ~= 2]), return; end
-            iResponse = obj.gettimewindowindices(responsetime);
             
-            categoryAEpochs = obj.HFreqEpochs(iResponse(1):iResponse(2),:, :, :);
-            cateboryBEpochs = obj.HFreqEpochs(iResponse(1):iResponse(2),:, :, :);
-            wp = CStat.Wilcox2D(categoryAEpochs, cateboryBEpochs, 1, [], 'mean vs baseline');
+            iResponse = obj.gettimewindowindices(responsetime);
+            responseA = obj.getenvelopes(channels, categories(1));
+            responseA = responseA(iResponse(1):iResponse(2), :, :, :);
+            responseB = obj.getenvelopes(channels, categories(2));
+            responseB = responseB(iResponse(1):iResponse(2),:, :, :);
+            
+            wp = CStat.Wilcox2D(responseA, responseB, 1, [], 'mean vs baseline');
         end
         
         %% SAVE AND LOAD FILE
