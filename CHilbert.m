@@ -499,7 +499,7 @@ classdef CHilbert < CiEEGData
             if ~exist('signum','var') || isempty(dofig) , signum = 0; end %jestli chci jen kat1>kat2 (1), nebo obracene (-1), nebo vsechny (0)
             if ~exist('dofig','var'), dofig = 0; end %jestli chci obrazek z IntervalyResp
             BPD.signum = signum; %jen abych mel info v datech
-            if isprop(obj,'label')
+            if isprop(obj,'label') && ~isempty(obj.label)
                 [~,intervaly,~] = CHilbertMulti.GetLabelInfo(obj.label); %zjisti interval z label, pokud label existuje
                 if ~isnumeric(intervaly) %muze to byt retezec s nazvem oblasti
                    intervaly = [0.1 obj.epochtime(2)]; 

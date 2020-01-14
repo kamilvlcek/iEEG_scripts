@@ -1616,9 +1616,57 @@ classdef CiEEGData < matlab.mixin.Copyable
                 title('podil epoch s epi eventy');
             end
             
-        end            
+        end  
+        
+        function TimeIntervals(obj,ch,intervals) % Sofiia 09.01.2019 average time intervals
+            % default intervals = [0 0.2; 0.2 0.4; 0.4 0.6; 0.6 0.8; 0.8 1];
+            if ~exist('intervals') || isempty(intervals), intervals = [0 0.2; 0.2 0.4; 0.4 0.6; 0.6 0.8; 0.8 1]; end % default intervals
+            kats = obj.Wp(obj.WpActive).kats;
+            
+            % initialize matrix
+            allmeans = zeros (size(intervals,1), size(obj.d,3)/3, numel(kats)); % average time intervals x epochs x category
+            T = (0 : 1/obj.fs : (size(obj.d,1)-1)/obj.fs) + obj.epochtime(1);
+            T2 = T(:);
+            
+            for j = 1:numel(kats)
+                [d,~,RjEpCh,~]= obj.CategoryData(kats(j),[],[],ch); % get data
+                d = squeeze(d(:,ch,:)); % time x epoch
                 
-        %% SAVE AND LOAD FILE
+                for int = 1:size(intervals,1)
+                    index = find(T2>intervals(int,1) & T2 <intervals(int,2));
+                    meanOverT = mean(d(index, :),1); % mean across time according to time intervals
+                    allmeans(int, : , j) = meanOverT; % put in matrix
+                end
+            end
+            
+            
+            % plot mean and std across epochs
+            M = mean(allmeans(:,~RjEpCh(1,:),:),2);
+            M = squeeze(M(:,1,:));
+            E = std(allmeans(:,~RjEpCh(1,:),:),[],2)/sqrt(size(allmeans,2)); %std err of mean
+            E = squeeze(E(:,1,:));
+            
+            figure(1), clf
+            h_errbar1 = errorbar((mean(intervals,2))',M(:,1) ,E(:,1),'.','Color',[1 0 0]); %nejdriv vykreslim errorbars aby byly vzadu [.8 .8 .8]
+            hold on;
+            h_mean1 = plot((mean(intervals,2))', M(:,1),'LineWidth',2,'Color',[1 0 0]);  %prumerna odpoved, ulozim si handle na krivku
+            hold on;
+            h_errbar2 = errorbar((mean(intervals,2))',M(:,2) ,E(:,2),'.','Color',[0 1 0]); 
+            hold on;
+            h_mean2 = plot((mean(intervals,2))', M(:,2),'LineWidth',2,'Color',[0 1 0]);  
+            hold on;
+            h_errbar3 = errorbar((mean(intervals,2))',M(:,3) ,E(:,3),'.','Color',[0 0 1]); 
+            hold on;
+            h_mean3 = plot((mean(intervals,2))', M(:,3),'LineWidth',2,'Color',[0 0 1]);  
+            xlim([intervals(1,1), intervals(end,end)]);
+            obj.plotRCh.range = [min(M(:,1))-max(E(:,1)) max(M(:,1))+max(E(:,1))]; 
+            legend([h_mean1 h_mean2 h_mean3], 'control','ego', 'allo')           
+            xlabel('time, s');
+       
+        end
+
+
+    %% SAVE AND LOAD FILE    
         function obj = Save(obj,filename)   
             %ulozi veskere promenne tridy do souboru
             if ~exist('filename','var')
