@@ -12,6 +12,7 @@ classdef CRefOrigVals < matlab.mixin.Copyable
         neuroLabels = {}; %jmena neurologyLabels 
         chnums = []; %cisla originalnich kanalu, kvuli kontrole
         PlotChH; %handle na obrazek
+        PlotChCh; %aktualni zobrazeny kanal v PlotCh
     end
     
     methods (Access = public)
@@ -64,6 +65,7 @@ classdef CRefOrigVals < matlab.mixin.Copyable
         end
         function PlotCh(obj,ch)
             assert(~isempty(obj.ValMax),'CRefOrigVals: nejsou nactena data');
+            if ~exist('ch','var'), ch = 1; end
             if isempty(obj.PlotChH) % Pokud je obj.PlotChH prazdne pole, ishghandle() vraci prazdne logicke pole, ktere se interpertuje jako true a nejde porovnat se skalarni logickou hodnotou isempty() (R2018a linux)
                 obj.PlotChH = figure('Name',['CRefOrigVals - ch' num2str(ch)]);
             elseif ~ishghandle(obj.PlotChH)
@@ -80,13 +82,16 @@ classdef CRefOrigVals < matlab.mixin.Copyable
                 vals = squeeze(obj.ValMax(k,ch,:));
                 times = squeeze(obj.TMax(k,ch,:));
                 plot(times,vals,'-o','Color',baseColors(obj.kats(k),:));
-                text(times(1),vals(1),obj.chnames{ch,1});
-                text(times(2),vals(2),obj.chnames{ch,2});
+                text(times(1),vals(1),[obj.chnames{ch,1} ',' obj.neuroLabels{ch,1}]);
+                text(times(2),vals(2),[obj.chnames{ch,2}  ',' obj.neuroLabels{ch,2}]);
             end
             xlim(obj.Eh.epochtime(1:2));
             legend(katnames);
             title(['channel ' num2str(ch) ', ' obj.chnames{ch,3}]);                 
             hold off;
+            obj.PlotChCh = ch;
+            methodhandle = @obj.hybejPlotCh;
+            set(obj.PlotChH,'KeyPressFcn',methodhandle);     
         end
         function E = PlotResponseCh(obj,ch)
             assert(~isempty(obj.ValMax),'CRefOrigVals: nejsou nactena data');
@@ -178,6 +183,32 @@ classdef CRefOrigVals < matlab.mixin.Copyable
             mezery = strfind(fname,' ');
             fnamepart = extractBefore(fname,mezery(end)); %napriklad "PPA CHilbert 50-150Hz -0.2-0.8 refBipo Ep2018-08"
             fnameOrig = char(strrep(fnamepart,'refBipo','refOrig'));
+        end
+        function obj = hybejPlotCh(obj,~,eventDat)  
+            %reaguje na udalosti v grafu PlotCh
+            switch eventDat.Key
+                case {'rightarrow','c'} %dalsi kanal
+                    if obj.PlotChCh < size(obj.chnums,1) 
+                        obj.PlotCh(obj.PlotChCh+1);
+                    end
+                case {'leftarrow','z'} %predchozi kanal    
+                    if obj.PlotChCh > 1
+                        obj.PlotCh(obj.PlotChCh-1);
+                    end
+                case 'pagedown' %skok o 10 kanalu dopred
+                    obj.PlotCh( min( [obj.PlotChCh + 10 , size(obj.chnums,1) ])); 
+                case 'pageup' %skok 10 kanalu dozadu
+                    obj.PlotCh( max( [size(obj.chnums,1) - 10 , 1]));                    
+                case 'home' %skok na prvni kanal
+                    obj.PlotCh( 1);                    
+                case 'end' %skok na posledni kanal
+                    obj.PlotCh( size(obj.chnums,1)); 
+                case 'e' %zobrazi kanal v originalnim CHilbertMulti
+                    obj.Eh.PlotResponseCh(obj.PlotChCh);
+                case 'o' %zobrazi kanal v originalin referenci
+                    obj.PlotResponseCh(obj.PlotChCh);
+                    
+            end
         end
         
     end
