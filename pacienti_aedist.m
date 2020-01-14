@@ -341,5 +341,6 @@ pacienti(p).psychopy = 'p203_aedist.mat';
 pacienti(p).rjepoch = 'p203_aedist_rjepoch.mat'; 
 pacienti(p).epievents = 'p203_aedist_epievents.mat'; 
 pacienti(p).rjch = [];
+
 end
 
