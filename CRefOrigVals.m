@@ -13,6 +13,7 @@ classdef CRefOrigVals < matlab.mixin.Copyable
         chnums = []; %cisla originalnich kanalu, kvuli kontrole
         PlotChH; %handle na obrazek
         PlotChCh; %aktualni zobrazeny kanal v PlotCh
+        PlotRCh; %udaje o PlotResponseCh 
     end
     
     methods (Access = public)
@@ -39,7 +40,12 @@ classdef CRefOrigVals < matlab.mixin.Copyable
                     valmax = zeros(E.channels,numel(obj.kats));
                     tmax = zeros(E.channels,numel(obj.kats));
                     for k = 1:numel(obj.kats) %nactu si z tohohle souboru maxima pro vsechny kategorie
-                        [valmax(:,k),tmax(:,k)] = E.ResponseTriggerTime(0.9,0.9,obj.kats(k));  
+                        if isfield(obj.Eh.plotRCh,'selChSignum') && ~isempty(obj.Eh.plotRCh.selChSignum)
+                            signum = obj.Eh.plotRCh.selChSignum;  %jestli se maji pocitat jen vychylky nahoru, nebo dolu, nebo oboji
+                        else
+                            signum = [];
+                        end
+                        [valmax(:,k),tmax(:,k)] = E.ResponseTriggerTime(0.9,0.9,obj.kats(k),[],signum);  
                     end
                     lastiFile = iFile; %posledni nactene cislo souboru
                 end
@@ -49,7 +55,7 @@ classdef CRefOrigVals < matlab.mixin.Copyable
                     ch2 = E.CH.ChannelNameFind(ch2name);
                     obj.chnums(ch,:) = [ch1,ch2];
                     if ch1 < 1 || ch2 < 1
-                        warning([ch2name 'or' ch2name 'not found in ' pacientId]);
+                        warning([ch1name ' or ' ch2name ' not found in ' pacientId ' for channel ' num2str(ch) ]);
                         continue;
                     end
                     for k = 1:numel(obj.kats) %index kategorie v aktualni statistice, zatim budu pracovat jen s jednoduchymi kontrasty, bez dvojic                        
@@ -94,11 +100,34 @@ classdef CRefOrigVals < matlab.mixin.Copyable
             set(obj.PlotChH,'KeyPressFcn',methodhandle);     
         end
         function E = PlotResponseCh(obj,ch)
-            assert(~isempty(obj.ValMax),'CRefOrigVals: nejsou nactena data');
-            E = pacient_load(obj.chnames{ch,4},obj.Eh.PsyData.testname,obj.chnames{ch,5});
-            if ~isempty(E)
-                E.PlotResponseCh(obj.chnums(ch,1));
+            plotfigure = true;
+            if isfield(obj.PlotRCh,'fh') && ~isempty(obj.PlotRCh.fh) && ishghandle(obj.PlotRCh.fh) 
+                if obj.PlotRCh.ch == ch  % Pokud je obj.PlotChH prazdne pole, ishghandle() vraci prazdne logicke pole, ktere se interpertuje jako true a nejde porovnat se skalarni logickou hodnotou isempty() (R2018a linux)
+                    figure(obj.PlotRCh.fh);                                
+                    plotfigure = false;
+                end                
             end
+            if plotfigure
+                assert(~isempty(obj.ValMax),'CRefOrigVals: nejsou nactena data');
+                nick = obj.chnames{ch,4};
+                if  isfield(obj.PlotRCh,'nick') && strcmp(nick,obj.PlotRCh.nick) %pokud je nick pacienta stejny jako ulozeny
+                    E = obj.PlotRCh.Eh;                    
+                else
+                    E = pacient_load(nick,obj.Eh.PsyData.testname,obj.chnames{ch,5});
+                    obj.PlotRCh.Eh = E;
+                    obj.PlotRCh.nick = nick;   
+                    if isfield(obj.PlotRCh,'fh') && ~isempty(obj.PlotRCh.fh) && ishghandle(obj.PlotRCh.fh) 
+                        fPosition = obj.PlotRCh.fh.Position; %ulozim si pozici predchoziho obrazku
+                        close(obj.PlotRCh.fh);
+                    end
+                end
+                if ~isempty(E)
+                    E.PlotResponseCh(obj.chnums(ch,1));                    
+                end
+                obj.PlotRCh.ch = ch;
+                obj.PlotRCh.fh = E.plotRCh.fh;         
+                if exist('fPosition','var'), obj.PlotRCh.fh.Position = fPosition; end
+            end           
         end
             
         function Save(obj)
@@ -195,19 +224,20 @@ classdef CRefOrigVals < matlab.mixin.Copyable
                     if obj.PlotChCh > 1
                         obj.PlotCh(obj.PlotChCh-1);
                     end
-                case 'pagedown' %skok o 10 kanalu dopred
+                case 'pagedown' %skok o 10 kanalu dopred - zvysuju cislo kanalu
                     obj.PlotCh( min( [obj.PlotChCh + 10 , size(obj.chnums,1) ])); 
-                case 'pageup' %skok 10 kanalu dozadu
-                    obj.PlotCh( max( [size(obj.chnums,1) - 10 , 1]));                    
+                case 'pageup' %skok 10 kanalu dozadu - snizuju cislo kanalu
+                    obj.PlotCh( max( [obj.PlotChCh - 10 , 1]));                    
                 case 'home' %skok na prvni kanal
                     obj.PlotCh( 1);                    
                 case 'end' %skok na posledni kanal
                     obj.PlotCh( size(obj.chnums,1)); 
                 case 'e' %zobrazi kanal v originalnim CHilbertMulti
                     obj.Eh.PlotResponseCh(obj.PlotChCh);
+                    figure(obj.PlotChH);
                 case 'o' %zobrazi kanal v originalin referenci
                     obj.PlotResponseCh(obj.PlotChCh);
-                    
+                    figure(obj.PlotChH);
             end
         end
         
