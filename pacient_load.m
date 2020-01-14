@@ -28,7 +28,7 @@ disp(['loading pacient ' pacienti(p).folder ]);
 
 if exist('filename','var') && ~isempty(filename) %pokud filename ~= []
     %nactu si existujici CHilbert nebo CiEEGdata
-    fullfilename = [setup.basedir pacienti(p).folder '\' setup.subfolder '\' filename];
+    fullfilename = fullfile(setup.basedir, pacienti(p).folder, setup.subfolder, filename);
     if exist(fullfilename,'file') ~= 2 %zkusim jeste pridat koncovku
         fullfilename = [fullfilename '_CiEEG.mat'];
     end   
@@ -44,6 +44,7 @@ if exist('filename','var') && ~isempty(filename) %pokud filename ~= []
         E = [];
         disp(['soubor neexistuje: ' fullfilename]);
     end
+    
 else    
     %vytvorim novy objekt CiEEGData z existujicich EEG dat
     load([ setup.basedir pacienti(p).folder '\' pacienti(p).data]);
