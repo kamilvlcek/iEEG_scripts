@@ -650,6 +650,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             obj.tabs = dates'; %dates jsou v radku
             obj.tabs_orig = obj.tabs;
             obj.fs = fsnew;
+            obj.samples = size(obj.d,1);
             obj.DatumCas.Resampled = datestr(now);
             disp(['resampled to ' num2str(fsnew) 'Hz']);
         end

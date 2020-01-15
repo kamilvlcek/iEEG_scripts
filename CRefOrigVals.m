@@ -14,6 +14,7 @@ classdef CRefOrigVals < matlab.mixin.Copyable
         PlotChH; %handle na obrazek
         PlotChCh; %aktualni zobrazeny kanal v PlotCh
         PlotRCh; %udaje o PlotResponseCh 
+        chsignif; %channel significance relative to baseline
     end
     
     methods (Access = public)
@@ -30,27 +31,29 @@ classdef CRefOrigVals < matlab.mixin.Copyable
             obj.chnames = cell(numel(obj.Eh.CH.H.channels),6);
             obj.chnums = zeros(numel(obj.Eh.CH.H.channels),2);
             obj.neuroLabels = cell(numel(obj.Eh.CH.H.channels),2); %neurologyLabels pro ty dva originalni kanaly
+            obj.chsignif = false(numel(obj.Eh.CH.H.channels),numel(obj.kats),3); % channels x kats x [bipolar and both unipolar signals]
+            if isfield(obj.Eh.plotRCh,'selChSignum') && ~isempty(obj.Eh.plotRCh.selChSignum)
+                signum = obj.Eh.plotRCh.selChSignum;  %jestli se maji pocitat jen vychylky nahoru, nebo dolu, nebo oboji
+            else
+                signum = [];
+            end
+            prumery = obj.Eh.IntervalyResp([],[],signum,0); %to get significance relative to baseline, kats in prumery are ordered according to current SetStatActive            
             lastiFile = 0;
             for ch = 1:numel(obj.Eh.CH.H.channels) %pres vsechny bipolarni kanaly
                 iFile = find(obj.Eh.els >= ch,1); %cislo souboru, ze ktereho nactu data pro aktualni kanal
                 [ch1name,ch2name]= obj.extractChannelNames(obj.Eh.CH.H.channels(ch).name);                
-                if iFile ~= lastiFile
+                if iFile ~= lastiFile %for the first channel of new patient
                     [pacientId,fnameOrig] = obj.extractPacient(obj.Eh.filenames{iFile});
                     E = pacient_load(pacientId,obj.Eh.PsyData.testname,fnameOrig);
                     valmax = zeros(E.channels,numel(obj.kats));
-                    tmax = zeros(E.channels,numel(obj.kats));
-                    for k = 1:numel(obj.kats) %nactu si z tohohle souboru maxima pro vsechny kategorie
-                        if isfield(obj.Eh.plotRCh,'selChSignum') && ~isempty(obj.Eh.plotRCh.selChSignum)
-                            signum = obj.Eh.plotRCh.selChSignum;  %jestli se maji pocitat jen vychylky nahoru, nebo dolu, nebo oboji
-                        else
-                            signum = [];
-                        end
-                        [valmax(:,k),tmax(:,k)] = E.ResponseTriggerTime(0.9,0.9,obj.kats(k),[],signum);  
+                    tmax = zeros(E.channels,numel(obj.kats));                    
+                    for k = 1:numel(obj.kats) %nactu si z tohohle souboru maxima pro vsechny kategorie                       
+                        [valmax(:,k),tmax(:,k)] = E.ResponseTriggerTime(0.9,0.9,obj.kats(k),[],signum);                          
                     end
                     lastiFile = iFile; %posledni nactene cislo souboru
                 end
                 obj.chnames(ch,:) = {ch1name,ch2name,obj.Eh.CH.H.channels(ch).name,pacientId,fnameOrig,~isempty(E)};
-                if ~isempty(E)
+                if ~isempty(E) %for each channel
                     ch1 = E.CH.ChannelNameFind(ch1name);
                     ch2 = E.CH.ChannelNameFind(ch2name);
                     obj.chnums(ch,:) = [ch1,ch2];
@@ -58,11 +61,15 @@ classdef CRefOrigVals < matlab.mixin.Copyable
                         warning([ch1name ' or ' ch2name ' not found in ' pacientId ' for channel ' num2str(ch) ]);
                         continue;
                     end
+                    prumeryE = E.IntervalyResp([],[],signum,0);
                     for k = 1:numel(obj.kats) %index kategorie v aktualni statistice, zatim budu pracovat jen s jednoduchymi kontrasty, bez dvojic                        
                         obj.ValMax(k,ch,1) = valmax(ch1,k);
                         obj.ValMax(k,ch,2) = valmax(ch2,k);
                         obj.TMax(k,ch,1) = tmax(ch1,k);
                         obj.TMax(k,ch,2) = tmax(ch2,k);
+                        obj.chsignif(ch,k,1)=prumery(ch,1,k)>0; %is the reponses in this kat and this ch signif relative to baseline
+                        obj.chsignif(ch,k,2)=prumeryE(ch1,1,k)>0;
+                        obj.chsignif(ch,k,3)=prumeryE(ch2,1,k)>0;
                     end
                     obj.neuroLabels(ch,:)={E.CH.H.channels(ch1).neurologyLabel, E.CH.H.channels(ch2).neurologyLabel};
                 end
@@ -87,9 +94,9 @@ classdef CRefOrigVals < matlab.mixin.Copyable
                 katnames{k} = obj.Eh.PsyData.CategoryName(obj.kats(k));
                 vals = squeeze(obj.ValMax(k,ch,:));
                 times = squeeze(obj.TMax(k,ch,:));
-                plot(times,vals,'-o','Color',baseColors(obj.kats(k),:));
-                text(times(1),vals(1),[obj.chnames{ch,1} ',' obj.neuroLabels{ch,1}]);
-                text(times(2),vals(2),[obj.chnames{ch,2}  ',' obj.neuroLabels{ch,2}]);
+                plot(times,vals,'-o','Color',baseColors(obj.kats(k),:));                                
+                text(times(1),vals(1),[obj.chnames{ch,1} ',' obj.neuroLabels{ch,1} ',' iff(obj.chsignif(ch,k,2),'*','')]);
+                text(times(2),vals(2),[obj.chnames{ch,2}  ',' obj.neuroLabels{ch,2} ',' iff(obj.chsignif(ch,k,3),'*','')]);
             end
             xlim(obj.Eh.epochtime(1:2));
             legend(katnames);
@@ -139,7 +146,8 @@ classdef CRefOrigVals < matlab.mixin.Copyable
             chnames = obj.chnames; %#ok<PROP,NASGU>
             chnums = obj.chnums; %#ok<PROP,NASGU>
             neuroLabels = obj.neuroLabels; %#ok<PROP,NASGU>
-            save(fname,'ValMax','TMax','kats','setup','chnames','chnums','neuroLabels','-v7.3'); %do noveho souboru data z teto tridy
+            chsignif = obj.chsignif; %#ok<PROP,NASGU>
+            save(fname,'ValMax','TMax','kats','setup','chnames','chnums','neuroLabels','chsignif','-v7.3'); %do noveho souboru data z teto tridy
             disp(['saved to ' fname ]);
         end
         function Load(obj)
@@ -153,6 +161,7 @@ classdef CRefOrigVals < matlab.mixin.Copyable
                 obj.chnames = V.chnames; 
                 obj.chnums = V.chnums; 
                 obj.neuroLabels = V.neuroLabels;
+                obj.chsignif = V.chsignif;
                 disp(['loaded ' fname ]);
             else
                 disp(['not found: ' fname ]);
@@ -160,12 +169,17 @@ classdef CRefOrigVals < matlab.mixin.Copyable
         end
         function ExportXLS(obj)
             varsfirst = {'chnum' 'bipolarName','maxNeurologyLabel'};
-            cellOut = cell(size(obj.chnums,1), numel(varsfirst) + 5*numel(obj.kats));
+            varskat = {'_valmax1' '_valmax2' '_valmaxdiff' '_signif' '_maxChName' '_maxNeurologyLabel' };
+            cellOut = cell(size(obj.chnums,1), numel(varsfirst) + numel(varskat)*numel(obj.kats));
             variableNames = cell(1,numel(varsfirst)+5*numel(obj.kats));
             variableNames(1:numel(varsfirst)) = varsfirst;
             for k = 1:numel(obj.kats)   % projdu vsechny kategorie a nastavim headery pro prislusne sloupce
                 katname = obj.Eh.PsyData.CategoryName(obj.kats(k));
-                variableNames((k-1)*5 + numel(varsfirst) + (1:5)) = {[katname '_valmax1'] [katname '_valmax2'] [katname '_valmaxdiff'] [katname '_maxChName'] [katname '_maxNeurologyLabel']};
+                katname_vars = repmat({katname},1,numel(varskat));
+                for kv = 1:numel(katname_vars)
+                    katname_vars{kv} = [ katname_vars{kv} varskat{kv} ];
+                end
+                variableNames((k-1)*numel(varskat) + numel(varsfirst) + (1:numel(varskat))) = katname_vars;
             end
                         
             for ch = 1:size(obj.chnums,1)    % projdu vsechny kanaly
@@ -181,12 +195,17 @@ classdef CRefOrigVals < matlab.mixin.Copyable
                     end
                     maxChName = obj.chnames{ch,maxId};                   
                     maxChNeurologyLabel = obj.neuroLabels{ch,maxId};                   
-                    neuroLabelsKats(k,:) = {maxChNeurologyLabel ,  abs(vals(1)-vals(2))} ;
-                    lineOut((k-1)*5+ numel(varsfirst) + (1:5)) = {vals(1), vals(2), abs(vals(1)-vals(2)), maxChName, maxChNeurologyLabel};
-                end                
-                if numel(unique(neuroLabelsKats(:,1)))==1
+                    neuroLabelsKats(k,:) = {maxChNeurologyLabel ,  abs(vals(1)-vals(2))} ; %for this kat, neuroLabel of largest respons and abs diff
+                    lineOut((k-1)*numel(varskat)+ numel(varsfirst) + (1:numel(varskat))) = {vals(1), vals(2), abs(vals(1)-vals(2)), ...
+                        num2str(double(squeeze(obj.chsignif(ch,k,:)))','%d_%d_%d'), maxChName, maxChNeurologyLabel};
+                end
+                if numel(unique(neuroLabelsKats(:,1)))==1 
+                    %if for all kats (with signif bipolar response) the response is larger on the same origRef channel
                     lineOut(3) = neuroLabelsKats(1,1);
-                else
+                elseif numel(unique(neuroLabelsKats(obj.chsignif(ch,:,1),1)))==1
+                    %if for all kats (with signif bipolar response) the response is larger on the same origRef channel
+                    lineOut(3) = unique(neuroLabelsKats(obj.chsignif(ch,:,1),1));
+                else 
                     [~,im]= max(cell2mat(neuroLabelsKats(:,2))); %index neuroLabel s nejvyssim rozdilem mezi kanaly
                     lineOut(3) = {['? ' neuroLabelsKats{im,1}]};
                 end   
