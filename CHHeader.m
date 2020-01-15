@@ -787,42 +787,41 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             %chnum - primo zadam cisla kanalu k filtrovani
             %label - muzu nazvat vyber jak potrebuju
             % Pozor - funguje na zaklade obj.plotCh2D.selCh, ktere se vytvari pri volani ChannelPlot2D, takze to se musi spusti nejdriv a i po zmene vyberu kanalu
-            % zatim se nedaji pouzit obe metody filtrovani dohromady
+            % 15.1.2020 - can use more filters, the function uses AND between them = intersect
             
-            filtered = false;
+            filtered = false; 
+            chshow = 1:numel(obj.H.channels); %show all channels by default
+            chshowstr = {}; %label of the filter
             if exist('chlabels','var') && ~isempty(chlabels)
                 if strcmp(chlabels{1},'label')
                     ChLabels = {obj.brainlabels(:).label}';
                     chlabels = chlabels(2:end); 
-                    showstr = 'label:';
+                    showstr = 'label=';
                 elseif strcmp(chlabels{1},'lobe')
                     ChLabels = {obj.brainlabels(:).lobe}';
                     chlabels = chlabels(2:end);
-                    showstr = 'lobe:';
+                    showstr = 'lobe=';
                 elseif strcmp(chlabels{1},'class')
                     ChLabels = {obj.brainlabels(:).class}';
                     chlabels = chlabels(2:end);
-                    showstr = 'class:';
+                    showstr = 'class=';
                 else
                     ChLabels = {obj.H.channels(:).neurologyLabel}';
-                    showstr = 'nlabel:';
+                    showstr = 'nlabel=';
                 end                
                 iL = contains(lower(ChLabels),lower(chlabels)); %prevedu oboji na mala pismena
                 if exist('notchnlabels','var') && numel(notchnlabels) > 0
                     iLx = contains(lower(ChLabels),lower(notchnlabels));
                     iL = iL & ~iLx;
-                    obj.plotCh2D.chshowstr = [ cell2str(chlabels) ' not:' cell2str(notchnlabels)];
+                    chshowstr = [showstr cell2str(chlabels) ' not:' cell2str(notchnlabels)];
                 else
-                    obj.plotCh2D.chshowstr = [ showstr cell2str(chlabels)];
+                    chshowstr = [showstr cell2str(chlabels)];
                 end
-                obj.plotCh2D.chshow = find(iL)'; %vyber kanalu k zobrazeni  , chci je mit v radku     
-                obj.sortorder = obj.plotCh2D.chshow; %defaultni sort order pro tento vyber - nejsou tam cisla od 1 to n, ale cisla kanalu
-                disp(['zobrazeno ' num2str(numel(obj.plotCh2D.chshow)) ' kanalu']);                
+                chshow = intersect(chshow,find(iL)'); %reduce list of channels to show                                               
                 filtered = true;
             end
             if exist('selCh','var') && ~isempty(selCh)
                 klavesy = 'fghjkl';
-                chshow = 1:numel(obj.H.channels);
                 assert (numel(selCh)<=4,'maximum of 4 letter could be in selCh ');
                 if find(ismember(klavesy,selCh)) %vrati index klavesy nektereho selCh v klavesy
                     if ~isfield(obj.plotCh2D,'selCh')
@@ -834,46 +833,41 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 end
                 if ismember('r',selCh) %rejected channels, nekde v selCh je r
                     chshow = intersect(chshow,obj.RjCh);
-                    %obj.plotCh2D.chshowstr = 'rj'; 
+                    chshowstr = horzcat(chshowstr, {'rj'}); 
                     filtered = true;
                 elseif ismember('n',selCh) %NOT rejected channels,, nekde v selCh je r
                     chshow = intersect(chshow,setdiff(obj.H.selCh_H,obj.RjCh));
-                    %obj.plotCh2D.chshowstr = 'nrj'; 
+                    chshowstr = horzcat(chshowstr, {'nrj'}); 
                     filtered = true;
                 end
                 if contains(selCh, '~e')    % not epileptic je dvojice znaku "~e"
                     flt = [obj.H.channels.seizureOnset] == 0 & [obj.H.channels.interictalOften] == 0;
                     chshow = intersect(chshow,find(flt));
+                    chshowstr = horzcat(chshowstr, {'~e'}); 
                     filtered = true;
                 elseif contains(selCh, 'e') % epileptic je pouze "e" (mohlo by se pouzit i ismemeber)
                     flt = [obj.H.channels.seizureOnset] == 1 | [obj.H.channels.interictalOften] == 1;
                     chshow = intersect(chshow,find(flt));
+                    chshowstr = horzcat(chshowstr, {'e'}); 
                     filtered = true;
-                end
-                if filtered
-                    obj.plotCh2D.chshow = chshow;
-                    obj.sortorder = obj.plotCh2D.chshow;
-                    if exist('label','var') && ~isempty(label)
-                        obj.plotCh2D.chshowstr = label;
-                    else
-                        obj.plotCh2D.chshowstr = selCh; 
-                    end
-                    disp(['zobrazeno ' num2str(numel(obj.plotCh2D.chshow)) ' kanalu: ' obj.plotCh2D.chshowstr]); 
-                end                                
+                end                                               
             end
             if exist('chnum','var') && ~isempty(chnum)
                 if size(chnum,1) > size(chnum,2), chnum = chnum'; end %chci mit cisla kanalu v radku
-                obj.plotCh2D.chshow = chnum; %priradim primo cisla kanalu
-                obj.sortorder = obj.plotCh2D.chshow; %defaultni sort order pro tento vyber - nejsou tam cisla od 1 to n, ale cisla kanalu
+                chshow = intersect(chnshow,chnum); %priradim primo cisla kanalu                
                 if exist('label','var') && ~isempty(label)
-                    obj.plotCh2D.chshowstr = label;
+                    chshowstr = horzcat(chshowstr,{labels});
                 else
-                    obj.plotCh2D.chshowstr = 'chnum';
+                    chshowstr = horzcat(chshowstr,{'chnum'});
                 end
-                disp(['zobrazeno ' num2str(numel(obj.plotCh2D.chshow)) ' kanalu: ' obj.plotCh2D.chshowstr]);                
                 filtered = true;
             end
-            if ~filtered
+            if filtered
+                obj.plotCh2D.chshow = chshow;
+                obj.sortorder = obj.plotCh2D.chshow;                    
+                obj.plotCh2D.chshowstr = strjoin(chshowstr,'&');                    
+                disp(['zobrazeno ' num2str(numel(obj.plotCh2D.chshow)) ' kanalu: ' strjoin(chshowstr,'&')]); 
+            else            
                 obj.plotCh2D.chshow = 1:numel(obj.H.channels);
                 obj.plotCh2D.chshowstr = '';
                 obj.sortorder = 1:numel(obj.H.channels); %defaultni sort order pro vsechny kanaly
@@ -1237,7 +1231,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                          obj.plotCh2D.background = 0;
                       end
                       obj.ChannelPlot2D();
-                  case 'p' %vybrany kanal je zluty na popredi /pozadi
+                  case 'p' %vybrany kanal je zluty na popredi /pozadi / hidden
                       obj.plotCh2D.chseltop = obj.plotCh2D.chseltop + 1;
                       if obj.plotCh2D.chseltop > 2, obj.plotCh2D.chseltop = 0; end %0-nezobrazen, 1-v pozadi, 2-v popredi
                       obj.ChannelPlot2D();

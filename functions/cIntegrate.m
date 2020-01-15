@@ -32,7 +32,11 @@ function t = cIntegrate(time, curve, fraction, normMode, centering,iTime)
         cint = cumtrapz(time(iTime), curve(iTime));    
         idx = find(cint < fraction*cint(end), 1, 'last');
         idx = fiTime(idx);  %z relativnich indexu v ramci iTime udelam absolutni v ramci curve
-        t = time(idx);
+        if isempty(idx)
+            t = 0; % t cant be empte
+        else
+            t = time(idx);            
+        end
     else
         t = 0; %nic se nenaslo
     end

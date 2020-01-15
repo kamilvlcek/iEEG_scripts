@@ -145,10 +145,15 @@ classdef CiEEGData < matlab.mixin.Copyable
            disp(['nacteno ' num2str(size(obj.DE.d,1)) ' epileptickych udalosti']);
         end
 
-        function obj = RejectChannels(obj,RjCh,noprint)
+        function obj = RejectChannels(obj,RjCh,noprint,add)
             %ulozi cisla vyrazenych kanalu - kvuli pocitani bipolarni reference 
+            %variable add causes to add the new rejected channels instead of replace
+            if iscolumn(RjCh), RjCh = RjCh'; end %we need a row of channels
+            if exist('add','var') && add==1
+                obj.RjCh = union(obj.RjCh,RjCh);
+            end
             obj.RjCh = RjCh;
-            obj.CH.RejectChannels(RjCh); %ulozim to i do headeru
+            obj.CH.RejectChannels(obj.RjCh); %ulozim to i do headeru
             if ~exist('noprint','var') || isempty(noprint)
                 disp(['vyrazeno ' num2str(numel(RjCh)) ' kanalu']); 
             end
@@ -1938,7 +1943,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             intervalData = iintervalyData/obj.fs + obj.epochtime(1); %casy ve vterinach
             T = linspace(intervalData(1),intervalData(2),diff(iintervalyData)+1); 
             iintervalyStat = [1 diff(iintervalyData)+1];
-            if ~exist('signum','var') && ~isempty(signum)
+            if ~exist('signum','var') || ~isempty(signum)
                 %muzu zadat signum v poslednim parametru, v tom pripade pouziju to
                 if isfield(obj.plotRCh,'selChSignum') %pokud mam nastavene signum z SelChannelStat, pouziju to, jinak chci odchylky od 0 v obou smerech
                     signum = obj.plotRCh.selChSignum;
@@ -2007,7 +2012,11 @@ classdef CiEEGData < matlab.mixin.Copyable
            for ch=1:numel(channels)              
                channelHeader = channels(ch);
                RjCh = double(any(obj.RjCh==obj.CH.sortorder(ch))); %vyrazeni kanalu v CiEEGData               
-               if exportBrainlabels, bl = struct2cell(obj.CH.brainlabels(ch))'; else, bl = cell(0,0); end               
+               if exportBrainlabels    
+                   if ch <= size(obj.CH.brainlabels,1), bl=struct2cell(obj.CH.brainlabels(ch))'; else, bl = {'-','-','-'}; end                   
+               else
+                   bl = cell(0,0); 
+               end
                blnames = iff(exportBrainlabels,{'mybrainclass','mybrainlabel','mylobe'},cell(0,0)); %uzivatelska jmena struktur ve trech sloupcich             
                lineIn = [{ obj.CH.sortorder(ch), channelHeader.name, obj.CH.PacientTag(ch), channelHeader.neurologyLabel, BrainNames{ch,4}, BrainNames{ch,5}, BrainNames{ch,6} } , ...
                         bl, ...
