@@ -650,6 +650,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             obj.tabs = dates'; %dates jsou v radku
             obj.tabs_orig = obj.tabs;
             obj.fs = fsnew;
+            obj.samples = size(obj.d,1);
             obj.DatumCas.Resampled = datestr(now);
             disp(['resampled to ' num2str(fsnew) 'Hz']);
         end
@@ -1914,7 +1915,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             nlFilter = ismember({obj.CH.H.channels.neurologyLabel}, neurologyLabels);
         end
         
-        function [valmax, tmax, tfrac, tint] = ResponseTriggerTime(obj, val_fraction, int_fraction, katnum, channels)          
+        function [valmax, tmax, tfrac, tint] = ResponseTriggerTime(obj, val_fraction, int_fraction, katnum, channels,signum)          
             if ~exist('channels', 'var') || isempty(channels)
                 channels = 1:obj.channels; %vsechny kanaly
             end
@@ -1937,11 +1938,14 @@ classdef CiEEGData < matlab.mixin.Copyable
             intervalData = iintervalyData/obj.fs + obj.epochtime(1); %casy ve vterinach
             T = linspace(intervalData(1),intervalData(2),diff(iintervalyData)+1); 
             iintervalyStat = [1 diff(iintervalyData)+1];
-            if isfield(obj.plotRCh,'selChSignum') %pokud mam nastavene signum z SelChannelStat, pouziju to, jinak chci odchylky od 0 v obou smerech
-                signum = obj.plotRCh.selChSignum;
-            else
-                signum = 0;
-            end 
+            if ~exist('signum','var') && ~isempty(signum)
+                %muzu zadat signum v poslednim parametru, v tom pripade pouziju to
+                if isfield(obj.plotRCh,'selChSignum') %pokud mam nastavene signum z SelChannelStat, pouziju to, jinak chci odchylky od 0 v obou smerech
+                    signum = obj.plotRCh.selChSignum;
+                else
+                    signum = 0;
+                end 
+            end
             ikatnum = obj.Wp(obj.WpActive).kats == katnum; %WpKatBaseline jsou indexovane ne podle cisel kategorii ale podle indexu v kats
             WpB = obj.Wp(obj.WpActive).WpKatBaseline{ikatnum,1}(iintervalyStat(1):iintervalyStat(2),channels); %time x channels - statistika vuci baseline
             idataM = iff(signum>0, dataM > 0, iff(signum < 0, dataM < 0, true(size(dataM)) ));  % time x channel - jestli chci vetsi, mensi nebo jakekoliv, time x channels                                

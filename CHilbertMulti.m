@@ -395,6 +395,26 @@ classdef CHilbertMulti < CHilbert
                 iPAC = iPAC + 1;                
             end
         end
+        function els = RepairEls(obj)
+            %funkce ktera opravi obj.els, pokud je spatne vytvorena
+            previousNick = '';
+            els = [];
+            for ch = 1:numel(obj.CH.H.channels) 
+                nick = obj.CH.H.channels(ch).name(1: find(obj.CH.H.channels(ch).name==' ')-1);
+                if numel(nick)==3
+                    nick = ['p0' nick(2:3)];
+                end
+                if ~strcmp(nick,previousNick)
+                    if ch > 1%pokud zacina dalsi pacient
+                        els = [els ch-1];                         %#ok<AGROW>
+                    end
+                    previousNick = nick;
+                end
+            end            
+            els = [els ch];  %konec posledniho pacienta chci taky
+            obj.els = els;
+            obj.CH.els = els;
+        end
         
         %% SAVE AND LOAD FILE
         %dve funkce na ulozeni a nacteni dat tridy
