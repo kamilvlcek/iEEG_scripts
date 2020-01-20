@@ -104,7 +104,7 @@ classdef CStat < handle
                figurename = ['AUC waveform for ch ' num2str(ch) ];               
                obj.plotAUC.fh = figure('Name',figurename); %ulozim si pojmenovani kategorii 
             end
-                        
+            
             for k = 1:numel(kategories)-1
             for l = k+1:numel(kategories)
                 sig = iff(obj.plotAUC.sig(ch,obj.plotAUC.setup.legendkomb(k,l)),'*',''); %hvezdicku pro signifikatni AUC krivku
@@ -321,7 +321,11 @@ classdef CStat < handle
                     obj.plotAUC.Eh.CH.H.channels(chnum).neurologyLabel,obj.plotAUC.Eh.CH.H.channels(chnum).ass_brainAtlas );
                 text(.05,.1,txt);
                 if isfield(obj.plotAUC_m,'xlsvals')
-                    txt = sprintf('aucmax: %.3f, tmax %.3f',obj.plotAUC_m.xlsvals(selch,1),obj.plotAUC_m.xlsvals(selch,2) );
+                    if size(obj.plotAUC_m.xlsvals,1) ==  numel(obj.plotAUC_m.channels)
+                        txt = sprintf('aucmax: %.3f, tmax %.3f',obj.plotAUC_m.xlsvals(selch,1),obj.plotAUC_m.xlsvals(selch,2) );                        
+                    else
+                        txt = 'xlsvals have different no of values. Run AUC2XLS to recompute to see aucmax and tmax value.';
+                    end
                     text(.05,.05,txt);
                 end
             end

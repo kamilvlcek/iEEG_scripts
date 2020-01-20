@@ -392,8 +392,12 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             if ~isfield(obj.plotCh2D,'chshow'), obj.plotCh2D.chshow = 1:numel(obj.H.channels); end %defaltne se kresli body nepruhledne
             if ~isfield(obj.plotCh2D,'ch_displayed'), obj.plotCh2D.ch_displayed=obj.plotCh2D.chshow; end %defaltne jsou zobrazeny vsechny vybrane kanaly (podle filtru)
             if ~isfield(obj.plotCh2D,'chshowstr'), obj.plotCh2D.chshowstr = ''; end   %defaultne bez filtrovani
-            if ~isfield(obj.plotCh2D,'colorindex'), obj.plotCh2D.colorindex = 1; end   %defaultne bez filtrovani
-            if ~isfield(obj.plotCh2D,'coronalview'), obj.plotCh2D.coronalview = 0; end   %defaultne vlevo axial view
+            if ~isfield(obj.plotCh2D,'coronalview'), obj.plotCh2D.coronalview = 0; end   %defaultne vlevo axial view           
+            if ~isfield(obj.plotCh2D,'color_index'), obj.plotCh2D.color_index = 1; end   %index of the first color in             
+            if ~isfield(obj.plotCh2D,'color_def') %definice barev dynamicky, aby se daly upravovat
+                obj.plotCh2D.color_def = [ [0 1 0]; [0 0 1]; [1 0 0]; [ 0 1 1]; [1 0 1]; [ 0 0 0 ]];     %default colors 'gbrcmk'                    
+            end   
+            if ~isfield(obj.plotCh2D,'color_order'), obj.plotCh2D.color_order = 1:6; end   %defaultne order of the colors         
             %------------------------- vytvoreni figure -----------------------------------
             x = [obj.H.channels(:).MNI_x];
             y = [obj.H.channels(:).MNI_y];
@@ -426,9 +430,8 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 chshow = 1:numel(obj.H.channels); 
             end
             
-            subplot(1,2,1);
-            barvy_def= 'gbrcmk'; 
-            barvy = [barvy_def(obj.plotCh2D.colorindex:end) barvy_def(1:obj.plotCh2D.colorindex-1)]; %barvy od poradi colorindexu
+            subplot(1,2,1);                      
+            barvy = [obj.plotCh2D.color_def(obj.plotCh2D.color_index:end,:); obj.plotCh2D.color_def(1:obj.plotCh2D.color_index-1,:)]; %barvy od poradi colorindexu
             % ----------------- axialni plot   ---------------------------   
             xyz = iff(obj.plotCh2D.coronalview, [1 3], [1 2]); %jesti zobrazovat MNI souradnice xy (=axial) nebo xz (=coronal)
             MNIxyz = vertcat(x,y,z); %abych mohl pouzivat souradnice xyz dynamicky podle coronalview
@@ -471,12 +474,13 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             end
             if ~isempty(selCh) %vybery kanalu fghjkl                
                 ch_displayed = cell(1,6);
-                for m = 1:1:size(selCh,2) %jednu znacku za druhou m = size(selCh,2):-1:1 
+                for ci = 1:numel(obj.plotCh2D.color_order) %1:size(selCh,2) %jednu znacku za druhou m = size(selCh,2):-1:1 
+                   m = obj.plotCh2D.color_order(ci);
                    if  obj.plotCh2D.marks(m) %pokud se ma znacka zobrazovat
                        ch = find(selCh(:,m)); %seznam cisel vybranych kanalu pro danou znacku
                        ch = intersect(chshow,ch); 
                        %plot(x(ch),y(ch),'o','MarkerSize',size_selCh,'MarkerEdgeColor',barvy(m),'MarkerFaceColor',barvy(m));
-                       sh = scatter(MNIxyz(xyz(1),ch),MNIxyz(xyz(2),ch),size_selCh,barvy(m),'filled');
+                       sh = scatter(MNIxyz(xyz(1),ch),MNIxyz(xyz(2),ch),size_selCh,barvy(m,:),'filled');
                        if obj.plotCh2D.transparent, alpha(sh,.5); end %volitelne pridani pruhlednosti
                        ch_displayed{m} = ch';
                    end
@@ -544,19 +548,20 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             end
             if ~isempty(selCh) %hromadne vybrane kanaly, zobrazne cernym koleckem                                
                 klavesy = 'fghjkl'; %abych mohl vypsat primo nazvy klaves vedle hvezdicky podle selCh
-                for m = 1:1:size(selCh,2) %:-1:1 %jednu znacku za druhou - naposled ty prvni aby byly nahore
+                for ci = 1:numel(obj.plotCh2D.color_order) %1:size(selCh,2) %:-1:1 %jednu znacku za druhou - naposled ty prvni aby byly nahore
+                    m = obj.plotCh2D.color_order(ci);
                     if  obj.plotCh2D.marks(m) %pokud se ma znacka zobrazovat
                        ch = find(selCh(:,m)); %seznam cisel vybranych kanalu pro danou znacku
                        ch = intersect(chshow,ch); 
                        if ~isempty(ch) %pokud jsou takove nejake vybrane kanaly
                            %plot(y(ch),z(ch),'o','MarkerSize',size_selCh,'MarkerEdgeColor',barvy(m),'MarkerFaceColor',barvy(m));
-                           sh = scatter(y(ch),z(ch),size_selCh,barvy(m),'filled');
+                           sh = scatter(y(ch),z(ch),size_selCh,barvy(m,:),'filled');
                            if obj.plotCh2D.transparent, alpha(sh,.5); end %volitelne pridani pruhlednosti
                            
-                           th = text(x_text+m*10,-90,klavesy(m), 'FontSize', 15,'Color',barvy(m)); %legenda k barvam kanalu dole pod mozkem
+                           th = text(x_text+m*10,-90,klavesy(m), 'FontSize', 15,'Color',barvy(m,:)); %legenda k barvam kanalu dole pod mozkem
                            th.BackgroundColor = [.6 .6 .6];
                            if ~isempty(selChNames) && ~isempty(selChNames{m})
-                             text(x_text+70,-60-m*7,cell2str(selChNames{m}), 'FontSize', 9,'Color',barvy(m)); %popisy znacek f-l                           
+                             text(x_text+70,-60-m*7,cell2str(selChNames{m}), 'FontSize', 9,'Color',barvy(m,:)); %popisy znacek f-l                           
                            end
                        end
                     end
@@ -1247,8 +1252,8 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                       obj.plotCh2D.transparent = 1-obj.plotCh2D.transparent;
                       obj.ChannelPlot2D();
                   case 'c' %prepinani index barevne skaly
-                      obj.plotCh2D.colorindex = 1+obj.plotCh2D.colorindex;
-                      if obj.plotCh2D.colorindex > 6, obj.plotCh2D.colorindex = 1; end
+                      obj.plotCh2D.color_index = 1+obj.plotCh2D.color_index;
+                      if obj.plotCh2D.color_index > 6, obj.plotCh2D.color_index = 1; end
                       obj.ChannelPlot2D();  
                   case 'v' %prepinani view vlevo coronal/axial
                       obj.plotCh2D.coronalview = 1-obj.plotCh2D.coronalview;
