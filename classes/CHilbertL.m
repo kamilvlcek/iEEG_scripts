@@ -13,6 +13,7 @@ classdef CHilbertL < CHilbert
         % fphase; %faze vsech zpracovavanych frekvenci - premiestnene z CMorlet pre vykreslenie a porovnanie faz z MW a Hilberta do buducna        
         % frealEpochs; % epochovane filtrovane eeg
         %normalization; %typ normalizace
+        plotFrequency; % replaces plotF so both can be called
     end
     
     % -------------- public instance methods -------------------------
@@ -24,122 +25,62 @@ classdef CHilbertL < CHilbert
         end
         
         %% Plot Response Frequency
-        % ch: max number of channels to plot (from 1 to ch)
+        
+        % Restructured PlotResponseFreq function which allows plotting of
+        % either single or multiple channels averaged together. 
+        % channels: numeric array definich which channels to plot. If more than
+        %   one channel is passed, data are averaged across all given
+        %   channels. e.g. 
         % categories: which category to plot - if not defined, plots all.
-        % Takes array of category indices beginning with 1? e.g. [1,3]
-        % TODO - DEPRECATE the possibility to use cells in categories {}
-        function obj = PlotResponseFreq(obj, ch, categories)
-            if ~exist('ch', 'var'), ch = []; end
+        %   Takes array of category indices beginning with 0. e.g. [0,3]. 
+        %   See getenvelopes for better explanation
+        %
+        % Example:
+        %   obj.plotresponsefrequency(1, [0:2])
+        %   obj.plotresponsefrequency([1, 2:5, 8], [0:2])
+        %   obj.plotresponsefrequency([1:5], 2)
+        function obj = plotresponsefrequency(obj, channels, categories)
+            if ~exist('channels', 'var'), channels = []; end
             if ~exist('categories', 'var'), categories = []; end
            
-            obj.prepareplotcategoriespowertime(ch, categories);
-            % Shouldn't the Ch be obj.plotF.ch? - WHAT IS THE
-            % DIFFERENCE? the CHHeader has it as a field not afunction
-            % and thus it is very difficult to unravel :(
+            obj.prepareplotcategoriespowertime(channels, categories);
+            % Shouldn't the Ch be obj.plotF.ch? The CHHeader has it as a 
+            % field not a function and thus it is very difficult to unravel
             % The original function has the ch in plotF.ch, but uses the
             % obj.CH.sortorder(ch) to plot things - don't fully understand
             % if that is correct
-            obj.plotcategoriespowertime(obj.CH.sortorder(ch), obj.plotF.kategories);
-            obj.plotlabels(obj.CH.sortorder(ch), obj.plotF.kategories);
-            set(obj.plotF.fh, 'KeyPressFcn', @obj.hybejPlotF);
+            obj.plotcategoriespowertime(obj.CH.sortorder(channels), obj.plotFrequency.kategories);
+            obj.plotlabels(obj.CH.sortorder(channels), obj.plotFrequency.kategories);
+            set(obj.plotFrequency.fh, 'KeyPressFcn', @obj.frequencyplothandle);
         end
         
-        % Buffering of the plot or taking settings from saved structs
-        % if we are only redrawing existing plots
-        function obj = prepareplotcategoriespowertime(obj, ch, categories)
-            if ~numel(ch) == 0 && ~isfield(obj.plotF, 'ch'), obj.plotF.ch = 1;
-            else, obj.plotF.ch = ch; end
-            
-            % Only rewrites categorties if not already set
-            if numel(categories) > 0, obj.plotF.kategories = categories;
-            elseif ~isfield(obj.plotF, 'kategories') && numel(obj.plotF.kategories) == 0
-                if isfield(obj.Wp(obj.WpActive), 'kats'), categories = obj.Wp(obj.WpActive).kats;
-                else, categories = obj.PsyData.Categories(); end
-                obj.plotF.kategories = categories;
-            end
-            
-            % redraws the plot or creates one
-            if isfield(obj.plotF, 'fh') && ishandle(obj.plotF.fh)
-                figure(obj.plotF.fh);
-            else
-                obj.plotF.fh = figure('Name', 'ResponseFreq', 'Position', [20, 500, 1200, 300]);
-                colormap jet;
-            end
-        end
-        
-        % TODO - deprecate option to pass cells into categories
-        function obj = plotcategoriespowertime(obj, ch, categories)
-             [miny, maxy] = obj.getplotylimit();
-             for k = 1:numel(categories)
-                % QUESTION - If I pass it a cell I'd expect the
-                % cell to contain NAMES of categories, but that is not what
-                % is happening. The categories are not taken as strings,
-                % and are not correlated to obj.PsyData.Category name.
-                % Neither here, nor in PlotLabels. They are merely taken in
-                % their order - this should be DEPRECATED
-                if iscell(categories(k))                  
-                    dd = zeros(size(obj.HFreq, 1), size(obj.HFreq, 3), numel(categories{k}));
-                    for ikat = 1:numel(categories{k})
-                        dd(:, :, ikat) = obj.getaverageenvelopes(ch, categories{k}(ikat));
-                    end
-                    % QUESTION - WHY IS THIS AVERAGING?
-                    D = mean(dd, 3);
-                else
-                    D = obj.getaverageenvelopes(ch, categories(k));
-                end
-                subplot(1, numel(categories), k);
-                T = obj.epochtime(1):0.1:obj.epochtime(2);
-                imagesc(T, obj.Hfmean, D');
-                maxy = max([maxy max(D(:))]); miny = min([miny min(D(:))]);
-                axis xy;
-                xlabel('time [s]');   
-            end
-            obj.plotF.ylim = [miny maxy];
-        end
-        
-        function obj = plotlabels(obj, ch, categories)
-            [miny, maxy] = obj.getplotylimit();
-            for k = 1:numel(categories)
-                subplot(1, numel(categories), k);
-                caxis([miny, maxy]);
-                title(obj.PsyData.CategoryName(cellval(categories, k)));
-                if k == 1
-                    chstr = iff(isempty(obj.CH.sortedby), num2str(ch), ...
-                        [num2str(ch) '(' obj.CH.sortedby  num2str(obj.plotF.ch) ')']);
-                    ylabel(['channel ' chstr ' - freq [Hz]']);
-                    % TODO - Temporary fix for the multiple channel
-                    % selection original:`any(obj.plotRCh.selCh(ch, :), 2) == 1`
-                    % QUESTION - not sure what the plotRch.selCh does
-                    if isprop(obj, 'plotRCh') && isfield(obj.plotRCh, 'selCh') && ...
-                            any(any(obj.plotRCh.selCh(ch, :)))
-                        klavesy = 'fghjkl';
-                        text(0, obj.Hf(1), ['*' klavesy(logical(obj.plotRCh.selCh(ch, :)))], ...
-                            'FontSize', 15, 'Color', 'red');
-                    end
-                end
-                if k == numel(categories), colorbar('Position', [0.92 0.1 0.02 0.82]); end
-            end
-        end
-                
-        function [miny, maxy] = getplotylimit(obj)
-             if isfield(obj.plotF, 'ylim') && numel(obj.plotF.ylim) >= 2
-                miny = obj.plotF.ylim(1); maxy = obj.plotF.ylim(2);
-             else
-                miny = 0; maxy = 0;
-             end
+        % Wrapper around plotresponsefrequency for plotting a response
+        % frequencies for multiple channels
+        % ch: numeric array definich which channels to plot. If more than
+        %   one channel is passed, data are averaged across all given
+        %   channels. e.g. 
+        % categories: which category to plot - if not defined, plots all.
+        %   Takes array of category indices beginning with 0. e.g. [0,3]. 
+        %   See getenvelopes for better explanation
+        %
+        % Example:
+        %   obj.PlotResponseFreqMean(1, [0:2])
+        %   obj.PlotResponseFreqMean([1, 2:5, 8], [0:2])
+        %   obj.PlotResponseFreqMean([1:5], 2)
+        function obj = PlotResponseFreqMean(obj, ch, categories)
+            obj.plotresponsefrequency(ch, categories)
         end
         
         %% Getters
-        % QUESTION - not sure why we add 1 to the categories 
-        %
+        
         % returns HFreqEpochs for given set of channels and categories. For
         % average call getaverageenvelopes
         % 
         % channels: array of channels. eg. [1, 5, 20]. If empty, returns
-        % all channels. default []
+        %   all channels. default []
         % categories: array of categories. eg. [1,3]. If empty, returns all
         % categories. Adds +1 to category number because of reasons - so if
-        % you want category 1, you need to pass 0. default []
+        %   you want category 1, you need to pass 0. default []
         % RETURN: matrix [time x channel x frequency x category]
         function envelopes = getenvelopes(obj, channels, categories)
             if ~exist('channels', 'var') || numel(channels) == 0
@@ -158,7 +99,7 @@ classdef CHilbertL < CHilbert
         % channels: vector(numeric) of channels to average across. If empty, returns
         % data only averaged across categories
         % categories: vector(numeric) of categories to average across. If
-        % empty, returns
+        %   empty, returns
         % RETURN: matrix [time x frequency]
         function envelopes = getaverageenvelopes(obj, channels, categories)
             if ~exist('channels', 'var') || numel(channels) == 0
@@ -178,7 +119,7 @@ classdef CHilbertL < CHilbert
         % Returns indices of given categories in the obj.HFreqEpochs
         % categories: vector of either characters cells or numbers defining
         % categories to be found int the obj.epochData. Zero based category
-        % numbering
+        %   numbering
         % RETURN: indices of fitting categories
         % example: 
         %   obj.getcategoryindices([0 3])
@@ -198,7 +139,7 @@ classdef CHilbertL < CHilbert
         % Returns indices of categories as are in the obj.HFreq
         % categories: vector of either characters cells or numbers defining
         % categories to be found int the obj.epochData. Zero based category
-        % numbering
+        %   numbering
         % example: 
         %   obj.getaveragecategoryindices([0 3])
         %   obj.getaveragecategoryindices([{'Scene'} {'Object'}])
@@ -233,11 +174,13 @@ classdef CHilbertL < CHilbert
         end
         
         %% Statistics
-        % 
+        
+        % Calculates rank test agains a baseline
         % baselinetime: numeric(2) in seconds defining baseline timewindow
         % responsetime: numeric(2) in seconds defining response timewindow
         % RETURNS: calculated p values by CStat.Wilcox2D
-        % example: obj.wilcoxbaseline([-0.1 0], [0.2 0.5])
+        % example: 
+        %   obj.wilcoxbaseline([-0.1 0], [0.2 0.5])
         function wp = wilcoxbaseline(obj, baselinetime, responsetime, channels, categories)
             if ~exist('channels', 'var'), channels = []; end
             if ~exist('categories', 'var'), categories = []; end
@@ -254,10 +197,10 @@ classdef CHilbertL < CHilbert
         end
         
         % Compares two category response in given time
-        % responsetime: numeric(2) in seconds defining response timewindow.
-        % defaults to the obj.epochtime
         % categories: numeric(2) or cell(2){character} defining categories.
-        % Zero based. e.g [0 2]
+        %   Zero based. e.g [0 2]
+        % responsetime: numeric(2) in seconds defining response timewindow.
+        %   defaults to the obj.epochtime
         % RETURNS: calculated p values by CStat.Wilcox2D
         % example:
         %   obj.wilcoxcategories([0 1])
@@ -279,87 +222,142 @@ classdef CHilbertL < CHilbert
             wp = CStat.Wilcox2D(responseA, responseB, 1, [], 'mean vs baseline');
         end
         
-        
-        function obj = RemoveChannels(obj,channels)       
-            %smaze se souboru vybrane kanaly. Kvuli redukci velikost aj
-            keepch = setdiff(1:obj.channels,channels); %channels to keep
-            obj.channels = obj.channels - numel(channels);
-            obj.d = obj.d(:,keepch,:);
-            if isprop(obj,'mults'), obj.mults = obj.mults(:,keepch); end
-            obj.HFreq = obj.HFreq(:,keepch,:,:);
-            if isprop(obj,'HFreqEpochs'), obj.HFreqEpochs = obj.HFreqEpochs(:,keepch,:,:); end
-            if isprop(obj,'fphaseEpochs'), obj.fphaseEpochs = obj.fphaseEpochs(:,keepch,:,:); end
-            if isprop(obj,'frealEpochs'), obj.frealEpochs = obj.frealEpochs(:,keepch,:,:); end            
-            if isprop(obj,'plotRCh') && isfield(obj.plotRCh,'selCh')
-               obj.plotRCh.selCh = obj.plotRCh.selCh(keepch,:); 
-            end
-            if isprop(obj,'RjEpochCh'), obj.RjEpochCh = obj.RjEpochCh(keepch,:); end
-            obj.CH.RemoveChannels(channels);
-            obj.els = obj.CH.els; %ty uz se redukuji v CHHeader
-            obj.RjCh = obj.CH.RjCh;      
-            
-            for j = 1:numel(obj.Wp)
-                obj.Wp(j).D2 = obj.Wp(j).D2(:,keepch);
-                obj.Wp(j).DiEpCh = obj.Wp(j).DiEpCh(keepch,:);
-                for k = 1:numel(obj.Wp(j).WpKat)
-                    if numel(obj.Wp(j).WpKat{k}) > 0
-                        obj.Wp(j).WpKat{k} = obj.Wp(j).WpKat{k}(:,keepch);
-                    end
-                end
-                for k = 1:numel(obj.Wp(j).WpKatBaseline)
-                    if numel(obj.Wp(j).WpKatBaseline{k}) > 0
-                        obj.Wp(j).WpKatBaseline{k} = obj.Wp(j).WpKatBaseline{k}(:,keepch);
-                    end
-                end
-            end
-        end    
-    end
+    end  
     
     %% Visualisations
     methods  (Access = private)
-        function obj = hybejPlotF(obj, ~, eventDat)
-            if numel(obj.plotF.ch) == 1
+        % Buffering of the plot or taking settings from saved structs
+        % if we are only redrawing existing plots
+        function obj = prepareplotcategoriespowertime(obj, ch, categories)
+            if ~numel(ch) == 0 && ~isfield(obj.plotFrequency, 'ch'), obj.plotFrequency.ch = 1;
+            else, obj.plotFrequency.ch = ch; end
+            
+            % Only rewrites categorties if not already set
+            if numel(categories) > 0, obj.plotFrequency.kategories = categories;
+            elseif ~isfield(obj.plotFrequency, 'kategories') && numel(obj.plotFrequency.kategories) == 0
+                if isfield(obj.Wp(obj.WpActive), 'kats'), categories = obj.Wp(obj.WpActive).kats;
+                else, categories = obj.PsyData.Categories(); end
+                obj.plotFrequency.kategories = categories;
+            end
+            
+            % redraws the plot or creates one
+            if isfield(obj.plotFrequency, 'fh') && ishandle(obj.plotFrequency.fh)
+                figure(obj.plotFrequency.fh);
+            else
+                obj.plotFrequency.fh = figure('Name', 'ResponseFreq', 'Position', [20, 500, 1200, 300]);
+                colormap jet;
+            end
+        end
+        
+        % TODO - deprecate option to pass cells into categories
+        function obj = plotcategoriespowertime(obj, ch, categories)
+             [miny, maxy] = obj.getplotylimit();
+             for k = 1:numel(categories)
+                % QUESTION - If I pass it a cell I'd expect the
+                % cell to contain NAMES of categories, but that is not what
+                % is happening. The categories are not taken as strings,
+                % and are not correlated to obj.PsyData.Category name.
+                % Neither here, nor in PlotLabels. They are merely taken in
+                % their order - this should be DEPRECATED
+                if iscell(categories(k))                  
+                    dd = zeros(size(obj.HFreq, 1), size(obj.HFreq, 3), numel(categories{k}));
+                    for ikat = 1:numel(categories{k})
+                        dd(:, :, ikat) = obj.getaverageenvelopes(ch, categories{k}(ikat));
+                    end
+                    % QUESTION - WHY IS THIS AVERAGING?
+                    D = mean(dd, 3);
+                else
+                    D = obj.getaverageenvelopes(ch, categories(k));
+                end
+                subplot(1, numel(categories), k);
+                T = obj.epochtime(1):0.1:obj.epochtime(2);
+                imagesc(T, obj.Hfmean, D');
+                maxy = max([maxy max(D(:))]); miny = min([miny min(D(:))]);
+                axis xy;
+                xlabel('time [s]');   
+            end
+            obj.plotFrequency.ylim = [miny maxy];
+        end
+        
+        %Adds labels to the plot
+        function obj = plotlabels(obj, ch, categories)
+            [miny, maxy] = obj.getplotylimit();
+            for k = 1:numel(categories)
+                subplot(1, numel(categories), k);
+                caxis([miny, maxy]);
+                title(obj.PsyData.CategoryName(cellval(categories, k)));
+                if k == 1
+                    chstr = iff(isempty(obj.CH.sortedby), num2str(ch), ...
+                        [num2str(ch) '(' obj.CH.sortedby  num2str(obj.plotFrequency.ch) ')']);
+                    ylabel(['channel ' chstr ' - freq [Hz]']);
+                    % TODO - Temporary fix for the multiple channel
+                    % selection original:`any(obj.plotRCh.selCh(ch, :), 2) == 1`
+                    % QUESTION - not sure what the plotRch.selCh does
+                    if isprop(obj, 'plotRCh') && isfield(obj.plotRCh, 'selCh') && ...
+                            any(any(obj.plotRCh.selCh(ch, :)))
+                        klavesy = 'fghjkl';
+                        text(0, obj.Hf(1), ['*' klavesy(logical(obj.plotRCh.selCh(ch, :)))], ...
+                            'FontSize', 15, 'Color', 'red');
+                    end
+                end
+                if k == numel(categories), colorbar('Position', [0.92 0.1 0.02 0.82]); end
+            end
+        end
+          
+        % Gets plot y limits, either existing or defaults to [0,0]
+        function [miny, maxy] = getplotylimit(obj)
+             if isfield(obj.plotFrequency, 'ylim') && numel(obj.plotFrequency.ylim) >= 2
+                miny = obj.plotFrequency.ylim(1); maxy = obj.plotFrequency.ylim(2);
+             else
+                miny = 0; maxy = 0;
+             end
+        end
+        
+        % Replaces hybejPlotF to separate functionality of parent CHilbert
+        % and CHilbertL
+        function obj = frequencyplothandle(obj, ~, eventDat)
+            if numel(obj.plotFrequency.ch) == 1
                 switch eventDat.Key
                    case 'rightarrow'
-                       obj.PlotResponseFreq(min([obj.plotF.ch + 1 , obj.channels]));
+                       obj.plotresponsefrequency(min([obj.plotFrequency.ch + 1 , obj.channels]));
                    case 'pagedown'
-                       obj.PlotResponseFreq(min([obj.plotF.ch + 10 , obj.channels]));
+                       obj.plotresponsefrequency(min([obj.plotFrequency.ch + 10 , obj.channels]));
                    case 'leftarrow'
-                       obj.PlotResponseFreq(max([obj.plotF.ch - 1 , 1]));
+                       obj.plotresponsefrequency(max([obj.plotFrequency.ch - 1 , 1]));
                    case 'pageup'
-                       obj.PlotResponseFreq(max([obj.plotF.ch - 10 , 1]));
+                       obj.plotresponsefrequency(max([obj.plotFrequency.ch - 10 , 1]));
                    case 'space' % zobrazi i prumerne krivky
-                       obj.PlotResponseCh(obj.plotF.ch);
+                       obj.PlotResponseCh(obj.plotFrequency.ch);
                        obj.PlotEpochs(obj.plotRCh.ch, obj.Wp(obj.WpActive).kats);
-                       figure(obj.plotF.fh);
+                       figure(obj.plotFrequency.fh);
                 end
             end
             switch eventDat.Key
                 case {'multiply', '8'} % dialog na vlozeni minima a maxima osy y
-                    answ = inputdlg('Enter ymax and min:', 'Yaxis limits', [1 50], {num2str(obj.plotF.ylim)});
+                    answ = inputdlg('Enter ymax and min:', 'Yaxis limits', [1 50], {num2str(obj.plotFrequency.ylim)});
                     if numel(answ) == 0, return; end
                     % answ cell 1x1 - cancel is cell 0x0
-                    if isempty(answ{1}) || any(answ{1} == '*'), obj.plotF.ylim = [];
+                    if isempty(answ{1}) || any(answ{1} == '*'), obj.plotFrequency.ylim = [];
                     else
                         data = str2num(answ{:}); %#ok<ST2NM>
-                        if numel(data) >= 2, obj.plotF.ylim = [data(1) data(2)]; end
+                        if numel(data) >= 2, obj.plotFrequency.ylim = [data(1) data(2)]; end
                     end
-                    obj.PlotResponseFreq(obj.plotF.ch);
+                    obj.plotresponsefrequency(obj.plotFrequency.ch);
                 case {'divide', 'slash'} % automaticke meritko na ose z - power
-                    obj.plotF.ylim = [];
-                    obj.PlotResponseFreq(obj.plotF.ch);
+                    obj.plotFrequency.ylim = [];
+                    obj.plotresponsefrequency(obj.plotFrequency.ch);
                 case {'add', 'equal','s'} % + oznaceni kanalu
-                    obj.SelChannel(obj.plotF.ch);
-                    obj.PlotResponseFreq(obj.plotF.ch);
+                    obj.SelChannel(obj.plotFrequency.ch);
+                    obj.plotresponsefrequency(obj.plotFrequency.ch);
                 case {'numpad6', 'd'} % + oznaceni kanalu
-                    ch2 = obj.plotRCh.selCh(find(obj.plotRCh.selCh > obj.plotF.ch, 1));
-                    ch = iff(isempty(ch2), obj.plotF.ch, ch2);
-                    obj.PlotResponseFreq(ch);
+                    ch2 = obj.plotRCh.selCh(find(obj.plotRCh.selCh > obj.plotFrequency.ch, 1));
+                    ch = iff(isempty(ch2), obj.plotFrequency.ch, ch2);
+                    obj.plotresponsefrequency(ch);
                % QUESTION - this keeps returning 0
                case {'numpad4', 'a'} % + oznaceni kanalu
-                    ch2 = obj.plotRCh.selCh(find(obj.plotRCh.selCh < obj.plotF.ch, 1, 'last'));
-                    ch = iff(isempty(ch2), obj.plotF.ch, ch2);
-                    obj.PlotResponseFreq(ch);
+                    ch2 = obj.plotRCh.selCh(find(obj.plotRCh.selCh < obj.plotFrequency.ch, 1, 'last'));
+                    ch = iff(isempty(ch2), obj.plotFrequency.ch, ch2);
+                    obj.plotresponsefrequency(ch);
             end
         end       
      end
