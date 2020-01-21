@@ -49,6 +49,9 @@ classdef CHilbertMulti < CHilbert
             obj.Hf = [];
             obj.Hfmean  =[];
             obj.HFreq = [];
+            if isprop(obj,'HFreqEpochs')
+                obj.HFreqEpochs = [];
+            end
             obj.CH = [];
             obj.PsyData = {};
             obj.epochData = {};
@@ -91,6 +94,7 @@ classdef CHilbertMulti < CHilbert
                     obj.filenames{fileno,1} = filename;
                     load(filename); %#ok<LOAD> %nacte vsechny promenne
                     if ~exist('baseline','var'), baseline = [epochtime(1) 0]; end %fake baseline, pokud nebyla ulozena                    
+                    if ~exist('HFreqEpochs','var'), HFreqEpochs=[]; end %frekvencni data ze vsech epoch, pokud neexistuji udelam prazdne
                     test = ~P.data(:,P.sloupce.zpetnavazba); %index testovych epoch
                     
                     obj.GetEpochTime(epochtime,baseline);
@@ -102,7 +106,7 @@ classdef CHilbertMulti < CHilbert
                     obj.GetEpochData(epochData,fileno,test,1); 
                     
                     %d hlavni data
-                    obj.GetD(d,RjEpochCh); %ulozi nova data d, pripadne prehazi epochy
+                    obj.GetD(d,RjEpochCh,HFreqEpochs); %ulozi nova data d, pripadne prehazi epochy
                     
                     %tabs a tabs_orig
                     obj.GetTabs(tabs); %,tabs_orig,fileno                   
@@ -117,8 +121,8 @@ classdef CHilbertMulti < CHilbert
                     %PsychoPy data
                     obj.GetPsyData(P,fileno);                                                           
                     
-                    %frekvencni data
-                    obj.GetHfreq(Hf,Hfmean,HFreq);                    
+                    %frekvencni data                    
+                    obj.GetHfreq(Hf,Hfmean,HFreq,HFreqEpochs);                    
                     
                     %obj.GetStat(Wp); %mam funkci, ale statistiku zatim neimportuju
                     %jen kopie - zatim nezpracovavam                                                           
@@ -184,11 +188,15 @@ classdef CHilbertMulti < CHilbert
             end
             
         end
-        function obj = GetD(obj,d,RjEpochCh)
+        function obj = GetD(obj,d,RjEpochCh,HFreqEpochs)
             %ulozi nova eeg data k predchazejicim - prida je do spolecneho pole obj.d  
-            if ~isempty(obj.d) && size(obj.d,3) < size(d,3)
-                obj.d = cat(3,obj.d,zeros(size(obj.d,1),size(obj.d,2),size(d,3) - size(obj.d,3)));
-                obj.RjEpochCh = cat(2,obj.RjEpochCh,true(size(obj.RjEpochCh,1),size(RjEpochCh,2) - size(obj.RjEpochCh,2))); %spojim pres kanaly, pocet epoch musi by stejny  
+            if ~isempty(obj.d) && size(obj.d,3) < size(d,3) %pokud v existujicim d je mensi pocet epoch nez v novem
+                nepochs = size(d,3) - size(obj.d,3); %kolik sepoch se ma pridat
+                obj.d = cat(3,obj.d,zeros(size(obj.d,1),size(obj.d,2),nepochs)); %pridam k existujicimu d epochy s praznymi daty
+                obj.RjEpochCh = cat(2,obj.RjEpochCh,true(size(obj.RjEpochCh,1),nepochs)); %prazne epochy v datech ale vyradim 
+                if exist('HFreqEpochs','var') && ~isempty(HFreqEpochs) && isprop(obj,'HFreqEpochs') % time x channel x frequency x epoch
+                    obj.HFreqEpochs = cat(4,obj.HFreqEpochs,zeros(size(obj.HFreqEpochs,1),size(obj.HFreqEpochs,2),size(obj.HFreqEpochs,3),nepochs));
+                end
             end
             obj.d = cat(2,obj.d,d); %spojim pres channels - jen data z testovych epoch            
             if isempty(obj.els)
@@ -198,22 +206,32 @@ classdef CHilbertMulti < CHilbert
             end
             [obj.samples,obj.channels, obj.epochs] = obj.DSize();
             %vyrazene epochy x kanaly                                                        
-            obj.RjEpochCh = cat(1,obj.RjEpochCh,RjEpochCh); %spojim pres kanaly, pocet epoch musi by stejny             
+            obj.RjEpochCh = cat(1,obj.RjEpochCh,RjEpochCh); %spojim pres kanaly, pocet epoch musi by stejny
+%             if exist('HFreqEpochs','var') && isprop(obj,'HFreqEpochs') 
+%                 obj.HFreqEpochs = cat(2,obj.HFreqEpochs,HFreqEpochs);
+%             end
         end
-        function GetHfreq(obj,Hf,Hfmean,HFreq)
+        function GetHfreq(obj,Hf,Hfmean,HFreq,HFreqEpochs)
             %spoji frekvencni data z predchozich a noveho souboru
             if isempty(obj.Hf)
-                obj.Hf = Hf; %jen prvni soubor
+                obj.Hf = Hf; % napr 50:5:150 pro high gamma, jen prvni soubor
             else
                 assert(isequal(obj.Hf,Hf),'frekvencni pasma musi byt stejna');
             end
             if isempty(obj.Hfmean)
-                obj.Hfmean = Hfmean; %jen prvni soubor
+                obj.Hfmean = Hfmean; %napr 52.5:5:145.5 pro high gamma, jen prvni soubor
             end
             if isempty(obj.HFreq)
-                obj.HFreq = HFreq;%time x channel x freq (x kategorie)
+                obj.HFreq = HFreq; %time x channel x freq (x kategorie)
             else
                 obj.HFreq = cat(2,obj.HFreq,HFreq);
+            end
+            if exist('HFreqEpochs','var') && ~isempty(HFreqEpochs)
+                if isempty(obj.HFreqEpochs)
+                    obj.HFreqEpochs = HFreqEpochs;
+                else
+                    obj.HFreqEpochs = cat(2,obj.HFreqEpochs,HFreqEpochs); % time x channel x frequency x epochs
+                end
             end
         end
         function GetRef(obj,reference)
@@ -376,6 +394,26 @@ classdef CHilbertMulti < CHilbert
                 PAC(iPAC).ass_cytoarchMap = E.CH.H.channels(nick_ch).ass_cytoarchMap; %#ok<AGROW>
                 iPAC = iPAC + 1;                
             end
+        end
+        function els = RepairEls(obj)
+            %funkce ktera opravi obj.els, pokud je spatne vytvorena
+            previousNick = '';
+            els = [];
+            for ch = 1:numel(obj.CH.H.channels) 
+                nick = obj.CH.H.channels(ch).name(1: find(obj.CH.H.channels(ch).name==' ')-1);
+                if numel(nick)==3
+                    nick = ['p0' nick(2:3)];
+                end
+                if ~strcmp(nick,previousNick)
+                    if ch > 1%pokud zacina dalsi pacient
+                        els = [els ch-1];                         %#ok<AGROW>
+                    end
+                    previousNick = nick;
+                end
+            end            
+            els = [els ch];  %konec posledniho pacienta chci taky
+            obj.els = els;
+            obj.CH.els = els;
         end
         
         %% SAVE AND LOAD FILE

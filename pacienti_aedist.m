@@ -5,7 +5,7 @@ function [ pacienti ] = pacienti_aedist()
 
 pacienti = struct;
 p = 1;
-pacienti(p).todo = 1; %docasne ho nechci do analyzy, protoza ma jiny pocet epoch a nesedi do CHIlbertMulti
+pacienti(p).todo = 0; %docasne ho nechci do analyzy, protoza ma jiny pocet epoch a nesedi do CHIlbertMulti
 pacienti(p).folder = 'p073 Pech VT6';
 pacienti(p).data = 'VT6_INV Test Vlcek1_X_aedist.mat'; %'VT6_INV Test Vlcek1_X_aedist.mat';
 pacienti(p).header = 'p73_headerX.mat'; % p73_header.mat je ten nejnovejsi od Jirky - 26.5.2017 'p73_header_kamil.mat';
@@ -311,5 +311,36 @@ pacienti(p).psychopy = 'p129vt40_aedist.mat';
 pacienti(p).rjepoch = 'p129vt40_aedist_rjepoch.mat'; 
 pacienti(p).epievents = 'p129vt40_aedist_epievents.mat'; 
 pacienti(p).rjch = [];
+
+p=p+1;
+pacienti(p).todo = 1; %28.11.2019 Sofiia
+pacienti(p).folder = 'p193 Pys VT41';
+pacienti(p).data = 'VT41_2019-01-24_09-28_008_512hz_32_concat_aedist.mat';
+pacienti(p).header = 'p193_header2.mat';
+pacienti(p).psychopy = 'p193_aedist.mat';
+pacienti(p).rjepoch = 'p193_aedist_rjepoch.mat'; 
+pacienti(p).epievents = 'p193_aedist_epievents.mat'; 
+pacienti(p).rjch = [];
+
+p=p+1;
+pacienti(p).todo = 1; %28.11.2019 Sofiia
+pacienti(p).folder = 'p209 Sil VT46';
+pacienti(p).data = 'VT46_2019-05-22_13-29_001_512hz_14_concat_aedist.mat';
+pacienti(p).header = 'p209_header2.mat';
+pacienti(p).psychopy = 'p209_aedist.mat';
+pacienti(p).rjepoch = 'p209_aedist_rjepoch.mat'; 
+pacienti(p).epievents = 'p209_aedist_epievents.mat'; 
+pacienti(p).rjch = [];
+
+p=p+1;
+pacienti(p).todo = 1; %06.12.2019 Sofiia
+pacienti(p).folder = 'p203 Sla VT44';
+pacienti(p).data = 'VT44_2019-04-02_09-30_001_512hz_25_concat_aedist.mat';
+pacienti(p).header = 'p203_header.mat';
+pacienti(p).psychopy = 'p203_aedist.mat';
+pacienti(p).rjepoch = 'p203_aedist_rjepoch.mat'; 
+pacienti(p).epievents = 'p203_aedist_epievents.mat'; 
+pacienti(p).rjch = [];
+
 end
 

@@ -119,7 +119,7 @@ yrange = [-ymax ymax];
     %casove znaèky po 10 minutách
     tabsX = tabs(iSTART:iEND); %tabs odpovidajici ose X=zobrazenym datum 
     for ix = 1:600*fs:numel(tabsX)        
-        line([xtime(ix) xtime(ix)],[2500 3000],'Color','black');
+%         text(xtime(ix),2500,datestr(tabs(ix),'dd-mmm-yyyy HH:MM:SS.FFF'),'Color','black');
         text(xtime(ix),2500,datestr(tabsX(ix),'dd-mmm-yyyy HH:MM:SS.FFF'),'Color','black');        
     end
     text(xtime(end),1000,datestr(tabsX(end),'dd-mmm-yyyy HH:MM:SS.FFF'),'Color','black');
