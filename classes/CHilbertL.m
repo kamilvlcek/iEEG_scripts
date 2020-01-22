@@ -94,13 +94,22 @@ classdef CHilbertL < CHilbert
             envelopes = obj.HFreqEpochs(:, channels, :, categories);
         end
         
-        % averages envelopes per channels and categories
+        % averages envelopes per channels and categories.
+        %   Uses data in the obj.HFreq, selects based on channels and
+        %   category indices and returns a single averaged matrix
         % 
-        % channels: vector(numeric) of channels to average across. If empty, returns
-        % data only averaged across categories
+        % channels: vector(numeric) of channels to average across. If empty, 
+        %   returns all channels averaged across categories
         % categories: vector(numeric) of categories to average across. If
-        %   empty, returns
+        %   empty, averages across all categories
         % RETURN: matrix [time x frequency]
+        % examples:
+        %   %averages first 4 channels in the first category
+        %   hilbert.getaverageenvelopes([0:3], 0)
+        %   %averages all channels in the first category
+        %   hilbert.getaverageenvelopes([], 1)
+        %   %averages all channels across all categories
+        %   hilbert.getaverageenvelopes([], [])
         function envelopes = getaverageenvelopes(obj, channels, categories)
             if ~exist('channels', 'var') || numel(channels) == 0
                 channels = 1:size(obj.HFreq, 2);
@@ -196,7 +205,7 @@ classdef CHilbertL < CHilbert
             wp = CStat.Wilcox2D(response, baseline, 1, [], 'mean vs baseline');
         end
         
-        % Compares two category response in given time
+        % Compares two category responses in given time
         % categories: numeric(2) or cell(2){character} defining categories.
         %   Zero based. e.g [0 2]
         % responsetime: numeric(2) in seconds defining response timewindow.
@@ -217,7 +226,7 @@ classdef CHilbertL < CHilbert
             responseA = obj.getenvelopes(channels, categories(1));
             responseA = responseA(iResponse(1):iResponse(2), :, :, :);
             responseB = obj.getenvelopes(channels, categories(2));
-            responseB = responseB(iResponse(1):iResponse(2),:, :, :);
+            responseB = responseB(iResponse(1):iResponse(2), :, :, :);
             
             wp = CStat.Wilcox2D(responseA, responseB, 1, [], 'mean vs baseline');
         end
@@ -226,8 +235,8 @@ classdef CHilbertL < CHilbert
     
     %% Visualisations
     methods  (Access = private)
-        % Buffering of the plot or taking settings from saved structs
-        % if we are only redrawing existing plots
+        % Buffering of the plot, loading settings from saved ïn the 
+        % obj.plotFrequency. Returns existing plot if it exists
         function obj = prepareplotcategoriespowertime(obj, ch, categories)
             if ~numel(ch) == 0 && ~isfield(obj.plotFrequency, 'ch'), obj.plotFrequency.ch = 1;
             else, obj.plotFrequency.ch = ch; end
@@ -250,6 +259,9 @@ classdef CHilbertL < CHilbert
         end
         
         % TODO - deprecate option to pass cells into categories
+        % Actual plotting function. Takes channels and categories and
+        % creates imagesc based on averaged data (averaged across channels
+        % and categories passed)
         function obj = plotcategoriespowertime(obj, ch, categories)
              [miny, maxy] = obj.getplotylimit();
              for k = 1:numel(categories)
@@ -272,19 +284,22 @@ classdef CHilbertL < CHilbert
                 subplot(1, numel(categories), k);
                 T = obj.epochtime(1):0.1:obj.epochtime(2);
                 imagesc(T, obj.Hfmean, D');
-                maxy = max([maxy max(D(:))]); miny = min([miny min(D(:))]);
                 axis xy;
-                xlabel('time [s]');   
+                xlabel('time [s]');
+                % Buffers the x and y limits to use in future plots
+                maxy = max([maxy max(D(:))]); miny = min([miny min(D(:))]);
             end
             obj.plotFrequency.ylim = [miny maxy];
         end
         
-        %Adds labels to the plot
+        %Adds labels to the plotfrequency plot
         function obj = plotlabels(obj, ch, categories)
             [miny, maxy] = obj.getplotylimit();
             for k = 1:numel(categories)
                 subplot(1, numel(categories), k);
                 caxis([miny, maxy]);
+                %TODO - make this a function, this can change in the future
+                %or error out
                 title(obj.PsyData.CategoryName(cellval(categories, k)));
                 if k == 1
                     chstr = iff(isempty(obj.CH.sortedby), num2str(ch), ...
