@@ -151,11 +151,14 @@ classdef CiEEGData < matlab.mixin.Copyable
             if iscolumn(RjCh), RjCh = RjCh'; end %we need a row of channels
             if exist('add','var') && add==1
                 obj.RjCh = union(obj.RjCh,RjCh);
+                msg = 'additional ';
+            else
+                msg = '';
             end
             obj.RjCh = RjCh;
             obj.CH.RejectChannels(obj.RjCh); %ulozim to i do headeru
-            if ~exist('noprint','var') || isempty(noprint)
-                disp(['vyrazeno ' num2str(numel(RjCh)) ' kanalu']); 
+            if ~exist('noprint','var') || isempty(noprint)                
+                disp(['rejected ' msg num2str(numel(RjCh)) ' channels']); 
             end
         end
         

@@ -175,7 +175,8 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     eval(['obj.plotCh3D.' params{p} ' = ' params{p} ';']); %podle vstupni promenne zmeni ulozenou hodnotu
                 end
             end           
-            if ~isfield(obj.plotCh3D,'allpoints'), obj.plotCh3D.allpoints = 0; end
+            if ~isfield(obj.plotCh3D,'allpoints'), obj.plotCh3D.allpoints = 0; end %if to show position of all channel, even non significant
+            if ~isfield(obj.plotCh3D,'allpointnames'), obj.plotCh3D.allpointnames = 0; end %if to show labels of all the channels
             if ~isfield(obj.plotCh3D,'zoom'), obj.plotCh3D.zoom = 0; end            
             if ~isfield(obj.plotCh3D,'reorder'), obj.plotCh3D.reorder = 0; end   %defaultne se neprerazuji kanaly podle velikosti
             if ~isfield(obj.plotCh3D,'lines'), obj.plotCh3D.lines = 0; end   %defaultne se nespojuji pacienti spojnicemi            
@@ -230,12 +231,12 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                         names = cellstr(extractBefore(names,' ')); %vsechno pred mezerou - pro CHilbertMulti
                     end
                     iZ = mod(1:numel(Z), 2); iZ(iZ == 0) = -1;                    
-                    if ~(chg>1 && obj.plotCh3D.allpoints) %prvni skupiny do barevnych kulicek vzdy; 
+                    if chg==1 || ~obj.plotCh3D.allpoints %prvni skupiny do barevnych kulicek vzdy; 
                         %druhou skupinu chci jen pokud zobrazuju vsechny (chnsel je prazdne) nebo pokud nejsou v druhe skupine ostatni kanaly
                         XYZ(chg) = struct('X',X,'Y',Y,'Z',Z); %export pro scatter3 nize, ktery zobrazi ruzne velke a barevne kulicky
-                        if labels>0
-                            text(X+abs(iZ)*0.5,Y,Z+iZ*0.5,names,'FontSize', 7);
-                        end
+                    end 
+                    if labels>0 && (chg==1 || ~obj.plotCh3D.allpoints || (obj.plotCh3D.allpoints && obj.plotCh3D.allpointnames))                         
+                        text(X+abs(iZ)*0.5,Y,Z+iZ*0.5,names,'FontSize', 7);     %labels=names for channels                   
                     end
                 end
                 % Plot with different colors and sizes based on chnvals

@@ -141,6 +141,13 @@ classdef ScatterPlot < handle
             xlim(obj.ax,xrange);
             ylim(obj.ax,yrange);
         end
+        
+        function CopyChannelPlot3DROI(obj)
+            %copies ROI from ChannelPlot3D figure from ScatterPlot object to original CHilbertMulti object
+            %to be saved with the CM object and not deleted with the SP object
+            obj.ieegdata.CH.plotCh3D.roi = obj.header.plotCh3D.roi ;
+            disp( [num2str(size(obj.header.plotCh3D.roi,1)) ' ROIs copied']);
+        end
 
     end
 
