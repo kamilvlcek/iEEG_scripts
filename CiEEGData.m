@@ -2053,14 +2053,14 @@ classdef CiEEGData < matlab.mixin.Copyable
                cellout(ch, :) =  lineIn;
            end 
             
-            %export tabulky
-            tablelog = cell2table(cellout,'VariableNames', variableNames); 
+            %export tabulky                        
             assert(~isempty(obj.hfilename),'the object is not saved, please save the object first');
             [~,mfilename,~] = fileparts(obj.hfilename); %hfilename se naplni az pri ulozeni objektu
             mfilename = strrep(mfilename, ' ', '_');
             logfilename = ['ChannelResponse_' mfilename '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') ];  
-            xlsfilename = fullfile('logs', [logfilename '.xls']);            
-            writetable(tablelog, xlsfilename); %zapisu do xls tabulky            
+            xlsfilename = fullfile('logs', [logfilename '.xls']);                   
+            xlswrite(xlsfilename ,vertcat(variableNames,cellout)); %write to xls file
+                %22.1.2020 changes to xlswrite, as it does not have limitations on the charactes in variable names
             disp([ 'XLS table saved: ' xlsfilename]);
         end
         function SetSelChActive(obj,n,save,noprint)

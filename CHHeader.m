@@ -666,7 +666,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             %ulozi filterMatrix pri zmene reference pro pozdejsi pouziti pri RjEpochCh
             obj.filterMatrix = filterMatrix;
         end
-        function [mozek] = GetBrainNames(obj) %#ok<MANU>
+        function [mozek] = GetBrainNames(obj) 
             % najde popisy mist v mozku podle tabulky od Martina    
             % TODO, co kdyz jmeno obsahuje pomlcku nebo zavorku?
             BA = load('BrainAtlas_zkratky.mat'); %nactu tabulku od Martina Tomaska, 
@@ -995,6 +995,29 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             for j = 1:numel(obj.chgroups)
                 obj.chgroups{j} = channelmap(setdiff( obj.chgroups{j},channels,'stable'));
             end
+        end
+        function obj = BrainLabels2XLS(obj,xlslabel,includeRjCh)
+            assert(size(obj.brainlabels,1)==numel(obj.H.channels),'Different no of brainlabels than channels in header');
+            if ~exist('xlslabel','var') || isempty(xlslabel) , xlslabel = ''; end
+            if ~exist('includeRjCh','var') || isempty(includeRjCh) , includeRjCh = 0; end %
+            labels = lower({obj.brainlabels.label}); %cell array o brain labels
+            ulabels = unique(labels); 
+            output = cell(numel(ulabels)+1,4+6); 
+            varnames = horzcat({'brainlabel','count','patients','rejected'},obj.plotCh2D.selChNames);
+            for j = 1:numel(ulabels)
+               chIndex = find(contains(labels,ulabels{j})); 
+               if ~includeRjCh, chIndex = setdiff(chIndex,obj.RjCh); end %channels without the rejected channels
+               pTags = cell(numel(chIndex),1);
+               for ch = 1:numel(chIndex)
+                   pTags{ch}=obj.PacientTag(chIndex(ch));
+               end
+               rjCount = numel(intersect(chIndex,obj.RjCh)); %number of rejected channels for this label
+               marksCount =  sum(obj.plotCh2D.selCh(chIndex,:)); %count of channel marking fghjkl               
+               output(j,:)=[ ulabels(j) num2cell([(numel(chIndex)),numel(unique(pTags)),rjCount,marksCount])];
+            end
+            xlsfilename = ['./logs/BrainLabels2XLS' '_' xlslabel '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS')];
+            xlswrite(xlsfilename ,vertcat(varnames,output)); %write to xls file
+            disp([xlsfilename '.xls with ' num2str(size(output,1)) ' lines saved']);
         end
         
     end
