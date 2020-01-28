@@ -17,6 +17,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         reference; %aby trida vedela, jestli je bipolarni nebo ne        
         classname; %trida v ktere je Header vytvoren
         brainlabels; %struct array, obsahuje ruzna vlastni olabelovani kanalu
+        hull; %data for convex hull
     end
     %#ok<*PROPLC>
     
@@ -174,12 +175,14 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 else
                     eval(['obj.plotCh3D.' params{p} ' = ' params{p} ';']); %podle vstupni promenne zmeni ulozenou hodnotu
                 end
-            end           
+            end
+            if ~isfield(obj.plotCh3D,'boundary'), obj.plotCh3D.boundary = 1; end %if to plot boundary of the brain instead the 3D mesh
             if ~isfield(obj.plotCh3D,'allpoints'), obj.plotCh3D.allpoints = 0; end %if to show position of all channel, even non significant
             if ~isfield(obj.plotCh3D,'allpointnames'), obj.plotCh3D.allpointnames = 0; end %if to show labels of all the channels
             if ~isfield(obj.plotCh3D,'zoom'), obj.plotCh3D.zoom = 0; end            
             if ~isfield(obj.plotCh3D,'reorder'), obj.plotCh3D.reorder = 0; end   %defaultne se neprerazuji kanaly podle velikosti
             if ~isfield(obj.plotCh3D,'lines'), obj.plotCh3D.lines = 0; end   %defaultne se nespojuji pacienti spojnicemi            
+            if ~isfield(obj.plotCh3D,'hullindex'), obj.plotCh3D.hullindex = 0; end   %index of brainlabel to plot convex hull           
             assert(numel(chnvals) == numel(chnsel), 'unequal size of chnvals and chnsel');
             nblocks = numel(chnvals); %pocet barev bude odpovidat poctu kanalu
             cmap = parula(nblocks+1); %+1 protoze hodnoty se budou zaokrouhlovat nahoru nebo dolu
@@ -300,7 +303,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 text(0,65,0,'VPREDU');        
                 text(0,-115,0,'VZADU');                                 
                
-                if isfield(obj.plotCh3D,'boundary') && obj.plotCh3D.boundary
+                if ~isfield(obj.plotCh3D,'boundary') || obj.plotCh3D.boundary
                     obj.Plot3DBoundary();
                 else
                     load('GMSurfaceMesh.mat'); %seda hmota v MNI
@@ -321,6 +324,11 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 if isfield(obj.plotCh3D,'background') && obj.plotCh3D.background==0
                     set(gca,'color','none'); %zadne bile pozadi, pak ani v corelu
                 end
+                
+                if ~isempty(obj.hull) && obj.plotCh3D.hullindex > 0
+                    obj.HullPlot3D(obj.plotCh3D.hullindex);
+                end
+                
                 %rozhybani obrazku            
                 set(obj.plotCh3D.fh,'KeyPressFcn',@obj.hybejPlot3D);
             else
@@ -996,13 +1004,15 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 obj.chgroups{j} = channelmap(setdiff( obj.chgroups{j},channels,'stable'));
             end
         end
-        function obj = BrainLabels2XLS(obj,xlslabel,includeRjCh)
+        function obj = BrainLabels2XLS(obj,xlslabel,includeRjCh,computehull)
             assert(size(obj.brainlabels,1)==numel(obj.H.channels),'Different no of brainlabels than channels in header');
             if ~exist('xlslabel','var') || isempty(xlslabel) , xlslabel = ''; end
             if ~exist('includeRjCh','var') || isempty(includeRjCh) , includeRjCh = 0; end %
+            if ~exist('computehull','var') || isempty(computehull) , computehull = 0; end
             labels = lower({obj.brainlabels.label}); %cell array o brain labels
             ulabels = unique(labels); 
             output = cell(numel(ulabels)+1,4+6); 
+            hulldata = cell(numel(ulabels),5);
             varnames = horzcat({'brainlabel','count','patients','rejected'},obj.plotCh2D.selChNames);
             for j = 1:numel(ulabels)
                chIndex = find(contains(labels,ulabels{j})); 
@@ -1014,10 +1024,52 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                rjCount = numel(intersect(chIndex,obj.RjCh)); %number of rejected channels for this label
                marksCount =  sum(obj.plotCh2D.selCh(chIndex,:)); %count of channel marking fghjkl               
                output(j,:)=[ ulabels(j) num2cell([(numel(chIndex)),numel(unique(pTags)),rjCount,marksCount])];
+               if computehull 
+                   if numel(chIndex)>0
+                       mni = [[obj.H.channels(chIndex).MNI_x];[obj.H.channels(chIndex).MNI_y];[obj.H.channels(chIndex).MNI_z]]';
+                       imni_left = mni(:,1) < 0; %left side channels                       
+                       kh_left = convhull(mni(imni_left,1),mni(imni_left,2),mni(imni_left,3),'Simplify',true);
+                       imni_right = mni(:,1) >= 0; %right side channels                      
+                       kh_right = convhull(mni(imni_right,1),mni(imni_right,2),mni(imni_right,3),'Simplify',true);
+                       hulldata(j,:) = {ulabels{j},chIndex(imni_left),chIndex(imni_right),kh_left,kh_right};                                      
+                   else 
+                       hulldata(j,:) = {ulabels{j},[],[],[],[]};                                      
+                   end
+                   
+               end
             end
-            xlsfilename = ['./logs/BrainLabels2XLS' '_' xlslabel '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS')];
-            xlswrite(xlsfilename ,vertcat(varnames,output)); %write to xls file
-            disp([xlsfilename '.xls with ' num2str(size(output,1)) ' lines saved']);
+            if computehull
+                obj.hull = hulldata;
+                disp('convex hull saved');
+            else
+                xlsfilename = ['./logs/BrainLabels2XLS' '_' xlslabel '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS')];
+                xlswrite(xlsfilename ,vertcat(varnames,output)); %write to xls file
+                disp([xlsfilename '.xls with ' num2str(size(output,1)) ' lines saved']);
+            end
+            
+        end
+        function obj = HullPlot3D(obj,iLabel)
+            if isfield(obj.plotCh3D,'fh') && ishandle(obj.plotCh3D.fh)
+                if iLabel > 0 %iLabel 0 means to plot no hull in the 3D figure
+                    figure(obj.plotCh3D.fh); %activate 3D figure
+
+                    % left side channels
+                    ich = obj.hull{iLabel,2}; 
+                    mni = [[obj.H.channels(ich).MNI_x];[obj.H.channels(ich).MNI_y];[obj.H.channels(ich).MNI_z]]';
+                    kh = obj.hull{iLabel,4};
+                    trisurf(kh,mni(:,1),mni(:,2),mni(:,3),'Facecolor','none'); %,'Facecolor','red','FaceAlpha',0.1           
+
+                    %right side channels
+                    ich = obj.hull{iLabel,3}; 
+                    mni = [[obj.H.channels(ich).MNI_x];[obj.H.channels(ich).MNI_y];[obj.H.channels(ich).MNI_z]]';
+                    kh = obj.hull{iLabel,5};
+                    trisurf(kh,mni(:,1),mni(:,2),mni(:,3),'Facecolor','none');                           
+                end
+                
+                obj.plotCh3D.hullindex = iLabel;
+            else
+                disp('no ChannelPlot figure to plot in');
+            end
         end
         
     end
@@ -1183,6 +1235,8 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                        obj.plotCh3D.lines  = 1;
                     end
                     obj.ChannelPlot();
+                  case 'd' %just reDraw the plot
+                    obj.ChannelPlot();  
               end
           end
           function obj = hybejPlot2D(obj,~,eventDat) 
