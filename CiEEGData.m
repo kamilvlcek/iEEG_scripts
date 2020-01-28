@@ -1584,8 +1584,9 @@ classdef CiEEGData < matlab.mixin.Copyable
                 text(-0.1,ymax*0.56,[marks(iselChNames) '=' cell2str(obj.plotRCh.selChNames(iselChNames))], 'FontSize', 10);
             end
             methodhandle = @obj.hybejPlotCh;
-            set(obj.plotRCh.fh,'KeyPressFcn',methodhandle);      
-            obj.SelectedChannel = ch;
+            set(obj.plotRCh.fh,'KeyPressFcn',methodhandle);
+            obj.SelectedChannel = ch; %sends message to ScatterPlot to update
+            figure(obj.plotRCh.fh); %activates this figure again
         end        
             
         function obj = PlotResponseP(obj)
