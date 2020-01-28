@@ -53,7 +53,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         function [obj, chgroups, els] = ChannelGroups(obj,chnsel,subjname,forcechgroups)
             %vraci skupiny kanalu (cisla vsech channels na elekrode) + cisla nejvyssiho kanalu v na kazde elektrode v poli els
             % subjname - jestli jsou skupiny podle subjname (napr p173, u CHibertMulti) nebo elektrod (napr A)  
-            if ~exist('subjname','var') || isempty(chnsel), subjname = iff( strcmp(obj.classname,'CHilbertMulti')); end %defaultne podle classname, pokud neni CHilbertMulti, pouzivaji se jmena elektrod
+            if ~exist('subjname','var') || isempty(subjname), subjname = iff( strcmp(obj.classname,'CHilbertMulti')); end %defaultne podle classname, pokud neni CHilbertMulti, pouzivaji se jmena elektrod
             if ~exist('chnsel','var') || isempty(chnsel) %pokud nenam zadny vyber kanalu, pouziva se pri load dat
             if ~exist('forcechgroups','var') || isempty(forcechgroups), forcechgroups = 0; end %chci prepocitat chgroups 
                 if isempty(obj.chgroups) || forcechgroups               
@@ -840,29 +840,30 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 if find(ismember(klavesy,selCh)) %vrati index klavesy nektereho selCh v klavesy
                     if ~isfield(obj.plotCh2D,'selCh')
                         warning('No selCh in CH object, first run the ChannelPlot2D');
-                    else
+                    else                        
                         chshow = intersect(chshow,find(obj.plotCh2D.selCh(:,ismember(klavesy,selCh)))'); %indexy kanalu se znackou f-l                    
+                        chshowstr = horzcat(chshowstr, {klavesy(ismember(klavesy,selCh))}); 
                         filtered = true;  
                     end
                 end
                 if ismember('r',selCh) %rejected channels, nekde v selCh je r
                     chshow = intersect(chshow,obj.RjCh);
-                    chshowstr = horzcat(chshowstr, {'rj'}); 
+                    chshowstr = horzcat(chshowstr, {'Rj'}); 
                     filtered = true;
                 elseif ismember('n',selCh) %NOT rejected channels,, nekde v selCh je r
                     chshow = intersect(chshow,setdiff(obj.H.selCh_H,obj.RjCh));
-                    chshowstr = horzcat(chshowstr, {'nrj'}); 
+                    chshowstr = horzcat(chshowstr, {'nRj'}); 
                     filtered = true;
                 end
                 if contains(selCh, '~e')    % not epileptic je dvojice znaku "~e"
                     flt = [obj.H.channels.seizureOnset] == 0 & [obj.H.channels.interictalOften] == 0;
                     chshow = intersect(chshow,find(flt));
-                    chshowstr = horzcat(chshowstr, {'~e'}); 
+                    chshowstr = horzcat(chshowstr, {'~Epi'}); 
                     filtered = true;
                 elseif contains(selCh, 'e') % epileptic je pouze "e" (mohlo by se pouzit i ismemeber)
                     flt = [obj.H.channels.seizureOnset] == 1 | [obj.H.channels.interictalOften] == 1;
                     chshow = intersect(chshow,find(flt));
-                    chshowstr = horzcat(chshowstr, {'e'}); 
+                    chshowstr = horzcat(chshowstr, {'Epi'}); 
                     filtered = true;
                 end                                               
             end
@@ -879,13 +880,17 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             if filtered
                 obj.plotCh2D.chshow = chshow;
                 obj.sortorder = obj.plotCh2D.chshow;                    
-                obj.plotCh2D.chshowstr = strjoin(chshowstr,'&');                    
-                disp(['zobrazeno ' num2str(numel(obj.plotCh2D.chshow)) ' kanalu: ' strjoin(chshowstr,'&')]); 
+                if ~ischar(chshowstr) 
+                    obj.plotCh2D.chshowstr = strjoin(chshowstr,' & '); 
+                else
+                    obj.plotCh2D.chshowstr = chshowstr;
+                end
+                disp(['shown ' num2str(numel(obj.plotCh2D.chshow)) ' channels: ' obj.plotCh2D.chshowstr]); 
             else            
                 obj.plotCh2D.chshow = 1:numel(obj.H.channels);
                 obj.plotCh2D.chshowstr = '';
                 obj.sortorder = 1:numel(obj.H.channels); %defaultni sort order pro vsechny kanaly
-                disp('zobrazeny vsechny kanaly');
+                disp('all channels shown');
             end
             notify(obj, 'FilterChanged');
         end
