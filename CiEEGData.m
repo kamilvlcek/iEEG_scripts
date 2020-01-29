@@ -1669,27 +1669,43 @@ classdef CiEEGData < matlab.mixin.Copyable
             
         end  
         
-        function TimeIntervals(obj,ch,intervals) % Sofiia 09.01.2019 average time intervals
+        function TimeIntervals(obj,ch,intervals) % Sofiia 16.01.2020 average time intervals
             % default intervals = [0 0.2; 0.2 0.4; 0.4 0.6; 0.6 0.8; 0.8 1];
+            
             if ~exist('intervals') || isempty(intervals), intervals = [0 0.2; 0.2 0.4; 0.4 0.6; 0.6 0.8; 0.8 1]; end % default intervals
-            kats = obj.Wp(obj.WpActive).kats;
+            kats = obj.Wp(obj.WpActive).kats; % define categories
             
             % initialize matrix
-            allmeans = zeros (size(intervals,1), size(obj.d,3)/3, numel(kats)); % average time intervals x epochs x category
-            T = (0 : 1/obj.fs : (size(obj.d,1)-1)/obj.fs) + obj.epochtime(1);
+            allmeans = zeros (size(intervals,1), size(obj.d,3)/numel(kats), numel(kats)); % average time intervals x epochs x category
+            categories = zeros(size(obj.d,3), 1); % vector to define categories for all epochs - for xls table
+            T = (0 : 1/obj.fs : (size(obj.d,1)-1)/obj.fs) + obj.epochtime(1); % time in sec 
             T2 = T(:);
+            nInd = 1; % initialize index for variable categories
             
-            for j = 1:numel(kats)
+            for j = 1:numel(kats) % for each category
                 [d,~,RjEpCh,~]= obj.CategoryData(kats(j),[],[],ch); % get data
                 d = squeeze(d(:,ch,:)); % time x epoch
+ 
+                categories(nInd:j*(size(obj.d,3)/3)) = kats(j); % to establish the number of category for all epochs - for xls table
+                nInd = (size(obj.d,3)/numel(kats))+nInd;
                 
-                for int = 1:size(intervals,1)
+                for int = 1:size(intervals,1)  % for each interval
                     index = find(T2>intervals(int,1) & T2 <intervals(int,2));
                     meanOverT = mean(d(index, :),1); % mean across time according to time intervals
-                    allmeans(int, : , j) = meanOverT; % put in matrix
+                    allmeans(int, : , j) = meanOverT; % put in matrix; average time intervals x epochs x category
                 end
             end
-            
+                
+            cellAllmeans = mat2cell(allmeans, size(allmeans,1), size(allmeans,2), ones(1,size(allmeans,3))); % convert 3D matrix into cell array
+            tableX= num2cell([categories,([cellAllmeans{1,1,1}, cellAllmeans{1,1,2}, cellAllmeans{1,1,3}])']); % table for export in xls file
+            intervStr = cellstr(num2str(intervals));
+            titles4table = ['category', intervStr']; % column names
+            tableX = [titles4table; tableX]; % final table
+           
+            % export data in xls table
+            xlsfilename = ['logs\average_time_intervals_for channel_' num2str(ch) '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') '.xls'];
+            xlswrite(xlsfilename,tableX); 
+            disp([ 'xls tables saved: ' xlsfilename]);
             
             % plot mean and std across epochs
             M = mean(allmeans(:,~RjEpCh(1,:),:),2);
@@ -1697,23 +1713,46 @@ classdef CiEEGData < matlab.mixin.Copyable
             E = std(allmeans(:,~RjEpCh(1,:),:),[],2)/sqrt(size(allmeans,2)); %std err of mean
             E = squeeze(E(:,1,:));
             
-            figure(1), clf
-            h_errbar1 = errorbar((mean(intervals,2))',M(:,1) ,E(:,1),'.','Color',[1 0 0]); %nejdriv vykreslim errorbars aby byly vzadu [.8 .8 .8]
+            figure('Name','PlotResponseCh_for_average_time_intervals'), clf
+            hue = 0.8;
+            colorskat = {[0 0 0],[0 1 0],[1 0 0],[0 0 1]; [hue hue hue],[hue 1 hue],[1 hue hue],[hue hue 1]}; % prvni radka - prumery, druha radka errorbars = svetlejsi
+            
+            % 1st category
+            h_errbar1 = errorbar(intervals(:, 2),M(:,1),E(:,1),'.','Color', colorskat{1,1}); 
             hold on;
-            h_mean1 = plot((mean(intervals,2))', M(:,1),'LineWidth',2,'Color',[1 0 0]);  %prumerna odpoved, ulozim si handle na krivku
+            h_mean1 = plot(intervals(:, 2), M(:,1),'LineWidth',2,'Color',colorskat{1,1});  
             hold on;
-            h_errbar2 = errorbar((mean(intervals,2))',M(:,2) ,E(:,2),'.','Color',[0 1 0]); 
+            
+            % 2st category
+            h_errbar2 = errorbar(intervals(:, 2),M(:,2),E(:,2),'.','Color',colorskat{1,2}); 
             hold on;
-            h_mean2 = plot((mean(intervals,2))', M(:,2),'LineWidth',2,'Color',[0 1 0]);  
+            h_mean2 = plot(intervals(:, 2), M(:,2),'LineWidth',2,'Color',colorskat{1,2});  
             hold on;
-            h_errbar3 = errorbar((mean(intervals,2))',M(:,3) ,E(:,3),'.','Color',[0 0 1]); 
+           
+            % 3st category
+            h_errbar3 = errorbar(intervals(:, 2),M(:,3),E(:,3),'.','Color',colorskat{1,3}); 
             hold on;
-            h_mean3 = plot((mean(intervals,2))', M(:,3),'LineWidth',2,'Color',[0 0 1]);  
-            xlim([intervals(1,1), intervals(end,end)]);
-            obj.plotRCh.range = [min(M(:,1))-max(E(:,1)) max(M(:,1))+max(E(:,1))]; 
-            legend([h_mean1 h_mean2 h_mean3], 'control','ego', 'allo')           
-            xlabel('time, s');
-       
+            h_mean3 = plot(intervals(:, 2), M(:,3),'LineWidth',2,'Color',colorskat{1,3});  
+            
+            xticks([intervals(1, 1) (intervals( : , 2))'])
+            txtinterv = num2str(intervals);
+            xticklabels({'0', txtinterv(1:end, :)})                 
+            obj.plotRCh.range = [min(M(:,1))-max(E(:,1)) max(M(:,1))+max(E(:,1))];
+            
+            [katsnames,~,~] = obj.GetKatsNames();
+            legend([h_mean1 h_mean2 h_mean3], katsnames{1,1}, katsnames{1,2}, katsnames{1,3})           
+            xlabel('time intervals, s');
+            
+            % the number of the channel in the title of plot
+            if ~isempty(obj.CH.sortedby) %pokud jsou kanaly serazene jinak nez podle cisla kanalu
+                chstr = [ num2str(ch) '(' obj.CH.sortedby  num2str(obj.plotRCh.ch) ')' ];
+            elseif numel(obj.CH.sortorder) < obj.channels %pokud jsou kanaly nejak vyfiltrovane pomoci obj.CH.FilterChannels();
+                chstr = [ num2str(ch) '(' num2str(obj.plotRCh.ch) '/'  num2str(numel(obj.CH.sortorder)) ')' ];
+            else
+                chstr = num2str(ch);
+            end
+            title(['channel ' chstr '/' num2str(obj.channels) ' - ' obj.PacientID()], 'Interpreter', 'none'); % v titulu obrazku bude i pacientID napriklad p132-VT18
+        
         end
 
 
