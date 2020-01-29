@@ -94,7 +94,8 @@ classdef CRefOrigVals < matlab.mixin.Copyable
                 katnames{k} = obj.Eh.PsyData.CategoryName(obj.kats(k));
                 vals = squeeze(obj.ValMax(k,ch,:));
                 times = squeeze(obj.TMax(k,ch,:));
-                plot(times,vals,'-o','Color',baseColors(obj.kats(k),:));                                
+                katcolor = baseColors(obj.kats(k)+iff(obj.kats(1)==0,1,0),:);
+                plot(times,vals,'-o','Color',katcolor);                                
                 text(times(1),vals(1),[obj.chnames{ch,1} ',' obj.neuroLabels{ch,1} ',' iff(obj.chsignif(ch,k,2),'*','')]);
                 text(times(2),vals(2),[obj.chnames{ch,2}  ',' obj.neuroLabels{ch,2} ',' iff(obj.chsignif(ch,k,3),'*','')]);
             end
@@ -161,7 +162,11 @@ classdef CRefOrigVals < matlab.mixin.Copyable
                 obj.chnames = V.chnames; 
                 obj.chnums = V.chnums; 
                 obj.neuroLabels = V.neuroLabels;
-                obj.chsignif = V.chsignif;
+                if isfield(V,'chsignif')
+                    obj.chsignif = V.chsignif;
+                else
+                    warning('the chsignif not found in the saved file');
+                end
                 disp(['loaded ' fname ]);
             else
                 disp(['not found: ' fname ]);

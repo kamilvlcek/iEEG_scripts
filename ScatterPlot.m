@@ -141,6 +141,13 @@ classdef ScatterPlot < handle
             xlim(obj.ax,xrange);
             ylim(obj.ax,yrange);
         end
+        
+        function CopyChannelPlot3DROI(obj)
+            %copies ROI from ChannelPlot3D figure from ScatterPlot object to original CHilbertMulti object
+            %to be saved with the CM object and not deleted with the SP object
+            obj.ieegdata.CH.plotCh3D.roi = obj.header.plotCh3D.roi ;
+            disp( [num2str(size(obj.header.plotCh3D.roi,1)) ' ROIs copied']);
+        end
 
     end
 
@@ -229,7 +236,7 @@ classdef ScatterPlot < handle
                     delete(obj.texthandles(j));  
                 end
             end            
-            obj.texthandles = [];
+            obj.texthandles = nan(2,numel(obj.categories)); %kategories in first row, chanel legent in second row
             
             if ~isempty(obj.dispSelChName)
                 obj.sbox = annotation(obj.fig, 'textbox',[0 .9 .4 .1], 'String', obj.dispSelChName, 'EdgeColor', 'none');
@@ -363,7 +370,7 @@ classdef ScatterPlot < handle
                 xtext = xsize(2)-diff(xsize)/5;
                 ytext = ysize(2)-diff(ysize)/5;
                 
-                obj.texthandles(k) = text(xtext, ytext - (k-1)*diff(ysize)/20 ,[obj.categoryNames{k} ':' num2str(pocty(k,1)) '+' num2str(pocty(k,2)) ' (' num2str(pocty(k,3)) ')' ]);
+                obj.texthandles(1,k) = text(xtext, ytext - (k-1)*diff(ysize)/20 ,[obj.categoryNames{k} ':' num2str(pocty(k,1)) '+' num2str(pocty(k,2)) ' (' num2str(pocty(k,3)) ')' ]);
             end
         end
         
@@ -431,6 +438,9 @@ classdef ScatterPlot < handle
                         obj.highlights(k) = scatter(obj.ax, dataX(idx), dataY(idx), 3*obj.markerSize, 0.75*obj.baseColors(k,:), 'o', 'MarkerFaceColor', 'none', 'LineWidth', 2, 'HandleVisibility','off');
                     end
                 end
+                figure(obj.fig);
+                if ~isnan(obj.texthandles(2,1)), delete(obj.texthandles(2,1)); end %delete the previously shown text
+                obj.texthandles(2,1) = text(obj.ax.XLim(1)+diff(obj.ax.XLim)/20, obj.ax.YLim(2)-diff(obj.ax.YLim)/20,[ 'ch ' num2str(ch) ', ' obj.ieegdata.CH.H.channels(1,ch).name ]);                
             end
             hold(obj.ax, 'off');
         end

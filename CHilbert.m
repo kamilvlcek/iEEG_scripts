@@ -482,7 +482,7 @@ classdef CHilbert < CiEEGData
                 Wp = obj.Wp;  %#ok<NASGU>  %exportuju statistiku
                 reference = obj.reference; %#ok<NASGU>  %exportuju referenci
                 save(filename,'d','tabs','tabs_orig','fs','P','epochtime','baseline','RjEpochCh','RjEpoch','epochData','DatumCas','H','Hf','Hfmean','HFreq','Wp','reference','-v7.3'); 
-                if isprop(obj,'HFreqEpochs') %pokud jsem ukladal vsechny epochy ze vsech frekvenci
+                if isprop(obj,'HFreqEpochs') && ~isempty(obj.HFreqEpochs) %pokud jsem ukladal vsechny epochy ze vsech frekvenci
                     HFreqEpochs = obj.HFreqEpochs(:,chns,:,:); %#ok<NASGU,PROPLC> % time x channel x frequency x epoch
                     save(filename,'HFreqEpochs','-append'); %pridam k existujicimu souboru 
                 end

@@ -145,12 +145,20 @@ classdef CiEEGData < matlab.mixin.Copyable
            disp(['nacteno ' num2str(size(obj.DE.d,1)) ' epileptickych udalosti']);
         end
 
-        function obj = RejectChannels(obj,RjCh,noprint)
+        function obj = RejectChannels(obj,RjCh,noprint,add)
             %ulozi cisla vyrazenych kanalu - kvuli pocitani bipolarni reference 
+            %variable add causes to add the new rejected channels instead of replace
+            if iscolumn(RjCh), RjCh = RjCh'; end %we need a row of channels
+            if exist('add','var') && add==1
+                obj.RjCh = union(obj.RjCh,RjCh);
+                msg = 'additional ';
+            else
+                msg = '';
+            end
             obj.RjCh = RjCh;
-            obj.CH.RejectChannels(RjCh); %ulozim to i do headeru
-            if ~exist('noprint','var') || isempty(noprint)
-                disp(['vyrazeno ' num2str(numel(RjCh)) ' kanalu']); 
+            obj.CH.RejectChannels(obj.RjCh); %ulozim to i do headeru
+            if ~exist('noprint','var') || isempty(noprint)                
+                disp(['rejected ' msg num2str(numel(RjCh)) ' channels']); 
             end
         end
         
@@ -1576,8 +1584,9 @@ classdef CiEEGData < matlab.mixin.Copyable
                 text(-0.1,ymax*0.56,[marks(iselChNames) '=' cell2str(obj.plotRCh.selChNames(iselChNames))], 'FontSize', 10);
             end
             methodhandle = @obj.hybejPlotCh;
-            set(obj.plotRCh.fh,'KeyPressFcn',methodhandle);      
-            obj.SelectedChannel = ch;
+            set(obj.plotRCh.fh,'KeyPressFcn',methodhandle);
+            obj.SelectedChannel = ch; %sends message to ScatterPlot to update
+            figure(obj.plotRCh.fh); %activates this figure again
         end        
             
         function obj = PlotResponseP(obj)
@@ -1977,7 +1986,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             intervalData = iintervalyData/obj.fs + obj.epochtime(1); %casy ve vterinach
             T = linspace(intervalData(1),intervalData(2),diff(iintervalyData)+1); 
             iintervalyStat = [1 diff(iintervalyData)+1];
-            if ~exist('signum','var') && ~isempty(signum)
+            if ~exist('signum','var') || isempty(signum)
                 %muzu zadat signum v poslednim parametru, v tom pripade pouziju to
                 if isfield(obj.plotRCh,'selChSignum') %pokud mam nastavene signum z SelChannelStat, pouziju to, jinak chci odchylky od 0 v obou smerech
                     signum = obj.plotRCh.selChSignum;
@@ -1991,6 +2000,9 @@ classdef CiEEGData < matlab.mixin.Copyable
             for ch = 1:nChannels
                 WpAllCh = [  WpB(:,ch)<0.05 , idataM(:,ch)]; %boolean: time x WpB+idataK = dve podminky - rozdil vuci baseline a hodnota podle signum
                 iTimeCh = all(WpAllCh,2); %casy, kde jsou obe podminky spolene  
+                if ~any(iTimeCh) && signum ~= 0 %when there are no time points where both condition are true
+                    iTimeCh = idataM(:,ch); %we select time points only using the signum 
+                end
                 [valmax(ch), idx, idxFrac] = cMax(dataM(:,ch), val_fraction, 0,iTimeCh); %Nalezne maximum / minimum krivky curve, i jeho podilu (napr poloviny) a jeho parametry
                 tmax(ch)  = T(idx);
                 if ~isempty(idxFrac), tfrac(ch) = T(idxFrac); end %cas poloviny maxima, nebo jineho podilu                       
@@ -2046,7 +2058,11 @@ classdef CiEEGData < matlab.mixin.Copyable
            for ch=1:numel(channels)              
                channelHeader = channels(ch);
                RjCh = double(any(obj.RjCh==obj.CH.sortorder(ch))); %vyrazeni kanalu v CiEEGData               
-               if exportBrainlabels, bl = struct2cell(obj.CH.brainlabels(ch))'; else, bl = cell(0,0); end               
+               if exportBrainlabels    
+                   if ch <= size(obj.CH.brainlabels,1), bl=struct2cell(obj.CH.brainlabels(ch))'; else, bl = {'-','-','-'}; end                   
+               else
+                   bl = cell(0,0); 
+               end
                blnames = iff(exportBrainlabels,{'mybrainclass','mybrainlabel','mylobe'},cell(0,0)); %uzivatelska jmena struktur ve trech sloupcich             
                lineIn = [{ obj.CH.sortorder(ch), channelHeader.name, obj.CH.PacientTag(ch), channelHeader.neurologyLabel, BrainNames{ch,4}, BrainNames{ch,5}, BrainNames{ch,6} } , ...
                         bl, ...
@@ -2080,14 +2096,14 @@ classdef CiEEGData < matlab.mixin.Copyable
                cellout(ch, :) =  lineIn;
            end 
             
-            %export tabulky
-            tablelog = cell2table(cellout,'VariableNames', variableNames); 
+            %export tabulky                        
             assert(~isempty(obj.hfilename),'the object is not saved, please save the object first');
             [~,mfilename,~] = fileparts(obj.hfilename); %hfilename se naplni az pri ulozeni objektu
             mfilename = strrep(mfilename, ' ', '_');
             logfilename = ['ChannelResponse_' mfilename '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') ];  
-            xlsfilename = fullfile('logs', [logfilename '.xls']);            
-            writetable(tablelog, xlsfilename); %zapisu do xls tabulky            
+            xlsfilename = fullfile('logs', [logfilename '.xls']);                   
+            xlswrite(xlsfilename ,vertcat(variableNames,cellout)); %write to xls file
+                %22.1.2020 changes to xlswrite, as it does not have limitations on the charactes in variable names
             disp([ 'XLS table saved: ' xlsfilename]);
         end
         function SetSelChActive(obj,n,save,noprint)
