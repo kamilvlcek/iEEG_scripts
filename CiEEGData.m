@@ -359,7 +359,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
             if ~exist('ch','var'), ch = 1:obj.channels; end 
             iEpCh = obj.GetEpochsExclude(ch); %seznam epoch k vyhodnoceni (bez chyb, treningu a rucniho vyrazeni=obj.RjEpoch),channels x epochs ; pro CM data to bude ruzne pro kazdy kanal, jinak stejne pro kazdy kanal            
-            iEpochy = [ ismember(cell2mat(obj.epochData(:,2)),katnum) , iOpak]; %seznam epoch pro tuto kategorii a toto opakovani - k vyhodnoceni                                    
+            iEpochy = [ ismember(cell2mat(obj.epochData(:,2)), katnum) , iOpak]; %seznam epoch pro tuto kategorii a toto opakovani - k vyhodnoceni                                    
             d = obj.d(:,:,all(iEpochy,2)); %epochy z teto kategorie a tohoto opakovani = maji ve vsech sloupcich 1            
             RjEpCh = obj.RjEpochCh(ch,all(iEpochy,2)) | ~iEpCh(ch,all(iEpochy,2)); %epochy k vyrazeni u kazdeho kanalu - jen pro epochy teto kategorie katnum - odpovidaji poli d       
             
@@ -1928,6 +1928,9 @@ classdef CiEEGData < matlab.mixin.Copyable
             if ~exist('channels', 'var') || isempty(channels)
                 channels = 1:obj.channels; %vsechny kanaly
             end
+            if iscell(katnum)   % katnum muze byt cell array, ale obj.CategoryData chce integer (nebo pole integeru)
+                katnum = cell2mat(katnum);
+            end
             [katdata,~,RjEpCh] = obj.CategoryData(katnum); %eegdata - epochy jedne kategorie
             katdata = katdata(:,channels,:); %time x channels x epochs- vyberu jen kanaly podle channels
             RjEpCh = RjEpCh(channels,:); % channels x epochs - vyberu jen kanaly podle channels
@@ -1955,7 +1958,12 @@ classdef CiEEGData < matlab.mixin.Copyable
                     signum = 0;
                 end 
             end
-            ikatnum = obj.Wp(obj.WpActive).kats == katnum; %WpKatBaseline jsou indexovane ne podle cisel kategorii ale podle indexu v kats
+            if iscell(obj.Wp(obj.WpActive).kats)
+                ikatnum = ismember(cell2mat(obj.Wp(obj.WpActive).kats'), katnum);
+                ikatnum = all(ikatnum');
+            else
+                ikatnum = obj.Wp(obj.WpActive).kats == katnum; %WpKatBaseline jsou indexovane ne podle cisel kategorii ale podle indexu v kats
+            end
             WpB = obj.Wp(obj.WpActive).WpKatBaseline{ikatnum,1}(iintervalyStat(1):iintervalyStat(2),channels); %time x channels - statistika vuci baseline
             idataM = iff(signum>0, dataM > 0, iff(signum < 0, dataM < 0, true(size(dataM)) ));  % time x channel - jestli chci vetsi, mensi nebo jakekoliv, time x channels                                
             for ch = 1:nChannels
