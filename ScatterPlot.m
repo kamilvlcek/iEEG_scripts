@@ -303,7 +303,7 @@ classdef ScatterPlot < handle
         end
         
         function drawPlot(obj, selChFiltered, selChRj)
-            pocty = zeros(numel(obj.categoriesSelectionIndex),3); %pocty zobrazenych kanalu  
+            pocty = zeros(max(obj.categoriesSelectionIndex),3); % maximalni mozny index zobrazeneho kanalu
             for k = flip(obj.categoriesSelectionIndex) %nejpozdeji, cili nejvic na vrchu, chci mit prvni kategorii %1:numel(obj.categories)
                 dataX = obj.getData(obj.axisX, k);
                 dataY = obj.getData(obj.axisY, k);
