@@ -1584,8 +1584,9 @@ classdef CiEEGData < matlab.mixin.Copyable
                 text(-0.1,ymax*0.56,[marks(iselChNames) '=' cell2str(obj.plotRCh.selChNames(iselChNames))], 'FontSize', 10);
             end
             methodhandle = @obj.hybejPlotCh;
-            set(obj.plotRCh.fh,'KeyPressFcn',methodhandle);      
-            obj.SelectedChannel = ch;
+            set(obj.plotRCh.fh,'KeyPressFcn',methodhandle);
+            obj.SelectedChannel = ch; %sends message to ScatterPlot to update
+            figure(obj.plotRCh.fh); %activates this figure again
         end        
             
         function obj = PlotResponseP(obj)
@@ -1946,7 +1947,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             intervalData = iintervalyData/obj.fs + obj.epochtime(1); %casy ve vterinach
             T = linspace(intervalData(1),intervalData(2),diff(iintervalyData)+1); 
             iintervalyStat = [1 diff(iintervalyData)+1];
-            if ~exist('signum','var') || ~isempty(signum)
+            if ~exist('signum','var') || isempty(signum)
                 %muzu zadat signum v poslednim parametru, v tom pripade pouziju to
                 if isfield(obj.plotRCh,'selChSignum') %pokud mam nastavene signum z SelChannelStat, pouziju to, jinak chci odchylky od 0 v obou smerech
                     signum = obj.plotRCh.selChSignum;
@@ -1960,6 +1961,9 @@ classdef CiEEGData < matlab.mixin.Copyable
             for ch = 1:nChannels
                 WpAllCh = [  WpB(:,ch)<0.05 , idataM(:,ch)]; %boolean: time x WpB+idataK = dve podminky - rozdil vuci baseline a hodnota podle signum
                 iTimeCh = all(WpAllCh,2); %casy, kde jsou obe podminky spolene  
+                if ~any(iTimeCh) && signum ~= 0 %when there are no time points where both condition are true
+                    iTimeCh = idataM(:,ch); %we select time points only using the signum 
+                end
                 [valmax(ch), idx, idxFrac] = cMax(dataM(:,ch), val_fraction, 0,iTimeCh); %Nalezne maximum / minimum krivky curve, i jeho podilu (napr poloviny) a jeho parametry
                 tmax(ch)  = T(idx);
                 if ~isempty(idxFrac), tfrac(ch) = T(idxFrac); end %cas poloviny maxima, nebo jineho podilu                       

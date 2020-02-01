@@ -162,7 +162,11 @@ classdef CRefOrigVals < matlab.mixin.Copyable
                 obj.chnames = V.chnames; 
                 obj.chnums = V.chnums; 
                 obj.neuroLabels = V.neuroLabels;
-                obj.chsignif = V.chsignif;
+                if isfield(V,'chsignif')
+                    obj.chsignif = V.chsignif;
+                else
+                    warning('the chsignif not found in the saved file');
+                end
                 disp(['loaded ' fname ]);
             else
                 disp(['not found: ' fname ]);
