@@ -354,30 +354,20 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 if isfield(obj.plotCh2D,'selCh') %promenna na vic oznacenych kanalu f-l, podle obj.PlotRCh.SelCh
                     selCh = obj.plotCh2D.selCh;
                 else
-                    selCh = []; 
-                    obj.plotCh2D.selCh = [];
+                    selCh = [];                     
                 end
                 if isfield(obj.plotCh2D,'selChNames') %pojmenovani vyberu kanalu pomoci f-l
                     selChNames = obj.plotCh2D.selChNames;
                 else
-                    selChNames = cell(1,6); 
-                    obj.plotCh2D.selChNames = selChNames;
-                end
+                    selChNames = cell(1,6);                    
+                end  
+                obj.SetSelCh(selCh,selChNames,1);
             else
-                if isfield(plotRCh,'selCh')
-                    obj.plotCh2D.selCh = plotRCh.selCh;
-                    selCh = plotRCh.selCh; 
-                else
-                    selCh = []; 
-                end
-                if isfield(plotRCh,'selChNames')
-                    obj.plotCh2D.selChNames = plotRCh.selChNames;
-                    selChNames = plotRCh.selChNames;
-                else
-                    selChNames = cell(1,6);
-                    obj.plotCh2D.selChNames = selChNames;                    
-                end
+                if isfield(plotRCh,'selCh'), selCh = plotRCh.selCh; else, selCh = []; end
+                if isfield(plotRCh,'selChNames'), selChNames = plotRCh.selChNames; else, selChNames = cell(1,6);end                
+                obj.SetSelCh(selCh,selChNames); 
             end
+            
             if exist('plotChH','var')  %handle na funkci z CiEEGData @obj.PlotResponseCh
                 obj.plotCh2D.plotChH = plotChH;
             end
@@ -652,8 +642,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 epiInfo = nan(numel(channels),1); %neznam epiinfo
                 warning(['no epiinfo in the header: ' obj.H.subjName]);
             end
-        end
-            
+        end            
         function tch = GetTriggerCh(obj)
             %ziska cislo trigerovaciho kanalu, pokud existuje
             tch = find(strcmp({obj.H.channels.signalType}, 'triggerCh')==1);         
@@ -673,6 +662,17 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         function [obj]= SetFilterMatrix(obj,filterMatrix)
             %ulozi filterMatrix pri zmene reference pro pozdejsi pouziti pri RjEpochCh
             obj.filterMatrix = filterMatrix;
+        end
+        function [obj]= SetSelCh(obj,selCh,selChNames,force)
+            %SETSELCH - sets plotCh2D.selCh and selChNames
+            %force means it sets selCh and  selChNames even if empty
+            if ~exist('force','var'), force = 0; end
+            if exist('selCh','var') && ( ~isempty(selCh) || force)
+                obj.plotCh2D.selCh = selCh;
+            end
+            if exist('selChNames','var') && (~isempty(selChNames) || force)
+                obj.plotCh2D.selChNames = selChNames;
+            end
         end
         function [mozek] = GetBrainNames(obj) 
             % najde popisy mist v mozku podle tabulky od Martina    
@@ -1045,9 +1045,9 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                    if numel(chIndex)>0
                        mni = [[obj.H.channels(chIndex).MNI_x];[obj.H.channels(chIndex).MNI_y];[obj.H.channels(chIndex).MNI_z]]';
                        imni_left = mni(:,1) < 0; %left side channels                       
-                       kh_left = convhull(mni(imni_left,1),mni(imni_left,2),mni(imni_left,3),'Simplify',true);
+                       kh_left = boundary(mni(imni_left,1),mni(imni_left,2),mni(imni_left,3)); %,'Simplify',true
                        imni_right = mni(:,1) >= 0; %right side channels                      
-                       kh_right = convhull(mni(imni_right,1),mni(imni_right,2),mni(imni_right,3),'Simplify',true);
+                       kh_right = boundary(mni(imni_right,1),mni(imni_right,2),mni(imni_right,3)); %,'Simplify',true
                        hulldata(j,:) = {ulabels{j},chIndex(imni_left),chIndex(imni_right),kh_left,kh_right};                                      
                    else 
                        hulldata(j,:) = {ulabels{j},[],[],[],[]};                                      
@@ -1206,7 +1206,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                      obj.ChannelPlot();
                   case 'r'
                      %dialog na vlozeni souradnic roi hodnoty
-                    answ = inputdlg('Enter x,y,z a edge size:','define ROIs', [2 50],{num2str(obj.plotCh3D.roi)});
+                    answ = inputdlg('Enter x,y,z a edge size:','define ROIs', [10 50],{num2str(obj.plotCh3D.roi)});
                     if numel(answ)>0  %odpoved je vzdy cell 1x1 - pri cancel je to cell 0x0
                         if isempty(answ{1}) %pokud vlozim hvezdicku nebo nic, chci znovy spocitat max a min
                            obj.plotCh3D.roi = [];
