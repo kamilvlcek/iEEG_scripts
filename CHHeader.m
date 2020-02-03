@@ -175,7 +175,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 else
                     eval(['obj.plotCh3D.' params{p} ' = ' params{p} ';']); %podle vstupni promenne zmeni ulozenou hodnotu
                 end
-            end
+            end           
             if ~isfield(obj.plotCh3D,'boundary'), obj.plotCh3D.boundary = 1; end %if to plot boundary of the brain instead the 3D mesh
             if ~isfield(obj.plotCh3D,'allpoints'), obj.plotCh3D.allpoints = 0; end %if to show position of all channel, even non significant
             if ~isfield(obj.plotCh3D,'allpointnames'), obj.plotCh3D.allpointnames = 0; end %if to show labels of all the channels
@@ -354,30 +354,20 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 if isfield(obj.plotCh2D,'selCh') %promenna na vic oznacenych kanalu f-l, podle obj.PlotRCh.SelCh
                     selCh = obj.plotCh2D.selCh;
                 else
-                    selCh = []; 
-                    obj.plotCh2D.selCh = [];
+                    selCh = [];                     
                 end
                 if isfield(obj.plotCh2D,'selChNames') %pojmenovani vyberu kanalu pomoci f-l
                     selChNames = obj.plotCh2D.selChNames;
                 else
-                    selChNames = cell(1,6); 
-                    obj.plotCh2D.selChNames = selChNames;
-                end
+                    selChNames = cell(1,6);                    
+                end  
+                obj.SetSelCh(selCh,selChNames,1);
             else
-                if isfield(plotRCh,'selCh')
-                    obj.plotCh2D.selCh = plotRCh.selCh;
-                    selCh = plotRCh.selCh; 
-                else
-                    selCh = []; 
-                end
-                if isfield(plotRCh,'selChNames')
-                    obj.plotCh2D.selChNames = plotRCh.selChNames;
-                    selChNames = plotRCh.selChNames;
-                else
-                    selChNames = cell(1,6);
-                    obj.plotCh2D.selChNames = selChNames;                    
-                end
+                if isfield(plotRCh,'selCh'), selCh = plotRCh.selCh; else, selCh = []; end
+                if isfield(plotRCh,'selChNames'), selChNames = plotRCh.selChNames; else, selChNames = cell(1,6);end                
+                obj.SetSelCh(selCh,selChNames); 
             end
+            
             if exist('plotChH','var')  %handle na funkci z CiEEGData @obj.PlotResponseCh
                 obj.plotCh2D.plotChH = plotChH;
             end
@@ -652,8 +642,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 epiInfo = nan(numel(channels),1); %neznam epiinfo
                 warning(['no epiinfo in the header: ' obj.H.subjName]);
             end
-        end
-            
+        end            
         function tch = GetTriggerCh(obj)
             %ziska cislo trigerovaciho kanalu, pokud existuje
             tch = find(strcmp({obj.H.channels.signalType}, 'triggerCh')==1);         
@@ -673,6 +662,17 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         function [obj]= SetFilterMatrix(obj,filterMatrix)
             %ulozi filterMatrix pri zmene reference pro pozdejsi pouziti pri RjEpochCh
             obj.filterMatrix = filterMatrix;
+        end
+        function [obj]= SetSelCh(obj,selCh,selChNames,force)
+            %SETSELCH - sets plotCh2D.selCh and selChNames
+            %force means it sets selCh and  selChNames even if empty
+            if ~exist('force','var'), force = 0; end
+            if exist('selCh','var') && ( ~isempty(selCh) || force)
+                obj.plotCh2D.selCh = selCh;
+            end
+            if exist('selChNames','var') && (~isempty(selChNames) || force)
+                obj.plotCh2D.selChNames = selChNames;
+            end
         end
         function [mozek] = GetBrainNames(obj) 
             % najde popisy mist v mozku podle tabulky od Martina    
@@ -1010,32 +1010,44 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             end
         end
         function obj = BrainLabels2XLS(obj,xlslabel,includeRjCh,computehull)
+            %BRAINLABELS2XLS - exports number of channels and pacients for all brainlabels
+            %is function of CHHeader and uses channel marks from obj.plotCh2D.selChNames
+            %this values needs to be updated by obj.ChannelPlot2D after change in CiEEGData, i.e. by pressing Enter in PlotResponseCh           
             assert(size(obj.brainlabels,1)==numel(obj.H.channels),'Different no of brainlabels than channels in header');
             if ~exist('xlslabel','var') || isempty(xlslabel) , xlslabel = ''; end
             if ~exist('includeRjCh','var') || isempty(includeRjCh) , includeRjCh = 0; end %
             if ~exist('computehull','var') || isempty(computehull) , computehull = 0; end
-            labels = lower({obj.brainlabels.label}); %cell array o brain labels
+            labels = lower({obj.brainlabels.label}); %cell array of brainlabels
             ulabels = unique(labels); 
-            output = cell(numel(ulabels)+1,4+6); 
+            noMarks = sum(~cellfun(@isempty,obj.plotCh2D.selChNames)); %number of used marks fghjkl
+            output = cell(numel(ulabels),4+noMarks*2); %columns label,noChannels, noPacients,noRejected, noChInMarks fghjkl 1-6, noPacInMarks
             hulldata = cell(numel(ulabels),5);
-            varnames = horzcat({'brainlabel','count','patients','rejected'},obj.plotCh2D.selChNames);
-            for j = 1:numel(ulabels)
+            selChNamesPac = cell(1,noMarks);
+            for m=1:noMarks
+                selChNamesPac{m} = [obj.plotCh2D.selChNames{m} 'NoPac']; %name for this count of pacients
+            end
+            varnames = horzcat({'brainlabel','count','patients','rejected'},obj.plotCh2D.selChNames(1:noMarks),selChNamesPac);
+            for j = 1:numel(ulabels) %cycle over all brainlabels
                chIndex = find(contains(labels,ulabels{j})); 
                if ~includeRjCh, chIndex = setdiff(chIndex,obj.RjCh); end %channels without the rejected channels
-               pTags = cell(numel(chIndex),1);
+               pTags = cell(numel(chIndex),1); %pacient name for each channel for this labels
                for ch = 1:numel(chIndex)
                    pTags{ch}=obj.PacientTag(chIndex(ch));
                end
                rjCount = numel(intersect(chIndex,obj.RjCh)); %number of rejected channels for this label
-               marksCount =  sum(obj.plotCh2D.selCh(chIndex,:)); %count of channel marking fghjkl               
-               output(j,:)=[ ulabels(j) num2cell([(numel(chIndex)),numel(unique(pTags)),rjCount,marksCount])];
+               marksCount =  sum(obj.plotCh2D.selCh(chIndex,1:noMarks)); %count of channel marking fghjkl        
+               marksPacientCount = zeros(1,noMarks);               
+               for m=1:noMarks
+                   marksPacientCount(m) = numel(unique(pTags(logical(obj.plotCh2D.selCh(chIndex,m))))); %no of patients for this mark                  
+               end
+               output(j,:)=[ ulabels(j) num2cell([(numel(chIndex)),numel(unique(pTags)),rjCount,marksCount, marksPacientCount])];
                if computehull 
                    if numel(chIndex)>0
                        mni = [[obj.H.channels(chIndex).MNI_x];[obj.H.channels(chIndex).MNI_y];[obj.H.channels(chIndex).MNI_z]]';
                        imni_left = mni(:,1) < 0; %left side channels                       
-                       kh_left = convhull(mni(imni_left,1),mni(imni_left,2),mni(imni_left,3),'Simplify',true);
+                       kh_left = boundary(mni(imni_left,1),mni(imni_left,2),mni(imni_left,3)); %,'Simplify',true
                        imni_right = mni(:,1) >= 0; %right side channels                      
-                       kh_right = convhull(mni(imni_right,1),mni(imni_right,2),mni(imni_right,3),'Simplify',true);
+                       kh_right = boundary(mni(imni_right,1),mni(imni_right,2),mni(imni_right,3)); %,'Simplify',true
                        hulldata(j,:) = {ulabels{j},chIndex(imni_left),chIndex(imni_right),kh_left,kh_right};                                      
                    else 
                        hulldata(j,:) = {ulabels{j},[],[],[],[]};                                      
@@ -1194,7 +1206,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                      obj.ChannelPlot();
                   case 'r'
                      %dialog na vlozeni souradnic roi hodnoty
-                    answ = inputdlg('Enter x,y,z a edge size:','define ROIs', [2 50],{num2str(obj.plotCh3D.roi)});
+                    answ = inputdlg('Enter x,y,z a edge size:','define ROIs', [10 50],{num2str(obj.plotCh3D.roi)});
                     if numel(answ)>0  %odpoved je vzdy cell 1x1 - pri cancel je to cell 0x0
                         if isempty(answ{1}) %pokud vlozim hvezdicku nebo nic, chci znovy spocitat max a min
                            obj.plotCh3D.roi = [];
