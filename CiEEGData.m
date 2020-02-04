@@ -114,15 +114,13 @@ classdef CiEEGData < matlab.mixin.Copyable
             %tyhle objekty potrebuju inicializovat i pokud je objekt prazdny - CHilbertMulti
             obj.PL = CPlots(); %prazdny objekt na grafy
             if ~isprop(obj,'CS') || ~isa(obj.CS,'CStat') , obj.CS = CStat(); end %prazdy objekt na statistiku, ale mozna uz byl nacteny pomoci load             
-        end
-        
+        end      
         function [samples, channels, epochs] = DSize(obj)
             % vraci velikosti pole d - samples, channels, epochs
             samples = size(obj.d,1);
             channels = size(obj.d,2);
             epochs = size(obj.d,3);
-        end    
-              
+        end   
         function obj = GetHHeader(obj,H,filename)
             %nacte header z promenne H - 25.5.2016
             if ~exist('filename','var'), filename = []; end %chci si ukladat jmeno pri referenci
@@ -134,7 +132,6 @@ classdef CiEEGData < matlab.mixin.Copyable
             assert(max(obj.els)<=size(obj.d,2),['nesouhlasi pocet elektrod (data:' num2str(size(obj.d,2)) ',header:' num2str(max(obj.els)) ') - spatny header?']);
             disp(['header nacten: ' obj.CH.PacientTag() ', triggerch: ' num2str(obj.CH.GetTriggerCh())]);
         end
-         
         function obj = GetEpiEvents(obj,DE)
            if exist('DE','var') && isstruct(DE)
                obj.DE = CEpiEvents(DE, obj.tabs_orig, obj.fs);
@@ -144,7 +141,6 @@ classdef CiEEGData < matlab.mixin.Copyable
            end
            disp(['nacteno ' num2str(size(obj.DE.d,1)) ' epileptickych udalosti']);
         end
-
         function obj = RejectChannels(obj,RjCh,noprint,add)
             %ulozi cisla vyrazenych kanalu - kvuli pocitani bipolarni reference 
             %variable add causes to add the new rejected channels instead of replace
@@ -161,7 +157,6 @@ classdef CiEEGData < matlab.mixin.Copyable
                 disp(['rejected ' msg num2str(numel(RjCh)) ' channels']); 
             end
         end
-        
         function obj = RejectEpochs(obj,RjEpoch,RjEpochCh)
             %ulozi cisla vyrazenych epoch - kvuli prevodu mezi touto tridou a CHilbert
             if RjEpoch ~= 0  %muzu takhle vynechat vlozeni vyrazenych epoch              
@@ -184,7 +179,6 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
             
         end
-        
         function [BadChannels,obj] = RjEpochsEpi(obj,NEpi,obrazek)
             %vyradi epochy podle poctu epileptickych udalosti - pokud >= NEpi
             %uz vyrazene epochy rucne nemeni - neoznaci jako spravne
@@ -207,7 +201,6 @@ classdef CiEEGData < matlab.mixin.Copyable
             end            
             
         end
-        
         function [RjEpoch,RjEpochCh]=GetRjEpoch(obj)
             %jen vraci vyrazene epochy pro jejich ulozeni
             RjEpoch = obj.RjEpoch;
@@ -242,8 +235,20 @@ classdef CiEEGData < matlab.mixin.Copyable
             else
                 obj.plotRCh.selCh = selCh; %cele pole najednou
             end
+            obj.CH.SetSelCh(obj.plotRCh.selCh);  %transfers channel marking to CHHeader class
         end
- 
+        function obj = SetSelChName(obj,selChNames,markno)
+            %SETSELCHNAME - sets selChNames for one mark (if marno is 1-6) or for more marks 1-numel(selChNames)
+            marks = 'fghjkl';
+            if ischar(selChNames), selChNames = {selChNames}; end
+            if numel(selChNames)==1 && markno > 0 && markno <=6
+                obj.plotRCh.selChNames(markno) = selChNames(1);
+            elseif numel(selChNames) >=2
+                obj.plotRCh.selChNames(1:numel(selChNames)) = selChNames;
+            end
+            disp([marks(1:numel(selChNames)) '=' cell2str(selChNames)]);
+            obj.CH.SetSelCh(obj.plotRCh.selCh,obj.plotRCh.selChNames);           
+        end
         function obj = ExtractEpochs(obj, psy,epochtime,baseline)
             % psy je struct dat z psychopy, 
             % epochtime je array urcujici delku epochy v sec pred a po podnetu/odpovedi: [pred pod podnet=0/odpoved=1]
@@ -359,7 +364,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
             if ~exist('ch','var'), ch = 1:obj.channels; end 
             iEpCh = obj.GetEpochsExclude(ch); %seznam epoch k vyhodnoceni (bez chyb, treningu a rucniho vyrazeni=obj.RjEpoch),channels x epochs ; pro CM data to bude ruzne pro kazdy kanal, jinak stejne pro kazdy kanal            
-            iEpochy = [ ismember(cell2mat(obj.epochData(:,2)),katnum) , iOpak]; %seznam epoch pro tuto kategorii a toto opakovani - k vyhodnoceni                                    
+            iEpochy = [ ismember(cell2mat(obj.epochData(:,2)), katnum) , iOpak]; %seznam epoch pro tuto kategorii a toto opakovani - k vyhodnoceni                                    
             d = obj.d(:,:,all(iEpochy,2)); %epochy z teto kategorie a tohoto opakovani = maji ve vsech sloupcich 1            
             RjEpCh = obj.RjEpochCh(ch,all(iEpochy,2)) | ~iEpCh(ch,all(iEpochy,2)); %epochy k vyrazeni u kazdeho kanalu - jen pro epochy teto kategorie katnum - odpovidaji poli d       
             
@@ -380,7 +385,6 @@ classdef CiEEGData < matlab.mixin.Copyable
             iEpochy = all(iEpochy,2) & ~obj.RjEpochCh(ch,:)' & iEpCh(ch,:)'; %jeste pripravim k vystup seznam validnich epoch pro tento kanal - bez vyrazenych 
             % epochy podle podminky (jeden sloupec) &~ epochy s epiaktivitou (sloupcu jako kanalu) & epochy bez treningu, chyb a rucniho vyrazeni (RjEpoch) 
         end      
-        
         function obj = ChangeReference(obj,ref)            
             assert(any(ref=='heb'),'neznama reference, mozne hodnoty: h e b');
             assert(isobject(obj.CH),'Header not loaded');            
@@ -423,7 +427,6 @@ classdef CiEEGData < matlab.mixin.Copyable
            
             disp(['reference zmenena: ' obj.reference]); 
         end
-
         function [iEpCh]=GetEpochsExclude(obj,channels)
             %vraci iEpCh (ch x epoch) = index epoch k vyhodnoceni - bez chyb, treningu a rucniho vyrazeni - pro kazdy kanal zvlast            
             %muzu pouzit parametr channels, pokud chci jen nektere kanaly - ostatni jsou pak prazdne
@@ -450,8 +453,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 obj.PsyData.blocksMulti = PsyData.blocksMulti; %ulozim si jen predpocitane udaje o blocich - takova cache kvuli rychlosti
             end
             
-        end
-            
+        end            
         function obj = ResponseSearch(obj,timewindow,kats,opakovani,method)
             %projede vsechny kanaly a hleda signif rozdil proti periode pred podnetem
             %timewindow - pokud dve hodnoty - porovnava prumernou hodnotu mezi nimi - sekundy relativne k podnetu/odpovedi
@@ -618,8 +620,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 end
             end
             fprintf('... done\n');
-        end
-          
+        end 
         function [obj]= Decimate(obj,podil,rtrim)
             %zmensi data na nizsi vzorkovaci frekvenci podle urceneho podilu, naprilkad 4x 512-128Hz, pokud podil=4
             dd = zeros(ceil(size(obj.d,1)/podil) , size(obj.d,2), size(obj.d,3)); % d uz obsahuje jen svoji prvni pulku a delka je delitelna podilem
@@ -947,6 +948,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
             disp([ marks_str(marks) ' = ' cell2str(katname) ', (' num2str(pocty) ')']);
             obj.plotRCh.selChSignum = signum;
+            obj.CH.SetSelCh(obj.plotRCh.selCh,obj.plotRCh.selChNames); %transfers channel marking to CHHeader class
         end
         %% PLOT FUNCTIONS
         function PlotChannels(obj)  
@@ -972,8 +974,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 line([1 size(CC,1)],[obj.RjCh(j) obj.RjCh(j)],'Color','white', 'LineWidth',3);
             end    
             colorbar;
-        end
-        
+        end  
         function obj = PlotEpochs(obj,ch,kategories,sortrt)
             %uchovani stavu grafu, abych ho mohl obnovit a ne kreslit novy
             assert(obj.epochs > 1,'only for epoched data');
@@ -1067,8 +1068,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
             methodhandle = @obj.hybejPlotEpochs;
             set(obj.plotEp.fh,'KeyPressFcn',methodhandle); 
-        end
-        
+        end    
         function PlotCategory(obj,katnum,channel)
             %vykresli vsechny a prumernou odpoved na kategorii podnetu
             %nahrazeno funkcemi PlotResponseCh a PlotEpochs
@@ -1087,8 +1087,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             ylabel('Epochs');
             title([ 'channel ' num2str(channel) ' - ' obj.PsyData.CategoryName(katnum)]);
             
-        end
-        
+        end     
         function obj = PlotElectrode(obj,e,s,range,time)
             %vykresli data (2 sekundy ) z jedne elektrody e od vteriny zaznamu s
             %osa y je v rozmezi [-r +r]
@@ -1262,8 +1261,7 @@ classdef CiEEGData < matlab.mixin.Copyable
 %                     uistack(h_els{k}, 'top'); %dam krivky eeg ulne dopredu
 %             end
             
-        end
-        
+        end      
         function [responses] = PlotResponses(obj)
             %vykresli uspesnost odpovedi spolu s chybami a vyrazenymi epochami
             obj.PsyData.PlotResponses();
@@ -1272,8 +1270,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             plot(obj.RjEpoch,rt(obj.RjEpoch),'*','MarkerSize',10,'MarkerEdgeColor',[0.7 0.7 0.7],'MarkerFaceColor',[0.7 0.7 0.7]); %vykreslim vyrazene epochy
             plot(obj.RjEpoch,kategorie(obj.RjEpoch),'*r','MarkerSize',5); %vykreslim vyrazene epochy
             responses = [resp rt kategorie test];
-        end
-        
+        end       
         function obj = PlotResponseCh(obj,ch,kategories,pvalue,opakovani)
             %vykresli odpovedi pro jednotlivy kanal
             %opakovani je cell - maximalne tri hodnoty nebo arrays 
@@ -1286,15 +1283,22 @@ classdef CiEEGData < matlab.mixin.Copyable
                 obj.plotRCh.pvalue = pvalue;
             end
             if ~exist('ch','var')
-                if isfield(obj.plotRCh,'ch') && ~isempty(obj.plotRCh.ch) && obj.plotRCh.ch <= numel(obj.CH.sortorder)
-                    ch = obj.CH.sortorder(obj.plotRCh.ch); %vytahnu cislo kanalu podle ulozeneho indexu
-                else
-                    ch = obj.CH.sortorder(1); %prvni kanal podle sortorder
-                    obj.plotRCh.ch = 1; 
+                if ~isempty(obj.CH.sortorder)%it can be empty it all channels were filtered out
+                   ch = 1; 
+                   obj.plotRCh.ch = 1; 
+                elseif isfield(obj.plotRCh,'ch') && ~isempty(obj.plotRCh.ch) && obj.plotRCh.ch <= numel(obj.CH.sortorder)
+                   ch = obj.CH.sortorder(obj.plotRCh.ch); %vytahnu cislo kanalu podle ulozeneho indexu
+                else                     
+                   ch = obj.CH.sortorder(1); %prvni kanal podle sortorder
+                   obj.plotRCh.ch = 1; 
                 end
             else
                 obj.plotRCh.ch = ch; %tady bude ulozeny index sortorder, parametr ch urcuje index v sortorder
-                ch = obj.CH.sortorder(ch); %promenna ch uz urcuje skutecne cislo kanalu
+                if ~isempty(obj.CH.sortorder) %it can be empty it all channels were filtered out
+                    ch = obj.CH.sortorder(ch); %promenna ch uz urcuje skutecne cislo kanalu
+                else
+                    ch = 1 ;
+                end
             end
             WpA = obj.WpActive; %jen zkratka
             if ~exist('kategories','var') || isempty(kategories) 
@@ -1551,6 +1555,9 @@ classdef CiEEGData < matlab.mixin.Copyable
             else
                 text(-0.1,ymax*.90,'no MNI');
             end
+            if  ~isempty(obj.CH.brainlabels) && ~isempty(obj.CH.brainlabels(ch))
+                text(0.2,ymax*.90,[obj.CH.brainlabels(ch).class ', ' obj.CH.brainlabels(ch).label ', ' obj.CH.brainlabels(ch).lobe]);
+            end
             if isfield(obj.CH.H.channels,'seizureOnset') %vypisu epilepticke info
                 seizureOnset    = iff(isempty(obj.CH.H.channels(1,ch).seizureOnset),'[]',iff(obj.CH.H.channels(1,ch).seizureOnset==1,'seizureOnset','-'));
                 interictalOften = iff(isempty(obj.CH.H.channels(1,ch).interictalOften),'[]',iff(obj.CH.H.channels(1,ch).interictalOften==1,'interictalOften','-'));
@@ -1587,8 +1594,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             set(obj.plotRCh.fh,'KeyPressFcn',methodhandle);
             obj.SelectedChannel = ch; %sends message to ScatterPlot to update
             figure(obj.plotRCh.fh); %activates this figure again
-        end        
-            
+        end                    
         function obj = PlotResponseP(obj)
             %vykresli signifikanci odpovedi u vsech kanalu EEG vypocitanou pomoci ResponseSearch                                
             assert(obj.epochs > 1,'only for epoched data');
@@ -1677,7 +1683,6 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
             
         end  
-        
         function TimeIntervals(obj,ch,intervals) % Sofiia 16.01.2020 average time intervals
             % default intervals = [0 0.2; 0.2 0.4; 0.4 0.6; 0.6 0.8; 0.8 1];
             
@@ -1760,10 +1765,9 @@ classdef CiEEGData < matlab.mixin.Copyable
             else
                 chstr = num2str(ch);
             end
-            title(['channel ' chstr '/' num2str(obj.channels) ' - ' obj.PacientID()], 'Interpreter', 'none'); % v titulu obrazku bude i pacientID napriklad p132-VT18
+            title(['channel ' chstr '/' num2str(obj.channels) ' - ' obj.PacientID()], 'Interpreter', 'none'); % v titulu obrazku bude i pacientID napriklad p132-VT18            
         
         end
-
 
     %% SAVE AND LOAD FILE    
         function obj = Save(obj,filename)   
@@ -1923,17 +1927,21 @@ classdef CiEEGData < matlab.mixin.Copyable
             disp(['nacten soubor ' filename]); 
         end
         function obj = LoadPlots(obj,filename,vars)          
-            if ismember('selCh', {vars.name}) %nastaveni grafu PlotResponseCh
-                load(filename,'selCh'); obj.plotRCh.selCh = selCh;          %#ok<CPROPLC,CPROP,PROP> 
-            end            
-            if ismember('selChNames', {vars.name}) %nastaveni grafu PlotResponseCh - jmena vyberu kanalu fghjkl
-                load(filename,'selChNames'); obj.plotRCh.selChNames = selChNames;          %#ok<CPROPLC,CPROP,PROP>
-            else
-                obj.plotRCh.selChNames = [];  
+            if ismember('selCh', {vars.name}) || ismember('selChNames', {vars.name})
+                if ismember('selCh', {vars.name}) %nastaveni grafu PlotResponseCh
+                    load(filename,'selCh'); obj.plotRCh.selCh = selCh;          %#ok<CPROPLC,CPROP,PROP> 
+                end            
+                if ismember('selChNames', {vars.name}) %nastaveni grafu PlotResponseCh - jmena vyberu kanalu fghjkl
+                    load(filename,'selChNames'); obj.plotRCh.selChNames = selChNames;          %#ok<CPROPLC,CPROP,PROP>
+                else
+                    obj.plotRCh.selChNames = [];  
+                end
+                obj.CH.SetSelCh(obj.plotRCh.selCh,obj.plotRCh.selChNames); %transfers channel marking to CHHeader class
             end
             %nove plotRCh ukladam cely, predchozi radky tam jsou jen kvuli zpetne kompatibilite
             if ismember('RCh_plots', {vars.name}) %nastaveni grafu PlotResponseCh - jmena vyberu kanalu fghjkl
-                load(filename,'RCh_plots'); obj.plotRCh = RCh_plots;          %#ok<CPROPLC,CPROP,PROP>            
+                load(filename,'RCh_plots'); obj.plotRCh = RCh_plots;          %#ok<CPROPLC,CPROP,PROP>  
+                obj.CH.SetSelCh(obj.plotRCh.selCh,obj.plotRCh.selChNames); %transfers channel marking to CHHeader class
             elseif ~isprop(obj,'plotRCh')
                 obj.plotRCh = [];
             end 
@@ -1967,6 +1975,9 @@ classdef CiEEGData < matlab.mixin.Copyable
             if ~exist('channels', 'var') || isempty(channels)
                 channels = 1:obj.channels; %vsechny kanaly
             end
+            if iscell(katnum)   % katnum muze byt cell array, ale obj.CategoryData chce integer (nebo pole integeru)
+                katnum = cell2mat(katnum);
+            end
             [katdata,~,RjEpCh] = obj.CategoryData(katnum); %eegdata - epochy jedne kategorie
             katdata = katdata(:,channels,:); %time x channels x epochs- vyberu jen kanaly podle channels
             RjEpCh = RjEpCh(channels,:); % channels x epochs - vyberu jen kanaly podle channels
@@ -1994,7 +2005,12 @@ classdef CiEEGData < matlab.mixin.Copyable
                     signum = 0;
                 end 
             end
-            ikatnum = obj.Wp(obj.WpActive).kats == katnum; %WpKatBaseline jsou indexovane ne podle cisel kategorii ale podle indexu v kats
+            if iscell(obj.Wp(obj.WpActive).kats)
+                ikatnum = ismember(cell2mat(obj.Wp(obj.WpActive).kats'), katnum);
+                ikatnum = all(ikatnum');
+            else
+                ikatnum = obj.Wp(obj.WpActive).kats == katnum; %WpKatBaseline jsou indexovane ne podle cisel kategorii ale podle indexu v kats
+            end
             WpB = obj.Wp(obj.WpActive).WpKatBaseline{ikatnum,1}(iintervalyStat(1):iintervalyStat(2),channels); %time x channels - statistika vuci baseline
             idataM = iff(signum>0, dataM > 0, iff(signum < 0, dataM < 0, true(size(dataM)) ));  % time x channel - jestli chci vetsi, mensi nebo jakekoliv, time x channels                                
             for ch = 1:nChannels
@@ -2137,6 +2153,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 obj.plotRCh.selChNames = obj.plotRCh.selChSave(n).selChNames;
                 obj.plotRCh.selChSignum = obj.plotRCh.selChSave(n).selChSignum;
                 obj.plotRCh.selChN = n;
+                obj.CH.SetSelCh(obj.plotRCh.selCh,obj.plotRCh.selChNames); %transfers channel marking to CHHeader class
                 if noprint==0, disp(['loaded marking set no. ' num2str(n) ]);end
             elseif n > numel(obj.plotRCh.selChSave)
                 obj.SetSelCh([]); 
@@ -2350,12 +2367,12 @@ classdef CiEEGData < matlab.mixin.Copyable
                         obj.PlotResponseCh();
                     end
                 case 'i' %zvyseni cisla aktivniho znaceni kanalu fghjkl
-                    if  obj.plotRCh.selChN < numel(obj.plotRCh.selChSave)
+                    if  isfield(obj.plotRCh,'selChN') && obj.plotRCh.selChN < numel(obj.plotRCh.selChSave)
                         obj.SetSelChActive(obj.plotRCh.selChN + 1,[],1);
                         obj.PlotResponseCh();                       
                     end
                  case 'u' %snizeni cisla aktivniho znaceni kanalu fghjkl
-                    if obj.plotRCh.selChN > 1
+                    if isfield(obj.plotRCh,'selChN') && obj.plotRCh.selChN > 1
                         obj.SetSelChActive(obj.plotRCh.selChN - 1,[],1);
                         obj.PlotResponseCh();                       
                     end

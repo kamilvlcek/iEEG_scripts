@@ -49,8 +49,8 @@ classdef ScatterPlot < handle
         filterListener;  % reaguje na zmenu filtru pres CH.FilterChannels
         channelListener;    % reaguje na zmenu zvyraznenho kanalu
         
-        baseColors = [0 1 0; 0 0 1; 1 0 0; 1 1 0; 1 0 1; 0 1 0]; % zakladni barvy pro ruzne kategorie
-        categoryMarkers = {'o', 's', 'd', 'x'}; % markery pro kategorie
+        baseColors = [0 1 0; 0 0 1; 1 0 0; 0 0.8 0.8; 1 0 1; 0 1 0]; % zakladni barvy pro ruzne kategorie
+        categoryMarkers = {'o', 's', 'd', 'p'}; % markery pro kategorie
         transparent; % jestli maji byt markers nakreslene s pruhlednosti
     end
     
@@ -303,7 +303,7 @@ classdef ScatterPlot < handle
         end
         
         function drawPlot(obj, selChFiltered, selChRj)
-            pocty = zeros(numel(obj.categoriesSelectionIndex),3); %pocty zobrazenych kanalu  
+            pocty = zeros(max(obj.categoriesSelectionIndex),3); % maximalni mozny index zobrazeneho kanalu
             for k = flip(obj.categoriesSelectionIndex) %nejpozdeji, cili nejvic na vrchu, chci mit prvni kategorii %1:numel(obj.categories)
                 dataX = obj.getData(obj.axisX, k);
                 dataY = obj.getData(obj.axisY, k);
@@ -324,12 +324,17 @@ classdef ScatterPlot < handle
                 end
                 iData = ~iData; %kanaly bez signif rozdilu vuci baseline v teto kategorii
                 if any(iData) && obj.connectChannels >= 0
+                    if ~any(~iData) % Pokud zadny kanal nemel signif. rozdil, nevytvoril se pro nej graf, ani legenda
+                        handleVisibility = 'on';    % Zobrazime legendu z grafu bez signif. rozdilu
+                    else
+                        handleVisibility = 'off';   % Pokud signif. rozdil mel, jeden graf uz se vytvoril i s legendu, takze nebudeme zobrazovat dalsi
+                    end
                     if obj.is3D
                         obj.plots(k,2) = scatter3(obj.ax, dataX(iData), dataY(iData), dataZ(iData), obj.markerSize, repmat(obj.baseColors(k,:), sum(iData), 1), obj.categoryMarkers{k}, 'MarkerFaceColor', 'none', 'DisplayName', obj.categoryNames{k},...
-                            'HandleVisibility','off'); %nebude v legende
+                            'HandleVisibility', handleVisibility);
                     else
                         obj.plots(k,2) = scatter(obj.ax, dataX(iData), dataY(iData), obj.markerSize, repmat(obj.baseColors(k,:), sum(iData), 1), obj.categoryMarkers{k}, 'MarkerFaceColor', 'none', 'DisplayName', obj.categoryNames{k},...
-                            'HandleVisibility','off'); %nebude v legende
+                            'HandleVisibility', handleVisibility);
                     end
                     pocty(k,2) = sum(iData); %pocet ne signifikantnich v teto kategorii
                 end
