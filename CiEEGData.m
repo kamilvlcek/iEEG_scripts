@@ -36,6 +36,7 @@ classdef CiEEGData < matlab.mixin.Copyable
         DatumCas = {}; %ruzne casove udaje, kdy bylo co spocitano. Abych mel historii vypoctu pro zpetnou referenci
         PL = {}; %objekt CPlots
         CS = {}; %objekt CStat
+        colorskat = {[0 0 0],[0 1 0],[1 0 0],[0 0 1],[1 1 0],[0 1 1],[1 0 1]}; % black, green, red, blue, yellow, aqua, fuchsia
     end
     
     properties(SetObservable)
@@ -715,7 +716,6 @@ classdef CiEEGData < matlab.mixin.Copyable
                 iintervalyData = obj.Wp(obj.WpActive).iepochtime(2,:); %16.1.2019 - indexy statistiky ulozene v ResponseSearch 
                 iintervalyStat = [1 diff(iintervalyData)+1];                
                 
-                colorskat = {[0 0 0],[0 1 0],[1 0 0],[0 0 1],[1 1 0],[0 1 1],[1 0 1]}; %barvy jako v PlotResponseCh, black, green, red, blue, yellow, aqua, fuchsia
                 colorkombinace = {0,1,2,4;0 0 3 5;0 0 0 6};
                 iChKats = false(2,numel(channels));  %dva radky pro rozdily vuci baselina a kategorii vuci sobe                                                                          
                 
@@ -750,11 +750,11 @@ classdef CiEEGData < matlab.mixin.Copyable
                     P = squeeze(prumery(:,int,kat));  %max/min z kazdeho kanalu                  
                     Pmax(kat) = max(P); %maximum pro kategorii pres vsechny kanaly
                     if dofig
-                        ploth(kat) = plot(P','o-','Color',colorskat{kat}); %kreslim tuto kategorii                       
+                        ploth(kat) = plot(P','o-','Color',obj.colorskat{kat}); %kreslim tuto kategorii                       
                         hold on;           
                         selCh = find(any(obj.plotRCh.selCh,2)); %indexy jakkoliv oznacenych kanalu
                         if ~isempty(selCh) %pokud existuji nejake vybrane kanaly, vykreslim je plnou barvou
-                            plot(selCh,P(selCh)','o','Color',colorskat{kat},'MarkerFaceColor', colorskat{kat});
+                            plot(selCh,P(selCh)','o','Color',obj.colorskat{kat},'MarkerFaceColor', colorskat{kat});
                         end
                     end
                     iChKats(1,:) = iChKats(1,:) | iCh; %pridam dalsi kanaly, kde je signif odpoved                                        
@@ -1405,19 +1405,19 @@ classdef CiEEGData < matlab.mixin.Copyable
             % POTOM JEDNOTLIVE KATEGORIE
             if exist('kategories','var') || exist('opakovani','var') %kategorie vykresluju jen pokud mam definovane karegorie                   
                 hue = 0.8;
-                colorskat = {[0 0 0],[0 1 0],[1 0 0],[0 0 1]; [hue hue hue],[hue 1 hue],[1 hue hue],[hue hue 1]}; % prvni radka - prumery, druha radka errorbars = svetlejsi
+                colorsErrorBars = cellfun(@(a) min(a+hue, 1), obj.colorskat, 'UniformOutput', false);
                 yposkat = [3 0 0 0; 4 5 0 0; 6 7 8 0]; %pozice y pro kombinaci k a l - k v radcich a l-1 ve sloupcich
                 ybottom = iff(numel(kategories)>3,0.4,0.3); %odkud se maji umistovat kontrasty mezi kategoriemi - parametr vypoctu y                
                 h_kat = zeros(numel(kategories),2); 
                
-                for k= 1 : numel(kategories) %index 1-3 (nebo 4)
+                for k = 1 : numel(kategories) %index 1-3 (nebo 4)
                     if ~isempty(obj.Wp)
                         if iscell(kategories), kk = kategories{k}(1);  else,   kk = kategories(k);    end % aby barvy odpovidaly kategoriim podnetum spis nez kategoriim podle statistiky
                     else                        
-                        kk =k-1;
+                        kk = k-1;
                     end
                     %to se hodi zvlast, kdyz se delaji jen dve kategorie vuci sobe ane vsechny, nebo dve vuci jedne nebo dve vuci dvema
-                    colorkatk = [colorskat{1,kk+1} ; colorskat{2,kk+1}]; %dve barvy, na caru a stderr plochu kolem
+                    colorkatk = [obj.colorskat{kk+1} ; colorsErrorBars{kk+1}]; %dve barvy, na caru a stderr plochu kolem
                     if exist('opakovani','var') && ~isempty(opakovani)
                         katnum = kategories{k}; %v kategories jsou opakovani k vykresleni, a je to cell array
                         [katdata,~,RjEpCh] = obj.CategoryData(KATNUM,[],katnum,ch); %eegdata - epochy pro tato opakovani
@@ -1458,7 +1458,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                             if iscell(kategories), colorkatl = kategories{l}(1)+1; else, colorkatl = kategories(l)+1; end
                             
                             y = ymin + (ymax-ymin)*(ybottom - (yposkat(l-1,k))*0.05)  ; %pozice na ose y
-                            if k==1, color=colorskat{1,colorkatl}; else, color = colorskat{1,1}; end %green a red jsou proti kategorii 0, cerna je kat 1 vs kat 2
+                            if k==1, color=obj.colorskat{colorkatl}; else, color = obj.colorskat{1}; end %green a red jsou proti kategorii 0, cerna je kat 1 vs kat 2
                             if pvalue %pokud chci zobrazovat hodnotu p value jako krivku                                
                                 plot(Tr,obj.Wp(WpA).WpKat{k,l}(:,ch), ':','Color',color); %carkovana cara oznacuje signifikanci kategorie vuci jine kategorii
                             end
@@ -1488,7 +1488,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                                 kat2name =  obj.PsyData.CategoryName(kategories(k));
                                 kat3name = '';
                             end
-                            text(0.04+obj.Wp(WpA).epochtime(1),y, ['\color[rgb]{' num2str(colorskat{1,colorkatl}) '}' kat1name ...
+                            text(0.04+obj.Wp(WpA).epochtime(1),y, ['\color[rgb]{' num2str(obj.colorskat{colorkatl}) '}' kat1name ...
                                     '\color[rgb]{' num2str(color) '} *X* '  ...
                                     '\color[rgb]{' num2str(colorkatk(1,:)) '}' kat2name kat3name]); 
                               

@@ -49,7 +49,6 @@ classdef ScatterPlot < handle
         filterListener;  % reaguje na zmenu filtru pres CH.FilterChannels
         channelListener;    % reaguje na zmenu zvyraznenho kanalu
         
-        baseColors = [0 1 0; 0 0 1; 1 0 0; 0 0.8 0.8; 1 0 1; 0 1 0]; % zakladni barvy pro ruzne kategorie
         categoryMarkers = {'o', 's', 'd', 'p'}; % markery pro kategorie
         transparent; % jestli maji byt markers nakreslene s pruhlednosti
     end
@@ -314,10 +313,10 @@ classdef ScatterPlot < handle
                 iData = logical(selChFiltered(:,k)); %kanaly se signifikantim rozdilem vuci baseline v teto kategorii
                 if any(iData)
                     if obj.is3D
-                        obj.plots(k,1) = scatter3(obj.ax, dataX(iData), dataY(iData), dataZ(iData), obj.markerSize, repmat(obj.baseColors(k,:), sum(iData), 1), obj.categoryMarkers{k}, 'MarkerFaceColor', 'flat', 'DisplayName', obj.categoryNames{k});
+                        obj.plots(k,1) = scatter3(obj.ax, dataX(iData), dataY(iData), dataZ(iData), obj.markerSize, repmat(obj.ieegdata.colorskat{k}, sum(iData), 1), obj.categoryMarkers{k}, 'MarkerFaceColor', 'flat', 'DisplayName', obj.categoryNames{k});
                         if obj.transparent, alpha(obj.plots(k,1),.5); end %volitelne pridani pruhlednosti
                     else
-                        obj.plots(k,1) = scatter(obj.ax, dataX(iData), dataY(iData), obj.markerSize, repmat(obj.baseColors(k,:), sum(iData), 1), obj.categoryMarkers{k}, 'MarkerFaceColor', 'flat', 'DisplayName', obj.categoryNames{k});
+                        obj.plots(k,1) = scatter(obj.ax, dataX(iData), dataY(iData), obj.markerSize, repmat(obj.ieegdata.colorskat{k}, sum(iData), 1), obj.categoryMarkers{k}, 'MarkerFaceColor', 'flat', 'DisplayName', obj.categoryNames{k});
                         if obj.transparent, alpha(obj.plots(k,1),.5); end %volitelne pridani pruhlednosti
                     end
                     pocty(k,1) = sum(iData); %pocet signifikantnich v teto kategorii
@@ -330,10 +329,10 @@ classdef ScatterPlot < handle
                         handleVisibility = 'off';   % Pokud signif. rozdil mel, jeden graf uz se vytvoril i s legendu, takze nebudeme zobrazovat dalsi
                     end
                     if obj.is3D
-                        obj.plots(k,2) = scatter3(obj.ax, dataX(iData), dataY(iData), dataZ(iData), obj.markerSize, repmat(obj.baseColors(k,:), sum(iData), 1), obj.categoryMarkers{k}, 'MarkerFaceColor', 'none', 'DisplayName', obj.categoryNames{k},...
+                        obj.plots(k,2) = scatter3(obj.ax, dataX(iData), dataY(iData), dataZ(iData), obj.markerSize, repmat(obj.ieegdata.colorskat{k}, sum(iData), 1), obj.categoryMarkers{k}, 'MarkerFaceColor', 'none', 'DisplayName', obj.categoryNames{k},...
                             'HandleVisibility', handleVisibility);
                     else
-                        obj.plots(k,2) = scatter(obj.ax, dataX(iData), dataY(iData), obj.markerSize, repmat(obj.baseColors(k,:), sum(iData), 1), obj.categoryMarkers{k}, 'MarkerFaceColor', 'none', 'DisplayName', obj.categoryNames{k},...
+                        obj.plots(k,2) = scatter(obj.ax, dataX(iData), dataY(iData), obj.markerSize, repmat(obj.ieegdata.colorskat{k}, sum(iData), 1), obj.categoryMarkers{k}, 'MarkerFaceColor', 'none', 'DisplayName', obj.categoryNames{k},...
                             'HandleVisibility', handleVisibility);
                     end
                     pocty(k,2) = sum(iData); %pocet ne signifikantnich v teto kategorii
@@ -438,9 +437,9 @@ classdef ScatterPlot < handle
                     end
                     
                     if obj.is3D
-                        obj.highlights(k) = scatter3(obj.ax, dataX(idx), dataY(idx), dataZ(idx), 3*obj.markerSize, 0.75*obj.baseColors(k,:), 'o', 'MarkerFaceColor', 'none', 'LineWidth', 2, 'HandleVisibility','off');
+                        obj.highlights(k) = scatter3(obj.ax, dataX(idx), dataY(idx), dataZ(idx), 3*obj.markerSize, 0.75*obj.ieegdata.colorskat{k}, 'o', 'MarkerFaceColor', 'none', 'LineWidth', 2, 'HandleVisibility','off');
                     else
-                        obj.highlights(k) = scatter(obj.ax, dataX(idx), dataY(idx), 3*obj.markerSize, 0.75*obj.baseColors(k,:), 'o', 'MarkerFaceColor', 'none', 'LineWidth', 2, 'HandleVisibility','off');
+                        obj.highlights(k) = scatter(obj.ax, dataX(idx), dataY(idx), 3*obj.markerSize, 0.75*obj.ieegdata.colorskat{k}, 'o', 'MarkerFaceColor', 'none', 'LineWidth', 2, 'HandleVisibility','off');
                     end
                 end
                 figure(obj.fig);
