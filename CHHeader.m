@@ -136,7 +136,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             end
             ch = 0;
         end
-        function [XYZ,obj] = ChannelPlot(obj,pohled,labels,chnvals,chnsel,selch,roi,popis,rangeZ)
+        function [XYZ,obj] = ChannelPlot(obj,chnvals,chnsel,selch,roi,popis,rangeZ)
             %zobrazi 3D obrazek elektrod v MNI prostoru. Obrazek ma rozmery podle rozmeru mozku
             %pohled muze urcti smer pohledu s-sagital,c-coronal,h-horizontal
             %chnsel jsou cisla kanalu, pokud chci jen jejich vyber - musi byt stejny pocet jako chvals (hodnoty k vykresleni)
@@ -145,18 +145,14 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             %popis je text k zobrazeni na obrazku
 %             if ~exist('pohled','var') || isempty(pohled), pohled = ''; end            
             
-            params = {'pohled','labels','chnvals','chnsel','selch','roi','popis','rangeZ'}; %zkusim hromadne zpracovani parametru touhle nedoporucovanou metodou
+            params = {'chnvals','chnsel','selch','roi','popis','rangeZ'}; %zkusim hromadne zpracovani parametru touhle nedoporucovanou metodou
             iSEEG = contains({obj.H.channels.signalType},'SEEG'); %index kanalu s EEG signalem
             for p=1:numel(params) %parametry, ktere se ukladaji do obj.plotCh3D
                 if ~exist(params{p},'var') || eval(['isempty(' params{p} ')']) %pokud neni vstupni promenna nebo je prazdna
                     if isfield(obj.plotCh3D,params{p}) %pokud ale existuje ulozena hodnota
                         eval([ params{p} ' = obj.plotCh3D.' params{p} ';']); %tak ji pouziju
                     else 
-                        switch params{p}
-                            case 'pohled'
-                                pohled =  ''; %defaultni pohled nedefinovany = horizontal
-                            case 'labels'
-                                labels = 0;  %defaultne se nezobrazuji neurology labels, ale jmena kanalu
+                        switch params{p}                      
                             case 'chnvals'
                                 chnvals = zeros(1, numel(obj.H.channels(iSEEG))); %default same nuly
                             case 'chnsel'
@@ -175,14 +171,19 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 else
                     eval(['obj.plotCh3D.' params{p} ' = ' params{p} ';']); %podle vstupni promenne zmeni ulozenou hodnotu
                 end
-            end           
+            end 
+            if ~isfield(obj.plotCh3D,'pohled'), obj.plotCh3D.pohled = ''; end %default view undefined = horizontal
+            if ~isfield(obj.plotCh3D,'names'), obj.plotCh3D.names = 0; end %by default, no labels for channels are used
+            if ~isfield(obj.plotCh3D,'labels'), obj.plotCh3D.labels = 0; end   %if to show brainlabels as channel labels
+            if ~isfield(obj.plotCh3D,'labesXnames'), obj.plotCh3D.labesXnames = 0; end   %if to show brainlabels (1) or channel names (0)
             if ~isfield(obj.plotCh3D,'boundary'), obj.plotCh3D.boundary = 1; end %if to plot boundary of the brain instead the 3D mesh
             if ~isfield(obj.plotCh3D,'allpoints'), obj.plotCh3D.allpoints = 0; end %if to show position of all channel, even non significant
             if ~isfield(obj.plotCh3D,'allpointnames'), obj.plotCh3D.allpointnames = 0; end %if to show labels of all the channels
             if ~isfield(obj.plotCh3D,'zoom'), obj.plotCh3D.zoom = 0; end            
             if ~isfield(obj.plotCh3D,'reorder'), obj.plotCh3D.reorder = 0; end   %defaultne se neprerazuji kanaly podle velikosti
             if ~isfield(obj.plotCh3D,'lines'), obj.plotCh3D.lines = 0; end   %defaultne se nespojuji pacienti spojnicemi            
-            if ~isfield(obj.plotCh3D,'hullindex'), obj.plotCh3D.hullindex = 0; end   %index of brainlabel to plot convex hull           
+            if ~isfield(obj.plotCh3D,'hullindex'), obj.plotCh3D.hullindex = 0; end   %index of brainlabel to plot convex hull        
+            
             assert(numel(chnvals) == numel(chnsel), 'unequal size of chnvals and chnsel');
             nblocks = numel(chnvals); %pocet barev bude odpovidat poctu kanalu
             cmap = parula(nblocks+1); %+1 protoze hodnoty se budou zaokrouhlovat nahoru nebo dolu
@@ -217,31 +218,44 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 %objekt se dobre uklada i pri poradi return values XYZ,obj
                 XYZ = struct('X',0,'Y',0,'Z',0);
                 for chg = 1:size(chgroups,2) 
-                    group = chgroups{chg};                     
-                    X = [obj.H.channels(group).MNI_x];
-                    Y = [obj.H.channels(group).MNI_y];
-                    Z = [obj.H.channels(group).MNI_z];                                             
+                    chGroup = chgroups{chg};  %channel numbers in this group                   
+                    X = [obj.H.channels(chGroup).MNI_x];
+                    Y = [obj.H.channels(chGroup).MNI_y];
+                    Z = [obj.H.channels(chGroup).MNI_z];                                             
                     
                     linestyle = iff(numel(chgroups)>1 && ~obj.plotCh3D.allpoints,'-','.'); %cara bude jina pokud je pouzite chnsel
                     plot3(X,Y,Z,linestyle,'LineWidth',2);
                     if chg==1, hold on; end  
-                    if labels == 1 %channel numbers
-                        names = num2cell(group);
-                    elseif labels == 2 %channel names
-                        names = {obj.H.channels(group).name};
-                    elseif labels == 3 %neurology labels
-                        names = {obj.H.channels(group).neurologyLabel};                    
-                    elseif labels == 4 %pacient names
-                        names = {obj.H.channels(group).name};
-                        names = cellstr(extractBefore(names,' ')); %vsechno pred mezerou - pro CHilbertMulti
+                    chnnames = {};
+                    if ~obj.plotCh3D.labesXnames
+                        switch obj.plotCh3D.names %which channel names to show as labels for points
+                            case 1 %channel numbers
+                                chnnames = num2cell(chGroup);
+                            case 2 %channel names
+                                chnnames = {obj.H.channels(chGroup).name};
+                            case 3 %neurology labels
+                                chnnames = {obj.H.channels(chGroup).neurologyLabel};                    
+                            case 4 %pacient names
+                                chnnames = {obj.H.channels(chGroup).name};
+                                chnnames = cellstr(extractBefore(chnnames,' ')); %vsechno pred mezerou - pro CHilbertMulti
+                        end
+                    else
+                        switch obj.plotCh3D.labels %which brainlabels to show as labels for points
+                            case 1 
+                                chnnames = {obj.brainlabels(chGroup).lobe};
+                            case 2
+                                chnnames = {obj.brainlabels(chGroup).label};
+                            case 3
+                                chnnames = {obj.brainlabels(chGroup).class};
+                        end
                     end
                     iZ = mod(1:numel(Z), 2); iZ(iZ == 0) = -1;                    
                     if chg==1 || ~obj.plotCh3D.allpoints %prvni skupiny do barevnych kulicek vzdy; 
                         %druhou skupinu chci jen pokud zobrazuju vsechny (chnsel je prazdne) nebo pokud nejsou v druhe skupine ostatni kanaly
                         XYZ(chg) = struct('X',X,'Y',Y,'Z',Z); %export pro scatter3 nize, ktery zobrazi ruzne velke a barevne kulicky
                     end 
-                    if labels>0 && (chg==1 || ~obj.plotCh3D.allpoints || (obj.plotCh3D.allpoints && obj.plotCh3D.allpointnames))                         
-                        text(X+abs(iZ)*0.5,Y,Z+iZ*0.5,names,'FontSize', 7);     %labels=names for channels                   
+                    if ~isempty(chnnames) && (chg==1 || ~obj.plotCh3D.allpoints || (obj.plotCh3D.allpoints && obj.plotCh3D.allpointnames))                         
+                        text(X+abs(iZ)*0.5,Y,Z+iZ*0.5,chnnames,'FontSize', 7);     %labels=names for channels                   
                     end
                 end
                 % Plot with different colors and sizes based on chnvals
@@ -281,7 +295,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 ylabel('MNI Y'); %predozadni souradnice
                 zlabel('MNI Z'); %hornodolni
                 
-                switch pohled
+                switch obj.plotCh3D.pohled 
                     case ''
                         if isfield(obj.plotCh3D,'view')
                             view(obj.plotCh3D.view); 
@@ -1209,11 +1223,20 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                      end
                      obj.ChannelPlot();
                   case 'n' %names
-                     if isfield(obj.plotCh3D,'labels') %switch of channel labels - 0=nothing,1=channel no,2=channel name,3=neurologyLabels,4=pacient name
-                         obj.plotCh3D.labels  = obj.plotCh3D.labels + 1;
-                         if obj.plotCh3D.labels > 4, obj.plotCh3D.labels =0; end
+                     if obj.plotCh3D.labesXnames %if brainlabels are plotted
+                         obj.plotCh3D.labesXnames = 0; %just switch to chnames
                      else
-                         obj.plotCh3D.labels  = 0;
+                         obj.plotCh3D.names  = obj.plotCh3D.names + 1; %switch of channel labels - 0=nothing,1=channel no,2=channel name,3=neurologyLabels,4=pacient name
+                         if obj.plotCh3D.names > 4, obj.plotCh3D.names =0; end                                             
+                     end
+                     obj.ChannelPlot();
+                  case 'b' %show brain labels instead of channel names  
+                     if ~obj.plotCh3D.labesXnames %if chnnames are plotted
+                         obj.plotCh3D.labesXnames = 1; %just switch to brainlabels
+                     else
+                         obj.plotCh3D.labels = obj.plotCh3D.labels + 1; 
+                         if obj.plotCh3D.labels >3, obj.plotCh3D.labels =0; end %switch of channels labels 0=nothing,1=lobe,2=brainlabel,3=class
+                         obj.plotCh3D.names = 0; %switch off labeling channels by channel names
                      end
                      obj.ChannelPlot();
                   case 'r'

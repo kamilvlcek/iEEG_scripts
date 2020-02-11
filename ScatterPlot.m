@@ -127,7 +127,7 @@ classdef ScatterPlot < handle
             else
                 chshowstr = '';
             end
-            obj.header.ChannelPlot([],0,data,... %param chnvals
+            obj.header.ChannelPlot(data,... %param chnvals
                 obj.dispChannels(iData),... %chnsel jsou cisla kanalu, pokud chci jen jejich vyber
                 [],[],{[dataName '(' obj.categoryNames{katnum} '), SelCh: ' cell2str(obj.dispSelChName) ], ... %popis grafu = title - prvni radek
                 ['show:' chshowstr]}, ... %popis grafu title, druhy radek
