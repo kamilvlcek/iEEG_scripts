@@ -71,7 +71,8 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 end
             else %pokud mam definovan vyber kanalu v chsel. Pouzivam z grafu ChannelPlot
                 if obj.plotCh3D.allpoints %pokud chci zobrazovat i ostatni kanal jako tecky
-                   chgroups = {chnsel,setdiff(obj.H.selCh_H,chnsel)}; %do druhe skupiny dam ostatni kanaly
+                   allchns = setdiff(setdiff(obj.H.selCh_H,chnsel),obj.RjCh); %in the second group are all other channels, exluding rejected channels
+                   chgroups = {chnsel,allchns}; %do druhe skupiny dam ostatni kanaly
                 elseif subjname
                    chgroups = obj.getChannelGroups(subjname,chnsel);  
                 else
@@ -183,6 +184,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             if ~isfield(obj.plotCh3D,'reorder'), obj.plotCh3D.reorder = 0; end   %defaultne se neprerazuji kanaly podle velikosti
             if ~isfield(obj.plotCh3D,'lines'), obj.plotCh3D.lines = 0; end   %defaultne se nespojuji pacienti spojnicemi            
             if ~isfield(obj.plotCh3D,'hullindex'), obj.plotCh3D.hullindex = 0; end   %index of brainlabel to plot convex hull        
+            if ~isfield(obj.plotCh3D,'fontsize'), obj.plotCh3D.fontsize = 7; end   %index of brainlabel to plot convex hull        
             
             assert(numel(chnvals) == numel(chnsel), 'unequal size of chnvals and chnsel');
             nblocks = numel(chnvals); %pocet barev bude odpovidat poctu kanalu
@@ -255,7 +257,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                         XYZ(chg) = struct('X',X,'Y',Y,'Z',Z); %export pro scatter3 nize, ktery zobrazi ruzne velke a barevne kulicky
                     end 
                     if ~isempty(chnnames) && (chg==1 || ~obj.plotCh3D.allpoints || (obj.plotCh3D.allpoints && obj.plotCh3D.allpointnames))                         
-                        text(X+abs(iZ)*0.5,Y,Z+iZ*0.5,chnnames,'FontSize', 7);     %labels=names for channels                   
+                        text(X+abs(iZ)*0.5,Y,Z+iZ*0.5,chnnames,'FontSize', obj.plotCh3D.fontsize);     %labels=names for channels                   
                     end
                 end
                 % Plot with different colors and sizes based on chnvals
@@ -1253,21 +1255,19 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                         end
                     end
                     obj.ChannelPlot();
-                  case 'p'
-                    %zobrazeni pozic vsech kanalu jako tecek
-                    if isfield(obj.plotCh3D,'allpoints') 
-                       obj.plotCh3D.allpoints  = 1 - obj.plotCh3D.allpoints;
+                  case 'p' %show all points in file, excluding the rejected, as points                                       
+                    obj.plotCh3D.allpoints  = obj.plotCh3D.allpoints + 1;
+                    if obj.plotCh3D.allpoints > 2 %values 0 1 and 2
+                        obj.plotCh3D.allpoints = 0; %reset the value                  
+                    elseif obj.plotCh3D.allpoints == 2 % this value means to show even channel labels for all points
+                        obj.plotCh3D.allpointnames = 1; 
                     else
-                       obj.plotCh3D.allpoints  = 1;
+                        obj.plotCh3D.allpointnames=0;
                     end
                     obj.ChannelPlot();
-                  case 'z'
-                    if isfield(obj.plotCh3D,'zoom') %prepinac zoom/no zoom
-                       obj.plotCh3D.zoom  = obj.plotCh3D.zoom + 1;
-                       if obj.plotCh3D.zoom > 2, obj.plotCh3D.zoom = 0; end
-                    else
-                       obj.plotCh3D.zoom  = 1; %vykreslim zoom jen kanalu
-                    end 
+                  case 'z' %switch of zoom 0 1(proportional) and 2 (non-proportional)                    
+                    obj.plotCh3D.zoom  = obj.plotCh3D.zoom + 1;
+                    if obj.plotCh3D.zoom > 2, obj.plotCh3D.zoom = 0; end                    
                     obj.ChannelPlot();
                  case 'w' %zapinani a vypinani prazdneho pozadi obrazku
                     if isfield(obj.plotCh3D,'background') 
@@ -1288,6 +1288,12 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     end
                     obj.ChannelPlot();
                   case 'd' %just reDraw the plot
+                    obj.ChannelPlot();  
+                  case {'add' ,  'equal'} %increase the font size of channel labels
+                    obj.plotCh3D.fontsize = obj.plotCh3D.fontsize + 1;  
+                    obj.ChannelPlot();  
+                  case {'subtract' , 'hyphen'}    %decrease the font size of channel labels
+                    obj.plotCh3D.fontsize = obj.plotCh3D.fontsize - 1; 
                     obj.ChannelPlot();  
               end
           end

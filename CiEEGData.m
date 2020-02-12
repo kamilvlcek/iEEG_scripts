@@ -1900,8 +1900,11 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
             %nove plotRCh ukladam cely, predchozi radky tam jsou jen kvuli zpetne kompatibilite
             if ismember('RCh_plots', {vars.name}) %nastaveni grafu PlotResponseCh - jmena vyberu kanalu fghjkl
-                load(filename,'RCh_plots'); obj.plotRCh = RCh_plots;          %#ok<CPROPLC,CPROP,PROP>  
-                obj.CH.SetSelCh(obj.plotRCh.selCh,obj.plotRCh.selChNames); %transfers channel marking to CHHeader class
+                load(filename,'RCh_plots'); 
+                if  isfield(RCh_plots,'selCh') 
+                    obj.plotRCh = RCh_plots;          
+                    obj.CH.SetSelCh(obj.plotRCh.selCh,obj.plotRCh.selChNames); %transfers channel marking to CHHeader class
+                end
             elseif ~isprop(obj,'plotRCh')
                 obj.plotRCh = [];
             end 
