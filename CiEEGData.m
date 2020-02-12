@@ -754,7 +754,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                         hold on;           
                         selCh = find(any(obj.plotRCh.selCh,2)); %indexy jakkoliv oznacenych kanalu
                         if ~isempty(selCh) %pokud existuji nejake vybrane kanaly, vykreslim je plnou barvou
-                            plot(selCh,P(selCh)','o','Color',obj.colorskat{kat},'MarkerFaceColor', colorskat{kat});
+                            plot(selCh,P(selCh)','o','Color',obj.colorskat{kat},'MarkerFaceColor', obj.colorskat{kat});
                         end
                     end
                     iChKats(1,:) = iChKats(1,:) | iCh; %pridam dalsi kanaly, kde je signif odpoved                                        
@@ -794,10 +794,10 @@ classdef CiEEGData < matlab.mixin.Copyable
                                 
                     colorindex = colorkombinace{kombinace(kat,2),kombinace(kat,1)};
                     if dofig %kreslim rozdily mezi odpovedmi pro kategorie                        
-                        ph = plot(P'+yKombinace,'o-','Color',colorskat{colorindex}); %kreslim tuto kombinaci kategorii nahoru                        
+                        ph = plot(P'+yKombinace,'o-','Color',obj.colorskat{colorindex}); %kreslim tuto kombinaci kategorii nahoru                        
                         selCh = find(any(obj.plotRCh.selCh,2)); %indexy jakkoliv oznacenych kanalu
                         if ~isempty(selCh) %pokud existuji nejake vybrane kanaly, vykreslim je plnou barvou
-                            plot(selCh,P(selCh)'+yKombinace,'o','Color',colorskat{colorindex},'MarkerFaceColor', colorskat{colorindex});
+                            plot(selCh,P(selCh)'+yKombinace,'o','Color',obj.colorskat{colorindex},'MarkerFaceColor', obj.colorskat{colorindex});
                         end
                         if kat>numel(kats), ploth(kat) = ph; end %pokud je kombinaci vic nez kategorii, ulozim si handle, budu ho potrebovat na legendu
                     end
@@ -1514,7 +1514,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                             line([Tr(1) Tr(end)],[y y]+(ymax-ymin)*0.03 ,'Color',[0.5 0.5 0.5]); 
                                 %kazde jmeno kategorie jinou barvou
                             if pvalue %pokud chci zobrazovat hodnotu p value jako krivku
-                               plot(Tr,obj.Wp(WpA).WpKatBaseline{k,1}(:,ch), '-.','Color',colorskat{1,k}); %teckovana cara oznacuje signifikanci kategorie vuci baseline
+                               plot(Tr,obj.Wp(WpA).WpKatBaseline{k,1}(:,ch), '-.','Color',obj.colorskat{kk+1}); %teckovana cara oznacuje signifikanci kategorie vuci baseline
                             end
                     end
                     %cara reakcnich casu pro tuhle kategorii
