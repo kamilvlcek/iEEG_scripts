@@ -352,7 +352,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             %pokud opak>0, vraci jen jedno opakovani obrazku - hlavne kvuli PPA test 
             %RjEpCh (Channels x Epochs) - vraci i epochy k vyrazeni pro kazdy kanal (uz s globalne vyrazenymi epochami)
             %  vyradit rovnou je nemuzu, protoze pocet epoch v d pro kazdy kanal musi by stejny
-            %  ch ovlivujen jen RjRpCh (v radcich jsou jen kanaly v ch) , d obsahuje vzdy vsechny kanaly, samply a prislusne epochy
+            %  ch ovlivujen jen RjEpCh (v radcich jsou jen kanaly v ch) , d obsahuje vzdy vsechny kanaly, samply a prislusne epochy
             %  katnum je 1-n cisel kategorii.
             assert(obj.epochs > 1,'data not yet epoched'); %vyhodi chybu pokud data nejsou epochovana            
             assert(obj.channels == size(obj.RjEpochCh,1),'RjEpochCh: spatny pocet kanalu');
