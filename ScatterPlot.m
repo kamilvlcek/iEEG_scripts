@@ -431,6 +431,7 @@ classdef ScatterPlot < handle
             hold(obj.ax, 'on');
             if idx
                 for k = obj.categoriesSelectionIndex
+                    colorIndex = obj.categories(k) + 1;
                     dataX = obj.getData(obj.axisX, k);
                     dataY = obj.getData(obj.axisY, k);
                     if obj.is3D
