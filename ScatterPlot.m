@@ -49,8 +49,8 @@ classdef ScatterPlot < handle
         filterListener;  % reaguje na zmenu filtru pres CH.FilterChannels
         channelListener;    % reaguje na zmenu zvyraznenho kanalu
         
-        baseColors = [0 1 0; 0 0 1; 1 0 0; 1 1 0; 1 0 1; 0 1 0]; % zakladni barvy pro ruzne kategorie
-        categoryMarkers = {'o', 's', 'd', 'x'}; % markery pro kategorie
+        baseColors = [0 1 0; 0 0 1; 1 0 0; 0 0.8 0.8; 1 0 1; 0 1 0]; % zakladni barvy pro ruzne kategorie
+        categoryMarkers = {'o', 's', 'd', 'p'}; % markery pro kategorie
         transparent; % jestli maji byt markers nakreslene s pruhlednosti
     end
     
@@ -127,7 +127,7 @@ classdef ScatterPlot < handle
             else
                 chshowstr = '';
             end
-            obj.header.ChannelPlot([],0,data,... %param chnvals
+            obj.header.ChannelPlot(data,... %param chnvals
                 obj.dispChannels(iData),... %chnsel jsou cisla kanalu, pokud chci jen jejich vyber
                 [],[],{[dataName '(' obj.categoryNames{katnum} '), SelCh: ' cell2str(obj.dispSelChName) ], ... %popis grafu = title - prvni radek
                 ['show:' chshowstr]}, ... %popis grafu title, druhy radek
@@ -140,6 +140,13 @@ classdef ScatterPlot < handle
             if ~exist('yrange','var') || isempty(yrange), yrange = ylim(obj.ax); end
             xlim(obj.ax,xrange);
             ylim(obj.ax,yrange);
+        end
+        
+        function CopyChannelPlot3DROI(obj)
+            %copies ROI from ChannelPlot3D figure from ScatterPlot object to original CHilbertMulti object
+            %to be saved with the CM object and not deleted with the SP object
+            obj.ieegdata.CH.plotCh3D.roi = obj.header.plotCh3D.roi ;
+            disp( [num2str(size(obj.header.plotCh3D.roi,1)) ' ROIs copied']);
         end
 
     end
@@ -229,7 +236,7 @@ classdef ScatterPlot < handle
                     delete(obj.texthandles(j));  
                 end
             end            
-            obj.texthandles = [];
+            obj.texthandles = nan(2,numel(obj.categories)); %kategories in first row, chanel legent in second row
             
             if ~isempty(obj.dispSelChName)
                 obj.sbox = annotation(obj.fig, 'textbox',[0 .9 .4 .1], 'String', obj.dispSelChName, 'EdgeColor', 'none');
@@ -296,7 +303,7 @@ classdef ScatterPlot < handle
         end
         
         function drawPlot(obj, selChFiltered, selChRj)
-            pocty = zeros(numel(obj.categoriesSelectionIndex),3); %pocty zobrazenych kanalu  
+            pocty = zeros(max(obj.categoriesSelectionIndex),3); % maximalni mozny index zobrazeneho kanalu
             for k = flip(obj.categoriesSelectionIndex) %nejpozdeji, cili nejvic na vrchu, chci mit prvni kategorii %1:numel(obj.categories)
                 dataX = obj.getData(obj.axisX, k);
                 dataY = obj.getData(obj.axisY, k);
@@ -317,12 +324,17 @@ classdef ScatterPlot < handle
                 end
                 iData = ~iData; %kanaly bez signif rozdilu vuci baseline v teto kategorii
                 if any(iData) && obj.connectChannels >= 0
+                    if ~any(~iData) % Pokud zadny kanal nemel signif. rozdil, nevytvoril se pro nej graf, ani legenda
+                        handleVisibility = 'on';    % Zobrazime legendu z grafu bez signif. rozdilu
+                    else
+                        handleVisibility = 'off';   % Pokud signif. rozdil mel, jeden graf uz se vytvoril i s legendu, takze nebudeme zobrazovat dalsi
+                    end
                     if obj.is3D
                         obj.plots(k,2) = scatter3(obj.ax, dataX(iData), dataY(iData), dataZ(iData), obj.markerSize, repmat(obj.baseColors(k,:), sum(iData), 1), obj.categoryMarkers{k}, 'MarkerFaceColor', 'none', 'DisplayName', obj.categoryNames{k},...
-                            'HandleVisibility','off'); %nebude v legende
+                            'HandleVisibility', handleVisibility);
                     else
                         obj.plots(k,2) = scatter(obj.ax, dataX(iData), dataY(iData), obj.markerSize, repmat(obj.baseColors(k,:), sum(iData), 1), obj.categoryMarkers{k}, 'MarkerFaceColor', 'none', 'DisplayName', obj.categoryNames{k},...
-                            'HandleVisibility','off'); %nebude v legende
+                            'HandleVisibility', handleVisibility);
                     end
                     pocty(k,2) = sum(iData); %pocet ne signifikantnich v teto kategorii
                 end
@@ -363,7 +375,7 @@ classdef ScatterPlot < handle
                 xtext = xsize(2)-diff(xsize)/5;
                 ytext = ysize(2)-diff(ysize)/5;
                 
-                obj.texthandles(k) = text(xtext, ytext - (k-1)*diff(ysize)/20 ,[obj.categoryNames{k} ':' num2str(pocty(k,1)) '+' num2str(pocty(k,2)) ' (' num2str(pocty(k,3)) ')' ]);
+                obj.texthandles(1,k) = text(xtext, ytext - (k-1)*diff(ysize)/20 ,[obj.categoryNames{k} ':' num2str(pocty(k,1)) '+' num2str(pocty(k,2)) ' (' num2str(pocty(k,3)) ')' ]);
             end
         end
         
@@ -431,6 +443,9 @@ classdef ScatterPlot < handle
                         obj.highlights(k) = scatter(obj.ax, dataX(idx), dataY(idx), 3*obj.markerSize, 0.75*obj.baseColors(k,:), 'o', 'MarkerFaceColor', 'none', 'LineWidth', 2, 'HandleVisibility','off');
                     end
                 end
+                figure(obj.fig);
+                if ~isnan(obj.texthandles(2,1)), delete(obj.texthandles(2,1)); end %delete the previously shown text
+                obj.texthandles(2,1) = text(obj.ax.XLim(1)+diff(obj.ax.XLim)/20, obj.ax.YLim(2)-diff(obj.ax.YLim)/20,[ 'ch ' num2str(ch) ', ' obj.ieegdata.CH.H.channels(1,ch).name ]);                
             end
             hold(obj.ax, 'off');
         end

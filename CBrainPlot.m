@@ -503,8 +503,12 @@ classdef CBrainPlot < matlab.mixin.Copyable
                     end
                 end
             end 
-            xlsname = ['./logs/StructFind PAC_' testname '_' cell2str(struktura,1) '_' cell2str(label,1) '.xlsx'];
-            writetable(struct2table(PAC), xlsname); %ulozimvysledek taky do xls
+            if numel(PAC) > 0
+                xlsname = ['./logs/StructFind PAC_' testname '_' cell2str(struktura,1) '_' cell2str(label,1) '.xlsx'];
+                writetable(struct2table(PAC), xlsname); %ulozimvysledek taky do xls
+            else
+                disp('no channels found');
+            end
         end
         function PAC = MNIFind(XYZ,distance,testname,reference,pactodo)
             if ~exist('testname','var') || isempty(testname), testname = 'aedist'; end %defaultni test            
@@ -562,8 +566,12 @@ classdef CBrainPlot < matlab.mixin.Copyable
                     end
                 end
             end
-            xlsname = ['./logs/MNIFind PAC_' testname '_mni' num2str(XYZ,'(%3.1f %3.1f %3.1f)') '_dist' num2str(distance) '.xlsx'];
-            writetable(struct2table(PAC), xlsname); %ulozimvysledek taky do xls
+            if numel(PAC) > 0
+                xlsname = ['./logs/MNIFind PAC_' testname '_mni' num2str(XYZ,'(%3.1f %3.1f %3.1f)') '_dist' num2str(distance) '.xlsx'];
+                writetable(struct2table(PAC), xlsname); %ulozimvysledek taky do xls
+            else
+                disp('no channels found');
+            end
         end
         function PAC = StructFindLoad(xlsfile,sheet)
             %nacteni struktury PAC z existujiciho xls souboru, napr po editaci radku            
