@@ -332,7 +332,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 if isfield(obj.plotCh3D,'background') && obj.plotCh3D.background==0
                     set(gca,'color','none'); %zadne bile pozadi, pak ani v corelu
                 end
-                if obj.plotCh3D.coloruse == 2
+                if obj.plotCh3D.coloruse == 2 && ~isempty(obj.brainlabels) && length(obj.brainlabels)==numel(obj.H.channels)
                     labels = lower({obj.brainlabels.label});
                     ulabels = unique(labels); %cell array of unique brainlabels
                     barvy = distinguishable_colors(numel(ulabels));
