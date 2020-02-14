@@ -6,12 +6,13 @@ hilbert = CHilbertL(patient_file);
 
 % Existing plot response for a single channel and multiple categories
 hilbert.PlotResponseFreq(20, [0:3]);
-% Doesn't work with the cells because I don't understand how the categories
-% are being passed
-% hilbert.PlotResponseFreq(5, [{'Scene'} {'Object'}]);
+% Doesn't work with the cells because I don't understand how the categories are being passed
+hilbert.plotresponsefrequency(20, [0:3]);
+hilbert.plotresponsefrequency([1:5], [0:3]);
 
 % Newly added plot response which shoudl "average" given channels
-hilbert.PlotResponseFreq([1:4], [0:3]);
+hilbert.PlotResponseFreqMean([1:4], [0:3]);
+hilbert.plotresponsefrequency([1:4], [0:3]);
 
 % Wilcox against a baseline 
 wBaseline = hilbert.wilcoxbaseline([-0.2 0], [0.01 0.8], [], {'Ovoce'});

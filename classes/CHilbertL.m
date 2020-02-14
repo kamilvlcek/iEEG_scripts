@@ -74,52 +74,72 @@ classdef CHilbertL < CHilbert
         %% Getters
         
         % returns HFreqEpochs for given set of channels and categories. For
-        % average call getaverageenvelopes
+        %   average call getaverageenvelopes
         % 
         % channels: array of channels. eg. [1, 5, 20]. If empty, returns
         %   all channels. default []
+        % frequencies: array of frequencies or their indices. If floats are
+        %   passed, then it is assumed its frequnecies. If integers are
+        %   passed, then it evaluates as indices
         % categories: array of categories. eg. [1,3]. If empty, returns all
         % categories. Adds +1 to category number because of reasons - so if
         %   you want category 1, you need to pass 0. default []
         % RETURN: matrix [time x channel x frequency x category]
-        function envelopes = getenvelopes(obj, channels, categories)
+        % EXAMPLES:
+        %    
+        function envelopes = getenvelopes(obj, channels, frequencies, categories)
             if ~exist('channels', 'var') || numel(channels) == 0
                 channels = 1:size(obj.HFreqEpochs, 2);
+            end
+            if ~exist('frequencies', 'var') || numel(frequencies) == 0
+                frequencies = 1:size(obj.HFreqEpochs, 3);
+            else
+                frequencies = obj.getfrequencyindices(frequencies);
             end
             if ~exist('categories', 'var') || numel(categories) == 0
                 categories = 1:size(obj.HFreqEpochs, 4);
             else
                 categories = obj.getcategoryindices(categories);
             end
-            envelopes = obj.HFreqEpochs(:, channels, :, categories);
+            envelopes = obj.HFreqEpochs(:, channels, frequencies, categories);
         end
         
-        % averages envelopes per channels and categories.
-        %   Uses data in the obj.HFreq, selects based on channels and
-        %   category indices and returns a single averaged matrix
+        % averages envelopes per channels and categories and 
+        %   for particular frequencies. Uses data in the obj.HFreq, 
+        %   selects based on channels and category indices and returns 
+        %   a single averaged matrix
         % 
         % channels: vector(numeric) of channels to average across. If empty, 
         %   returns all channels averaged across categories
+        % frequencies: array of frequencies or their indices. If floats are
+        %   passed, then it is assumed its frequnecies. If integers are
+        %   passed, then it evaluates as indices. See
+        %   obj.getfrequencyindices
         % categories: vector(numeric) of categories to average across. If
         %   empty, averages across all categories
         % RETURN: matrix [time x frequency]
         % examples:
-        %   %averages first 4 channels in the first category
-        %   hilbert.getaverageenvelopes([0:3], 0)
-        %   %averages all channels in the first category
-        %   hilbert.getaverageenvelopes([], 1)
-        %   %averages all channels across all categories
-        %   hilbert.getaverageenvelopes([], [])
-        function envelopes = getaverageenvelopes(obj, channels, categories)
+        %   % averages first 4 channels in the first category
+        %   hilbert.getaverageenvelopes([0:3], [], 0)
+        %   % averages all channels in the first category
+        %   hilbert.getaverageenvelopes([], [], 1)
+        %   % averages all channels across all categories
+        %   hilbert.getaverageenvelopes([], [], [])
+        function envelopes = getaverageenvelopes(obj, channels, frequencies, categories)
             if ~exist('channels', 'var') || numel(channels) == 0
                 channels = 1:size(obj.HFreq, 2);
+            end
+            if ~exist('frequencies', 'var') || numel(frequencies) == 0
+                frequencies = 1:size(obj.HFreq, 3);
+            else
+                frequencies = obj.getfrequencyindices(frequencies);
             end
             if ~exist('categories', 'var') || numel(categories) == 0
                 categories = 1:size(obj.HFreq, 4);
             else
                 categories = obj.getaveragecategoryindices(categories);
             end
-            envelopes = obj.HFreq(:, channels, :, categories);
+            envelopes = obj.HFreq(:, channels, frequencies, categories);
             if numel(channels) >= 2, envelopes = mean(envelopes, 2); end
             if numel(categories) >= 2, envelopes = mean(envelopes, 4);end
             envelopes = squeeze(envelopes);
@@ -182,6 +202,22 @@ classdef CHilbertL < CHilbert
             indices = [find(time >= timewindow(1), 1) find(time <= timewindow(2), 1, 'last')];
         end
         
+        % Returns indices of freqneuncies oif passed as float array. Or
+        %   returns indices back if passed as integer array
+        % frequencies: array of frequencies or their indices. If floats are
+        %   passed, then it is assumed its frequnecies. If integers are
+        %   passed, then it evaluates as indices
+        function indices = getfrequencyindices(obj, frequencies)
+            if(~is.integer(frequencies))
+                % selects only those frequencies which actually are in the
+                % Hfmean
+                frequencies = frequencies(ismember(frequnecies, hilbert.Hfmean));
+                indices = arrayfun(@(x) find(obj.Hfmean == x), frequencies);
+            else % returns 
+                indices = frequencies;
+            end
+        end
+        
         %% Statistics
         
         % Calculates rank test agains a baseline
@@ -198,7 +234,7 @@ classdef CHilbertL < CHilbert
             iBaseline = obj.gettimewindowindices(baselinetime);
             if any([numel(iBaseline) ~= 2, numel(iResponse) ~= 2]), return; end
             
-            envelopes = obj.getenvelopes(channels, categories);
+            envelopes = obj.getenvelopes(channels, [], categories);
             response = envelopes(iResponse(1):iResponse(2), :, :, :);
             baseline = envelopes(iBaseline(1):iBaseline(2), :, :, :);
             
@@ -223,9 +259,9 @@ classdef CHilbertL < CHilbert
             iResponse = obj.gettimewindowindices(responsetime);
             if any([numel(iResponse) ~= 2, numel(categories) ~= 2]), return; end
             
-            responseA = obj.getenvelopes(channels, categories(1));
+            responseA = obj.getenvelopes(channels, [], categories(1));
             responseA = responseA(iResponse(1):iResponse(2), :, :, :);
-            responseB = obj.getenvelopes(channels, categories(2));
+            responseB = obj.getenvelopes(channels, [], categories(2));
             responseB = responseB(iResponse(1):iResponse(2), :, :, :);
             
             wp = CStat.Wilcox2D(responseA, responseB, 1, [], 'mean vs baseline');
@@ -274,12 +310,12 @@ classdef CHilbertL < CHilbert
                 if iscell(categories(k))                  
                     dd = zeros(size(obj.HFreq, 1), size(obj.HFreq, 3), numel(categories{k}));
                     for ikat = 1:numel(categories{k})
-                        dd(:, :, ikat) = obj.getaverageenvelopes(ch, categories{k}(ikat));
+                        dd(:, :, ikat) = obj.getaverageenvelopes(ch, [], categories{k}(ikat));
                     end
                     % QUESTION - WHY IS THIS AVERAGING?
                     D = mean(dd, 3);
                 else
-                    D = obj.getaverageenvelopes(ch, categories(k));
+                    D = obj.getaverageenvelopes(ch, [], categories(k));
                 end
                 subplot(1, numel(categories), k);
                 T = obj.epochtime(1):0.1:obj.epochtime(2);
