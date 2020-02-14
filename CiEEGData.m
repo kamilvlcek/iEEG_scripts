@@ -115,6 +115,11 @@ classdef CiEEGData < matlab.mixin.Copyable
             obj.PL = CPlots(); %prazdny objekt na grafy
             if ~isprop(obj,'CS') || ~isa(obj.CS,'CStat') , obj.CS = CStat(); end %prazdy objekt na statistiku, ale mozna uz byl nacteny pomoci load             
         end      
+        function delete(obj) %destructor of a handle class
+            if isfield(obj.plotEp,'fh') && ~isempty(obj.plotEp.fh) && ishandle(obj.plotEp.fh) ,close(obj.plotEp.fh); end
+            if isfield(obj.plotRCh,'fh') && ~isempty(obj.plotRCh.fh) && ishandle(obj.plotRCh.fh) ,close(obj.plotRCh.fh); end
+            if isprop(obj,'plotH') && ~isempty(obj.plotH) && ishandle(obj.plotH) ,close(obj.plotH); end
+        end
         function [samples, channels, epochs] = DSize(obj)
             % vraci velikosti pole d - samples, channels, epochs
             samples = size(obj.d,1);
