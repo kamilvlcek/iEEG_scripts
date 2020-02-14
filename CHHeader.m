@@ -309,11 +309,11 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 else 
                     axis([ min([XYZ.X]) max([XYZ.X]) min([XYZ.Y]) max([XYZ.Y]) min([XYZ.Z]) max([XYZ.Z]) ] );
                 end
-                text(-70,0,0,'LEVA');        
-                text(70,0,0,'PRAVA');   
-                text(0,65,0,'VPREDU');        
-                text(0,-115,0,'VZADU');                                 
-               
+                text(-70,0,0,'LEFT');        
+                text(70,0,0,'RIGHT');   
+                text(0,65,0,'FRONT');        
+                text(0,-115,0,'BACK');                                 
+       
                 if ~isfield(obj.plotCh3D,'boundary') || obj.plotCh3D.boundary
                     obj.Plot3DBoundary();
                 else
