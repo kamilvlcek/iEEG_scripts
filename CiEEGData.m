@@ -1683,92 +1683,112 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
             
         end  
-        function TimeIntervals(obj,ch,intervals) % Sofiia 16.01.2020 average time intervals
-            % default intervals = [0 0.2; 0.2 0.4; 0.4 0.6; 0.6 0.8; 0.8 1];
+        function TimeIntervals(obj,vch,intervals) % Sofiia 2020
+            %  average time intervals for one channel or for a vector of channels (across a particular structure)
+            %  numbers of channels can be obtained, for example, after applying CM.CH.FilterChannels({'lobe','precun'})
+            %  and view in CM.CH.plotCh2D.chshow  (vch = CM.CH.plotCh2D.chshow;)
+            %  default intervals = [0 0.2; 0.2 0.4; 0.4 0.6; 0.6 0.8];
             
-            if ~exist('intervals') || isempty(intervals), intervals = [0 0.2; 0.2 0.4; 0.4 0.6; 0.6 0.8; 0.8 1]; end % default intervals
+            if ~exist('intervals') || isempty(intervals), intervals = [0 0.2; 0.2 0.4; 0.4 0.6; 0.6 0.8]; end % default intervals
             kats = obj.Wp(obj.WpActive).kats; % define categories
             
-            % initialize matrix
-            allmeans = zeros (size(intervals,1), size(obj.d,3)/numel(kats), numel(kats)); % average time intervals x epochs x category
-            categories = zeros(size(obj.d,3), 1); % vector to define categories for all epochs - for xls table
-            T = (0 : 1/obj.fs : (size(obj.d,1)-1)/obj.fs) + obj.epochtime(1); % time in sec 
-            T2 = T(:);
-            nInd = 1; % initialize index for variable categories
+            % initialize matrix for all channels
+            chanMeans = zeros (numel(kats)*length(vch), (size(intervals,1)+2));
+            chInd = 1;
+            c = 1;
             
-            for j = 1:numel(kats) % for each category
-                [d,~,RjEpCh,~]= obj.CategoryData(kats(j),[],[],ch); % get data
-                d = squeeze(d(:,ch,:)); % time x epoch
- 
-                categories(nInd:j*(size(obj.d,3)/3)) = kats(j); % to establish the number of category for all epochs - for xls table
-                nInd = (size(obj.d,3)/numel(kats))+nInd;
+            for ch = 1:size(vch,2) % for each channel
                 
-                for int = 1:size(intervals,1)  % for each interval
-                    index = find(T2>intervals(int,1) & T2 <intervals(int,2));
-                    meanOverT = mean(d(index, :),1); % mean across time according to time intervals
-                    allmeans(int, : , j) = meanOverT; % put in matrix; average time intervals x epochs x category
+                % initialize matrix for an individual channel
+                allmeans = cell(size(intervals,1),numel(kats),1); %  time intervals x epochs
+                categories = NaN(size(obj.d,3), 1); % vector to define categories for all epochs for an individual channel - for xls table
+                T = (0 : 1/obj.fs : (size(obj.d,1)-1)/obj.fs)' + obj.epochtime(1); % time in sec
+                nInd = 1; % initialize index for variable categories
+                
+                for j = 1:numel(kats) % for each category
+                    [d,~,RjEpCh,~]= obj.CategoryData(kats(j),[],[],vch(ch)); % get data
+                    d = squeeze(d(:,vch(ch),~RjEpCh)); % time x epoch
+                    categories(nInd:(nInd+size(d,2)-1)) = kats(j); % to establish the number of category for all epochs for an individual channel- for xls table
+                    nInd = size(d,2)+nInd;
+                    
+                    for int = 1:size(intervals,1)  % for each interval
+                        index = T>intervals(int,1) & T <intervals(int,2);
+                        meanOverT = mean(d(index, :),1); % mean across time according to time intervals
+                        allmeans{int,j} = meanOverT; % put in a cell array; time intervals x epochs
+                    end
+                    
                 end
-            end
+
+                % plot mean and std across epochs
+                figure('Name','PlotResponseCh_for_average_time_intervals'), clf
+                hue = 0.8;
+                colorskat = {[0 0 0],[0 1 0],[1 0 0],[0 0 1]; [hue hue hue],[hue 1 hue],[1 hue hue],[hue hue 1]}; % prvni radka - prumery, druha radka errorbars = svetlejsi
+                [katsnames,~,~] = obj.GetKatsNames(); % to get names of categories for a legend
+                leg1 = cell(1,numel(kats));
+                leg2 = cell(1,numel(kats));
                 
-            cellAllmeans = mat2cell(allmeans, size(allmeans,1), size(allmeans,2), ones(1,size(allmeans,3))); % convert 3D matrix into cell array
-            tableX= num2cell([categories,([cellAllmeans{1,1,1}, cellAllmeans{1,1,2}, cellAllmeans{1,1,3}])']); % table for export in xls file
-            intervStr = cellstr(num2str(intervals));
-            titles4table = ['category', intervStr']; % column names
-            tableX = [titles4table; tableX]; % final table
-           
-            % export data in xls table
-            xlsfilename = ['logs\average_time_intervals_for channel_' num2str(ch) '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') '.xls'];
-            xlswrite(xlsfilename,tableX); 
+                for j = 1:numel(kats) % for each category
+                    catmeans = cell2mat(allmeans(:,j));
+                    M = mean(catmeans,2); % mean
+                    E = std(catmeans,[],2)/sqrt(size(catmeans,2)); % std err of mean
+                    hold on
+                    h_errbar = errorbar(intervals(:, 2),M,E,'.','Color', colorskat{1,j});
+                    hold on;
+                    h_mean = plot(intervals(:, 2), M,'LineWidth',2,'Color',colorskat{1,j});
+                    leg1{1,j} = h_mean;
+                    leg2{1,j} = katsnames{1,j}; % array of names of categories for a legend
+                    
+                    chanMeans(c, 3:(size(intervals,1)+2)) = M'; % to put means over epochs for each category and channel - for xls table
+                    c = c+1;
+                end
+                
+                legend(leg2)
+                %             legend([h_mean], katsnames{1,j})
+                
+                xticks([intervals(1, 1) (intervals( : , 2))'])
+                txtinterv = num2str(intervals);
+                xticklabels({'0', txtinterv(1:end, :)})
+                obj.plotRCh.range = [min(M(:,1))-max(E(:,1)) max(M(:,1))+max(E(:,1))];
+                xlabel('time intervals, s');
+                
+                % the number of the channel in the title of plot
+                if ~isempty(obj.CH.sortedby) %pokud jsou kanaly serazene jinak nez podle cisla kanalu
+                    chstr = [ num2str(vch(ch)) '(' obj.CH.sortedby  num2str(obj.plotRCh.ch) ')' ];
+                elseif numel(obj.CH.sortorder) < obj.channels %pokud jsou kanaly nejak vyfiltrovane pomoci obj.CH.FilterChannels();
+                    chstr = [ num2str(vch(ch)) '(' num2str(obj.plotRCh.ch) '/'  num2str(numel(obj.CH.sortorder)) ')' ];
+                else
+                    chstr = num2str(vch(ch));
+                end
+                title(['channel ' chstr '/' num2str(obj.channels) ' - ' obj.PacientID()], 'Interpreter', 'none'); % v titulu obrazku bude i pacientID napriklad p132-VT18
+                
+                chanMeans(chInd:ch*numel(kats), 1) = vch(ch); % to establish the number of channel - for xls table
+                chInd = numel(kats)+chInd;
+            end
+            
+            if length(vch)==1
+                
+                % export data for one channel in xls table
+                categories(isnan(categories))=[];  % remove all NaN
+                tableX = num2cell([categories, (cell2mat(allmeans))']); % table for export
+                intervStr = cellstr(num2str(intervals));
+                titles4table = ['category', intervStr']; % column names
+                tableX = [titles4table; tableX]; % final table
+                
+            else
+                
+                % export data for all channels (means over epochs and time intervals) in xls table
+                chanMeans(:, 2) = repmat(kats',length(vch),1); % to establish the number of category - for xls table
+                intervStr = cellstr(num2str(intervals));
+                titles4table = ['number of channel','category', intervStr']; % column names
+                tableX = [titles4table; num2cell(chanMeans)]; % final table
+            end
+            
+            xlsfilename = ['logs\average_time_intervals_for channels_' num2str(vch) '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') '.xls'];
+            xlswrite(xlsfilename,tableX);
             disp([ 'xls tables saved: ' xlsfilename]);
             
-            % plot mean and std across epochs
-            M = mean(allmeans(:,~RjEpCh(1,:),:),2);
-            M = squeeze(M(:,1,:));
-            E = std(allmeans(:,~RjEpCh(1,:),:),[],2)/sqrt(size(allmeans,2)); %std err of mean
-            E = squeeze(E(:,1,:));
-            
-            figure('Name','PlotResponseCh_for_average_time_intervals'), clf
-            hue = 0.8;
-            colorskat = {[0 0 0],[0 1 0],[1 0 0],[0 0 1]; [hue hue hue],[hue 1 hue],[1 hue hue],[hue hue 1]}; % prvni radka - prumery, druha radka errorbars = svetlejsi
-            
-            % 1st category
-            h_errbar1 = errorbar(intervals(:, 2),M(:,1),E(:,1),'.','Color', colorskat{1,1}); 
-            hold on;
-            h_mean1 = plot(intervals(:, 2), M(:,1),'LineWidth',2,'Color',colorskat{1,1});  
-            hold on;
-            
-            % 2st category
-            h_errbar2 = errorbar(intervals(:, 2),M(:,2),E(:,2),'.','Color',colorskat{1,2}); 
-            hold on;
-            h_mean2 = plot(intervals(:, 2), M(:,2),'LineWidth',2,'Color',colorskat{1,2});  
-            hold on;
-           
-            % 3st category
-            h_errbar3 = errorbar(intervals(:, 2),M(:,3),E(:,3),'.','Color',colorskat{1,3}); 
-            hold on;
-            h_mean3 = plot(intervals(:, 2), M(:,3),'LineWidth',2,'Color',colorskat{1,3});  
-            
-            xticks([intervals(1, 1) (intervals( : , 2))'])
-            txtinterv = num2str(intervals);
-            xticklabels({'0', txtinterv(1:end, :)})                 
-            obj.plotRCh.range = [min(M(:,1))-max(E(:,1)) max(M(:,1))+max(E(:,1))];
-            
-            [katsnames,~,~] = obj.GetKatsNames();
-            legend([h_mean1 h_mean2 h_mean3], katsnames{1,1}, katsnames{1,2}, katsnames{1,3})           
-            xlabel('time intervals, s');
-            
-            % the number of the channel in the title of plot
-            if ~isempty(obj.CH.sortedby) %pokud jsou kanaly serazene jinak nez podle cisla kanalu
-                chstr = [ num2str(ch) '(' obj.CH.sortedby  num2str(obj.plotRCh.ch) ')' ];
-            elseif numel(obj.CH.sortorder) < obj.channels %pokud jsou kanaly nejak vyfiltrovane pomoci obj.CH.FilterChannels();
-                chstr = [ num2str(ch) '(' num2str(obj.plotRCh.ch) '/'  num2str(numel(obj.CH.sortorder)) ')' ];
-            else
-                chstr = num2str(ch);
-            end
-            title(['channel ' chstr '/' num2str(obj.channels) ' - ' obj.PacientID()], 'Interpreter', 'none'); % v titulu obrazku bude i pacientID napriklad p132-VT18            
-        
         end
-
+        
     %% SAVE AND LOAD FILE    
         function obj = Save(obj,filename)   
             %ulozi veskere promenne tridy do souboru
