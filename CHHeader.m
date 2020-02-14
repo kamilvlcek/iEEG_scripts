@@ -142,7 +142,6 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             ch = 0;
         end
         function obj = ChannelPlotInit(obj)
-            if ~isfield(obj.plotCh3D,'pohled'), obj.plotCh3D.pohled = ''; end %default view undefined = horizontal
             if ~isfield(obj.plotCh3D,'names'), obj.plotCh3D.names = 0; end %by default, no labels for channels are used
             if ~isfield(obj.plotCh3D,'labels'), obj.plotCh3D.labels = 0; end   %if to show brainlabels as channel labels
             if ~isfield(obj.plotCh3D,'labesXnames'), obj.plotCh3D.labesXnames = 0; end   %if to show brainlabels (1) or channel names (0)
@@ -162,8 +161,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             %chnsel jsou cisla kanalu, pokud chci jen jejich vyber - musi byt stejny pocet jako chvals (hodnoty k vykresleni)
             %selch je jedno zvyraznene cislo kanalu - index v poli chnsel
             %roi je zvyraznena krychlova oblast [ x y z edge]
-            %popis je text k zobrazeni na obrazku
-%             if ~exist('pohled','var') || isempty(pohled), pohled = ''; end            
+            %popis je text k zobrazeni na obrazku        
             
             params = {'chnvals','chnsel','selch','roi','popis','rangeZ'}; %zkusim hromadne zpracovani parametru touhle nedoporucovanou metodou
             iSEEG = contains({obj.H.channels.signalType},'SEEG'); %index kanalu s EEG signalem
@@ -201,10 +199,13 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             if isfield(obj.H.channels,'MNI_x')
                 if isfield(obj.plotCh3D,'fh') && ishandle(obj.plotCh3D.fh)
                     figure(obj.plotCh3D.fh); %pouziju uz vytvoreny graf
-                    clf(obj.plotCh3D.fh); %graf vycistim                     
+                    [caz,cel] = view(); %current view                    
+                    obj.plotCh3D.view = [caz,cel];   %store it
+                    clf(obj.plotCh3D.fh); %graf vycistim      
                 else
                     obj.plotCh3D.fh = figure('Name','ChannelPlot 3D in MNI');                     
                     obj.plotCh3D.isColormapReversed = 0;
+                    obj.plotCh3D.view = [0 90]; %default view
                 end          
                                
                 [obj,chgroups] = obj.ChannelGroups(chnsel,obj.plotCh3D.lines); %rozdeli kanaly po elektrodach do skupin. 
@@ -263,15 +264,23 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 end   
                 X = [XYZ.X]; Y = [XYZ.Y]; Z = [XYZ.Z]; %souradnice pres vsechny pole struct XYZ
                 if obj.plotCh3D.reorder %pokud chci seradi body podle velikosti, tak aby v prislusnem pohledu byly nejvetsi v popredi
-                    switch obj.plotCh3D.pohled
-                        case 'h'
-                            Z = sortBlikeA(sizes,Z); %nejvetsi hodnoty na nejvyssich souradnicich Z
-                        case 'c'
-                            Y = sortBlikeA(-sizes,Y); %nejvetsi hodnoty na nejnizsich souradnicich y
-                        case 's'
-                            X = sortBlikeA(sizes,X);
+                    reordered = 1;
+                    if isequal(obj.plotCh3D.view,[0 90])%'h'                        
+                        Z = sortBlikeA(sizes,Z); %nejvetsi hodnoty na nejvyssich souradnicich Z
+                    elseif isequal(obj.plotCh3D.view,[180 -90])%'h'                            
+                        Z = sortBlikeA(-sizes,Z); %nejvetsi hodnoty na nejvyssich souradnicich Z
+                    elseif isequal(obj.plotCh3D.view,[0 0]) %'c'
+                        Y = sortBlikeA(-sizes,Y); %nejvetsi hodnoty na nejnizsich souradnicich y
+                    elseif isequal(obj.plotCh3D.view,[180 0]) %'c'
+                        Y = sortBlikeA(sizes,Y); %nejvetsi hodnoty na nejnizsich souradnicich y    
+                    elseif isequal(obj.plotCh3D.view,[90 0]) % 's'
+                        X = sortBlikeA(sizes,X);
+                    elseif isequal(obj.plotCh3D.view,[-90 0]) % 's'
+                        X = sortBlikeA(-sizes,X);    
+                    else
+                        reordered = 0;
                     end
-                    annotation('textbox', [.6 0.15 .2 .1], 'String', 'REORDERED', 'EdgeColor', 'none');
+                    if reordered, annotation('textbox', [.6 0.15 .2 .1], 'String', 'REORDERED', 'EdgeColor', 'none'); end
                 end
                 scatter3(X,Y,Z,sizes(isizes),clrs(isizes,:),'filled'); %ruzne velke a barevne krouzky vsech kanalu najednou
                
@@ -289,21 +298,9 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 xlabel('MNI X'); %levoprava souradnice
                 ylabel('MNI Y'); %predozadni souradnice
                 zlabel('MNI Z'); %hornodolni
-                
-                switch obj.plotCh3D.pohled 
-                    case ''
-                        if isfield(obj.plotCh3D,'view')
-                            view(obj.plotCh3D.view); 
-                        else
-                            view([0 0 1]); %shora - pokud neni zadny ulozeny
-                        end
-                    case 's' %sagital = levoprava
-                        view([1 0 0]); %zleva
-                    case 'c' %coronal = predozadni
-                        view([0 -1 0]); %zepredu
-                    case 'h' %horizontal = hornodolni   
-                        view([0 0 1]); %shora
-                end
+
+                view(obj.plotCh3D.view); %restore the view stored before replotting the figure                
+
                 if obj.plotCh3D.zoom == 0
                     axis([-75 75 -120 80 -75 85]); %zhruba velikost mozku        
                 else 
@@ -334,6 +331,21 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 title(popis);
                 if isfield(obj.plotCh3D,'background') && obj.plotCh3D.background==0
                     set(gca,'color','none'); %zadne bile pozadi, pak ani v corelu
+                end
+                if obj.plotCh3D.coloruse == 2
+                    labels = lower({obj.brainlabels.label});
+                    ulabels = unique(labels); %cell array of unique brainlabels
+                    barvy = distinguishable_colors(numel(ulabels));
+                    for ilabel = 1:numel(ulabels)
+                       if isequal( [90 0],obj.plotCh3D.view) || isequal([-90 0],obj.plotCh3D.view) %sagital
+                           x = 0; y = -110; z = 80-5*ilabel;
+                       elseif isequal( [0 90 ],obj.plotCh3D.view) || isequal([[ 180 -90]],obj.plotCh3D.view) %axial
+                           x = -70; y = 80-5*ilabel; z = 0;
+                       else
+                           x = -70; y = 0; z = 80-5*ilabel;
+                       end
+                       text(x,y,z,ulabels{ilabel},'Color',barvy(ilabel,:),'FontSize',11,'FontWeight','bold');                       
+                    end
                 end
                 
                 if ~isempty(obj.hull) && obj.plotCh3D.hullindex > 0
@@ -1189,16 +1201,13 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
           function obj = hybejPlot3D(obj,~,eventDat)
               switch eventDat.Key
                   case 's'    %sagital view                                       
-                      obj.plotCh3D.view =  [1 0 0]; %zprava  
-                      obj.plotCh3D.pohled = 's';
+                      obj.plotCh3D.view =  iff( isequal( [90 0],obj.plotCh3D.view),[-90 0],[90 0]); %zprava,zleva  
                       view(obj.plotCh3D.view); 
-                  case {'c','f'} %coronal = predozadni, frontal                      
-                      obj.plotCh3D.view =  [0 -1 0];%zepredu
-                      obj.plotCh3D.pohled = 'c';
+                  case {'c','f'} %coronal = predozadni, frontal                                            
+                      obj.plotCh3D.view =  iff( isequal( [0 0],obj.plotCh3D.view),[180 0],[0 0]); %zezadu, zpredu 
                       view(obj.plotCh3D.view); %zleva
                   case {'h','a'} %horizontal = hornodolni nebo axial                        
-                      obj.plotCh3D.view =  [0 0 1]; %shora
-                      obj.plotCh3D.pohled = 'h';
+                      obj.plotCh3D.view =  iff( isequal( [0 90],obj.plotCh3D.view),[ 180 -90],[0 90]); %shora, zdola
                       view(obj.plotCh3D.view); 
                   case 'space'
                      if isfield(obj.plotCh3D,'boundary') %prepinam v grafu cely scatter s jen hranici mozku - hlavne kvuli kopirovani do corelu
@@ -1280,7 +1289,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     obj.ChannelPlot();  
                   case 'v' %toggle color code of 3D scatter
                     obj.plotCh3D.coloruse = obj.plotCh3D.coloruse + 1;
-                    if obj.plotCh3D.coloruse >= 3, obj.plotCh3D.coloruse=0; end %values only 0 1 or 2
+                    if obj.plotCh3D.coloruse >= 3, obj.plotCh3D.coloruse=0; end %values only 0 1 or 2%                   
                     obj.ChannelPlot(); 
               end
           end
