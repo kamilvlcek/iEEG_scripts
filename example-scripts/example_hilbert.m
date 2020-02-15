@@ -16,13 +16,8 @@ hilbert.plotresponsefrequency([1:4], [0:3]);
 
 % Wilcox against a baseline 
 wBaseline = hilbert.wilcoxbaseline([-0.2 0], [0.01 0.8], [], {'Ovoce'});
-plotpintime(wBaseline, [0.01 0.8]);
-
-wBaseline = hilbert.wilcoxbaseline([-0.2 0], [0.01 0.8], [], {'Scene'});
-plotpintime(wBaseline, [0.01 0.8]);
-
-wBaseline = hilbert.wilcoxbaseline([-0.2 0], [0.01 0.8], [], {'Object'});
-plotpintime(wBaseline, [0.01 0.8]);
+freq1 = wBaseline(:, :, 1, hilbert.PsyData.CategoryNum({'Ovoce'}) + 1);
+plotpintime(freq1, [0.01 0.8]);
 
 % Wilcox category comparison
 wCategory = hilbert.wilcoxcategories([{'Object'} {'Scene'}], [0.01 0.8]);

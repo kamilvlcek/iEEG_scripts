@@ -186,7 +186,7 @@ classdef CHilbertL < CHilbert
         end
         
         % Returns indices in the envelope for given timewindow
-        %
+        % 
         % timewindow: numeric(2) with time in seconds
         % RETURNS: numeric(2) defining indices or [] if failed
         function indices = gettimewindowindices(obj, timewindow)
@@ -204,41 +204,66 @@ classdef CHilbertL < CHilbert
         
         % Returns indices of freqneuncies oif passed as float array. Or
         %   returns indices back if passed as integer array
-        % frequencies: array of frequencies or their indices. If floats are
-        %   passed, then it is assumed its frequnecies. If integers are
-        %   passed, then it evaluates as indices
+        % frequencies: array of frequencies or their indices. If doubles are
+        %   passed, then it is assumed its frequnecies. If integers/whole numbers
+        %   are passed, then they are evaluated as indices
         function indices = getfrequencyindices(obj, frequencies)
-            if(~is.integer(frequencies))
+            if(~all(frequencies == floor(frequencies))) %checks if doubles
                 % selects only those frequencies which actually are in the
                 % Hfmean
-                frequencies = frequencies(ismember(frequnecies, hilbert.Hfmean));
+                frequencies = frequencies(ismember(frequencies, obj.Hfmean));
                 indices = arrayfun(@(x) find(obj.Hfmean == x), frequencies);
-            else % returns 
+            else % returns indices
                 indices = frequencies;
             end
         end
-        
+                
         %% Statistics
         
-        % Calculates rank test agains a baseline
+        % Calculates rank test against a baseline.
+        % 
         % baselinetime: numeric(2) in seconds defining baseline timewindow
         % responsetime: numeric(2) in seconds defining response timewindow
-        % RETURNS: calculated p values by CStat.Wilcox2D
+        % channels: array of channel indices. eg. [0, 1, 5]
+        % frequencies: array of frequencies to analyse. See
+        %   obj.getenvelopes for description
+        % categories: indices of wanted categories. 
+        %   See obj.getenvelopes for description
+        % RETURNS: a 4d matrix calculated p values by CStat.Wilcox2D. Non
+        %   calculated comparisons are left empty with NAs
         % example: 
         %   obj.wilcoxbaseline([-0.1 0], [0.2 0.5])
-        function wp = wilcoxbaseline(obj, baselinetime, responsetime, channels, categories)
-            if ~exist('channels', 'var'), channels = []; end
-            if ~exist('categories', 'var'), categories = []; end
-            
+        function wp = wilcoxbaseline(obj, baselinetime, responsetime, frequencies, categories)    
             iResponse = obj.gettimewindowindices(responsetime);
             iBaseline = obj.gettimewindowindices(baselinetime);
             if any([numel(iBaseline) ~= 2, numel(iResponse) ~= 2]), return; end
             
-            envelopes = obj.getenvelopes(channels, [], categories);
-            response = envelopes(iResponse(1):iResponse(2), :, :, :);
-            baseline = envelopes(iBaseline(1):iBaseline(2), :, :, :);
+            % returned matrix is time x channel x frequency x category comparison
+            wpSize = [diff(iResponse) + 1, ...
+                size(obj.HFreqEpochs, 2), ...
+                size(obj.HFreqEpochs, 3), ...
+                size(unique(obj.epochData(:,1)), 1)];
+            wp = NaN(wpSize);
             
-            wp = CStat.Wilcox2D(response, baseline, 1, [], 'mean vs baseline');
+            if ~exist('frequencies', 'var') || numel(frequencies) == 0
+                frequencies = 1:wpSize(3);
+            end
+            if ~exist('categories', 'var') || numel(categories) == 0
+                categories = 1:wpSize(4);
+            end
+
+            % separate comparison for each channel, frequency and category
+            for frequency = frequencies
+                fprintf('Comparing for frequency %f\n', obj.Hfmean(frequency));
+                for category = categories
+                    envelopes = obj.getenvelopes([], frequency, category);
+                    response = squeeze(envelopes(iResponse(1):iResponse(2), :, :, :));
+                    baseline = squeeze(envelopes(iBaseline(1):iBaseline(2), :, :, :));
+                    tempWp = CStat.Wilcox2D(response, baseline, 0, 1);
+                    iCategory = obj.PsyData.CategoryNum(category) + 1;
+                    wp(:, :, frequency, iCategory) = tempWp;
+                end
+            end
         end
         
         % Compares two category responses in given time
@@ -250,23 +275,23 @@ classdef CHilbertL < CHilbert
         % example:
         %   obj.wilcoxcategories([0 1])
         %   obj.wilcoxcategories([{'Ovoce'} {'Scene'}], [0 0.5], 5:6)
-        function wp = wilcoxcategories(obj, categories, responsetime, channels)
+        function wp = wilcoxcategories(obj, categories, responsetime, channels, frequencies)
             if ~exist('responsetime', 'var') || numel(responsetime) == 0
                 responsetime = obj.epochtime(1:2);
             end
             if ~exist('channels', 'var'), channels = []; end
+            if ~exist('frequencies', 'var'), frequencies = []; end
             
             iResponse = obj.gettimewindowindices(responsetime);
             if any([numel(iResponse) ~= 2, numel(categories) ~= 2]), return; end
             
-            responseA = obj.getenvelopes(channels, [], categories(1));
+            responseA = obj.getenvelopes(channels, frequencies, categories(1));
             responseA = responseA(iResponse(1):iResponse(2), :, :, :);
-            responseB = obj.getenvelopes(channels, [], categories(2));
+            responseB = obj.getenvelopes(channels, frequencies, categories(2));
             responseB = responseB(iResponse(1):iResponse(2), :, :, :);
             
             wp = CStat.Wilcox2D(responseA, responseB, 1, [], 'mean vs baseline');
         end
-        
     end  
     
     %% Visualisations
