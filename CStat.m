@@ -496,24 +496,25 @@ classdef CStat < handle
     end
     methods (Static,Access = public)        
         function W = Wilcox2D(A,B,print,fdr,msg,RjEpChA,RjEpChB,paired)
-            %Wilcox2D(A,B,print,fdr,msg,RjEpChA,RjEpChB)
-            % srovna dve 3D matice proti sobe, ohledne hodnot v poslednim rozmeru
-            %A: 3d matrix, 3rd dimensions defines the measures, second NEEDS
-            %   to be channel due to how RjEpCh works! 
-            %   Usually is (time|frequency) x channel x epoch 
-            %   First two dimensions need to be (equal or??) larger than B 
-            %   musi mit oba prvni rozmery > rozmery B
-            %B: 3d matrix. Can have either of the first two dimensios = 1.
-            %   Then it is compared to all values in A
-            %   muze mit jeden nebo oba prvni rozmery = 1 - pak se porovnava se vsemi hodnotami v A
-            %print:
-            %fdr: integer defining fdr correction mnethod used by fdr_bh.
-            %   either 1 (pdep) default or 2 (dep)
-            %print: logical. if 0, no output
-            %msg:
-            %RjEpChA: channel x epoch logical matrix. 1 = remove
-            %RjEpChB: channel x epoch logical matrix. 1 = remove
-            %paired: logical, if paired test to be used. Default 0
+        % Wilcox2D(A,B,print,fdr,msg,RjEpChA,RjEpChB)
+        %   srovna dve 3D matice proti sobe, ohledne hodnot v poslednim rozmeru
+        % A: 3d matrix, 
+        %   first dimension is time, but can be a different measure
+        %   second dimensions NEEDS to be channels! due to how RjEpCh works
+        %   3rd dimensions defines the repeated measures
+        %   First two dimensions need to be (equal or??) larger than B 
+        %   musi mit oba prvni rozmery > rozmery B
+        % B: 3d matrix. Can have either of the first two dimensios = 1.
+        %   Then it is compared to all values in A
+        %   muze mit jeden nebo oba prvni rozmery = 1 - pak se porovnava se vsemi hodnotami v A
+        % print:
+        % fdr: integer defining fdr correction mnethod used by fdr_bh.
+        %   either 1 (pdep) default or 2 (dep)
+        % print: logical. if 0, no output
+        % msg:
+        % RjEpChA: channel x epoch logical matrix. 1 = remove
+        % RjEpChB: channel x epoch logical matrix. 1 = remove
+        % paired: logical, if paired test to be used. Default 0
             if ~exist('print','var'), print = 0; end
             if ~exist('fdr','var') || isempty(fdr), fdr = 1; end %min striktni je default           
             if ~exist('msg','var') || isempty(msg), msg = ''; end
