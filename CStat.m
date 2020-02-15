@@ -497,11 +497,23 @@ classdef CStat < handle
     methods (Static,Access = public)        
         function W = Wilcox2D(A,B,print,fdr,msg,RjEpChA,RjEpChB,paired)
             %Wilcox2D(A,B,print,fdr,msg,RjEpChA,RjEpChB)
-            %srovna dve 3D matice proti sobe, ohledne hodnot v poslednim rozmeru
-            %A musi mit oba prvni rozmery > rozmery B, 
-            %B muze mit jeden nebo oba prvni rozmer = 1 - pak se porovnava se vsemi hodnotami v A
-            %pokud fdr=1 nebo prazne, provadi fdr korekci
-            %pokud print = 0 nebo prazne, netiskne nic
+            % srovna dve 3D matice proti sobe, ohledne hodnot v poslednim rozmeru
+            %A: 3d matrix, 3rd dimensions defines the measures, second NEEDS
+            %   to be channel due to how RjEpCh works! 
+            %   Usually is (time|frequency) x channel x epoch 
+            %   First two dimensions need to be (equal or??) larger than B 
+            %   musi mit oba prvni rozmery > rozmery B
+            %B: 3d matrix. Can have either of the first two dimensios = 1.
+            %   Then it is compared to all values in A
+            %   muze mit jeden nebo oba prvni rozmery = 1 - pak se porovnava se vsemi hodnotami v A
+            %print:
+            %fdr: integer defining fdr correction mnethod used by fdr_bh.
+            %   either 1 (pdep) default or 2 (dep)
+            %print: logical. if 0, no output
+            %msg:
+            %RjEpChA: channel x epoch logical matrix. 1 = remove
+            %RjEpChB: channel x epoch logical matrix. 1 = remove
+            %paired: logical, if paired test to be used. Default 0
             if ~exist('print','var'), print = 0; end
             if ~exist('fdr','var') || isempty(fdr), fdr = 1; end %min striktni je default           
             if ~exist('msg','var') || isempty(msg), msg = ''; end
@@ -509,21 +521,28 @@ classdef CStat < handle
             if ~exist('RjEpChB','var') || isempty(RjEpChB), RjEpChB = false(size(B,2),size(B,3)); end
             if ~exist('paired','var'), paired = 0; end %pokud se ma pouzit parovy neparametricky test, defaulte ne
             W = zeros(size(A,1),size(A,2));
-           
+            
+            %% Validations
+            if any(length(size(A))~=3, length(size(B)~=3))
+                warning('Passed matrices need to have 3 dimensions');
+                return;
+            end
+            %%
+            
             if print, fprintf(['Wilcox Test 2D - ' msg ': ']); end
             for j = 1:size(A,1) % napr cas
                 if print && mod(j,50)==0, fprintf('%d ', j); end %tisknu jen cele padesatky
-                for k = 1:size(A,2) %napr kanaly   
+                for k = 1:size(A,2) %napr kanaly
                    if paired %pri parovem testu musim porovnavat stejny kanal, takze musi vyradit epochy parove
                        RjEpChA_k = RjEpChA(k,:) | RjEpChB(k,:); %binarni OR
                        RjEpChB_k = RjEpChA(k,:) | RjEpChB(k,:);
                    else
                        RjEpChA_k = RjEpChA(k,:);
                        RjEpChB_k = RjEpChB(k,:);
-                   end    
-                   aa = squeeze (A(j,k,~RjEpChA_k)); %jen nevyrazene epochy 
+                   end
+                   aa = squeeze (A(j,k,~RjEpChA_k)); %jen nevyrazene epochy
                    bb = squeeze (B( min(j,size(B,1)) , min(k,size(B,2)) , ~RjEpChB_k )); %jen nevyrazene epochy
-                   if numel(aa) >= 2 && numel(bb) >= 2 
+                   if numel(aa) >= 2 && numel(bb) >= 2
                       if paired
                         W(j,k) = signrank(aa,bb); %  Wilcoxon signed rank test  paired, two-sided , Statistics and Machine Learning Toolbox  
                       else
