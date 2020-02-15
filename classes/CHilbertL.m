@@ -145,6 +145,8 @@ classdef CHilbertL < CHilbert
             envelopes = squeeze(envelopes);
         end
         
+
+        function indices = getcategoryindices(obj, categories)
         % Returns indices of given categories in the obj.HFreqEpochs
         % categories: vector of either characters cells or numbers defining
         % categories to be found int the obj.epochData. Zero based category
@@ -153,7 +155,6 @@ classdef CHilbertL < CHilbert
         % example: 
         %   obj.getcategoryindices([0 3])
         %   obj.getcategoryindices([{'Scene'} {'Object'}])
-        function indices = getcategoryindices(obj, categories)
             switch class(categories)
                 case 'double'
                     comparing = cellfun(@(x)x, obj.epochData(:, 2));
@@ -164,7 +165,8 @@ classdef CHilbertL < CHilbert
             end
             indices = find(ismember(comparing, categories));
         end
-        
+
+        function indices = getaveragecategoryindices(obj, categories)
         % Returns indices of categories as are in the obj.HFreq
         % categories: vector of either characters cells or numbers defining
         % categories to be found int the obj.epochData. Zero based category
@@ -172,7 +174,6 @@ classdef CHilbertL < CHilbert
         % example: 
         %   obj.getaveragecategoryindices([0 3])
         %   obj.getaveragecategoryindices([{'Scene'} {'Object'}])
-        function indices = getaveragecategoryindices(obj, categories)
             conditions = obj.PsyData.P.strings.podminka;
             switch class(categories)
                 case 'double'
@@ -185,11 +186,11 @@ classdef CHilbertL < CHilbert
             end
         end
         
+        function indices = gettimewindowindices(obj, timewindow)
         % Returns indices in the envelope for given timewindow
         % 
         % timewindow: numeric(2) with time in seconds
         % RETURNS: numeric(2) defining indices or [] if failed
-        function indices = gettimewindowindices(obj, timewindow)
             indices = [];
             if numel(timewindow) ~= 2, return; end
             
@@ -202,12 +203,13 @@ classdef CHilbertL < CHilbert
             indices = [find(time >= timewindow(1), 1) find(time <= timewindow(2), 1, 'last')];
         end
         
+        
+        function indices = getfrequencyindices(obj, frequencies)
         % Returns indices of freqneuncies oif passed as float array. Or
         %   returns indices back if passed as integer array
         % frequencies: array of frequencies or their indices. If doubles are
         %   passed, then it is assumed its frequnecies. If integers/whole numbers
         %   are passed, then they are evaluated as indices
-        function indices = getfrequencyindices(obj, frequencies)
             if(~all(frequencies == floor(frequencies))) %checks if doubles
                 % selects only those frequencies which actually are in the
                 % Hfmean
@@ -220,20 +222,25 @@ classdef CHilbertL < CHilbert
                 
         %% Statistics
         
+
+        function wp = wilcoxbaseline(obj, baselinetime, responsetime, frequencies, categories)
         % Calculates rank test against a baseline.
         % 
         % baselinetime: numeric(2) in seconds defining baseline timewindow
         % responsetime: numeric(2) in seconds defining response timewindow
-        % channels: array of channel indices. eg. [0, 1, 5]
         % frequencies: array of frequencies to analyse. See
         %   obj.getenvelopes for description
-        % categories: indices of wanted categories. 
+        % categories: indices of wanted categories.
         %   See obj.getenvelopes for description
         % RETURNS: a 4d matrix calculated p values by CStat.Wilcox2D. Non
-        %   calculated comparisons are left empty with NAs
+        %   calculated comparisons are left empty with NaNs. 
+        %   returned matrix is p value in time x channel x frequency x category
+        %   e.g. result(:, 1, 1, 2) is a array of p values for all times
+        %   for first channel, first frequency, and second category
+        %   if the results doesn't have a category 2 calculated, retunrs an
+        %   array of NaNs
         % example: 
         %   obj.wilcoxbaseline([-0.1 0], [0.2 0.5])
-        function wp = wilcoxbaseline(obj, baselinetime, responsetime, frequencies, categories)    
             iResponse = obj.gettimewindowindices(responsetime);
             iBaseline = obj.gettimewindowindices(baselinetime);
             if any([numel(iBaseline) ~= 2, numel(iResponse) ~= 2]), return; end
@@ -253,44 +260,54 @@ classdef CHilbertL < CHilbert
             end
 
             % separate comparison for each channel, frequency and category
-            for frequency = frequencies
-                fprintf('Comparing for frequency %f\n', obj.Hfmean(frequency));
+            for iFrequency = 1:numel(frequencies)
+                fprintf('Comparing for frequency %f\n', obj.Hfmean(iFrequency));
                 for category = categories
-                    envelopes = obj.getenvelopes([], frequency, category);
+                    envelopes = obj.getenvelopes([], frequencies(iFrequency), category);
                     response = squeeze(envelopes(iResponse(1):iResponse(2), :, :, :));
                     baseline = squeeze(envelopes(iBaseline(1):iBaseline(2), :, :, :));
                     tempWp = CStat.Wilcox2D(response, baseline, 0, 1);
                     iCategory = obj.PsyData.CategoryNum(category) + 1;
-                    wp(:, :, frequency, iCategory) = tempWp;
+                    wp(:, :, iFrequency, iCategory) = tempWp;
                 end
             end
         end
-        
+
+        function wp = wilcoxcategories(obj, categories, responsetime, frequencies)
         % Compares two category responses in given time
+        % 
         % categories: numeric(2) or cell(2){character} defining categories.
         %   Zero based. e.g [0 2]
         % responsetime: numeric(2) in seconds defining response timewindow.
         %   defaults to the obj.epochtime
-        % RETURNS: calculated p values by CStat.Wilcox2D
+        % RETURNS: a 3d matrix with calculated p values by CStat.Wilcox2D
+        %   matrix is time x channel x frequency
         % example:
         %   obj.wilcoxcategories([0 1])
         %   obj.wilcoxcategories([{'Ovoce'} {'Scene'}], [0 0.5], 5:6)
-        function wp = wilcoxcategories(obj, categories, responsetime, channels, frequencies)
             if ~exist('responsetime', 'var') || numel(responsetime) == 0
                 responsetime = obj.epochtime(1:2);
             end
-            if ~exist('channels', 'var'), channels = []; end
-            if ~exist('frequencies', 'var'), frequencies = []; end
-            
             iResponse = obj.gettimewindowindices(responsetime);
             if any([numel(iResponse) ~= 2, numel(categories) ~= 2]), return; end
             
-            responseA = obj.getenvelopes(channels, frequencies, categories(1));
-            responseA = responseA(iResponse(1):iResponse(2), :, :, :);
-            responseB = obj.getenvelopes(channels, frequencies, categories(2));
-            responseB = responseB(iResponse(1):iResponse(2), :, :, :);
+            wpSize = [diff(iResponse) + 1, ...
+                size(obj.HFreqEpochs, 2), ...
+                size(obj.HFreqEpochs, 3)];
+            wp = NaN(wpSize);
             
-            wp = CStat.Wilcox2D(responseA, responseB, 1, [], 'mean vs baseline');
+            if ~exist('frequencies', 'var') || numel(frequencies) == 0
+                frequencies = 1:wpSize(3);
+            end
+            for iFrequency = 1:numel(frequencies)
+                fprintf('Comparing for frequency %f\n', obj.Hfmean(iFrequency));
+                responseA = obj.getenvelopes([], frequencies(iFrequency), categories(1));
+                responseA = squeeze(responseA(iResponse(1):iResponse(2), :, :, :));
+                responseB = obj.getenvelopes([], frequencies(iFrequency), categories(2));
+                responseB = squeeze(responseB(iResponse(1):iResponse(2), :, :, :));
+                tempWp = CStat.Wilcox2D(responseA, responseB, 0, []);
+                wp(:, :, iFrequency) = tempWp;
+            end
         end
     end  
     
