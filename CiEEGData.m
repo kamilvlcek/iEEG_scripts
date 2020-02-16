@@ -1922,7 +1922,8 @@ classdef CiEEGData < matlab.mixin.Copyable
             if ismember('CH_plots', {vars.name}) %nastaveni obou grafu mozku v CHHeader
                 load(filename,'CH_plots'); 
                 obj.CH.plotCh2D = CH_plots{1};   %#ok<IDISVAR,USENS>
-                obj.CH.plotCh3D = CH_plots{2};  
+                obj.CH.channelPlot = ChannelPlot(obj.CH);
+                obj.CH.channelPlot.plotCh3D = CH_plots{2};  
             end
             if isfield(obj.CH.plotCh2D,'chshow') && length(obj.CH.sortorder) > length(obj.CH.plotCh2D.chshow)
                 obj.CH.sortorder = obj.CH.plotCh2D.chshow; %zatimco sortorder se neuklada, chshow ano

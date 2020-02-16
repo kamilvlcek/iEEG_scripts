@@ -386,11 +386,11 @@ classdef CStat < handle
                 channels =   obj.plotAUC_m.channels;
             end           
             
-            obj.plotAUC.Eh.CH.ChannelPlot(vals,... %param chnvals
+            obj.plotAUC.Eh.CH.ChannelPlotProxy(vals,... %param chnvals
                 channels,... %chnsel jsou cisla kanalu, pokud chci jen jejich vyber
                 iff(~isempty(selchs),selchs,0),[],...%selch je jedno zvyraznene cislo kanalu - index v poli chnsel
                 'AUCPlotBrain', [0 1]); 
-            set(obj.plotAUC.Eh.CH.plotCh3D.fh, 'WindowButtonDownFcn', {@obj.hybejPlot3Dclick, selch});
+            set(obj.plotAUC.Eh.CH.channelPlot.plotCh3D.fh, 'WindowButtonDownFcn', {@obj.hybejPlot3Dclick, selch});
         end
         function AUC2XLS(obj, val_fraction, int_fraction)
             %vypise seznam kanalu z grafu AUCPlotM do xls souboru 
@@ -831,17 +831,17 @@ classdef CStat < handle
           if closestChannel  % pokud jsem nejaky nasel:
             %disp(displayedChannels(closestChannel).name)
             x = coordinates(1,closestChannel); y = coordinates(2,closestChannel); z = coordinates(3,closestChannel);
-            if isfield(obj.plotAUC.Eh.CH.plotCh3D, 'selHandle') % smazu predchozi oznaceni, pokud nejake bylo
-                delete(obj.plotAUC.Eh.CH.plotCh3D.selHandle)
-                delete(obj.plotAUC.Eh.CH.plotCh3D.selNameHandle)
+            if isfield(obj.plotAUC.Eh.CH.channelPlot.plotCh3D, 'selHandle') % smazu predchozi oznaceni, pokud nejake bylo
+                delete(obj.plotAUC.Eh.CH.channelPlot.plotCh3D.selHandle)
+                delete(obj.plotAUC.Eh.CH.channelPlot.plotCh3D.selNameHandle)
             end
-            obj.plotAUC.Eh.CH.plotCh3D.selHandle = scatter3(x, y, z, 200, 'r', 'fill'); % oznacim vybrany kanal na 3D grafu
-            obj.plotAUC.Eh.CH.plotCh3D.selNameHandle = annotation('textbox',[0 1 0 0],'String',displayedChannels(closestChannel).name,'FitBoxToText','on');
+            obj.plotAUC.Eh.CH.channelPlot.plotCh3D.selHandle = scatter3(x, y, z, 200, 'r', 'fill'); % oznacim vybrany kanal na 3D grafu
+            obj.plotAUC.Eh.CH.channelPlot.plotCh3D.selNameHandle = annotation('textbox',[0 1 0 0],'String',displayedChannels(closestChannel).name,'FitBoxToText','on');
             obj.AUCPlotM([],[],find(obj.plotAUC_m.chsort == closestChannel, 1)); % oznacim vybrany kanal v AUC plotu
           else  % pokud se zadny kanal nenasel (kliknuti mimo)
-             if isfield(obj.plotAUC.Eh.CH.plotCh3D, 'selHandle') % smazu predchozi oznaceni, pokud nejake bylo
-               delete(obj.plotAUC.Eh.CH.plotCh3D.selHandle)
-               delete(obj.plotAUC.Eh.CH.plotCh3D.selNameHandle)
+             if isfield(obj.plotAUC.Eh.CH.channelPlot.plotCh3D, 'selHandle') % smazu predchozi oznaceni, pokud nejake bylo
+               delete(obj.plotAUC.Eh.CH.channelPlot.plotCh3D.selHandle)
+               delete(obj.plotAUC.Eh.CH.channelPlot.plotCh3D.selNameHandle)
              end
              %TODO: Zrusit zvyrazneni v AUC plotu
           end
