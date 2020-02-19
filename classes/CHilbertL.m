@@ -13,7 +13,7 @@ classdef CHilbertL < CHilbert
         % fphase; %faze vsech zpracovavanych frekvenci - premiestnene z CMorlet pre vykreslenie a porovnanie faz z MW a Hilberta do buducna        
         % frealEpochs; % epochovane filtrovane eeg
         %normalization; %typ normalizace
-        plotFrequency; % replaces plotF so both can be called
+        plotFrequency; % replaces plotF so both can be called seaprately
     end
     
     % -------------- public instance methods -------------------------
@@ -186,6 +186,7 @@ classdef CHilbertL < CHilbert
             end
         end
         
+        
         function indices = gettimewindowindices(obj, timewindow)
         % Returns indices in the envelope for given timewindow
         % 
@@ -202,8 +203,7 @@ classdef CHilbertL < CHilbert
             
             indices = [find(time >= timewindow(1), 1) find(time <= timewindow(2), 1, 'last')];
         end
-        
-        
+          
         function indices = getfrequencyindices(obj, frequencies)
         % Returns indices of freqneuncies oif passed as float array. Or
         %   returns indices back if passed as integer array
@@ -212,7 +212,7 @@ classdef CHilbertL < CHilbert
         %   are passed, then they are evaluated as indices
             if(~all(frequencies == floor(frequencies))) %checks if doubles
                 % selects only those frequencies which actually are in the
-                % Hfmean
+                % Hfmean frequency vector
                 frequencies = frequencies(ismember(frequencies, obj.Hfmean));
                 indices = arrayfun(@(x) find(obj.Hfmean == x), frequencies);
             else % returns indices
@@ -222,15 +222,14 @@ classdef CHilbertL < CHilbert
                 
         %% Statistics
         
-
         function wp = wilcoxbaseline(obj, baselinetime, responsetime, frequencies, categories)
         % Calculates rank test against a baseline.
         % 
         % baselinetime: numeric(2) in seconds defining baseline timewindow
         % responsetime: numeric(2) in seconds defining response timewindow
-        % frequencies: array of frequencies to analyse. See
-        %   obj.getenvelopes for description
-        % categories: indices of wanted categories.
+        % frequencies: array of frequencies to analyse. if [], runs for all
+        %   frequencies. See obj.getenvelopes for description
+        % categories: indices of wanted categories. if [], runs fo all categories
         %   See obj.getenvelopes for description
         % RETURNS: a 4d matrix calculated p values by CStat.Wilcox2D. Non
         %   calculated comparisons are left empty with NaNs. 
@@ -308,6 +307,18 @@ classdef CHilbertL < CHilbert
                 tempWp = CStat.Wilcox2D(responseA, responseB, 0, []);
                 wp(:, :, iFrequency) = tempWp;
             end
+        end
+        
+        function wp = wilcoxchannelcategories(obj, categories, channels, responsetime, frequencies)
+        % Runs a wilcox test for an average across given channels and
+        % compares them betweeen passed categories
+        % 
+        % categories:
+        % channels: two dimensional matrix of channels to average and run 
+        % responsetime:
+        % frequencies
+        % Notes: Basically runs like wilcoxchannelcategories but replaces 
+            wp = [];
         end
     end  
     
