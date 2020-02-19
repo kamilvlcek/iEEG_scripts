@@ -386,7 +386,7 @@ classdef CStat < handle
                 channels =   obj.plotAUC_m.channels;
             end           
             
-            obj.plotAUC.Eh.CH.ChannelPlot([],0,vals,... %param chnvals
+            obj.plotAUC.Eh.CH.ChannelPlot(vals,... %param chnvals
                 channels,... %chnsel jsou cisla kanalu, pokud chci jen jejich vyber
                 iff(~isempty(selchs),selchs,0),[],...%selch je jedno zvyraznene cislo kanalu - index v poli chnsel
                 'AUCPlotBrain', [0 1]); 
