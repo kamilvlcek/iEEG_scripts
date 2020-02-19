@@ -26,6 +26,7 @@ classdef CHilbertL < CHilbert
         
         %% Plot Response Frequency
         
+        function obj = plotresponsefrequency(obj, channels, categories)
         % Restructured PlotResponseFreq function which allows plotting of
         % either single or multiple channels averaged together. 
         % channels: numeric array definich which channels to plot. If more than
@@ -39,7 +40,6 @@ classdef CHilbertL < CHilbert
         %   obj.plotresponsefrequency(1, [0:2])
         %   obj.plotresponsefrequency([1, 2:5, 8], [0:2])
         %   obj.plotresponsefrequency([1:5], 2)
-        function obj = plotresponsefrequency(obj, channels, categories)
             if ~exist('channels', 'var'), channels = []; end
             if ~exist('categories', 'var'), categories = []; end
            
@@ -54,6 +54,7 @@ classdef CHilbertL < CHilbert
             set(obj.plotFrequency.fh, 'KeyPressFcn', @obj.frequencyplothandle);
         end
         
+        function obj = PlotResponseFreqMean(obj, ch, categories)
         % Wrapper around plotresponsefrequency for plotting a response
         % frequencies for multiple channels
         % ch: numeric array definich which channels to plot. If more than
@@ -67,12 +68,12 @@ classdef CHilbertL < CHilbert
         %   obj.PlotResponseFreqMean(1, [0:2])
         %   obj.PlotResponseFreqMean([1, 2:5, 8], [0:2])
         %   obj.PlotResponseFreqMean([1:5], 2)
-        function obj = PlotResponseFreqMean(obj, ch, categories)
             obj.plotresponsefrequency(ch, categories)
         end
         
         %% Getters
-        
+         
+        function envelopes = getenvelopes(obj, channels, frequencies, categories)
         % returns HFreqEpochs for given set of channels and categories. For
         %   average call getaverageenvelopes
         % 
@@ -86,8 +87,7 @@ classdef CHilbertL < CHilbert
         %   you want category 1, you need to pass 0. default []
         % RETURN: matrix [time x channel x frequency x category]
         % EXAMPLES:
-        %    
-        function envelopes = getenvelopes(obj, channels, frequencies, categories)
+        %   
             if ~exist('channels', 'var') || numel(channels) == 0
                 channels = 1:size(obj.HFreqEpochs, 2);
             end
@@ -104,6 +104,7 @@ classdef CHilbertL < CHilbert
             envelopes = obj.HFreqEpochs(:, channels, frequencies, categories);
         end
         
+        function envelopes = getaverageenvelopes(obj, channels, frequencies, categories)
         % averages envelopes per channels and categories and 
         %   for particular frequencies. Uses data in the obj.HFreq, 
         %   selects based on channels and category indices and returns 
@@ -125,7 +126,6 @@ classdef CHilbertL < CHilbert
         %   hilbert.getaverageenvelopes([], [], 1)
         %   % averages all channels across all categories
         %   hilbert.getaverageenvelopes([], [], [])
-        function envelopes = getaverageenvelopes(obj, channels, frequencies, categories)
             if ~exist('channels', 'var') || numel(channels) == 0
                 channels = 1:size(obj.HFreq, 2);
             end
@@ -145,7 +145,6 @@ classdef CHilbertL < CHilbert
             envelopes = squeeze(envelopes);
         end
         
-
         function indices = getcategoryindices(obj, categories)
         % Returns indices of given categories in the obj.HFreqEpochs
         % categories: vector of either characters cells or numbers defining
@@ -186,7 +185,6 @@ classdef CHilbertL < CHilbert
             end
         end
         
-        
         function indices = gettimewindowindices(obj, timewindow)
         % Returns indices in the envelope for given timewindow
         % 
@@ -221,7 +219,7 @@ classdef CHilbertL < CHilbert
         end
                 
         %% Statistics
-        
+
         function wp = wilcoxbaseline(obj, baselinetime, responsetime, frequencies, categories)
         % Calculates rank test against a baseline.
         % 
@@ -229,8 +227,7 @@ classdef CHilbertL < CHilbert
         % responsetime: numeric(2) in seconds defining response timewindow
         % frequencies: array of frequencies to analyse. if [], runs for all
         %   frequencies. See obj.getenvelopes for description
-        % categories: indices of wanted categories. if [], runs fo all categories
-        %   See obj.getenvelopes for description
+        % categories: list of cells of wanted categories. e.g. {'Ovoce'}
         % RETURNS: a 4d matrix calculated p values by CStat.Wilcox2D. Non
         %   calculated comparisons are left empty with NaNs. 
         %   returned matrix is p value in time x channel x frequency x category
@@ -257,17 +254,26 @@ classdef CHilbertL < CHilbert
             if ~exist('categories', 'var') || numel(categories) == 0
                 categories = 1:wpSize(4);
             end
-
+            
             % separate comparison for each channel, frequency and category
             for iFrequency = 1:numel(frequencies)
                 fprintf('Comparing for frequency %f\n', obj.Hfmean(iFrequency));
                 for category = categories
-                    envelopes = obj.getenvelopes([], frequencies(iFrequency), category);
+                    if(iscell(category))
+                        iCategory = obj.PsyData.CategoryNum(category);
+                    else
+                        iCategory = category;
+                    end
+                    [~, ~, RjEpCh] = obj.CategoryData(iCategory);
+                    
+                    envelopes = obj.getenvelopes([], frequencies(iFrequency), iCategory);
                     response = squeeze(envelopes(iResponse(1):iResponse(2), :, :, :));
                     baseline = squeeze(envelopes(iBaseline(1):iBaseline(2), :, :, :));
-                    tempWp = CStat.Wilcox2D(response, baseline, 0, 1);
-                    iCategory = obj.PsyData.CategoryNum(category) + 1;
-                    wp(:, :, iFrequency, iCategory) = tempWp;
+                    % As we are passing the same set of epochs, we can
+                    % basically "clone" the epochs?
+                    tempWp = CStat.Wilcox2D(response, baseline, 0, [], '', ...
+                        RjEpCh, RjEpCh);
+                    wp(:, :, iFrequency, iCategory + 1) = tempWp;
                 end
             end
         end
@@ -298,13 +304,23 @@ classdef CHilbertL < CHilbert
             if ~exist('frequencies', 'var') || numel(frequencies) == 0
                 frequencies = 1:wpSize(3);
             end
+            
+            rejectedEpochs = {2};
+            for iCategory = 1:2
+                [~, ~, RjEpCh] = obj.CategoryData(categories{(iCategory)});
+                rejectedEpochs(iCategory) = {RjEpCh};
+            end
+            
             for iFrequency = 1:numel(frequencies)
                 fprintf('Comparing for frequency %f\n', obj.Hfmean(iFrequency));
                 responseA = obj.getenvelopes([], frequencies(iFrequency), categories(1));
                 responseA = squeeze(responseA(iResponse(1):iResponse(2), :, :, :));
                 responseB = obj.getenvelopes([], frequencies(iFrequency), categories(2));
                 responseB = squeeze(responseB(iResponse(1):iResponse(2), :, :, :));
-                tempWp = CStat.Wilcox2D(responseA, responseB, 0, []);
+                % As we are passing the same set of epochs, we can
+                % basically "clone" the epochs?
+                tempWp = CStat.Wilcox2D(responseA, responseB, 0, [], '', ...
+                    rejectedEpochs{(1)}, rejectedEpochs{(2)});
                 wp(:, :, iFrequency) = tempWp;
             end
         end

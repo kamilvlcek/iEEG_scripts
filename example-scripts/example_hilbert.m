@@ -30,14 +30,10 @@ wBaseline = hilbert.wilcoxbaseline([-0.2 0], [0.01 0.8], [], {'Object'});
 plotpintime(squeeze(wBaseline(:, 1, :, 4)), [0.01 0.8], hilbert.Hfmean);
 
 % Wilcox category comparison
-wCategory = hilbert.wilcoxcategories([{'Object'} {'Scene'}], [0.01 0.8]);
-plotpintime(wCategory, [0.01 0.8])
-
 wCategory = hilbert.wilcoxcategories([{'Ovoce'} {'Scene'}], [0.0 0.8]);
-plotpintime(squeeze(wCategory(:, 18, :)), [0.0 0.8])
+% PLots P value for difference between Ovoce and Scene for 18th channel for
+% all frequencies
+plotpintime(squeeze(wCategory(:, 18, :)), [0.0 0.8], hilbert.Hfmean);
 
 wCategory = hilbert.wilcoxcategories([{'Ovoce'} {'Scene'}], [0.0 0.5]);
-plotpintime(wCategory, [0.0 0.5])
-
-wCategory = hilbert.wilcoxcategories([{'Ovoce'} {'Scene'}], [], 5);
-plotpintime(wCategory, hilbert.epochtime(1:2))
+plotpintime(squeeze(wCategory(:, 18, :)), [0.0 0.8])
