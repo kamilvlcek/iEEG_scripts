@@ -13,9 +13,10 @@ classdef ScatterPlot < handle
         is3D;   % urcuje, zda se jedna o 3D plot
         
         selCh ; % kopie ieegdata.plotRCh.selCh;
-        selChNames ; % kopie ieegdata.plotRCh.selChNames;
-        dispSelCh % vyber klavesami fghjkl 
-        dispSelChName
+        selChNames ; % kopie ieegdata.plotRCh.selChNames
+        dispSelCh % vyber klavesami fghjkl - the channel numbers
+        dispSelChN % logical index of channels marks 1-6 displayed
+        dispSelChName %names of channel marks fghjkl displayd
         
         dispFilterCh % CH.sortorder
         
@@ -63,7 +64,8 @@ classdef ScatterPlot < handle
             obj.selCh = ieegdata.plotRCh.selCh; %vyber kanalu fghjkl * pocet kanalu
             obj.selChNames = ieegdata.plotRCh.selChNames; %vyber kanalu fghjkl * pocet kanalu
             obj.dispSelChName = [];
-            obj.dispSelCh = 1:size(obj.selCh,1);  % Zobrazuji vse
+            obj.dispSelCh = 1:size(obj.selCh,1);  % Show all channels (all markings)
+            obj.dispSelChN = [1 1 1 1 1 1]; %all 6 markings
             
             obj.dispFilterCh = obj.ieegdata.CH.sortorder; % Vyber podle FilterChannels
             obj.connectChannels = 0;
@@ -106,28 +108,36 @@ classdef ScatterPlot < handle
         end
         
         function PlotBrain(obj,katnum,xy,rangeZ)
-            if ~exist('katnum','var') || isempty(katnum), katnum = 1; end
+            if ~exist('katnum','var') || isempty(katnum), katnum = 1; end %katnum is the kategory num, which should correspond to channel marking 1-3(4)
             if ~exist('xy','var'), xy = 'y'; end %defaultne osaY = valmax napriklad
             if ~exist('rangeZ','var') %pokud neni zadane
-                rangeZ = iff(xy=='x',xlim(obj.ax),ylim(obj.ax));  %nastavi se podle limitu scatterplotu
+                rangeZ = iff(xy=='x',xlim(obj.ax),ylim(obj.ax));  %set by scatter plot y and x limits
             end 
             selChFiltered = obj.selCh(obj.dispChannels,:); %chci zobrazovat jen signif odpovedi
-            iData = logical(selChFiltered(:,katnum)); %kanaly se signifikantim rozdilem vuci baseline v teto kategorii
+            iselChFiltered = logical(selChFiltered(:,katnum)); %channels with this marking=category
+            data = nan(1,size(iselChFiltered,1));
             if(xy=='x')
-                data = obj.dispData(katnum).dataX(iData);
+                for ik = 1:numel(katnum)
+                    idata = iselChFiltered(:,ik);
+                    data(idata) = nanmax([data(idata);obj.dispData(katnum(ik)).dataX(idata)],[],1);
+                end
                 dataName = obj.axisX;
             else
-                data = obj.dispData(katnum).dataY(iData);
+                for ik = 1:numel(katnum)
+                    idata = iselChFiltered(:,ik); %index of channels with markings 
+                    data(idata) = nanmax([data(idata);obj.dispData(katnum(ik)).dataY(idata)],[],1);
+                end                
                 dataName = obj.axisY;
             end
+            idata = ~isnan(data); %exclude data with no significance relative to baseline (in any category)
             obj.header.plotCh3D.selch = []; %nechci mit vybrany zadny kanal z minula
             if isfield(obj.header.plotCh2D,'chshowstr')
-                chshowstr = obj.header.plotCh2D.chshowstr; %musim udelat kopii jinak se do grafu preda odkaz
+                chshowstr = obj.header.plotCh2D.chshowstr; 
             else
                 chshowstr = '';
             end
-            obj.header.ChannelPlot([],0,data,... %param chnvals
-                obj.dispChannels(iData),... %chnsel jsou cisla kanalu, pokud chci jen jejich vyber
+            obj.header.ChannelPlot(data,... %param chnvals
+                obj.dispChannels(idata),... %chnsel jsou cisla kanalu, pokud chci jen jejich vyber
                 [],[],{[dataName '(' obj.categoryNames{katnum} '), SelCh: ' cell2str(obj.dispSelChName) ], ... %popis grafu = title - prvni radek
                 ['show:' chshowstr]}, ... %popis grafu title, druhy radek
                 rangeZ); %rozsah hodnot - meritko barevne skaly
@@ -464,13 +474,22 @@ classdef ScatterPlot < handle
                     end    
                     obj.updatePlot();
                 case {'a'}  % Resset do zakladniho vyberu
-                    obj.dispFilterCh = obj.ieegdata.CH.sortorder; % Vyber podle FilterChannels
-                    obj.dispSelCh = 1:size(obj.selCh,1);   % Zrusit vyber dle SelCh
+                    if sum(obj.dispSelChN) < 6 %if not all channel markings are shown
+                        %show all channel markings = all channels in current sortorder
+                        obj.dispFilterCh = obj.ieegdata.CH.sortorder; % Vyber podle FilterChannels
+                        obj.dispSelCh = 1:size(obj.selCh,1);   % Zrusit vyber dle SelCh - display all channels
+                        obj.dispSelChN = [1 1 1 1 1 1]; %all channel markings
+                    else
+                        %if all channel were already shown, show no channels
+                        obj.dispSelChN = [0 0 0 0 0 0];
+                        obj.dispSelCh = []; %non channels are shown
+                    end
                     obj.dispSelChName = [];
                     obj.updatePlot();
                 case {'f','g','h','j','k','l'}
-                    obj.dispSelCh = find(obj.selCh(:,'fghjkl'==eventDat.Key)');
-                    obj.dispSelChName = obj.selChNames{'fghjkl'==eventDat.Key};
+                    obj.dispSelChN = xor('fghjkl'==eventDat.Key,obj.dispSelChN);
+                    obj.dispSelCh = find(any(obj.selCh(:,obj.dispSelChN),2)');
+                    obj.dispSelChName = cell2str(obj.selChNames(obj.dispSelChN)); %string from all cell fields
                     obj.updatePlot();
                 case {'s'}
                     obj.connectChannels = obj.connectChannels + 1;

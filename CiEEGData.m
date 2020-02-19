@@ -116,6 +116,11 @@ classdef CiEEGData < matlab.mixin.Copyable
             obj.PL = CPlots(); %prazdny objekt na grafy
             if ~isprop(obj,'CS') || ~isa(obj.CS,'CStat') , obj.CS = CStat(); end %prazdy objekt na statistiku, ale mozna uz byl nacteny pomoci load             
         end      
+        function delete(obj) %destructor of a handle class
+            if isfield(obj.plotEp,'fh') && ~isempty(obj.plotEp.fh) && ishandle(obj.plotEp.fh) ,close(obj.plotEp.fh); end
+            if isfield(obj.plotRCh,'fh') && ~isempty(obj.plotRCh.fh) && ishandle(obj.plotRCh.fh) ,close(obj.plotRCh.fh); end
+            if isprop(obj,'plotH') && ~isempty(obj.plotH) && ishandle(obj.plotH) ,close(obj.plotH); end
+        end
         function [samples, channels, epochs] = DSize(obj)
             % vraci velikosti pole d - samples, channels, epochs
             samples = size(obj.d,1);
@@ -353,7 +358,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             %pokud opak>0, vraci jen jedno opakovani obrazku - hlavne kvuli PPA test 
             %RjEpCh (Channels x Epochs) - vraci i epochy k vyrazeni pro kazdy kanal (uz s globalne vyrazenymi epochami)
             %  vyradit rovnou je nemuzu, protoze pocet epoch v d pro kazdy kanal musi by stejny
-            %  ch ovlivujen jen RjRpCh (v radcich jsou jen kanaly v ch) , d obsahuje vzdy vsechny kanaly, samply a prislusne epochy
+            %  ch ovlivujen jen RjEpCh (v radcich jsou jen kanaly v ch) , d obsahuje vzdy vsechny kanaly, samply a prislusne epochy
             %  katnum je 1-n cisel kategorii.
             assert(obj.epochs > 1,'data not yet epoched'); %vyhodi chybu pokud data nejsou epochovana            
             assert(obj.channels == size(obj.RjEpochCh,1),'RjEpochCh: spatny pocet kanalu');
@@ -1900,8 +1905,11 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
             %nove plotRCh ukladam cely, predchozi radky tam jsou jen kvuli zpetne kompatibilite
             if ismember('RCh_plots', {vars.name}) %nastaveni grafu PlotResponseCh - jmena vyberu kanalu fghjkl
-                load(filename,'RCh_plots'); obj.plotRCh = RCh_plots;          %#ok<CPROPLC,CPROP,PROP>  
-                obj.CH.SetSelCh(obj.plotRCh.selCh,obj.plotRCh.selChNames); %transfers channel marking to CHHeader class
+                load(filename,'RCh_plots'); 
+                if  isfield(RCh_plots,'selCh') 
+                    obj.plotRCh = RCh_plots;          
+                    obj.CH.SetSelCh(obj.plotRCh.selCh,obj.plotRCh.selChNames); %transfers channel marking to CHHeader class
+                end
             elseif ~isprop(obj,'plotRCh')
                 obj.plotRCh = [];
             end 
