@@ -136,7 +136,7 @@ classdef ScatterPlot < handle
             else
                 chshowstr = '';
             end
-            obj.header.ChannelPlot(data,... %param chnvals
+            obj.header.ChannelPlot(data(idata),... %param chnvals
                 obj.dispChannels(idata),... %chnsel jsou cisla kanalu, pokud chci jen jejich vyber
                 [],[],{[dataName '(' obj.categoryNames{katnum} '), SelCh: ' cell2str(obj.dispSelChName) ], ... %popis grafu = title - prvni radek
                 ['show:' chshowstr]}, ... %popis grafu title, druhy radek
@@ -172,6 +172,10 @@ classdef ScatterPlot < handle
             for k = 1 : numel(obj.categories)                
                 catnum = cellval(obj.categories,k);%cislo kategorie, muze byt cell, pokud vice kategorii proti jedne
                 obj.categoryNames(k) = obj.ieegdata.PsyData.CategoryName(catnum);
+                %check that the order of categories is the same as order of selChNames
+                if ~strcmp(obj.categoryNames{k},obj.selChNames{k})
+                    warning('categoryNames{%i}="%s" is different from selChNames{%i}="%s"',k,obj.categoryNames{k},k,obj.selChNames{k});
+                end
             end
             obj.categoriesSelectionIndex = 1:numel(obj.categories);
         end
@@ -273,7 +277,7 @@ classdef ScatterPlot < handle
             if obj.connectChannels > 0
                 obj.drawConnectChannels();
             end
-            obj.drawPlot(selChFiltered, selChRj);
+            obj.drawPlot(selChFiltered, selChRj); %actual drawing
             
             legend(obj.ax, 'show');
             hold(obj.ax, 'off');
@@ -312,6 +316,8 @@ classdef ScatterPlot < handle
         end
         
         function drawPlot(obj, selChFiltered, selChRj)
+            %actual plot drawing
+            %selChFiltered is part of obj.selCh for displayed channels, channel x fghjkl markings
             pocty = zeros(max(obj.categoriesSelectionIndex),3); % maximalni mozny index zobrazeneho kanalu
             for k = flip(obj.categoriesSelectionIndex) %nejpozdeji, cili nejvic na vrchu, chci mit prvni kategorii %1:numel(obj.categories)
                 colorIndex = obj.categories(k) + 1;

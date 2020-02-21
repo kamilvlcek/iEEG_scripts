@@ -248,10 +248,10 @@ classdef CBrainPlot < matlab.mixin.Copyable
             else
                 obj.plotBrain3Dcfg.NLabels = 0; %defaultne se nevypisuji anatomicke lokalizace
             end
-            if isstruct(cfg) && isfield(cfg,'NOnames')
-                obj.plotBrain3Dcfg.NOnames = cfg.NOnames;
+            if isstruct(cfg) && isfield(cfg,'NoNames')
+                obj.plotBrain3Dcfg.NoNames = cfg.NoNames;
             else
-                obj.plotBrain3Dcfg.NOnames = 0; %defaultne se nedelaji obrazky bez popisu elektrod            
+                obj.plotBrain3Dcfg.NoNames = 0; %defaultne se nedelaji obrazky bez popisu elektrod            
             end            
             if isstruct(cfg) && isfield(cfg,'Names')
                 obj.plotBrain3Dcfg.Names = cfg.Names;
@@ -268,7 +268,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
             assert(~isempty(obj.plotBrain3Dcfg),'zadna konfigurace - je nutne volat PlotBrain3DConfig');
             plotSetup = {};
             if ~exist('kategorie','var') || isempty(kategorie) , kategorie = 1:size(obj.VALS,2); end %muzu chtit jen nektere kategorie
-            signum = obj.plotBrain3Dcfg.signum; 
+            signum = obj.plotBrain3Dcfg.signum; %#ok<PROPLC>
             plotSetup.outputDir = obj.plotBrain3Dcfg.outputDir;                                              
             
             if ~isempty(obj.brainsurface)
@@ -280,7 +280,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
             vypnout = 0;  %jestli chci po konci skriptu pocitac vypnout (a nechci ho hybernovat)             
             plotSetup.figureVisible = 'off';   %nechci zobrazovat obrazek 
             plotSetup.FontSize = 4; 
-            plotSetup.myColorMap = iff(signum ~= 0,parula(128) ,jet(128));    %pokud jednostrane rozdily, chci parula
+            plotSetup.myColorMap = iff(signum ~= 0,parula(128) ,jet(128));  %#ok<PROPLC>  %pokud jednostrane rozdily, chci parula
             %barevna skala od Nadi
             plotSetup.customColors.customColor = true; % custom colormap oddeli negativne a pozitivne hodnoty - 29.6.2018
             plotSetup.customColors.flip = 0; %pokud chci prehodit barvy
@@ -292,13 +292,13 @@ classdef CBrainPlot < matlab.mixin.Copyable
             if strcmp(plotSetup.figureVisible,'off')
                 disp('figures invisible');
             end
-            if ~obj.plotBrain3Dcfg.NOnames 
-               disp('obrazky noNames negeneruju');
+            if ~obj.plotBrain3Dcfg.NoNames 
+               disp('obrazky NoNames negeneruju');
             end
             if ~obj.plotBrain3Dcfg.Names 
                disp('obrazky Names negeneruju');
             end
-            tablelog = cell(obj.pocetcykluPlot3D(kategorie,signum)+2,7); % z toho bude vystupni xls tabulka s prehledem vysledku
+            tablelog = cell(obj.pocetcykluPlot3D(kategorie,signum)+2,7);%#ok<PROPLC> % z toho bude vystupni xls tabulka s prehledem vysledku
             tablelog(1,:) = {datestr(now),obj.filename,'','','','',''}; %hlavicky xls tabulky
             tablelog(2,:) = {'interval','kategorie','chname','neurologyLabel','mni','val','selected'}; %hlavicky xls tabulky
             [ChMap,ChNames] = obj.ChannelMap();
@@ -307,9 +307,9 @@ classdef CBrainPlot < matlab.mixin.Copyable
             tic; %zadnu merit cas            
             for interval = 1:size(obj.VALS,1) 
                 for kat = kategorie
-                    if signum > 0 
+                    if signum > 0 %#ok<PROPLC>
                         iV = obj.VALS{interval,kat} > 0; %jen kladne rozdily
-                    elseif signum <0 
+                    elseif signum <0 %#ok<PROPLC>
                         iV = obj.VALS{interval,kat} < 0; %jen zaporne rozdily
                     elseif ~isempty(obj.selCh{interval,kat})
                         iV = ismember(1:numel(obj.VALS{interval,kat}),find(any(obj.selCh{interval,kat},2))); %vyber kanalu k zobrazeni, napriklad z CHilbertMulti
@@ -321,15 +321,15 @@ classdef CBrainPlot < matlab.mixin.Copyable
                     plotSetup.circle_size = iff(strcmp(katname,'all') || strcmp(katname,'AllEl'),28,56); %mensi kulicka pokud vsechny elektrody                
                     
                     brainlabel = obj.GetBrainLabel(); %pokud v label na druhe pozici je nazev mozkove oblasti 
-                    figureNameNames = [ obj.testname brainlabel '_' num2str(obj.intervals(interval,:),'%.1f-%.1fs')  '_' katname '_' num2str(signum) ...
+                    figureNameNames = [ obj.testname brainlabel '_' num2str(obj.intervals(interval,:),'%.1f-%.1fs')  '_' katname '_' num2str(signum) ... %#ok<PROPLC>
                             '_' num2str(obj.Hf([1 end]),'%i-%iHz') '_' obj.reference '_names'];
-                    figureNameNoNames = [ obj.testname brainlabel '_' num2str(obj.intervals(interval,:),'%.1f-%.1fs')  '_' katname '_' num2str(signum) ...
+                    figureNameNoNames = [ obj.testname brainlabel '_' num2str(obj.intervals(interval,:),'%.1f-%.1fs')  '_' katname '_' num2str(signum) ... %#ok<PROPLC>
                             '_' num2str(obj.Hf([1 end]),'%i-%iHz') '_' obj.reference '_NOnames'];
                     if numel(obj.VALS{interval,kat}(iV)) > 0
                         
                         vals_channels = obj.VALS{interval,kat}(iV); %parametr  main_brainPlot
-                        if signum ~= 0
-                            vals_channels = vals_channels*signum; %u zapornych hodnot prehodim znamenko
+                        if signum ~= 0 %#ok<PROPLC>
+                            vals_channels = vals_channels*signum; %#ok<PROPLC> %u zapornych hodnot prehodim znamenko
                         end
                         mni_channels = obj.MNI{interval,kat}(iV);                                                                                                 
                         names_channels = iff(obj.plotBrain3Dcfg.NLabels, obj.NLabels{interval,kat}(iV), obj.NAMES{interval,kat}(iV));                        
@@ -346,7 +346,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
                         end
                         
                         %nejdriv vykreslim bez popisku elektrod
-                        if obj.plotBrain3Dcfg.NOnames 
+                        if obj.plotBrain3Dcfg.NoNames 
                             if  isempty(dir([ plotSetup.outputDir '3D_model\' figureNameNoNames '*'])) || obj.plotBrain3Dcfg.overwrite==1 
                                 plotSetup.figureNamePrefix = figureNameNoNames;
                                 disp(plotSetup.figureNamePrefix);                            
@@ -435,7 +435,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
     end
     
     methods (Static,Access = public)
-        function PAC = StructFind(struktura,label,testname,reference,labelnot,pactodo)
+        function [PAC,ChNum] = StructFind(struktura,label,testname,reference,labelnot,pactodo)
             %najde pacienty, jejich headery obsahuji mozkovou strukturu
             %struktura je nazev struktury podle atlas napriklad hippo, label je kratky nazev podle martina, napriklad hi
             if ~exist('label','var'),    label = struktura; end %defaultni test
@@ -448,6 +448,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
             [ pacienti, setup ] = pacienti_setup_load( testname );
             PAC = {};
             iPAC = 1;
+            ChNum = nan(numel(pacienti),2); %number of channels for each pacient, columns pacient no, num of channels
             for p = 1:numel(pacienti)
                 if pacienti(p).todo == 1 || ~pactodo %pokud je u pacienta todo, nebo se nema pouzivat
                     disp(['* ' pacienti(p).folder ' - ' pacienti(p).header ' *']);
@@ -502,10 +503,12 @@ classdef CBrainPlot < matlab.mixin.Copyable
                         iPAC = iPAC + 1;
                     end
                 end
+                ChNum(p,:) = [p,numel(index)];
             end 
             if numel(PAC) > 0
                 xlsname = ['./logs/StructFind PAC_' testname '_' cell2str(struktura,1) '_' cell2str(label,1) '.xlsx'];
                 writetable(struct2table(PAC), xlsname); %ulozimvysledek taky do xls
+                disp(['found ' num2str(nansum(ChNum(:,2))) ' channels in ' num2str(sum(~isnan(ChNum(:,1)))) ' pacients']);
             else
                 disp('no channels found');
             end
