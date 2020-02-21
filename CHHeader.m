@@ -399,7 +399,8 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         end
         function ChannelPlot2D(obj,chsel,plotRCh,plotChH,label)
             %vstupni promenne
-            %plotRCh - cela struktura plotRCh z CiEEGData
+            %plotRCh - copy of the struct CiEEGData.plotRCh
+            %handle to function CiEEGData @obj.PlotResponseCh
             if ~exist('chsel','var') %promenna na jeden cerveny kanal
                 chsel = obj.plotCh2D.chsel;                
             else
@@ -1076,7 +1077,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                    pTags{ch}=obj.PacientTag(chIndex(ch));
                end
                rjCount = numel(intersect(chIndex,obj.RjCh)); %number of rejected channels for this label
-               marksCount =  sum(obj.plotCh2D.selCh(chIndex,1:noMarks)); %count of channel marking fghjkl        
+               marksCount =  sum(obj.plotCh2D.selCh(chIndex,1:noMarks),1); %count of channel marking fghjkl        
                marksPacientCount = zeros(1,noMarks);               
                for m=1:noMarks
                    marksPacientCount(m) = numel(unique(pTags(logical(obj.plotCh2D.selCh(chIndex,m))))); %no of patients for this mark                  
@@ -1391,8 +1392,12 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                       if obj.plotCh2D.chseltop > 2, obj.plotCh2D.chseltop = 0; end %0-nezobrazen, 1-v pozadi, 2-v popredi
                       obj.ChannelPlot2D();
                   case 'n' %moznost vypnout / zapnout zobrazeni jmen kanalu
-                      obj.plotCh2D.names = obj.plotCh2D.names + 1; 
-                      if obj.plotCh2D.names == 4, obj.plotCh2D.names =0; end % meni se postupne hodoty 0 1 2
+                      if ~isempty(eventDat.Modifier) && strcmp(eventDat.Modifier{:},'shift') 
+                          obj.plotCh2D.names =0; %by the alt+n, switch off all names
+                      else
+                          obj.plotCh2D.names = obj.plotCh2D.names + 1;
+                        if obj.plotCh2D.names == 4, obj.plotCh2D.names =0; end % meni se postupne hodoty 0 1 2
+                      end
                       obj.ChannelPlot2D();    
                   case 's' %switch to show all channels 
                       obj.plotCh2D.lines = obj.plotCh2D.lines + 1;

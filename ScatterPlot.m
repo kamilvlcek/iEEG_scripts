@@ -97,7 +97,7 @@ classdef ScatterPlot < handle
             
             obj.setCategories();
             
-            obj.drawScatterPlot(0.5, 0.5);
+            obj.drawScatterPlot(0.9, 0.5); %default values for valFraction and intFraction
         end
         
         function drawScatterPlot(obj, valFraction, intFraction)
