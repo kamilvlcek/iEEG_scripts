@@ -137,7 +137,7 @@ classdef ScatterPlot < handle
             else
                 chshowstr = '';
             end
-            obj.header.channelPlot.ChannelPlotProxy(data(idata),... %param chnvals
+            obj.header.ChannelPlotProxy(data(idata),... %param chnvals
                 obj.dispChannels(idata),... %chnsel jsou cisla kanalu, pokud chci jen jejich vyber
                 [],[],{[dataName '(' obj.categoryNames{katnum} '), SelCh: ' cell2str(obj.dispSelChName) ], ... %popis grafu = title - prvni radek
                 ['show:' chshowstr]}, ... %popis grafu title, druhy radek
@@ -433,10 +433,12 @@ classdef ScatterPlot < handle
         end
                 
         function highlightSelected(obj, ch)
-            if ~isempty(obj.highlights)
-                delete(obj.highlights);
+            if ~isempty(obj.highlights) 
+                if isvalid(obj.highlights)
+                    delete(obj.highlights);
+                end
             end
-            obj.highlights = [];
+            obj.highlights = gobjects();
             idx = find(obj.dispChannels == ch);
             hold(obj.ax, 'on');
             if idx

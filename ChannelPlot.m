@@ -105,11 +105,11 @@ classdef ChannelPlot < matlab.mixin.Copyable
                     else
                         switch obj.plotCh3D.labels %which brainlabels to show as labels for points
                             case 1 
-                                chnnames = {obj.brainlabels(chGroup).lobe};
+                                chnnames = {obj.CH.brainlabels(chGroup).lobe};
                             case 2
-                                chnnames = {obj.brainlabels(chGroup).label};
+                                chnnames = {obj.CH.brainlabels(chGroup).label};
                             case 3
-                                chnnames = {obj.brainlabels(chGroup).class};
+                                chnnames = {obj.CH.brainlabels(chGroup).class};
                         end
                     end
                     iZ = mod(1:numel(Z), 2); iZ(iZ == 0) = -1;                    
@@ -199,8 +199,8 @@ classdef ChannelPlot < matlab.mixin.Copyable
                 if isfield(obj.plotCh3D,'background') && obj.plotCh3D.background==0
                     set(gca,'color','none'); %zadne bile pozadi, pak ani v corelu
                 end
-                if obj.plotCh3D.coloruse == 2 && ~isempty(obj.brainlabels) && length(obj.brainlabels)==numel(obj.CH.H.channels)
-                    labels = lower({obj.brainlabels.label});
+                if obj.plotCh3D.coloruse == 2 && ~isempty(obj.CH.brainlabels) && length(obj.CH.brainlabels)==numel(obj.CH.H.channels)
+                    labels = lower({obj.CH.brainlabels.label});
                     ulabels = unique(labels); %cell array of unique brainlabels
                     barvy = distinguishable_colors(numel(ulabels));
                     for ilabel = 1:numel(ulabels)
@@ -248,23 +248,25 @@ classdef ChannelPlot < matlab.mixin.Copyable
                 case 0 %colors based on channel vals
                     clrs = cmap(round(nblocks*chnvalsN)+1, :); % rgb color values for each channel (chns x 3), prevedu na rozsah 1-nblocks a priradim barvy
                 case 1 %colors based on channel markings as in ChannelPlot2D
-                    clrs = repmat([.5 .5 .5],numel(chnvals),1); %default grey color for each channel            
-                    barvy = [obj.plotCh2D.color_def(obj.plotCh2D.color_index:end,:); obj.plotCh2D.color_def(1:obj.plotCh2D.color_index-1,:)]; %barvy od poradi colorindexu
-                    for ci = 1:numel(obj.plotCh2D.color_order) %1:size(selCh,2) %jednu znacku za druhou m = size(selCh,2):-1:1 
-                       m = obj.plotCh2D.color_order(ci); %order of marks by color_order, similarly to 2D channel plot
-                       if  obj.plotCh2D.marks(m) %if to show this mark
-                           ch = find(obj.plotCh2D.selCh(:,m)); %number of channels for this channel mark
-                           ch = intersect(chnsel,ch); %reduced for only the selected channels
-                           if numel(ch) > 0
-                               ichannel = ismember(chnsel,ch)'; %index of channels in chnsel and chnvals
-                               clrs(ichannel,:)=repmat(barvy(m,:),size(ch)); %previous color is overwriten
+                    clrs = repmat([.5 .5 .5],numel(chnvals),1); %default grey color for each channel
+                    if ~isempty(obj.CH.plotCh2D) % Musi byt vytvoreny plotCh2D
+                        barvy = [obj.CH.plotCh2D.color_def(obj.CH.plotCh2D.color_index:end,:); obj.CH.plotCh2D.color_def(1:obj.CH.plotCh2D.color_index-1,:)]; %barvy od poradi colorindexu
+                        for ci = 1:numel(obj.CH.plotCh2D.color_order) %1:size(selCh,2) %jednu znacku za druhou m = size(selCh,2):-1:1 
+                           m = obj.CH.plotCh2D.color_order(ci); %order of marks by color_order, similarly to 2D channel plot
+                           if  obj.CH.plotCh2D.marks(m) %if to show this mark
+                               ch = find(obj.CH.plotCh2D.selCh(:,m)); %number of channels for this channel mark
+                               ch = intersect(chnsel,ch); %reduced for only the selected channels
+                               if numel(ch) > 0
+                                   ichannel = ismember(chnsel,ch)'; %index of channels in chnsel and chnvals
+                                   clrs(ichannel,:)=repmat(barvy(m,:),size(ch)); %previous color is overwriten
+                               end
                            end
-                       end
+                        end
                     end
                 case 2 %colors based on brainlabels
                     clrs = repmat([.5 .5 .5],numel(chnvals),1); %default grey color for each channel                                
-                    if ~isempty(obj.brainlabels) && length(obj.brainlabels)==numel(obj.H.channels) %if brainlabels exist, otherwise channels will be all grey
-                        labels = lower({obj.brainlabels.label});
+                    if ~isempty(obj.CH.brainlabels) && length(obj.CH.brainlabels)==numel(obj.H.channels) %if brainlabels exist, otherwise channels will be all grey
+                        labels = lower({obj.CH.brainlabels.label});
                         ulabels = unique(labels); %cell array of unique brainlabels
                         barvy = distinguishable_colors(numel(ulabels));
                         for j = 1:numel(ulabels) %cycle over all brainlabels
