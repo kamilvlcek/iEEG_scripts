@@ -265,7 +265,7 @@ classdef ChannelPlot < matlab.mixin.Copyable
                     end
                 case 2 %colors based on brainlabels
                     clrs = repmat([.5 .5 .5],numel(chnvals),1); %default grey color for each channel                                
-                    if ~isempty(obj.CH.brainlabels) && length(obj.CH.brainlabels)==numel(obj.H.channels) %if brainlabels exist, otherwise channels will be all grey
+                    if ~isempty(obj.CH.brainlabels) && length(obj.CH.brainlabels)==numel(obj.CH.H.channels) %if brainlabels exist, otherwise channels will be all grey
                         labels = lower({obj.CH.brainlabels.label});
                         ulabels = unique(labels); %cell array of unique brainlabels
                         barvy = distinguishable_colors(numel(ulabels));
