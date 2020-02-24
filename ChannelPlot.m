@@ -413,7 +413,7 @@ classdef ChannelPlot < matlab.mixin.Copyable
             if isfield(obj.plotCh3D, 'selNameHandle') % smazu predchozi oznaceni, pokud nejake bylo
                 delete(obj.plotCh3D.selNameHandle)
             end
-            obj.plotCh3D.selHandle = scatter3(ax, x, y, z, 200, 'r', 'fill'); % oznacim vybrany kanal na 3D grafu
+            obj.plotCh3D.selHandle = scatter3(ax, x, y, z, 160, 'or', 'LineWidth', 3); % oznacim vybrany kanal na 3D grafu
             obj.plotCh3D.selNameHandle = annotation(obj.plotCh3D.fh, 'textbox',[0 1 0 0],'String',obj.CH.H.channels(ch).name,'FitBoxToText','on');
           else  % pokud se zadny kanal nenasel (kliknuti mimo)
              if isfield(obj.plotCh3D, 'selHandle') % smazu predchozi oznaceni, pokud nejake bylo
