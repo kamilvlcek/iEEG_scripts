@@ -1132,7 +1132,45 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         end
         
     end
-    
+    methods (Access = public,Static)
+        function ExportHeadersAll()
+            %ExportHeadersAll - exports header information from all patients
+            pp = pacienti_ppa();
+            pa = pacienti_aedist();
+            pm = pacienti_menrot();
+            for ipa = 1:max(numel(pa),numel(pm)) 
+                tocopy = [ipa<= numel(pa),ipa<= numel(pm)];
+                for ipp = 1:numel(pp)
+                    if tocopy(1) && strcmp(pa(ipa).header,pp(ipp).header)
+                        tocopy(1) = false;                        
+                    end
+                    if tocopy(2) && strcmp(pm(ipa).header,pp(ipp).header)
+                        tocopy(2) = false;                        
+                    end
+                    if ~any(tocopy)
+                        break;
+                    end
+                end
+                if tocopy(1)
+                    pp(end+1) = pa(ipa); %#ok<AGROW>
+                end
+                if tocopy(2)
+                    pp(end+1) = pm(ipa); %#ok<AGROW>
+                end
+            end   
+            [~,idx]=sort({pp.folder});
+            pp = pp(idx); %sorted struct array by folder names
+            
+            colnames = {'pacient','chname','neurologyLabel','ass_brainAtlas','ass_cytoarchMap',...
+                        'p_grayMatter','p_whiteMatter','p_cerebroSpinalFluid','seizureOnset','interictalOften'};
+            output = cell(0,numel(colnames));
+            iout = 1;
+            for ipp = 1:numel(pp)
+                H = load(pp(ipp).
+                output(iout,:) = {pp.ipp.channels.
+            
+        end
+    end
     %  --------- privatni metody ----------------------
     methods (Access = private)
           function obj = SelChannels(obj)
