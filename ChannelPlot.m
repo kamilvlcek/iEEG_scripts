@@ -219,7 +219,7 @@ classdef ChannelPlot < matlab.mixin.Copyable
                     obj.CH.HullPlot3D(obj.plotCh3D.hullindex);
                 end
                 obj.plotCh3D.dispChannels = chnsel; % ulozim vyber zobrazenych kanalu (je potreba pro klikani)
-                
+                obj.highlightChannel(); %if there is any channel to be highligted, do it
                 %rozhybani obrazku            
                 set(obj.plotCh3D.fh,'KeyPressFcn',@obj.hybejPlot3D);
             else
@@ -227,7 +227,7 @@ classdef ChannelPlot < matlab.mixin.Copyable
             end
         end
 
-          function [clrs,sizes,rangeZ,reverse] = colors4ChannelPlot(obj,chnsel,chnvals,rangeZ)
+        function [clrs,sizes,rangeZ,reverse] = colors4ChannelPlot(obj,chnsel,chnvals,rangeZ)
             nblocks = numel(chnvals); %the number of colors will be the same as channels
             cmap = parula(nblocks+1); %+1 as the values will be rounded up or down
             reverse = 0; %if to reverse to color map and size of the points in scatter3D 
@@ -281,6 +281,7 @@ classdef ChannelPlot < matlab.mixin.Copyable
                         end
                     end
             end
+            obj.plotCh3D.sizes = sizes;
           end
         
         function obj = Plot3DBoundary(obj)
@@ -288,7 +289,7 @@ classdef ChannelPlot < matlab.mixin.Copyable
             %pokud boundary neni vypocitana, spocita ji a ulozi do obj.plotCh3D.BrainBoundaryXYZ
             %netvori graf, kresli do existujiciho a aktivniho ChannelPlot, a predpoklada hold on;
             dimenze = [2 3; 1 3; 2 1]; %xy, xz a yz 
-            load('GMSurfaceMesh.mat');            
+            load('GMSurfaceMesh.mat');             %#ok<LOAD>
             for d = 1:3
                 stred = min(GMSurfaceMesh.node(:,d)) + range(GMSurfaceMesh.node(:,d))/2;                
                 if ~isfield(obj.plotCh3D,'BrainBoundaryXYZ') || numel(obj.plotCh3D.BrainBoundaryXYZ) < 3
@@ -403,6 +404,15 @@ classdef ChannelPlot < matlab.mixin.Copyable
         end
 
         function highlightChannel(obj, ch)
+          %channel is absolute channel number
+          if ~exist('ch','var') || isempty(ch)
+              if isfield(obj.plotCh3D,'ch_highlighted')
+                ch = obj.plotCh3D.ch_highlighted;
+              else
+                ch = 0; %no highlighted channel
+              end
+          end
+             
           if ch && isfield(obj.plotCh3D,'fh') && ishandle(obj.plotCh3D.fh) % pokud mam otevreny plot
             ax = obj.plotCh3D.fh.CurrentAxes;
             %disp(displayedChannels(closestChannel).name)
@@ -413,7 +423,7 @@ classdef ChannelPlot < matlab.mixin.Copyable
             if isfield(obj.plotCh3D, 'selNameHandle') % smazu predchozi oznaceni, pokud nejake bylo
                 delete(obj.plotCh3D.selNameHandle)
             end
-            obj.plotCh3D.selHandle = scatter3(ax, x, y, z, 160, 'or', 'LineWidth', 3); % oznacim vybrany kanal na 3D grafu
+            obj.plotCh3D.selHandle = scatter3(ax, x, y, z, obj.plotCh3D.sizes(obj.plotCh3D.chnsel==ch)+60, 'ok', 'LineWidth', 2); % oznacim vybrany kanal na 3D grafu
             obj.plotCh3D.selNameHandle = annotation(obj.plotCh3D.fh, 'textbox',[0 1 0 0],'String',obj.CH.H.channels(ch).name,'FitBoxToText','on');
           else  % pokud se zadny kanal nenasel (kliknuti mimo)
              if isfield(obj.plotCh3D, 'selHandle') % smazu predchozi oznaceni, pokud nejake bylo
@@ -423,10 +433,13 @@ classdef ChannelPlot < matlab.mixin.Copyable
                 delete(obj.plotCh3D.selNameHandle)
             end
           end
+           obj.plotCh3D.ch_highlighted = ch;
         end
         
         function delete(obj) %destructor of a handle class
-            if isfield(obj.plotCh3D,'fh') && ~isempty(obj.plotCh3D.fh) && ishandle(obj.plotCh3D.fh) ,close(obj.plotCh3D.fh); end
+            if isfield(obj.plotCh3D,'fh') && ~isempty(obj.plotCh3D.fh) && ishandle(obj.plotCh3D.fh) 
+                close(obj.plotCh3D.fh); 
+            end
         end
         
     end

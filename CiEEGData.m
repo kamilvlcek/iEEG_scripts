@@ -1765,12 +1765,10 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
             epochtime = obj.epochtime;      %#ok<PROP,NASGU>
             baseline = obj.baseline;        %#ok<PROP,NASGU>
-            CH_H=obj.CH.H;                  %#ok<NASGU>            
-            CH_plots = {obj.CH.plotCh2D obj.CH.plotCh3D}; % ulozeni parametru plotu mozku                        
-            CS_plots = {obj.CS.plotAUC obj.CS.plotAUC_m}; % ulozeni parametru plotu AUC krivek                        
-            [CH_plots,CS_plots,RCh_plots] = obj.SaveRemoveFh(CH_plots,CS_plots,obj.plotRCh);  %#ok<ASGLU> %smazu vsechny handely na obrazky             
+            CH_H=obj.CH.H;                  %#ok<NASGU>                                                                      
+            [CH_plots,CS_plots,RCh_plots] = obj.SaveRemoveFh(obj.plotRCh);  %#ok<ASGLU> %smazu vsechny handely na obrazky             
             CH_filterMatrix = obj.CH.filterMatrix; %#ok<NASGU>  
-            CH_brainlabels = obj.CH.brainlabels;
+            CH_brainlabels = obj.CH.brainlabels; %#ok<NASGU>
             els = obj.els;                  %#ok<PROP,NASGU>
             plotES = obj.plotES;            %#ok<PROP,NASGU>          
             RjCh = obj.RjCh;                %#ok<PROP,NASGU>
@@ -1791,8 +1789,16 @@ classdef CiEEGData < matlab.mixin.Copyable
                     'CH_filterMatrix','-v7.3');  
             disp(['ulozeno do ' filename2]); 
         end
-        function [CH_plots,CS_plots,RCh_plots, obj] = SaveRemoveFh(obj,CH_plots,CS_plots,RCh_plots)  %smazu vsechny handely na obrazky 
-            %{obj.CH.plotCh2D obj.CH.plotCh3D}
+        function [CH_plots,CS_plots,RCh_plots, obj] = SaveRemoveFh(obj,RCh_plots)  %smazu vsechny handely na obrazky 
+            %SaveRemoveFh - removes figure handles saved plot parameters
+            CS_plots = {obj.CS.plotAUC obj.CS.plotAUC_m}; % ulozeni parametru plotu AUC krivek  
+            CH_plots = cell(1,2);
+            if ~isempty(obj.CH.plotCh2D)
+                CH_plots{1} = obj.CH.plotCh2D;
+            end
+            if isprop(obj.CH,'channelPlot') && isprop(obj.CH.channelPlot,'plotCh3D') && ~isempty(obj.CH.channelPlot.plotCh3D)
+                CH_plots{2} = obj.CH.channelPlot.plotCh3D;
+            end
             if isfield(CH_plots{1}, 'fh' ), CH_plots{1} = rmfield(CH_plots{1}, {'fh'}); end  %potrebuju odstranit figure handly
             if isfield(CH_plots{1}, 'plotChH' ), CH_plots{1} = rmfield(CH_plots{1}, {'plotChH'}); end  %potrebuju odstranit figure handly
             if isfield(CH_plots{2}, 'fh' ), CH_plots{2} = rmfield(CH_plots{2}, {'fh'}); end  

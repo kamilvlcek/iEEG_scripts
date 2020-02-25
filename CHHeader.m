@@ -141,7 +141,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             ch = 0;
         end
         function [XYZ,cplot] = ChannelPlotProxy(obj,chnvals,chnsel,selch,roi,popis,rangeZ)
-            disp('Calling ChannelPlot through proxy');
+%             disp('Calling ChannelPlot through proxy');
             if isvalid(obj.channelPlot)
                 [XYZ,cplot] = obj.channelPlot.ChannelPlot3D(chnvals,chnsel,selch,roi,popis,rangeZ);
             else
