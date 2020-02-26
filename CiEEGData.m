@@ -386,7 +386,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 psy_rt = zeros(size(d,3),1); %nulove reakcni casy
             end
             
-            if exist('rt','var') && ~isempty(rt) %chci hodnoty serazene podle reakcniho casu               
+            if exist('rt','var') && ~isempty(rt) && rt>0 %chci hodnoty serazene podle reakcniho casu               
                 [psy_rt, isorted] = sort(psy_rt);
                 d = d(:,:,isorted); 
             end   
@@ -1767,12 +1767,10 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
             epochtime = obj.epochtime;      %#ok<PROP,NASGU>
             baseline = obj.baseline;        %#ok<PROP,NASGU>
-            CH_H=obj.CH.H;                  %#ok<NASGU>            
-            CH_plots = {obj.CH.plotCh2D obj.CH.plotCh3D}; % ulozeni parametru plotu mozku                        
-            CS_plots = {obj.CS.plotAUC obj.CS.plotAUC_m}; % ulozeni parametru plotu AUC krivek                        
-            [CH_plots,CS_plots,RCh_plots] = obj.SaveRemoveFh(CH_plots,CS_plots,obj.plotRCh);  %#ok<ASGLU> %smazu vsechny handely na obrazky             
+            CH_H=obj.CH.H;                  %#ok<NASGU>                                                                      
+            [CH_plots,CS_plots,RCh_plots] = obj.SaveRemoveFh(obj.plotRCh);  %#ok<ASGLU> %smazu vsechny handely na obrazky             
             CH_filterMatrix = obj.CH.filterMatrix; %#ok<NASGU>  
-            CH_brainlabels = obj.CH.brainlabels;
+            CH_brainlabels = obj.CH.brainlabels; %#ok<NASGU>
             els = obj.els;                  %#ok<PROP,NASGU>
             plotES = obj.plotES;            %#ok<PROP,NASGU>          
             RjCh = obj.RjCh;                %#ok<PROP,NASGU>
@@ -1793,8 +1791,16 @@ classdef CiEEGData < matlab.mixin.Copyable
                     'CH_filterMatrix','-v7.3');  
             disp(['ulozeno do ' filename2]); 
         end
-        function [CH_plots,CS_plots,RCh_plots, obj] = SaveRemoveFh(obj,CH_plots,CS_plots,RCh_plots)  %smazu vsechny handely na obrazky 
-            %{obj.CH.plotCh2D obj.CH.plotCh3D}
+        function [CH_plots,CS_plots,RCh_plots, obj] = SaveRemoveFh(obj,RCh_plots)  %smazu vsechny handely na obrazky 
+            %SaveRemoveFh - removes figure handles saved plot parameters
+            CS_plots = {obj.CS.plotAUC obj.CS.plotAUC_m}; % ulozeni parametru plotu AUC krivek  
+            CH_plots = cell(1,2);
+            if ~isempty(obj.CH.plotCh2D)
+                CH_plots{1} = obj.CH.plotCh2D;
+            end
+            if isprop(obj.CH,'channelPlot') && isprop(obj.CH.channelPlot,'plotCh3D') && ~isempty(obj.CH.channelPlot.plotCh3D)
+                CH_plots{2} = obj.CH.channelPlot.plotCh3D;
+            end
             if isfield(CH_plots{1}, 'fh' ), CH_plots{1} = rmfield(CH_plots{1}, {'fh'}); end  %potrebuju odstranit figure handly
             if isfield(CH_plots{1}, 'plotChH' ), CH_plots{1} = rmfield(CH_plots{1}, {'plotChH'}); end  %potrebuju odstranit figure handly
             if isfield(CH_plots{2}, 'fh' ), CH_plots{2} = rmfield(CH_plots{2}, {'fh'}); end  
@@ -1924,7 +1930,9 @@ classdef CiEEGData < matlab.mixin.Copyable
             if ismember('CH_plots', {vars.name}) %nastaveni obou grafu mozku v CHHeader
                 PL = load(filename,'CH_plots'); 
                 obj.CH.ChannelPlot2DInit(PL.CH_plots{1}); %now handled by function, as we do not want to overwrite existing fields
-                obj.CH.ChannelPlotInit(PL.CH_plots{2});  
+                    %obj.plotCh2D.selCh is set before in obj.SetSelCh
+                obj.CH.channelPlot = ChannelPlot(obj.CH);
+                obj.CH.channelPlot.ChannelPlotInit(PL.CH_plots{2});  
             end
             if isfield(obj.CH.plotCh2D,'chshow') && length(obj.CH.sortorder) > length(obj.CH.plotCh2D.chshow)
                 obj.CH.sortorder = obj.CH.plotCh2D.chshow; %zatimco sortorder se neuklada, chshow ano
