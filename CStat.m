@@ -829,19 +829,14 @@ classdef CStat < handle
           coordinates = [displayedChannels.MNI_x; displayedChannels.MNI_y; displayedChannels.MNI_z];    % souradnice zobrazenych kanalu
           closestChannel = findClosestPoint(p1, p2, coordinates, 2);    % najdu kanal nejblize mistu kliknuti
           if closestChannel  % pokud jsem nejaky nasel:
-            %disp(displayedChannels(closestChannel).name)
-            x = coordinates(1,closestChannel); y = coordinates(2,closestChannel); z = coordinates(3,closestChannel);
-            if isfield(obj.plotAUC.Eh.CH.channelPlot.plotCh3D, 'selHandle') % smazu predchozi oznaceni, pokud nejake bylo
-                delete(obj.plotAUC.Eh.CH.channelPlot.plotCh3D.selHandle)
-                delete(obj.plotAUC.Eh.CH.channelPlot.plotCh3D.selNameHandle)
-            end
-            obj.plotAUC.Eh.CH.channelPlot.plotCh3D.selHandle = scatter3(x, y, z, 200, 'r', 'fill'); % oznacim vybrany kanal na 3D grafu
-            obj.plotAUC.Eh.CH.channelPlot.plotCh3D.selNameHandle = annotation('textbox',[0 1 0 0],'String',displayedChannels(closestChannel).name,'FitBoxToText','on');
-            obj.AUCPlotM([],[],find(obj.plotAUC_m.chsort == closestChannel, 1)); % oznacim vybrany kanal v AUC plotu
+             ch = obj.plotAUC.Eh.CH.channelPlot.plotCh3D.dispChannels(closestChannel);
+             if isfield(obj.plotAUC.Eh.CH.channelPlot.plotCh3D, 'fh') && isvalid(obj.plotAUC.Eh.CH.channelPlot.plotCh3D.fh)
+                obj.plotAUC.Eh.CH.channelPlot.highlightChannel(ch);
+             end
+             obj.AUCPlotM([],[],find(obj.plotAUC_m.chsort == closestChannel, 1)); % oznacim vybrany kanal v AUC plotu
           else  % pokud se zadny kanal nenasel (kliknuti mimo)
-             if isfield(obj.plotAUC.Eh.CH.channelPlot.plotCh3D, 'selHandle') % smazu predchozi oznaceni, pokud nejake bylo
-               delete(obj.plotAUC.Eh.CH.channelPlot.plotCh3D.selHandle)
-               delete(obj.plotAUC.Eh.CH.channelPlot.plotCh3D.selNameHandle)
+             if isfield(obj.plotAUC.Eh.CH.channelPlot.plotCh3D, 'fh') && isvalid(obj.plotAUC.Eh.CH.channelPlot.plotCh3D.fh)
+                obj.plotAUC.Eh.CH.channelPlot.highlightChannel(0);
              end
              %TODO: Zrusit zvyrazneni v AUC plotu
           end
