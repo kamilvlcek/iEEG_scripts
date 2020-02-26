@@ -1160,15 +1160,39 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             end   
             [~,idx]=sort({pp.folder});
             pp = pp(idx); %sorted struct array by folder names
-            
-            colnames = {'pacient','chname','neurologyLabel','ass_brainAtlas','ass_cytoarchMap',...
+            [ ~, setup,~,~  ] = pacienti_setup_load( 'ppa'); 
+            colnames = {'pacient','prijmeni','VTzkratka','header','chname','neurologyLabel','ass_brainAtlas','ass_cytoarchMap',...
                         'p_grayMatter','p_whiteMatter','p_cerebroSpinalFluid','seizureOnset','interictalOften'};
             output = cell(0,numel(colnames));
             iout = 1;
             for ipp = 1:numel(pp)
-                H = load(pp(ipp).
-                output(iout,:) = {pp.ipp.channels.
-            
+                hfilename = [setup.basedir pp(ipp).folder '\' pp(ipp).header];
+                if(exist(hfilename,'file')==2)
+                    H = load(hfilename);
+                    for ch = 1:numel(H.H.channels)
+                        CH = H.H.channels(ch);
+                        if isfield(CH,'seizureOnset')
+                            seizureOnset = CH.seizureOnset;
+                        else
+                            seizureOnset = 'n.a.';
+                        end
+                        if isfield(CH,'interictalOften')
+                            interictalOften = CH.interictalOften;
+                        else
+                            interictalOften = 'n.a.';
+                        end
+                        C=strsplit(pp(ipp).folder,' ');
+                        output(iout,:)={C{1},C{2},C{3},pp(ipp).header, CH.name, CH.neurologyLabel,CH.ass_brainAtlas , CH.ass_cytoarchMap ...
+                            CH.p_grayMatter,   CH.p_whiteMatter, CH.p_cerebroSpinalFluid, seizureOnset, interictalOften};
+                        iout = iout + 1;
+                    end
+                else
+                    disp(['not found: ' hfilename]);
+                end                
+            end    
+            xlsfilename = ['./logs/ExportHeadersAll_' datestr(now, 'yyyy-mm-dd_HH-MM-SS')];
+            xlswrite(xlsfilename ,vertcat(colnames,output)); %write to xls file
+            disp([xlsfilename '.xls with ' num2str(size(output,1)) ' lines saved']);
         end
     end
     %  --------- privatni metody ----------------------
