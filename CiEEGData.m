@@ -36,6 +36,8 @@ classdef CiEEGData < matlab.mixin.Copyable
         DatumCas = {}; %ruzne casove udaje, kdy bylo co spocitano. Abych mel historii vypoctu pro zpetnou referenci
         PL = {}; %objekt CPlots
         CS = {}; %objekt CStat
+        colorskat = {[0 0 0],[0 1 0],[1 0 0],[0 0 1],[1 1 0],[0 1 1],[1 0 1]}; % black, green, red, blue, yellow, aqua, fuchsia
+        OR = {}; %object CRefOrigVals
     end
     
     properties(SetObservable)
@@ -114,6 +116,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             %tyhle objekty potrebuju inicializovat i pokud je objekt prazdny - CHilbertMulti
             obj.PL = CPlots(); %prazdny objekt na grafy
             if ~isprop(obj,'CS') || ~isa(obj.CS,'CStat') , obj.CS = CStat(); end %prazdy objekt na statistiku, ale mozna uz byl nacteny pomoci load             
+            obj.OR=CRefOrigVals(obj); %try to load OrigRegVals if exist
         end      
         function delete(obj) %destructor of a handle class
             if isfield(obj.plotEp,'fh') && ~isempty(obj.plotEp.fh) && ishandle(obj.plotEp.fh) ,close(obj.plotEp.fh); end
@@ -720,7 +723,6 @@ classdef CiEEGData < matlab.mixin.Copyable
                 iintervalyData = obj.Wp(obj.WpActive).iepochtime(2,:); %16.1.2019 - indexy statistiky ulozene v ResponseSearch 
                 iintervalyStat = [1 diff(iintervalyData)+1];                
                 
-                colorskat = {[0 0 0],[0 1 0],[1 0 0],[0 0 1],[1 1 0],[0 1 1],[1 0 1]}; %barvy jako v PlotResponseCh, black, green, red, blue, yellow, aqua, fuchsia
                 colorkombinace = {0,1,2,4;0 0 3 5;0 0 0 6};
                 iChKats = false(2,numel(channels));  %dva radky pro rozdily vuci baselina a kategorii vuci sobe                                                                          
                 
@@ -755,11 +757,11 @@ classdef CiEEGData < matlab.mixin.Copyable
                     P = squeeze(prumery(:,int,kat));  %max/min z kazdeho kanalu                  
                     Pmax(kat) = max(P); %maximum pro kategorii pres vsechny kanaly
                     if dofig
-                        ploth(kat) = plot(P','o-','Color',colorskat{kat}); %kreslim tuto kategorii                       
+                        ploth(kat) = plot(P','o-','Color',obj.colorskat{kat}); %kreslim tuto kategorii                       
                         hold on;           
                         selCh = find(any(obj.plotRCh.selCh,2)); %indexy jakkoliv oznacenych kanalu
                         if ~isempty(selCh) %pokud existuji nejake vybrane kanaly, vykreslim je plnou barvou
-                            plot(selCh,P(selCh)','o','Color',colorskat{kat},'MarkerFaceColor', colorskat{kat});
+                            plot(selCh,P(selCh)','o','Color',obj.colorskat{kat},'MarkerFaceColor', obj.colorskat{kat});
                         end
                     end
                     iChKats(1,:) = iChKats(1,:) | iCh; %pridam dalsi kanaly, kde je signif odpoved                                        
@@ -799,10 +801,10 @@ classdef CiEEGData < matlab.mixin.Copyable
                                 
                     colorindex = colorkombinace{kombinace(kat,2),kombinace(kat,1)};
                     if dofig %kreslim rozdily mezi odpovedmi pro kategorie                        
-                        ph = plot(P'+yKombinace,'o-','Color',colorskat{colorindex}); %kreslim tuto kombinaci kategorii nahoru                        
+                        ph = plot(P'+yKombinace,'o-','Color',obj.colorskat{colorindex}); %kreslim tuto kombinaci kategorii nahoru                        
                         selCh = find(any(obj.plotRCh.selCh,2)); %indexy jakkoliv oznacenych kanalu
                         if ~isempty(selCh) %pokud existuji nejake vybrane kanaly, vykreslim je plnou barvou
-                            plot(selCh,P(selCh)'+yKombinace,'o','Color',colorskat{colorindex},'MarkerFaceColor', colorskat{colorindex});
+                            plot(selCh,P(selCh)'+yKombinace,'o','Color',obj.colorskat{colorindex},'MarkerFaceColor', obj.colorskat{colorindex});
                         end
                         if kat>numel(kats), ploth(kat) = ph; end %pokud je kombinaci vic nez kategorii, ulozim si handle, budu ho potrebovat na legendu
                     end
@@ -1288,7 +1290,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 obj.plotRCh.pvalue = pvalue;
             end
             if ~exist('ch','var')
-                if ~isempty(obj.CH.sortorder)%it can be empty it all channels were filtered out
+                if isempty(obj.CH.sortorder) %it can be empty it all channels were filtered out
                    ch = 1; 
                    obj.plotRCh.ch = 1; 
                 elseif isfield(obj.plotRCh,'ch') && ~isempty(obj.plotRCh.ch) && obj.plotRCh.ch <= numel(obj.CH.sortorder)
@@ -1410,19 +1412,19 @@ classdef CiEEGData < matlab.mixin.Copyable
             % POTOM JEDNOTLIVE KATEGORIE
             if exist('kategories','var') || exist('opakovani','var') %kategorie vykresluju jen pokud mam definovane karegorie                   
                 hue = 0.8;
-                colorskat = {[0 0 0],[0 1 0],[1 0 0],[0 0 1]; [hue hue hue],[hue 1 hue],[1 hue hue],[hue hue 1]}; % prvni radka - prumery, druha radka errorbars = svetlejsi
+                colorsErrorBars = cellfun(@(a) min(a+hue, 1), obj.colorskat, 'UniformOutput', false);
                 yposkat = [3 0 0 0; 4 5 0 0; 6 7 8 0]; %pozice y pro kombinaci k a l - k v radcich a l-1 ve sloupcich
                 ybottom = iff(numel(kategories)>3,0.4,0.3); %odkud se maji umistovat kontrasty mezi kategoriemi - parametr vypoctu y                
                 h_kat = zeros(numel(kategories),2); 
                
-                for k= 1 : numel(kategories) %index 1-3 (nebo 4)
+                for k = 1 : numel(kategories) %index 1-3 (nebo 4)
                     if ~isempty(obj.Wp)
                         if iscell(kategories), kk = kategories{k}(1);  else,   kk = kategories(k);    end % aby barvy odpovidaly kategoriim podnetum spis nez kategoriim podle statistiky
                     else                        
-                        kk =k-1;
+                        kk = k-1;
                     end
                     %to se hodi zvlast, kdyz se delaji jen dve kategorie vuci sobe ane vsechny, nebo dve vuci jedne nebo dve vuci dvema
-                    colorkatk = [colorskat{1,kk+1} ; colorskat{2,kk+1}]; %dve barvy, na caru a stderr plochu kolem
+                    colorkatk = [obj.colorskat{kk+1} ; colorsErrorBars{kk+1}]; %dve barvy, na caru a stderr plochu kolem
                     if exist('opakovani','var') && ~isempty(opakovani)
                         katnum = kategories{k}; %v kategories jsou opakovani k vykresleni, a je to cell array
                         [katdata,~,RjEpCh] = obj.CategoryData(KATNUM,[],katnum,ch); %eegdata - epochy pro tato opakovani
@@ -1463,7 +1465,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                             if iscell(kategories), colorkatl = kategories{l}(1)+1; else, colorkatl = kategories(l)+1; end
                             
                             y = ymin + (ymax-ymin)*(ybottom - (yposkat(l-1,k))*0.05)  ; %pozice na ose y
-                            if k==1, color=colorskat{1,colorkatl}; else, color = colorskat{1,1}; end %green a red jsou proti kategorii 0, cerna je kat 1 vs kat 2
+                            if k==1, color=obj.colorskat{colorkatl}; else, color = obj.colorskat{1}; end %green a red jsou proti kategorii 0, cerna je kat 1 vs kat 2
                             if pvalue %pokud chci zobrazovat hodnotu p value jako krivku                                
                                 plot(Tr,obj.Wp(WpA).WpKat{k,l}(:,ch), ':','Color',color); %carkovana cara oznacuje signifikanci kategorie vuci jine kategorii
                             end
@@ -1493,7 +1495,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                                 kat2name =  obj.PsyData.CategoryName(kategories(k));
                                 kat3name = '';
                             end
-                            text(0.04+obj.Wp(WpA).epochtime(1),y, ['\color[rgb]{' num2str(colorskat{1,colorkatl}) '}' kat1name ...
+                            text(0.04+obj.Wp(WpA).epochtime(1),y, ['\color[rgb]{' num2str(obj.colorskat{colorkatl}) '}' kat1name ...
                                     '\color[rgb]{' num2str(color) '} *X* '  ...
                                     '\color[rgb]{' num2str(colorkatk(1,:)) '}' kat2name kat3name]); 
                               
@@ -1519,7 +1521,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                             line([Tr(1) Tr(end)],[y y]+(ymax-ymin)*0.03 ,'Color',[0.5 0.5 0.5]); 
                                 %kazde jmeno kategorie jinou barvou
                             if pvalue %pokud chci zobrazovat hodnotu p value jako krivku
-                               plot(Tr,obj.Wp(WpA).WpKatBaseline{k,1}(:,ch), '-.','Color',colorskat{1,k}); %teckovana cara oznacuje signifikanci kategorie vuci baseline
+                               plot(Tr,obj.Wp(WpA).WpKatBaseline{k,1}(:,ch), '-.','Color',obj.colorskat{kk+1}); %teckovana cara oznacuje signifikanci kategorie vuci baseline
                             end
                     end
                     %cara reakcnich casu pro tuhle kategorii
@@ -1926,10 +1928,10 @@ classdef CiEEGData < matlab.mixin.Copyable
                 load(filename,'plotES'); obj.plotES = plotES;            %#ok<CPROPLC,CPROP,PROP>            
             end
             if ismember('CH_plots', {vars.name}) %nastaveni obou grafu mozku v CHHeader
-                load(filename,'CH_plots'); 
-                obj.CH.plotCh2D = CH_plots{1};   %#ok<IDISVAR,USENS>
+                PL = load(filename,'CH_plots'); 
+                obj.CH.ChannelPlot2DInit(PL.CH_plots{1}); %now handled by function, as we do not want to overwrite existing fields
                 obj.CH.channelPlot = ChannelPlot(obj.CH);
-                obj.CH.channelPlot.plotCh3D = CH_plots{2};  
+                obj.CH.channelPlot.plotCh3D = PL.CH_plots{2};  
             end
             if isfield(obj.CH.plotCh2D,'chshow') && length(obj.CH.sortorder) > length(obj.CH.plotCh2D.chshow)
                 obj.CH.sortorder = obj.CH.plotCh2D.chshow; %zatimco sortorder se neuklada, chshow ano
@@ -2300,15 +2302,16 @@ classdef CiEEGData < matlab.mixin.Copyable
                     if isprop(obj,'label') && ~isempty(obj.label), label = obj.label; else, label = ''; end
                     obj.CH.ChannelPlot2D(obj.plotRCh.ch,obj.plotRCh,@obj.PlotResponseCh,label);  %vykreslim obrazek mozku s vybranym kanalem
                     figure(obj.plotRCh.fh); %dam puvodni obrazek dopredu
-                case {'add' ,  'equal','f'}     % + oznaceni kanalu
-                    obj.SelChannel(obj.CH.sortorder(obj.plotRCh.ch));
-                    obj.PlotResponseCh( obj.plotRCh.ch); %prekreslim grafy
-                case {'g','h'}     % + oznaceni kanalu Mark 2-6
-                    obj.SelChannel(obj.CH.sortorder(obj.plotRCh.ch),eventDat.Key - 'f' +1 ); %g je 2, f je 1
-                    obj.PlotResponseCh( obj.plotRCh.ch); %prekreslim grafy
-                case {'j','k','l'}     % + oznaceni kanalu Mark 2-6
-                    obj.SelChannel(obj.CH.sortorder(obj.plotRCh.ch),eventDat.Key - 'f' ); %g je 2, f je 1
-                    obj.PlotResponseCh( obj.plotRCh.ch); %prekreslim grafy
+                case {'f','g','h','j','k','l'}     % channel marking
+                    if ~isempty(eventDat.Modifier) && strcmp(eventDat.Modifier{:},'shift') %you have to press alt+f etc, to prevent accidental marking
+                        switch eventDat.Key                                
+                            case {'f','g','h'}     % + oznaceni kanalu Mark 2-6
+                                obj.SelChannel(obj.CH.sortorder(obj.plotRCh.ch),eventDat.Key - 'f' +1 ); %g je 2, f je 1 
+                            case {'j','k','l'}     % + oznaceni kanalu Mark 2-6
+                                obj.SelChannel(obj.CH.sortorder(obj.plotRCh.ch),eventDat.Key - 'f' ); %g je 2, f je 1
+                        end
+                        obj.PlotResponseCh( obj.plotRCh.ch); %prekreslim grafy
+                    end                
                 case {'numpad6','d'}     % skok na dalsi oznaceny kanal   
                     if isfield(obj.plotRCh,'selCh')
                         selCh = find(any(obj.plotRCh.selCh,2)); %seznam cisel vybranych kanalu
@@ -2362,17 +2365,23 @@ classdef CiEEGData < matlab.mixin.Copyable
                 case 'x'    % XLS export
                     obj.Response2XLS();
                 case 'delete'
-                    ch = obj.CH.sortorder(obj.plotRCh.ch); %realne cislo kanalu
-                    if find(obj.RjCh==ch)
-                        obj.RjCh = obj.RjCh(obj.RjCh~=ch);
-                    else
-                        obj.RjCh = [obj.RjCh ch]; %obsahuje realna cisla kanalu
-                    end  
-                    obj.CH.RejectChannels(obj.RjCh);
-                    obj.PlotResponseCh();
+                    if ~isempty(eventDat.Modifier) && strcmp(eventDat.Modifier{:},'shift') %to prevent accidental rejection of channels
+                        ch = obj.CH.sortorder(obj.plotRCh.ch); %realne cislo kanalu
+                        if find(obj.RjCh==ch)
+                            obj.RjCh = obj.RjCh(obj.RjCh~=ch);
+                        else
+                            obj.RjCh = [obj.RjCh ch]; %obsahuje realna cisla kanalu
+                        end  
+                        obj.CH.RejectChannels(obj.RjCh);
+                        obj.PlotResponseCh();
+                    end
                 case 'm'  
                     obj.plotRCh.usemedian = 1 - obj.plotRCh.usemedian;                 
                     obj.PlotResponseCh();
+                case 'v' %plot the original reference responses
+                    if ~isempty(obj.OR) && isa(obj.OR,'CRefOrigVals') && ~obj.OR.isEmpty()
+                        obj.OR.PlotCh(obj.CH.sortorder(obj.plotRCh.ch)); 
+                    end
                 otherwise
                     %disp(['You just pressed: ' eventDat.Key]);
             end

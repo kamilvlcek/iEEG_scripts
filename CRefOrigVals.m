@@ -78,14 +78,17 @@ classdef CRefOrigVals < matlab.mixin.Copyable
         end
         function PlotCh(obj,ch)
             assert(~isempty(obj.ValMax),'CRefOrigVals: nejsou nactena data');
+            assignhandle = false;
             if ~exist('ch','var'), ch = 1; end
             if isempty(obj.PlotChH) % Pokud je obj.PlotChH prazdne pole, ishghandle() vraci prazdne logicke pole, ktere se interpertuje jako true a nejde porovnat se skalarni logickou hodnotou isempty() (R2018a linux)
                 obj.PlotChH = figure('Name',['CRefOrigVals - ch' num2str(ch)]);
+                assignhandle = true;
             elseif ~ishghandle(obj.PlotChH)
                 obj.PlotChH = figure('Name',['CRefOrigVals - ch' num2str(ch)]);
+                assignhandle = true;
             else
                 figure(obj.PlotChH);
-                clf; %vymazu obrazek
+                clf; %vymazu obrazek                 
             end
             hold on;
             baseColors = [0 1 0;  1 0 0; 0 0 1; 1 1 0; 1 0 1; 0 1 0];
@@ -104,8 +107,10 @@ classdef CRefOrigVals < matlab.mixin.Copyable
             title(['channel ' num2str(ch) ', ' obj.chnames{ch,3}]);                 
             hold off;
             obj.PlotChCh = ch;
-            methodhandle = @obj.hybejPlotCh;
-            set(obj.PlotChH,'KeyPressFcn',methodhandle);     
+            if assignhandle
+                methodhandle = @obj.hybejPlotCh;
+                set(obj.PlotChH,'KeyPressFcn',methodhandle);
+            end
         end
         function E = PlotResponseCh(obj,ch)
             plotfigure = true;
@@ -171,6 +176,10 @@ classdef CRefOrigVals < matlab.mixin.Copyable
             else
                 disp(['not found: ' fname ]);
             end
+        end
+        function ie = isEmpty(obj)
+            %ISEMPTY returns true if the object does not contain any values
+            ie = isempty(obj.ValMax);
         end
         function ExportXLS(obj)
             varsfirst = {'chnum' 'bipolarName','maxNeurologyLabel'};
