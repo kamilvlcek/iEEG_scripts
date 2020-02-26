@@ -822,28 +822,42 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             labels = lower({obj.brainlabels.label}); %cell array of brainlabels
             ulabels = unique(labels); 
             noMarks = sum(~cellfun(@isempty,obj.plotCh2D.selChNames)); %number of used marks fghjkl
-            output = cell(numel(ulabels),4+noMarks*2); %columns label,noChannels, noPacients,noRejected, noChInMarks fghjkl 1-6, noPacInMarks
+            output = cell(numel(ulabels),4+noMarks*3); %columns label,noChannels, noPacients,noRejected, noChInMarks fghjkl 1-6, noPacInMarks
             hulldata = cell(numel(ulabels),5);
-            selChNamesPac = cell(1,noMarks);
+            selChNamesPac = cell(1,noMarks); %counts of patients
             for m=1:noMarks
                 selChNamesPac{m} = [obj.plotCh2D.selChNames{m} 'NoPac']; %name for this count of pacients
             end
-            varnames = horzcat({'brainlabel','count','patients','rejected'},obj.plotCh2D.selChNames(1:noMarks),selChNamesPac);
+            selChNamesLR = cell(1,noMarks); %count of right side channels 
+            for m=1:noMarks
+                selChNamesLR{m} = [obj.plotCh2D.selChNames{m} 'Right']; %name for this count of pacients
+            end
+            varnames = [ ... %two lines of column headers
+                horzcat({'','all','','','channels'},repmat({''},1,noMarks-1),'pacients',repmat({''},1,noMarks-1),'rightside',repmat({''},1,noMarks-1)); ...
+                horzcat({'brainlabel','count','patients','rejected'},obj.plotCh2D.selChNames(1:noMarks),selChNamesPac,selChNamesLR) ...
+                ];
             for j = 1:numel(ulabels) %cycle over all brainlabels
-               chIndex = find(contains(labels,ulabels{j})); 
+               chIndex = find(contains(labels,ulabels{j})); %channels with this brain label
                if ~includeRjCh, chIndex = setdiff(chIndex,obj.RjCh); end %channels without the rejected channels
-               pTags = cell(numel(chIndex),1); %pacient name for each channel for this labels
+               %channels counts
+               rjCount = numel(intersect(chIndex,obj.RjCh)); %number of rejected channels for this label
+               marksCount =  sum(obj.plotCh2D.selCh(chIndex,1:noMarks),1); %count of channel marking fghjkl    
+               %pacient counts
+               pTags = cell(numel(chIndex),1); %pacient name for each channel for this label
                for ch = 1:numel(chIndex)
                    pTags{ch}=obj.PacientTag(chIndex(ch));
-               end
-               rjCount = numel(intersect(chIndex,obj.RjCh)); %number of rejected channels for this label
-               marksCount =  sum(obj.plotCh2D.selCh(chIndex,1:noMarks),1); %count of channel marking fghjkl        
+               end                  
                marksPacientCount = zeros(1,noMarks);               
                for m=1:noMarks
                    marksPacientCount(m) = numel(unique(pTags(logical(obj.plotCh2D.selCh(chIndex,m))))); %no of patients for this mark                  
                end
-               output(j,:)=[ ulabels(j) num2cell([(numel(chIndex)),numel(unique(pTags)),rjCount,marksCount, marksPacientCount])];
-               if computehull 
+               %right side channel counts
+               mnix = [obj.H.channels(chIndex).MNI_x];             
+               marksCountR =  sum(obj.plotCh2D.selCh(chIndex(mnix >= 0),1:noMarks),1); %count of channel marking fghjkl  
+               marksCountL =  sum(obj.plotCh2D.selCh(chIndex(mnix < 0),1:noMarks),1); %count of channel marking fghjkl  
+               %output
+               output(j,:)=[ ulabels(j) num2cell([(numel(chIndex)),numel(unique(pTags)),rjCount,marksCount, marksPacientCount,marksCountR])];
+               if computehull %if to compute convexhull or boundary for brainlabels
                    if numel(chIndex)>0
                        mni = [[obj.H.channels(chIndex).MNI_x];[obj.H.channels(chIndex).MNI_y];[obj.H.channels(chIndex).MNI_z]]';
                        imni_left = mni(:,1) < 0; %left side channels                       
@@ -854,13 +868,12 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                    else 
                        hulldata(j,:) = {ulabels{j},[],[],[],[]};                                      
                    end
-                   
                end
             end
             if computehull
                 obj.hull = hulldata;
                 disp('convex hull saved');
-            else
+            else %export xls table only if not computing hulldata
                 xlsfilename = ['./logs/BrainLabels2XLS' '_' xlslabel '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS')];
                 xlswrite(xlsfilename ,vertcat(varnames,output)); %write to xls file
                 disp([xlsfilename '.xls with ' num2str(size(output,1)) ' lines saved']);

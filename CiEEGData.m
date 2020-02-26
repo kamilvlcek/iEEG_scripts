@@ -386,7 +386,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 psy_rt = zeros(size(d,3),1); %nulove reakcni casy
             end
             
-            if exist('rt','var') && ~isempty(rt) %chci hodnoty serazene podle reakcniho casu               
+            if exist('rt','var') && ~isempty(rt) && rt>0 %chci hodnoty serazene podle reakcniho casu               
                 [psy_rt, isorted] = sort(psy_rt);
                 d = d(:,:,isorted); 
             end   
