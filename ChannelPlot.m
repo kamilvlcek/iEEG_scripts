@@ -8,19 +8,28 @@ classdef ChannelPlot < matlab.mixin.Copyable
         function obj = ChannelPlot(header)
             obj.CH = header;
         end
-        function obj = ChannelPlotInit(obj)
-            if ~isfield(obj.plotCh3D,'names'), obj.plotCh3D.names = 0; end %by default, no labels for channels are used
-            if ~isfield(obj.plotCh3D,'labels'), obj.plotCh3D.labels = 0; end   %if to show brainlabels as channel labels
-            if ~isfield(obj.plotCh3D,'labesXnames'), obj.plotCh3D.labesXnames = 0; end   %if to show brainlabels (1) or channel names (0)
-            if ~isfield(obj.plotCh3D,'boundary'), obj.plotCh3D.boundary = 1; end %if to plot boundary of the brain instead the 3D mesh
-            if ~isfield(obj.plotCh3D,'allpoints'), obj.plotCh3D.allpoints = 0; end %if to show position of all channel, even non significant
-            if ~isfield(obj.plotCh3D,'allpointnames'), obj.plotCh3D.allpointnames = 0; end %if to show labels of all the channels
-            if ~isfield(obj.plotCh3D,'zoom'), obj.plotCh3D.zoom = 0; end            
-            if ~isfield(obj.plotCh3D,'reorder'), obj.plotCh3D.reorder = 0; end   %defaultne se neprerazuji kanaly podle velikosti
-            if ~isfield(obj.plotCh3D,'lines'), obj.plotCh3D.lines = 0; end   %defaultne se nespojuji pacienti spojnicemi            
-            if ~isfield(obj.plotCh3D,'hullindex'), obj.plotCh3D.hullindex = 0; end   %index of brainlabel to plot convex hull        
-            if ~isfield(obj.plotCh3D,'fontsize'), obj.plotCh3D.fontsize = 7; end   %index of brainlabel to plot convex hull 
-            if ~isfield(obj.plotCh3D,'coloruse'), obj.plotCh3D.coloruse = 0; end   %which color to use 0=according to value size, 1=according to channel marks as in 2D plot, 2=according to brain labels
+        function obj = ChannelPlotInit(obj,plotCh3D)
+            %plotCh3D enables to load fields from struct and not init other fields 
+            if ~exist('plotCh3D','var')
+                if ~isfield(obj.plotCh3D,'names'), obj.plotCh3D.names = 0; end %by default, no labels for channels are used
+                if ~isfield(obj.plotCh3D,'labels'), obj.plotCh3D.labels = 0; end   %if to show brainlabels as channel labels
+                if ~isfield(obj.plotCh3D,'labesXnames'), obj.plotCh3D.labesXnames = 0; end   %if to show brainlabels (1) or channel names (0)
+                if ~isfield(obj.plotCh3D,'boundary'), obj.plotCh3D.boundary = 1; end %if to plot boundary of the brain instead the 3D mesh
+                if ~isfield(obj.plotCh3D,'allpoints'), obj.plotCh3D.allpoints = 0; end %if to show position of all channel, even non significant
+                if ~isfield(obj.plotCh3D,'allpointnames'), obj.plotCh3D.allpointnames = 0; end %if to show labels of all the channels
+                if ~isfield(obj.plotCh3D,'zoom'), obj.plotCh3D.zoom = 0; end            
+                if ~isfield(obj.plotCh3D,'reorder'), obj.plotCh3D.reorder = 0; end   %defaultne se neprerazuji kanaly podle velikosti
+                if ~isfield(obj.plotCh3D,'lines'), obj.plotCh3D.lines = 0; end   %defaultne se nespojuji pacienti spojnicemi            
+                if ~isfield(obj.plotCh3D,'hullindex'), obj.plotCh3D.hullindex = 0; end   %index of brainlabel to plot convex hull        
+                if ~isfield(obj.plotCh3D,'fontsize'), obj.plotCh3D.fontsize = 7; end   %index of brainlabel to plot convex hull 
+                if ~isfield(obj.plotCh3D,'coloruse'), obj.plotCh3D.coloruse = 0; end   %which color to use 0=according to value size, 1=according to channel marks as in 2D plot, 2=according to brain labels
+            end
+            if exist('plotCh3D','var') && isstruct(plotCh3D)
+                fields = fieldnames(plotCh3D);
+                for f = 1:numel(fields)
+                    obj.plotCh3D.(fields{f}) = plotCh3D.(fields{f});
+                end
+            end
         end
         function [XYZ,obj] = ChannelPlot3D(obj,chnvals,chnsel,selch,roi,popis,rangeZ)
             %zobrazi 3D obrazek elektrod v MNI prostoru. Obrazek ma rozmery podle rozmeru mozku

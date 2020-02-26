@@ -1930,8 +1930,9 @@ classdef CiEEGData < matlab.mixin.Copyable
             if ismember('CH_plots', {vars.name}) %nastaveni obou grafu mozku v CHHeader
                 PL = load(filename,'CH_plots'); 
                 obj.CH.ChannelPlot2DInit(PL.CH_plots{1}); %now handled by function, as we do not want to overwrite existing fields
+                    %obj.plotCh2D.selCh is set before in obj.SetSelCh
                 obj.CH.channelPlot = ChannelPlot(obj.CH);
-                obj.CH.channelPlot.plotCh3D = PL.CH_plots{2};  
+                obj.CH.channelPlot.ChannelPlotInit(PL.CH_plots{2});  
             end
             if isfield(obj.CH.plotCh2D,'chshow') && length(obj.CH.sortorder) > length(obj.CH.plotCh2D.chshow)
                 obj.CH.sortorder = obj.CH.plotCh2D.chshow; %zatimco sortorder se neuklada, chshow ano
