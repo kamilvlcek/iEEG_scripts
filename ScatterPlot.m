@@ -97,7 +97,7 @@ classdef ScatterPlot < handle
             
             obj.setCategories();
             
-            obj.drawScatterPlot(0.5, 0.5);
+            obj.drawScatterPlot(0.9, 0.5); %default values for valFraction and intFraction
         end
         
         function drawScatterPlot(obj, valFraction, intFraction)
@@ -130,18 +130,18 @@ classdef ScatterPlot < handle
                 dataName = obj.axisY;
             end
             idata = ~isnan(data); %exclude data with no significance relative to baseline (in any category)
-            obj.header.plotCh3D.selch = []; %nechci mit vybrany zadny kanal z minula
+            obj.header.channelPlot.plotCh3D.selch = []; %nechci mit vybrany zadny kanal z minula
             if isfield(obj.header.plotCh2D,'chshowstr')
                 chshowstr = obj.header.plotCh2D.chshowstr; 
             else
                 chshowstr = '';
             end
-            obj.header.ChannelPlot(data(idata),... %param chnvals
+            obj.header.ChannelPlotProxy(data(idata),... %param chnvals
                 obj.dispChannels(idata),... %chnsel jsou cisla kanalu, pokud chci jen jejich vyber
                 [],[],{[dataName '(' obj.categoryNames{katnum} '), SelCh: ' cell2str(obj.dispSelChName) ], ... %popis grafu = title - prvni radek
                 ['show:' chshowstr]}, ... %popis grafu title, druhy radek
                 rangeZ); %rozsah hodnot - meritko barevne skaly
-            %set(obj.plotAUC.Eh.CH.plotCh3D.fh, 'WindowButtonDownFcn', {@obj.hybejPlot3Dclick, selch});
+            set(obj.header.channelPlot.plotCh3D.fh, 'WindowButtonDownFcn', @obj.hybejPlot3Dclick);
         end
         
         function setXYLim(obj,xrange,yrange) %set axes limit
@@ -330,10 +330,12 @@ classdef ScatterPlot < handle
                 iData = logical(selChFiltered(:,k)); %kanaly se signifikantim rozdilem vuci baseline v teto kategorii
                 if any(iData)
                     if obj.is3D
-                        obj.plots(k,1) = scatter3(obj.ax, dataX(iData), dataY(iData), dataZ(iData), obj.markerSize, repmat(obj.ieegdata.colorskat{colorIndex}, sum(iData), 1), obj.categoryMarkers{colorIndex}, 'MarkerFaceColor', 'flat', 'DisplayName', obj.categoryNames{k});
+                        obj.plots(k,1) = scatter3(obj.ax, dataX(iData), dataY(iData), dataZ(iData), obj.markerSize, repmat(obj.ieegdata.colorskat{colorIndex}, sum(iData), 1), ...
+                        	obj.categoryMarkers{colorIndex}, 'MarkerFaceColor', 'flat', 'DisplayName', obj.categoryNames{k});
                         if obj.transparent, alpha(obj.plots(k,1),.5); end %volitelne pridani pruhlednosti
                     else
-                        obj.plots(k,1) = scatter(obj.ax, dataX(iData), dataY(iData), obj.markerSize, repmat(obj.ieegdata.colorskat{colorIndex}, sum(iData), 1), obj.categoryMarkers{colorIndex}, 'MarkerFaceColor', 'flat', 'DisplayName', obj.categoryNames{k});
+                        obj.plots(k,1) = scatter(obj.ax, dataX(iData), dataY(iData), obj.markerSize, repmat(obj.ieegdata.colorskat{colorIndex}, sum(iData), 1), ...
+                        	obj.categoryMarkers{colorIndex}, 'MarkerFaceColor', 'flat', 'DisplayName', obj.categoryNames{k});
                         if obj.transparent, alpha(obj.plots(k,1),.5); end %volitelne pridani pruhlednosti
                     end
                     pocty(k,1) = sum(iData); %pocet signifikantnich v teto kategorii
@@ -346,10 +348,12 @@ classdef ScatterPlot < handle
                         handleVisibility = 'off';   % Pokud signif. rozdil mel, jeden graf uz se vytvoril i s legendu, takze nebudeme zobrazovat dalsi
                     end
                     if obj.is3D
-                        obj.plots(k,2) = scatter3(obj.ax, dataX(iData), dataY(iData), dataZ(iData), obj.markerSize, repmat(obj.ieegdata.colorskat{colorIndex}, sum(iData), 1), obj.categoryMarkers{colorIndex}, 'MarkerFaceColor', 'none', 'DisplayName', obj.categoryNames{k},...
+                        obj.plots(k,2) = scatter3(obj.ax, dataX(iData), dataY(iData), dataZ(iData), obj.markerSize, repmat(obj.ieegdata.colorskat{colorIndex}, sum(iData), 1), ...
+                        	obj.categoryMarkers{colorIndex}, 'MarkerFaceColor', 'none', 'DisplayName', obj.categoryNames{k},...
                             'HandleVisibility', handleVisibility);
                     else
-                        obj.plots(k,2) = scatter(obj.ax, dataX(iData), dataY(iData), obj.markerSize, repmat(obj.ieegdata.colorskat{colorIndex}, sum(iData), 1), obj.categoryMarkers{colorIndex}, 'MarkerFaceColor', 'none', 'DisplayName', obj.categoryNames{k},...
+                        obj.plots(k,2) = scatter(obj.ax, dataX(iData), dataY(iData), obj.markerSize, repmat(obj.ieegdata.colorskat{colorIndex}, sum(iData), 1), ...
+                        	obj.categoryMarkers{colorIndex}, 'MarkerFaceColor', 'none', 'DisplayName', obj.categoryNames{k},...
                             'HandleVisibility', handleVisibility);
                     end
                     pocty(k,2) = sum(iData); %pocet ne signifikantnich v teto kategorii
@@ -439,10 +443,12 @@ classdef ScatterPlot < handle
         end
                 
         function highlightSelected(obj, ch)
-            if ~isempty(obj.highlights)
-                delete(obj.highlights);
+            if ~isempty(obj.highlights) 
+                if isvalid(obj.highlights)
+                    delete(obj.highlights);
+                end
             end
-            obj.highlights = [];
+            obj.highlights = gobjects();
             idx = find(obj.dispChannels == ch);
             hold(obj.ax, 'on');
             if idx
@@ -561,14 +567,36 @@ classdef ScatterPlot < handle
                   % Nevolam highlightSelected, protoze ten se zavola diky eventu
                   figure(obj.fig); %kamil - dam do popredi scatter plot
               else
-                  obj.highlightSelected(ch);
-                  %TODO: Pokud ted manualne otevru PlotResponseCh bez parametru, neuvidim v nem spranvy kanal
+                  obj.highlightInMyPlots(ch);
+                  %TODO: Pokud ted manualne otevru PlotResponseCh bez parametru, neuvidim v nem spravny kanal
               end
             else
-                obj.highlightSelected(0);   % zrusi vyber
+                obj.highlightInMyPlots(0);   % zrusi vyber
             end
         end
-
+        
+        function hybejPlot3Dclick(obj, ~, ~)
+            mousept = get(gca,'currentPoint');
+            p1 = mousept(1,:); p2 = mousept(2,:); % souradnice kliknuti v grafu - predni a zadni bod
+            displayedChannels = obj.header.H.channels(obj.header.channelPlot.plotCh3D.dispChannels); % zobrazene kanaly
+            coordinates = [displayedChannels.MNI_x; displayedChannels.MNI_y; displayedChannels.MNI_z];    % souradnice zobrazenych kanalu
+            closestChannel = findClosestPoint(p1, p2, coordinates, 2);    % najdu kanal nejblize mistu kliknuti
+            if closestChannel
+                ch = obj.header.channelPlot.plotCh3D.dispChannels(closestChannel);
+                %TODO: Pokud neni otevreny PlotResponseCh, nebude po otevreni znat cislo vybraneho kanalu. Lepsi by bylo pouzit proxy objekt, ktery drzi informaci o vybranem kanalu a v pripade zmeny vyberu posle signal, ktery se tak zpropaguje do vsech plotu, ktere ho potrebuji.
+                if isfield(obj.ieegdata.plotRCh, 'fh') && isvalid(obj.ieegdata.plotRCh.fh)  % Zjistim, jeslti je otevreny PlotResponseCh
+                  sortChannel = find(obj.ieegdata.CH.sortorder == ch);
+                  obj.ieegdata.PlotResponseCh(sortChannel);    %#ok<FNDSB> % Pokud mam PlotResponseCh, updatuju zobrezene kanaly
+                  % Nevolam highlightSelected, protoze ten se zavola diky eventu
+                else
+                  obj.highlightInMyPlots(ch);
+                  %TODO: Pokud ted manualne otevru PlotResponseCh bez parametru, neuvidim v nem spranvy kanal
+                end
+            else
+                obj.highlightInMyPlots(0);
+            end
+            figure(obj.header.channelPlot.plotCh3D.fh);
+        end
         
         function setDisplayedChannels(obj)
             obj.dispChannels = intersect(obj.dispFilterCh, obj.dispSelCh); % CH.sortorder (vysledek CH.FilterChannels) & vyber klavesami fghjkl 
@@ -583,8 +611,15 @@ classdef ScatterPlot < handle
         function channelChangedCallback(obj, ~, eventData)
             %!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             %TODO: Pri kliknuti do ScatterPlotu se tohle zavola dvakrat!!! Nejspis problem se skoro-zacyklenim z PlotResponseCh. Sice to navenek funguje spravne, ale dvoji volani je nesmysl.
-            obj.highlightSelected(eventData.AffectedObject.SelectedChannel);
+            obj.highlightInMyPlots(eventData.AffectedObject.SelectedChannel);
             %disp(['change in SP: ' num2str(eventData.AffectedObject.SelectedChannel)]);
+        end
+
+        function highlightInMyPlots(obj, ch)    %TODO: Toto nebude potreba, pokud budou vsechny ploty reagovat na signal, misto aby se highlight volal explicitne
+            obj.highlightSelected(ch);
+            if isfield(obj.header.channelPlot.plotCh3D, 'fh') && isvalid(obj.header.channelPlot.plotCh3D.fh)
+                obj.header.channelPlot.highlightChannel(ch);
+            end
         end
         
         function tearDownFigCallback(obj,src,~)

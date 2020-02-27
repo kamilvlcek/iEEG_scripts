@@ -37,6 +37,7 @@ classdef CiEEGData < matlab.mixin.Copyable
         PL = {}; %objekt CPlots
         CS = {}; %objekt CStat
         colorskat = {[0 0 0],[0 1 0],[1 0 0],[0 0 1],[1 1 0],[0 1 1],[1 0 1]}; % black, green, red, blue, yellow, aqua, fuchsia
+        OR = {}; %object CRefOrigVals
     end
     
     properties(SetObservable)
@@ -115,6 +116,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             %tyhle objekty potrebuju inicializovat i pokud je objekt prazdny - CHilbertMulti
             obj.PL = CPlots(); %prazdny objekt na grafy
             if ~isprop(obj,'CS') || ~isa(obj.CS,'CStat') , obj.CS = CStat(); end %prazdy objekt na statistiku, ale mozna uz byl nacteny pomoci load             
+            obj.OR=CRefOrigVals(obj); %try to load OrigRegVals if exist
         end      
         function delete(obj) %destructor of a handle class
             if isfield(obj.plotEp,'fh') && ~isempty(obj.plotEp.fh) && ishandle(obj.plotEp.fh) ,close(obj.plotEp.fh); end
@@ -384,7 +386,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 psy_rt = zeros(size(d,3),1); %nulove reakcni casy
             end
             
-            if exist('rt','var')==1 && ~isempty(rt) && rt>0 %chci hodnoty serazene podle reakcniho casu               
+            if exist('rt','var') && ~isempty(rt) && rt>0 %chci hodnoty serazene podle reakcniho casu               
                 [psy_rt, isorted] = sort(psy_rt);
                 d = d(:,:,isorted); 
             end   
@@ -1288,7 +1290,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 obj.plotRCh.pvalue = pvalue;
             end
             if ~exist('ch','var')
-                if ~isempty(obj.CH.sortorder)%it can be empty it all channels were filtered out
+                if isempty(obj.CH.sortorder) %it can be empty it all channels were filtered out
                    ch = 1; 
                    obj.plotRCh.ch = 1; 
                 elseif isfield(obj.plotRCh,'ch') && ~isempty(obj.plotRCh.ch) && obj.plotRCh.ch <= numel(obj.CH.sortorder)
@@ -1875,12 +1877,10 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
             epochtime = obj.epochtime;      %#ok<PROP,NASGU>
             baseline = obj.baseline;        %#ok<PROP,NASGU>
-            CH_H=obj.CH.H;                  %#ok<NASGU>            
-            CH_plots = {obj.CH.plotCh2D obj.CH.plotCh3D}; % ulozeni parametru plotu mozku                        
-            CS_plots = {obj.CS.plotAUC obj.CS.plotAUC_m}; % ulozeni parametru plotu AUC krivek                        
-            [CH_plots,CS_plots,RCh_plots] = obj.SaveRemoveFh(CH_plots,CS_plots,obj.plotRCh);  %#ok<ASGLU> %smazu vsechny handely na obrazky             
+            CH_H=obj.CH.H;                  %#ok<NASGU>                                                                      
+            [CH_plots,CS_plots,RCh_plots] = obj.SaveRemoveFh(obj.plotRCh);  %#ok<ASGLU> %smazu vsechny handely na obrazky             
             CH_filterMatrix = obj.CH.filterMatrix; %#ok<NASGU>  
-            CH_brainlabels = obj.CH.brainlabels;
+            CH_brainlabels = obj.CH.brainlabels; %#ok<NASGU>
             els = obj.els;                  %#ok<PROP,NASGU>
             plotES = obj.plotES;            %#ok<PROP,NASGU>          
             RjCh = obj.RjCh;                %#ok<PROP,NASGU>
@@ -1901,8 +1901,16 @@ classdef CiEEGData < matlab.mixin.Copyable
                     'CH_filterMatrix','-v7.3');  
             disp(['ulozeno do ' filename2]); 
         end
-        function [CH_plots,CS_plots,RCh_plots, obj] = SaveRemoveFh(obj,CH_plots,CS_plots,RCh_plots)  %smazu vsechny handely na obrazky 
-            %{obj.CH.plotCh2D obj.CH.plotCh3D}
+        function [CH_plots,CS_plots,RCh_plots, obj] = SaveRemoveFh(obj,RCh_plots)  %smazu vsechny handely na obrazky 
+            %SaveRemoveFh - removes figure handles saved plot parameters
+            CS_plots = {obj.CS.plotAUC obj.CS.plotAUC_m}; % ulozeni parametru plotu AUC krivek  
+            CH_plots = cell(1,2);
+            if ~isempty(obj.CH.plotCh2D)
+                CH_plots{1} = obj.CH.plotCh2D;
+            end
+            if isprop(obj.CH,'channelPlot') && isprop(obj.CH.channelPlot,'plotCh3D') && ~isempty(obj.CH.channelPlot.plotCh3D)
+                CH_plots{2} = obj.CH.channelPlot.plotCh3D;
+            end
             if isfield(CH_plots{1}, 'fh' ), CH_plots{1} = rmfield(CH_plots{1}, {'fh'}); end  %potrebuju odstranit figure handly
             if isfield(CH_plots{1}, 'plotChH' ), CH_plots{1} = rmfield(CH_plots{1}, {'plotChH'}); end  %potrebuju odstranit figure handly
             if isfield(CH_plots{2}, 'fh' ), CH_plots{2} = rmfield(CH_plots{2}, {'fh'}); end  
@@ -2032,7 +2040,9 @@ classdef CiEEGData < matlab.mixin.Copyable
             if ismember('CH_plots', {vars.name}) %nastaveni obou grafu mozku v CHHeader
                 PL = load(filename,'CH_plots'); 
                 obj.CH.ChannelPlot2DInit(PL.CH_plots{1}); %now handled by function, as we do not want to overwrite existing fields
-                obj.CH.ChannelPlotInit(PL.CH_plots{2});  
+                    %obj.plotCh2D.selCh is set before in obj.SetSelCh
+                obj.CH.channelPlot = ChannelPlot(obj.CH);
+                obj.CH.channelPlot.ChannelPlotInit(PL.CH_plots{2});  
             end
             if isfield(obj.CH.plotCh2D,'chshow') && length(obj.CH.sortorder) > length(obj.CH.plotCh2D.chshow)
                 obj.CH.sortorder = obj.CH.plotCh2D.chshow; %zatimco sortorder se neuklada, chshow ano
@@ -2403,15 +2413,16 @@ classdef CiEEGData < matlab.mixin.Copyable
                     if isprop(obj,'label') && ~isempty(obj.label), label = obj.label; else, label = ''; end
                     obj.CH.ChannelPlot2D(obj.plotRCh.ch,obj.plotRCh,@obj.PlotResponseCh,label);  %vykreslim obrazek mozku s vybranym kanalem
                     figure(obj.plotRCh.fh); %dam puvodni obrazek dopredu
-                case {'add' ,  'equal','f'}     % + oznaceni kanalu
-                    obj.SelChannel(obj.CH.sortorder(obj.plotRCh.ch));
-                    obj.PlotResponseCh( obj.plotRCh.ch); %prekreslim grafy
-                case {'g','h'}     % + oznaceni kanalu Mark 2-6
-                    obj.SelChannel(obj.CH.sortorder(obj.plotRCh.ch),eventDat.Key - 'f' +1 ); %g je 2, f je 1
-                    obj.PlotResponseCh( obj.plotRCh.ch); %prekreslim grafy
-                case {'j','k','l'}     % + oznaceni kanalu Mark 2-6
-                    obj.SelChannel(obj.CH.sortorder(obj.plotRCh.ch),eventDat.Key - 'f' ); %g je 2, f je 1
-                    obj.PlotResponseCh( obj.plotRCh.ch); %prekreslim grafy
+                case {'f','g','h','j','k','l'}     % channel marking
+                    if ~isempty(eventDat.Modifier) && strcmp(eventDat.Modifier{:},'shift') %you have to press alt+f etc, to prevent accidental marking
+                        switch eventDat.Key                                
+                            case {'f','g','h'}     % + oznaceni kanalu Mark 2-6
+                                obj.SelChannel(obj.CH.sortorder(obj.plotRCh.ch),eventDat.Key - 'f' +1 ); %g je 2, f je 1 
+                            case {'j','k','l'}     % + oznaceni kanalu Mark 2-6
+                                obj.SelChannel(obj.CH.sortorder(obj.plotRCh.ch),eventDat.Key - 'f' ); %g je 2, f je 1
+                        end
+                        obj.PlotResponseCh( obj.plotRCh.ch); %prekreslim grafy
+                    end                
                 case {'numpad6','d'}     % skok na dalsi oznaceny kanal   
                     if isfield(obj.plotRCh,'selCh')
                         selCh = find(any(obj.plotRCh.selCh,2)); %seznam cisel vybranych kanalu
@@ -2465,17 +2476,23 @@ classdef CiEEGData < matlab.mixin.Copyable
                 case 'x'    % XLS export
                     obj.Response2XLS();
                 case 'delete'
-                    ch = obj.CH.sortorder(obj.plotRCh.ch); %realne cislo kanalu
-                    if find(obj.RjCh==ch)
-                        obj.RjCh = obj.RjCh(obj.RjCh~=ch);
-                    else
-                        obj.RjCh = [obj.RjCh ch]; %obsahuje realna cisla kanalu
-                    end  
-                    obj.CH.RejectChannels(obj.RjCh);
-                    obj.PlotResponseCh();
+                    if ~isempty(eventDat.Modifier) && strcmp(eventDat.Modifier{:},'shift') %to prevent accidental rejection of channels
+                        ch = obj.CH.sortorder(obj.plotRCh.ch); %realne cislo kanalu
+                        if find(obj.RjCh==ch)
+                            obj.RjCh = obj.RjCh(obj.RjCh~=ch);
+                        else
+                            obj.RjCh = [obj.RjCh ch]; %obsahuje realna cisla kanalu
+                        end  
+                        obj.CH.RejectChannels(obj.RjCh);
+                        obj.PlotResponseCh();
+                    end
                 case 'm'  
                     obj.plotRCh.usemedian = 1 - obj.plotRCh.usemedian;                 
                     obj.PlotResponseCh();
+                case 'v' %plot the original reference responses
+                    if ~isempty(obj.OR) && isa(obj.OR,'CRefOrigVals') && ~obj.OR.isEmpty()
+                        obj.OR.PlotCh(obj.CH.sortorder(obj.plotRCh.ch)); 
+                    end
                 otherwise
                     %disp(['You just pressed: ' eventDat.Key]);
             end
@@ -2501,7 +2518,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                case {'divide','slash'} %lomeno na numericke klavesnici - automaticke meritko na ose y 
                    obj.plotEp.ylim = [];
                    obj.PlotEpochs( obj.plotEp.ch); %prekreslim grafy
-               case {'subtract' , 'hyphen',''} %signal minus - razeni epoch podle rt on/off   %u terezy na notebooku  
+               case {'subtract' , 'hyphen'} %signal minus - razeni epoch podle rt on/off   %u terezy na notebooku  
                    obj.plotEp.sortrt = 1 - obj.plotEp.sortrt;  %zmenim sortrt
                    obj.PlotEpochs( obj.plotEp.ch); %prekreslim grafy  
                case 'space' %prepinani mezi color plot a plot pres sebe                   
