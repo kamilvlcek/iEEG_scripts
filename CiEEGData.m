@@ -1688,21 +1688,34 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
             
         end  
-        function TimeIntervals(obj,vch,intervals) % Sofiia 2020
+        function TimeIntervals(obj,vch,intervals,nofile) % Sofiia 2020
             %  average time intervals for one channel or for a vector of channels (e.g. across a particular structure)
             %  numbers of channels can be obtained, for example, after applying CM.CH.FilterChannels({'lobe','precun'})
             %  or if it's empty it will use numbers of channels after current filtering (from CM.CH.sortoder)
             %  default intervals = [0 0.2; 0.2 0.4; 0.4 0.6; 0.6 0.8];
+            %  nofile - if 1, do not save any xls file, only plot figure
             
             if ~exist('intervals','var') || isempty(intervals), intervals = [0 0.2; 0.2 0.4; 0.4 0.6; 0.6 0.8]; end % default intervals
-            if ~exist('vch','var') || isempty(vch), vch = obj.CH.sortorder; end % will use numbers of channels after current filtering
+            if ~exist('vch','var') || isempty(vch)
+                vch = obj.CH.sortorder; 
+                chshowstr = obj.CH.plotCh2D.chshowstr; %description of the selected channels - name from CM.CH.FilterChannels();
+            else
+                chshowstr = [ num2str(length(vch)) 'channels'];
+            end % will use numbers of channels after current filtering
+            if ~exist('nofile','var'), nofile = 0; end %save the file by default
             kats = obj.Wp(obj.WpActive).kats; % define categories
             
             % initialize matrix for all channels
             chanMeans = zeros (length(vch), numel(kats)*size(intervals,1)); % for statistica - all time intervals and category in columns
             
-            for ch = 1:size(vch,2) % for each channel
-                
+            %get data from obj.CategoryData for all channels at onces - to make the whole function faster
+            categorydata = cell(numel(kats),2); %store precomputed category data here 
+            for k = 1:numel(kats)
+                [d,~,RjEpCh,~]= obj.CategoryData(kats(k),[],[],vch); % get data for all channels
+                categorydata(k,:) = {d(:,vch,:),RjEpCh}; % save d (time x channels x epochs) and RjEpCh (channels x epochs)
+            end
+            
+            for ch = 1:size(vch,2) % for each channel                
                 % initialize matrix for an individual channel
                 allmeans = cell(size(intervals,1),numel(kats)); %  time intervals x kategories (x epochs)
                 categories = NaN(size(obj.d,3), 1); % vector to define categories for all epochs for an individual channel - for xls table
@@ -1710,9 +1723,9 @@ classdef CiEEGData < matlab.mixin.Copyable
                 nInd = 1; % initialize index for variable categories
                 ichanMeans = 1; % initialize index for chanMeans
                 
-                for k = 1:numel(kats) % for each category
-                    [d,~,RjEpCh,~]= obj.CategoryData(kats(k),[],[],vch(ch)); % get data
-                    d = squeeze(d(:,vch(ch),~RjEpCh)); % time x epoch
+                for k = 1:numel(kats) % for each category%                   
+                    RjEpCh = categorydata{k,2}(ch,:); %previously stored RjEpCh
+                    d = squeeze(categorydata{k,1}(:,ch,~RjEpCh));  %previously stored d value                  
                     categories(nInd:(nInd+size(d,2)-1)) = kats(k); % to establish the number of category for all epochs for an individual channel - for xls table
                     nInd = size(d,2)+nInd;
                     
@@ -1746,8 +1759,8 @@ classdef CiEEGData < matlab.mixin.Copyable
             
             % plot mean and std across epochs for one channel
             if length(vch)==1
-                M=MOverEpoch;
-                E=EOverEp;
+                M=MOverEpoch; %set variable to be plotted - means
+                E=EOverEp;    %set variable to be plotted - errorbars
                 % the number of the channel in the title of plot
                 if ~isempty(obj.CH.sortedby) %pokud jsou kanaly serazene jinak nez podle cisla kanalu
                     chstr = [ num2str(vch(ch)) '(' obj.CH.sortedby  num2str(obj.plotRCh.ch) ')' ];
@@ -1763,14 +1776,15 @@ classdef CiEEGData < matlab.mixin.Copyable
                 % plot mean and std across channels
                 ichanMeans = 1;
                 MOverChan = zeros(size(intervals,1),numel(kats)); % all means over channels - for plot
-                Ech = zeros(size(intervals,1),numel(kats)); % all std err over channels - for plot
+                EOverChan = zeros(size(intervals,1),numel(kats)); % all std err over channels - for plot
                 for k = 1:numel(kats) % for each category
                     MOverChan(:,k) = mean(chanMeans(:,ichanMeans:(k*size(intervals,1))),1); % mean over channels
-                    Ech(:,k) = std(chanMeans(:,ichanMeans:(k*size(intervals,1))),[],1)/sqrt(size(chanMeans(:,ichanMeans:(k*size(intervals,1))),1)); % std err of mean over channels
+                    EOverChan(:,k) = std(chanMeans(:,ichanMeans:(k*size(intervals,1))),[],1)/sqrt(size(chanMeans,1)); % std err of mean over channels
                     ichanMeans = ichanMeans+size(intervals,1);
                 end
-                M=MOverChan;
-                E=Ech;
+                M=MOverChan; %set variable to be plotted - means
+                E=EOverChan; %set variable to be plotted - errorbars
+                title([num2str(length(vch)) ' channels: ' chshowstr ]); %title for multiple channels
             end
                         
             for k=1:numel(kats)
@@ -1788,45 +1802,46 @@ classdef CiEEGData < matlab.mixin.Copyable
             xlabel('time intervals, s');
             
             % export data in xls table
-            if length(vch)==1
-                % export data for one channel in xls table
-                categories(isnan(categories))=[];  % remove all NaN
-                tableX = num2cell([categories, (cell2mat(allmeans))']); % table for export, epochs over all categories x (kategory num, intervals)
-                intervStr = cellstr(num2str(intervals,'%.1f-%.1f'));
-                titles4table = ['category', intervStr']; % column names
-                tableX = [titles4table; tableX]; % final table
-                strch = 'channel_';  % to distinguish in filename more just one channel
-            else
-                % export data for all channels (means over epochs and time intervals) in xls table
-                labels = cell(length(vch),3); % cell array for brain labels
-                if ~isempty(obj.CH.brainlabels) % if CM.CH.brainlabels contains names for brain labels, they will be put in a final table according to the number of channel
-                    for chan = 1:size(vch,2)
-                        labels{chan,1} = obj.CH.brainlabels(vch(chan)).class; % to establish a brain class for which the channel belongs - for xls table
-                        labels{chan,2} = obj.CH.brainlabels(vch(chan)).label; % to establish a brain label for which the channel belongs - for xls table
-                        labels{chan,3} = obj.CH.brainlabels(vch(chan)).lobe; % to establish a brain lobe for which the channel belongs - for xls table
+            if nofile==0
+                if length(vch)==1
+                    % export data for one channel in xls table
+                    categories(isnan(categories))=[];  % remove all NaN
+                    tableX = num2cell([categories, (cell2mat(allmeans))']); % table for export, epochs over all categories x (kategory num, intervals)
+                    intervStr = cellstr(num2str(intervals,'%.1f-%.1f'));
+                    titles4table = ['category', intervStr']; % column names
+                    tableX = [titles4table; tableX]; % final table
+                    strch = ['channel-' num2str(vch)];  % to distinguish in filename more just one channel
+                else
+                    % export data for all channels (means over epochs and time intervals) in xls table
+                    labels = cell(length(vch),3); % cell array for brain labels
+                    if ~isempty(obj.CH.brainlabels) % if CM.CH.brainlabels contains names for brain labels, they will be put in a final table according to the number of channel
+                        for chan = 1:size(vch,2)
+                            labels{chan,1} = obj.CH.brainlabels(vch(chan)).class; % to establish a brain class for which the channel belongs - for xls table
+                            labels{chan,2} = obj.CH.brainlabels(vch(chan)).label; % to establish a brain label for which the channel belongs - for xls table
+                            labels{chan,3} = obj.CH.brainlabels(vch(chan)).lobe; % to establish a brain lobe for which the channel belongs - for xls table
+                        end
+                    end    % otherwise labels will be just empty cell array
+
+                    % long names for columns in STATISTICA (category + time interval)
+                    intervStr = cellstr(num2str(intervals,'%.1f-%.1f'));
+                    names4col = cell(1,numel(kats)*size(intervals,1));
+                    p=1;
+                    for k=1:numel(kats)
+                        for int = 1:size(intervals,1)
+                            Str = {katsnames{1,k},intervStr{int}};
+                            names4col(:,p) = join(Str, ': ');
+                            p=p+1;
+                        end
                     end
-                end    % otherwise labels will be just empty cell array
-                
-                % long names for columns in STATISTICA (category + time interval)
-                intervStr = cellstr(num2str(intervals,'%.1f-%.1f'));
-                names4col = cell(1,numel(kats)*size(intervals,1));
-                p=1;
-                for k=1:numel(kats)
-                    for int = 1:size(intervals,1)
-                        Str = {katsnames{1,k},intervStr{int}};
-                        names4col(:,p) = join(Str, ': ');
-                        p=p+1;
-                    end
+                    titles4table = ['number of channel', names4col, 'class','label','lobe']; % column names
+                    tableX = [titles4table; num2cell(vch'), num2cell(chanMeans), labels]; % final table
+                    strch = ['channels-' regexprep(chshowstr,{'{','}','[',']',' ','&'},{'','','','','-',''})]; % to distinguish in filename more than one channel
                 end
-                titles4table = ['number of channel', names4col, 'class','label','lobe']; % column names
-                tableX = [titles4table; num2cell(vch'), num2cell(chanMeans), labels]; % final table
-                strch = 'channels_'; % to distinguish in filename more than one channel
+
+                xlsfilename = ['logs\average_time_intervals_for ' strch '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') '.xls'];
+                xlswrite(xlsfilename,tableX);
+                disp([ 'xls tables saved: ' xlsfilename]);
             end
-            
-            xlsfilename = ['logs\average_time_intervals_for ' strch char(strjoin(string(vch(1,[1 ch])), '-')) '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') '.xls'];
-            xlswrite(xlsfilename,tableX);
-            disp([ 'xls tables saved: ' xlsfilename]);
-            
         end
         
     %% SAVE AND LOAD FILE    
