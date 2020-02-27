@@ -384,7 +384,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 psy_rt = zeros(size(d,3),1); %nulove reakcni casy
             end
             
-            if exist('rt','var') && ~isempty(rt) %chci hodnoty serazene podle reakcniho casu               
+            if exist('rt','var')==1 && ~isempty(rt) && rt>0 %chci hodnoty serazene podle reakcniho casu               
                 [psy_rt, isorted] = sort(psy_rt);
                 d = d(:,:,isorted); 
             end   
@@ -1699,9 +1699,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             kats = obj.Wp(obj.WpActive).kats; % define categories
             
             % initialize matrix for all channels
-            chanMeans = zeros (numel(kats)*length(vch), (size(intervals,1)+2));
-            chInd = 1;
-            ichanMeans = 1;
+            chanMeans = zeros (length(vch), numel(kats)*size(intervals,1)); % for statistica - all time intervals and category in columns
             
             for ch = 1:size(vch,2) % for each channel
                 
@@ -1710,11 +1708,12 @@ classdef CiEEGData < matlab.mixin.Copyable
                 categories = NaN(size(obj.d,3), 1); % vector to define categories for all epochs for an individual channel - for xls table
                 T = (0 : 1/obj.fs : (size(obj.d,1)-1)/obj.fs)' + obj.epochtime(1); % time in sec
                 nInd = 1; % initialize index for variable categories
+                ichanMeans = 1; % initialize index for chanMeans
                 
                 for k = 1:numel(kats) % for each category
                     [d,~,RjEpCh,~]= obj.CategoryData(kats(k),[],[],vch(ch)); % get data
                     d = squeeze(d(:,vch(ch),~RjEpCh)); % time x epoch
-                    categories(nInd:(nInd+size(d,2)-1)) = kats(k); % to establish the number of category for all epochs for an individual channel- for xls table
+                    categories(nInd:(nInd+size(d,2)-1)) = kats(k); % to establish the number of category for all epochs for an individual channel - for xls table
                     nInd = size(d,2)+nInd;
                     
                     for int = 1:size(intervals,1)  % for each interval
@@ -1725,51 +1724,71 @@ classdef CiEEGData < matlab.mixin.Copyable
                     
                 end
                 
-                % plot mean and std across epochs for one channel
-                if length(vch)==1
-                    figure('Name','PlotResponseCh_for_average_time_intervals')
-                    
-                    % the number of the channel in the title of plot
-                    if ~isempty(obj.CH.sortedby) %pokud jsou kanaly serazene jinak nez podle cisla kanalu
-                        chstr = [ num2str(vch(ch)) '(' obj.CH.sortedby  num2str(obj.plotRCh.ch) ')' ];
-                    elseif numel(obj.CH.sortorder) < obj.channels %pokud jsou kanaly nejak vyfiltrovane pomoci obj.CH.FilterChannels();
-                        chstr = [ num2str(vch(ch)) '(' num2str(obj.plotRCh.ch) '/'  num2str(numel(obj.CH.sortorder)) ')' ];
-                    else
-                        chstr = num2str(vch(ch));
-                    end
-                    title(['channel ' chstr '/' num2str(obj.channels) ' - ' obj.PacientID()], 'Interpreter', 'none'); % v titulu obrazku bude i pacientID napriklad p132-VT18
-                end
-                
-                hue = 0.8;
-                colorskat = {[0 0 0],[0 1 0],[1 0 0],[0 0 1]; [hue hue hue],[hue 1 hue],[1 hue hue],[hue hue 1]}; % prvni radka - prumery, druha radka errorbars = svetlejsi
-                [katsnames,~,~] = obj.GetKatsNames(); % to get names of categories for a legend
-                ploth = zeros(1,numel(kats)); % handles of plots for legend
-                legendStr = cell(1,numel(kats)); % strings for legend
-                
+                % means and std err over epochs
+                MOverEpoch = zeros(size(intervals,1),numel(kats)); % all means over epochs in one channel - for plot
+                EOverEp = zeros(size(intervals,1),numel(kats)); % all std err over epochs in one channel - for plot
                 for k = 1:numel(kats) % for each category
                     catmeans = cell2mat(allmeans(:,k)); % time invervals x epochs
-                    M = mean(catmeans,2); % mean over epochs
-                    E = std(catmeans,[],2)/sqrt(size(catmeans,2)); % std err of mean over epochs
-                    
-                    if length(vch)==1
-                        hold on
-                        errorbar(intervals(:, 2),M,E,'.','Color', colorskat{1,k});
-                        hold on;
-                        h_mean = plot(intervals(:, 2), M,'LineWidth',2,'Color',colorskat{1,k});
-                        ploth(k) = h_mean; % plot handle
-                        legendStr{k} = katsnames{1,k}; % array of names of categories for a legend
-                    end
-                    
-                    chanMeans(ichanMeans, 3:(size(intervals,1)+2)) = M'; % to put means over epochs for each category and channel - for xls table
-                    ichanMeans = ichanMeans+1;
-                end                              
-                
-                chanMeans(chInd:ch*numel(kats), 1) = vch(ch); % to establish the number of channel - for xls table
-                chInd = numel(kats)+chInd;
+                    MOverEpoch(:,k) = mean(catmeans,2); % mean over epochs
+                    EOverEp(:,k) = std(catmeans,[],2)/sqrt(size(catmeans,2)); % std err of mean over epochs
+                    chanMeans(ch, ichanMeans:(k*size(intervals,1))) = MOverEpoch(:,k)'; % to put means over epochs for each category and channel - for xls table
+                    ichanMeans = ichanMeans+size(intervals,1);
+                end
             end
             
+            % plotting
+            figure('Name','PlotResponseCh_for_average_time_intervals')
+            hue = 0.8;
+            colorskat = {[0 0 0],[0 1 0],[1 0 0],[0 0 1]; [hue hue hue],[hue 1 hue],[1 hue hue],[hue hue 1]}; % prvni radka - prumery, druha radka errorbars = svetlejsi
+            [katsnames,~,~] = obj.GetKatsNames(); % to get names of categories for a legend
+            ploth = zeros(1,numel(kats)); % handles of plots for legend
+            legendStr = cell(1,numel(kats)); % strings for legend
+            
+            % plot mean and std across epochs for one channel
             if length(vch)==1
+                M=MOverEpoch;
+                E=EOverEp;
+                % the number of the channel in the title of plot
+                if ~isempty(obj.CH.sortedby) %pokud jsou kanaly serazene jinak nez podle cisla kanalu
+                    chstr = [ num2str(vch(ch)) '(' obj.CH.sortedby  num2str(obj.plotRCh.ch) ')' ];
+                elseif numel(obj.CH.sortorder) < obj.channels %pokud jsou kanaly nejak vyfiltrovane pomoci obj.CH.FilterChannels();
+                    chstr = [ num2str(vch(ch)) '(' num2str(obj.plotRCh.ch) '/'  num2str(numel(obj.CH.sortorder)) ')' ];
+                else
+                    chstr = num2str(vch(ch));
+                end
+                title(['channel ' chstr '/' num2str(obj.channels) ' - ' obj.PacientID()], 'Interpreter', 'none'); % v titulu obrazku bude i pacientID napriklad p132-VT18
                 
+            else
+                
+                % plot mean and std across channels
+                ichanMeans = 1;
+                MOverChan = zeros(size(intervals,1),numel(kats)); % all means over channels - for plot
+                Ech = zeros(size(intervals,1),numel(kats)); % all std err over channels - for plot
+                for k = 1:numel(kats) % for each category
+                    MOverChan(:,k) = mean(chanMeans(:,ichanMeans:(k*size(intervals,1))),1); % mean over channels
+                    Ech(:,k) = std(chanMeans(:,ichanMeans:(k*size(intervals,1))),[],1)/sqrt(size(chanMeans(:,ichanMeans:(k*size(intervals,1))),1)); % std err of mean over channels
+                    ichanMeans = ichanMeans+size(intervals,1);
+                end
+                M=MOverChan;
+                E=Ech;
+            end
+                        
+            for k=1:numel(kats)
+                hold on
+                errorbar(intervals(:, 2),M(:,k),E(:,k),'.','Color', colorskat{1,k}); % plot errors
+                hold on;
+                h_mean = plot(intervals(:, 2), M(:,k),'LineWidth',2,'Color',colorskat{1,k}); % plot means
+                ploth(k) = h_mean; % plot handle
+                legendStr{k} = katsnames{1,k}; % array of names of categories for a legend
+            end
+            legend(ploth,legendStr);
+            xticks([intervals(1, 1) (intervals( : , 2))'])
+            txtinterv = num2str(intervals);
+            xticklabels({'0', txtinterv(1:end, :)})
+            xlabel('time intervals, s');
+            
+            % export data in xls table
+            if length(vch)==1
                 % export data for one channel in xls table
                 categories(isnan(categories))=[];  % remove all NaN
                 tableX = num2cell([categories, (cell2mat(allmeans))']); % table for export, epochs over all categories x (kategory num, intervals)
@@ -1777,52 +1796,32 @@ classdef CiEEGData < matlab.mixin.Copyable
                 titles4table = ['category', intervStr']; % column names
                 tableX = [titles4table; tableX]; % final table
                 strch = 'channel_';  % to distinguish in filename more just one channel
-                
             else
-                
                 % export data for all channels (means over epochs and time intervals) in xls table
                 labels = cell(length(vch),3); % cell array for brain labels
-                chInd = 1;
-                labelStr = strings(length(chanMeans(:,1)),3); % string array for brain labels (multiplyed by the number of categories) 
-                
                 if ~isempty(obj.CH.brainlabels) % if CM.CH.brainlabels contains names for brain labels, they will be put in a final table according to the number of channel
                     for chan = 1:size(vch,2)
                         labels{chan,1} = obj.CH.brainlabels(vch(chan)).class; % to establish a brain class for which the channel belongs - for xls table
                         labels{chan,2} = obj.CH.brainlabels(vch(chan)).label; % to establish a brain label for which the channel belongs - for xls table
                         labels{chan,3} = obj.CH.brainlabels(vch(chan)).lobe; % to establish a brain lobe for which the channel belongs - for xls table
-                        labelStr(chInd:chan*numel(kats),1) = string(repmat(labels{chan,1},numel(kats),1)); % the same brain class multiplyed by the number of categories
-                        labelStr(chInd:chan*numel(kats),2) = string(repmat(labels{chan,2},numel(kats),1)); % the same brain label multiplyed by the number of categories
-                        labelStr(chInd:chan*numel(kats),3) = string(repmat(labels{chan,3},numel(kats),1)); % the same brain lobe multiplyed by the number of categories
-                        chInd = numel(kats)+chInd;
                     end
-                else
-                    labelStr = cell(length(chanMeans(:,1)),3);
-                end
+                end    % otherwise labels will be just empty cell array
                 
-                chanMeans(:, 2) = repmat(kats',length(vch),1); % to establish the number of category - for xls table
+                % long names for columns in STATISTICA (category + time interval)
                 intervStr = cellstr(num2str(intervals,'%.1f-%.1f'));
-                titles4table = ['number of channel','category', intervStr', 'class','label','lobe']; % column names
-                tableX = [titles4table; num2cell(chanMeans), labelStr]; % final table
-                strch = 'channels_'; % to distinguish in filename more than one channel
-                
-                % plot mean and std across channels
-                figure('Name','PlotResponseCh_for_average_time_intervals')
-                for k = 1:numel(kats) % for each category
-                    Moverchan = mean(chanMeans(k:numel(kats):end,3:end),1); % mean over channels
-                    E = std(chanMeans(k:numel(kats):end,3:end),[],1)/sqrt(size(chanMeans(k:numel(kats):end,3:end),1)); % std err of mean over channels
-                    hold on
-                    errorbar(intervals(:, 2),Moverchan,E,'.','Color', colorskat{1,k});
-                    hold on;
-                    h_mean = plot(intervals(:, 2), Moverchan,'LineWidth',2,'Color',colorskat{1,k});
-                    ploth(k) = h_mean; % plot handle
-                    legendStr{k} = katsnames{1,k}; % array of names of categories for a legend
+                names4col = cell(1,numel(kats)*size(intervals,1));
+                p=1;
+                for k=1:numel(kats)
+                    for int = 1:size(intervals,1)
+                        Str = {katsnames{1,k},intervStr{int}};
+                        names4col(:,p) = join(Str, ': ');
+                        p=p+1;
+                    end
                 end
+                titles4table = ['number of channel', names4col, 'class','label','lobe']; % column names
+                tableX = [titles4table; num2cell(vch'), num2cell(chanMeans), labels]; % final table
+                strch = 'channels_'; % to distinguish in filename more than one channel
             end
-            legend(ploth,legendStr);
-            xticks([intervals(1, 1) (intervals( : , 2))'])
-            txtinterv = num2str(intervals);
-            xticklabels({'0', txtinterv(1:end, :)})
-            xlabel('time intervals, s');
             
             xlsfilename = ['logs\average_time_intervals_for ' strch char(strjoin(string(vch(1,[1 ch])), '-')) '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') '.xls'];
             xlswrite(xlsfilename,tableX);
@@ -2487,7 +2486,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                case {'divide','slash'} %lomeno na numericke klavesnici - automaticke meritko na ose y 
                    obj.plotEp.ylim = [];
                    obj.PlotEpochs( obj.plotEp.ch); %prekreslim grafy
-               case {'subtract' , 'hyphen'} %signal minus - razeni epoch podle rt on/off   %u terezy na notebooku  
+               case {'subtract' , 'hyphen',''} %signal minus - razeni epoch podle rt on/off   %u terezy na notebooku  
                    obj.plotEp.sortrt = 1 - obj.plotEp.sortrt;  %zmenim sortrt
                    obj.PlotEpochs( obj.plotEp.ch); %prekreslim grafy  
                case 'space' %prepinani mezi color plot a plot pres sebe                   
