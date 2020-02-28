@@ -23,6 +23,7 @@ classdef ChannelPlot < matlab.mixin.Copyable
                 if ~isfield(obj.plotCh3D,'hullindex'), obj.plotCh3D.hullindex = 0; end   %index of brainlabel to plot convex hull        
                 if ~isfield(obj.plotCh3D,'fontsize'), obj.plotCh3D.fontsize = 7; end   %index of brainlabel to plot convex hull 
                 if ~isfield(obj.plotCh3D,'coloruse'), obj.plotCh3D.coloruse = 0; end   %which color to use 0=according to value size, 1=according to channel marks as in 2D plot, 2=according to brain labels
+                if ~isfield(obj.plotCh3D,'markertype'), obj.plotCh3D.markertype = 'o'; end   %which markertype to use in scatter3 - default is ball
             end
             if exist('plotCh3D','var') && isstruct(plotCh3D)
                 fields = fieldnames(plotCh3D);
@@ -158,7 +159,8 @@ classdef ChannelPlot < matlab.mixin.Copyable
                     end
                     if reordered, annotation('textbox', [.6 0.15 .2 .1], 'String', 'REORDERED', 'EdgeColor', 'none'); end
                 end
-                scatter3(X,Y,Z,sizes(isizes),clrs(isizes,:),'filled'); %ruzne velke a barevne krouzky vsech kanalu najednou
+%                 
+                scatter3(X,Y,Z,sizes(isizes),clrs(isizes,:),'filled',obj.plotCh3D.markertype,'MarkerEdgeColor','k'); %ruzne velke a barevne krouzky vsech kanalu najednou
                
                 if ~isempty(selch) && selch>0
                     scatter3(XYZ.X(selch),XYZ.Y(selch),XYZ.Z(selch),max(sizes),[0 0 0]);
@@ -335,11 +337,16 @@ classdef ChannelPlot < matlab.mixin.Copyable
                      end
                      obj.ChannelPlot3D();
                   case 'n' %names
-                     if obj.plotCh3D.labesXnames %if brainlabels are plotted
-                         obj.plotCh3D.labesXnames = 0; %just switch to chnames
+                     if ~isempty(eventDat.Modifier) && strcmp(eventDat.Modifier{:},'shift') 
+                          obj.plotCh3D.names =0; %by the shift+n, switch off all names
+                          obj.plotCh3D.labesXnames = 0; %just switch to chnames
                      else
-                         obj.plotCh3D.names  = obj.plotCh3D.names + 1; %switch of channel labels - 0=nothing,1=channel no,2=channel name,3=neurologyLabels,4=pacient name
-                         if obj.plotCh3D.names > 4, obj.plotCh3D.names =0; end                                             
+                         if obj.plotCh3D.labesXnames %if brainlabels are plotted
+                             obj.plotCh3D.labesXnames = 0; %just switch to chnames
+                         else
+                             obj.plotCh3D.names  = obj.plotCh3D.names + 1; %switch of channel labels - 0=nothing,1=channel no,2=channel name,3=neurologyLabels,4=pacient name
+                             if obj.plotCh3D.names > 4, obj.plotCh3D.names =0; end                                             
+                         end
                      end
                      obj.ChannelPlot3D();
                   case 'b' %show brain labels instead of channel names  
@@ -409,6 +416,12 @@ classdef ChannelPlot < matlab.mixin.Copyable
                     obj.plotCh3D.coloruse = obj.plotCh3D.coloruse + 1;
                     if obj.plotCh3D.coloruse >= 3, obj.plotCh3D.coloruse=0; end %values only 0 1 or 2%                   
                     obj.ChannelPlot3D(); 
+                  case 'm' %toggle markertypes to use for scatter 3D
+                   markertypes = {'o','s','d','p'};
+                   im = find(contains(markertypes,obj.plotCh3D.markertype)) +1;
+                   if im > numel(markertypes), im = 1; end
+                   obj.plotCh3D.markertype = markertypes{im}; 
+                   obj.ChannelPlot3D(); 
               end
         end
 

@@ -1134,7 +1134,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                       obj.ChannelPlot2D();
                   case 'n' %moznost vypnout / zapnout zobrazeni jmen kanalu
                       if ~isempty(eventDat.Modifier) && strcmp(eventDat.Modifier{:},'shift') 
-                          obj.plotCh2D.names =0; %by the alt+n, switch off all names
+                          obj.plotCh2D.names =0; %by the shift+n, switch off all names
                       else
                           obj.plotCh2D.names = obj.plotCh2D.names + 1;
                         if obj.plotCh2D.names == 4, obj.plotCh2D.names =0; end % meni se postupne hodoty 0 1 2

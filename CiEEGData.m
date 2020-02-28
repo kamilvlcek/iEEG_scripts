@@ -2629,6 +2629,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             else
                 obj.plotRCh.selCh(ch,markno) = 1 - obj.plotRCh.selCh(ch,markno); %pridam kanal k vyberu , nebo odeberu             
             end
+            obj.CH.SetSelCh(obj.plotRCh.selCh);  %transfers channel marking to CHHeader class
         end
         function id = PacientID(obj,full)
             %vraci oznaceni pacienta, bud z CPsyData nebo z CHHeader
