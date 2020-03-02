@@ -371,26 +371,37 @@ classdef CStat < handle
             obj.plotAUC_m.chsort = chsort;
             obj.plotAUC_m.chmax = chmax; %ulozim i hodnoty, asi nemuzu ukladat pro vsechny kanaly, protoze pak by neplatilo chsort
         end
-        function AUCPlotBrain(obj,selch,vals)
+        function AUCPlotBrain(obj,selch,vals,rangeZ)
             %volam funkci na vykresleni 3D obrazku mozku ChannelPlot
             %selch je cislo kanalu podle poradi (podle velikosti chmax)
             %vals - muzu dodat hodnoty na vykresleni, defaultne jsou pouzite maxima AUC krivek. 
-            if ~exist('vals','var')
+            if ~exist('selch','var') || isempty(selch)
+                selch = 1; %index in obj.plotAUC_m.chsort = channels sorted by AUC value - first is max                
+            end
+            if ~exist('vals','var') || isempty(vals)
                 sig = logical(obj.plotAUC.sig(obj.plotAUC_m.channels,logical(obj.plotAUC.katplot)));  %jestli jsou AUCkrivky signifikangni
                 vals = obj.plotAUC_m.chmax+.5; %chmax jsou hodnoty -.5 az .5. chciz rozsah 0-1                         
                 selchval = vals(obj.plotAUC_m.chsort(selch)); %zjistim hodnotu, kterou chci v mozku oznacit
                 vals = vals(sig); %vezem jen signif kanaly
-                channels =  obj.plotAUC_m.channels(sig);
-                selchs = find(vals==selchval);  %najdu znovu index hodnoty ze signif kanalu
+                channels =  obj.plotAUC_m.channels(sig);                
             else
                 channels =   obj.plotAUC_m.channels;
+                selchval = vals(selch);
             end           
+            if ~exist('rangeZ','var') || isempty(rangeZ) 
+               if isfield(obj.plotAUC.Eh.CH.channelPlot.plotCh3D,'rangeZ')
+                   rangeZ=obj.plotAUC.Eh.CH.channelPlot.plotCh3D.rangeZ;  %copy rangeZ from existing channelplot 3D
+               else
+                   rangeZ=[0 1]; 
+               end
+            end
             
-            obj.plotAUC.Eh.CH.ChannelPlot(vals,... %param chnvals
+            selchs = find(vals==selchval);  %najdu znovu index hodnoty ze signif kanalu
+            obj.plotAUC.Eh.CH.ChannelPlotProxy(vals,... %param chnvals
                 channels,... %chnsel jsou cisla kanalu, pokud chci jen jejich vyber
                 iff(~isempty(selchs),selchs,0),[],...%selch je jedno zvyraznene cislo kanalu - index v poli chnsel
-                'AUCPlotBrain', [0 1]); 
-            set(obj.plotAUC.Eh.CH.plotCh3D.fh, 'WindowButtonDownFcn', {@obj.hybejPlot3Dclick, selch});
+                'AUCPlotBrain', rangeZ); 
+            set(obj.plotAUC.Eh.CH.channelPlot.plotCh3D.fh, 'WindowButtonDownFcn', {@obj.hybejPlot3Dclick, selch});
         end
         function AUC2XLS(obj, val_fraction, int_fraction)
             %vypise seznam kanalu z grafu AUCPlotM do xls souboru 
@@ -399,7 +410,7 @@ classdef CStat < handle
             %pokud neni specifikovan parametr 'fraction', zobrazi se dialogove okno pro zadani procent z maxima            
             if nargin == 1
                 prompt = {'Value trigger percentage:', 'Integral trigger percentage:'};
-                default = {'50', '50'};
+                default = {'90', '50'};
                 percent = inputdlg(prompt, 'XLS Export', [1 30], default);
                 if isempty(percent)
                     disp('XLS export cancelled');
@@ -849,19 +860,14 @@ classdef CStat < handle
           coordinates = [displayedChannels.MNI_x; displayedChannels.MNI_y; displayedChannels.MNI_z];    % souradnice zobrazenych kanalu
           closestChannel = findClosestPoint(p1, p2, coordinates, 2);    % najdu kanal nejblize mistu kliknuti
           if closestChannel  % pokud jsem nejaky nasel:
-            %disp(displayedChannels(closestChannel).name)
-            x = coordinates(1,closestChannel); y = coordinates(2,closestChannel); z = coordinates(3,closestChannel);
-            if isfield(obj.plotAUC.Eh.CH.plotCh3D, 'selHandle') % smazu predchozi oznaceni, pokud nejake bylo
-                delete(obj.plotAUC.Eh.CH.plotCh3D.selHandle)
-                delete(obj.plotAUC.Eh.CH.plotCh3D.selNameHandle)
-            end
-            obj.plotAUC.Eh.CH.plotCh3D.selHandle = scatter3(x, y, z, 200, 'r', 'fill'); % oznacim vybrany kanal na 3D grafu
-            obj.plotAUC.Eh.CH.plotCh3D.selNameHandle = annotation('textbox',[0 1 0 0],'String',displayedChannels(closestChannel).name,'FitBoxToText','on');
-            obj.AUCPlotM([],[],find(obj.plotAUC_m.chsort == closestChannel, 1)); % oznacim vybrany kanal v AUC plotu
+             ch = obj.plotAUC.Eh.CH.channelPlot.plotCh3D.dispChannels(closestChannel);
+             if isfield(obj.plotAUC.Eh.CH.channelPlot.plotCh3D, 'fh') && isvalid(obj.plotAUC.Eh.CH.channelPlot.plotCh3D.fh)
+                obj.plotAUC.Eh.CH.channelPlot.highlightChannel(ch);
+             end
+             obj.AUCPlotM([],[],find(obj.plotAUC_m.chsort == closestChannel, 1)); % oznacim vybrany kanal v AUC plotu
           else  % pokud se zadny kanal nenasel (kliknuti mimo)
-             if isfield(obj.plotAUC.Eh.CH.plotCh3D, 'selHandle') % smazu predchozi oznaceni, pokud nejake bylo
-               delete(obj.plotAUC.Eh.CH.plotCh3D.selHandle)
-               delete(obj.plotAUC.Eh.CH.plotCh3D.selNameHandle)
+             if isfield(obj.plotAUC.Eh.CH.channelPlot.plotCh3D, 'fh') && isvalid(obj.plotAUC.Eh.CH.channelPlot.plotCh3D.fh)
+                obj.plotAUC.Eh.CH.channelPlot.highlightChannel(0);
              end
              %TODO: Zrusit zvyrazneni v AUC plotu
           end

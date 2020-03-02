@@ -36,6 +36,8 @@ classdef CiEEGData < matlab.mixin.Copyable
         DatumCas = {}; %ruzne casove udaje, kdy bylo co spocitano. Abych mel historii vypoctu pro zpetnou referenci
         PL = {}; %objekt CPlots
         CS = {}; %objekt CStat
+        colorskat = {[0 0 0],[0 1 0],[1 0 0],[0 0 1],[1 1 0],[0 1 1],[1 0 1]}; % black, green, red, blue, yellow, aqua, fuchsia
+        OR = {}; %object CRefOrigVals
     end
     
     properties(SetObservable)
@@ -114,7 +116,13 @@ classdef CiEEGData < matlab.mixin.Copyable
             %tyhle objekty potrebuju inicializovat i pokud je objekt prazdny - CHilbertMulti
             obj.PL = CPlots(); %prazdny objekt na grafy
             if ~isprop(obj,'CS') || ~isa(obj.CS,'CStat') , obj.CS = CStat(); end %prazdy objekt na statistiku, ale mozna uz byl nacteny pomoci load             
+            obj.OR=CRefOrigVals(obj); %try to load OrigRegVals if exist
         end      
+        function delete(obj) %destructor of a handle class
+            if isfield(obj.plotEp,'fh') && ~isempty(obj.plotEp.fh) && ishandle(obj.plotEp.fh) ,close(obj.plotEp.fh); end
+            if isfield(obj.plotRCh,'fh') && ~isempty(obj.plotRCh.fh) && ishandle(obj.plotRCh.fh) ,close(obj.plotRCh.fh); end
+            if isprop(obj,'plotH') && ~isempty(obj.plotH) && ishandle(obj.plotH) ,close(obj.plotH); end
+        end
         function [samples, channels, epochs] = DSize(obj)
             % vraci velikosti pole d - samples, channels, epochs
             samples = size(obj.d,1);
@@ -378,7 +386,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 psy_rt = zeros(size(d,3),1); %nulove reakcni casy
             end
             
-            if exist('rt','var') && ~isempty(rt) %chci hodnoty serazene podle reakcniho casu               
+            if exist('rt','var') && ~isempty(rt) && rt>0 %chci hodnoty serazene podle reakcniho casu               
                 [psy_rt, isorted] = sort(psy_rt);
                 d = d(:,:,isorted); 
             end   
@@ -715,7 +723,6 @@ classdef CiEEGData < matlab.mixin.Copyable
                 iintervalyData = obj.Wp(obj.WpActive).iepochtime(2,:); %16.1.2019 - indexy statistiky ulozene v ResponseSearch 
                 iintervalyStat = [1 diff(iintervalyData)+1];                
                 
-                colorskat = {[0 0 0],[0 1 0],[1 0 0],[0 0 1],[1 1 0],[0 1 1],[1 0 1]}; %barvy jako v PlotResponseCh, black, green, red, blue, yellow, aqua, fuchsia
                 colorkombinace = {0,1,2,4;0 0 3 5;0 0 0 6};
                 iChKats = false(2,numel(channels));  %dva radky pro rozdily vuci baselina a kategorii vuci sobe                                                                          
                 
@@ -750,11 +757,11 @@ classdef CiEEGData < matlab.mixin.Copyable
                     P = squeeze(prumery(:,int,kat));  %max/min z kazdeho kanalu                  
                     Pmax(kat) = max(P); %maximum pro kategorii pres vsechny kanaly
                     if dofig
-                        ploth(kat) = plot(P','o-','Color',colorskat{kat}); %kreslim tuto kategorii                       
+                        ploth(kat) = plot(P','o-','Color',obj.colorskat{kat}); %kreslim tuto kategorii                       
                         hold on;           
                         selCh = find(any(obj.plotRCh.selCh,2)); %indexy jakkoliv oznacenych kanalu
                         if ~isempty(selCh) %pokud existuji nejake vybrane kanaly, vykreslim je plnou barvou
-                            plot(selCh,P(selCh)','o','Color',colorskat{kat},'MarkerFaceColor', colorskat{kat});
+                            plot(selCh,P(selCh)','o','Color',obj.colorskat{kat},'MarkerFaceColor', obj.colorskat{kat});
                         end
                     end
                     iChKats(1,:) = iChKats(1,:) | iCh; %pridam dalsi kanaly, kde je signif odpoved                                        
@@ -794,10 +801,10 @@ classdef CiEEGData < matlab.mixin.Copyable
                                 
                     colorindex = colorkombinace{kombinace(kat,2),kombinace(kat,1)};
                     if dofig %kreslim rozdily mezi odpovedmi pro kategorie                        
-                        ph = plot(P'+yKombinace,'o-','Color',colorskat{colorindex}); %kreslim tuto kombinaci kategorii nahoru                        
+                        ph = plot(P'+yKombinace,'o-','Color',obj.colorskat{colorindex}); %kreslim tuto kombinaci kategorii nahoru                        
                         selCh = find(any(obj.plotRCh.selCh,2)); %indexy jakkoliv oznacenych kanalu
                         if ~isempty(selCh) %pokud existuji nejake vybrane kanaly, vykreslim je plnou barvou
-                            plot(selCh,P(selCh)'+yKombinace,'o','Color',colorskat{colorindex},'MarkerFaceColor', colorskat{colorindex});
+                            plot(selCh,P(selCh)'+yKombinace,'o','Color',obj.colorskat{colorindex},'MarkerFaceColor', obj.colorskat{colorindex});
                         end
                         if kat>numel(kats), ploth(kat) = ph; end %pokud je kombinaci vic nez kategorii, ulozim si handle, budu ho potrebovat na legendu
                     end
@@ -1283,7 +1290,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 obj.plotRCh.pvalue = pvalue;
             end
             if ~exist('ch','var')
-                if ~isempty(obj.CH.sortorder)%it can be empty it all channels were filtered out
+                if isempty(obj.CH.sortorder) %it can be empty it all channels were filtered out
                    ch = 1; 
                    obj.plotRCh.ch = 1; 
                 elseif isfield(obj.plotRCh,'ch') && ~isempty(obj.plotRCh.ch) && obj.plotRCh.ch <= numel(obj.CH.sortorder)
@@ -1405,19 +1412,19 @@ classdef CiEEGData < matlab.mixin.Copyable
             % POTOM JEDNOTLIVE KATEGORIE
             if exist('kategories','var') || exist('opakovani','var') %kategorie vykresluju jen pokud mam definovane karegorie                   
                 hue = 0.8;
-                colorskat = {[0 0 0],[0 1 0],[1 0 0],[0 0 1]; [hue hue hue],[hue 1 hue],[1 hue hue],[hue hue 1]}; % prvni radka - prumery, druha radka errorbars = svetlejsi
+                colorsErrorBars = cellfun(@(a) min(a+hue, 1), obj.colorskat, 'UniformOutput', false);
                 yposkat = [3 0 0 0; 4 5 0 0; 6 7 8 0]; %pozice y pro kombinaci k a l - k v radcich a l-1 ve sloupcich
                 ybottom = iff(numel(kategories)>3,0.4,0.3); %odkud se maji umistovat kontrasty mezi kategoriemi - parametr vypoctu y                
                 h_kat = zeros(numel(kategories),2); 
                
-                for k= 1 : numel(kategories) %index 1-3 (nebo 4)
+                for k = 1 : numel(kategories) %index 1-3 (nebo 4)
                     if ~isempty(obj.Wp)
                         if iscell(kategories), kk = kategories{k}(1);  else,   kk = kategories(k);    end % aby barvy odpovidaly kategoriim podnetum spis nez kategoriim podle statistiky
                     else                        
-                        kk =k-1;
+                        kk = k-1;
                     end
                     %to se hodi zvlast, kdyz se delaji jen dve kategorie vuci sobe ane vsechny, nebo dve vuci jedne nebo dve vuci dvema
-                    colorkatk = [colorskat{1,kk+1} ; colorskat{2,kk+1}]; %dve barvy, na caru a stderr plochu kolem
+                    colorkatk = [obj.colorskat{kk+1} ; colorsErrorBars{kk+1}]; %dve barvy, na caru a stderr plochu kolem
                     if exist('opakovani','var') && ~isempty(opakovani)
                         katnum = kategories{k}; %v kategories jsou opakovani k vykresleni, a je to cell array
                         [katdata,~,RjEpCh] = obj.CategoryData(KATNUM,[],katnum,ch); %eegdata - epochy pro tato opakovani
@@ -1458,7 +1465,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                             if iscell(kategories), colorkatl = kategories{l}(1)+1; else, colorkatl = kategories(l)+1; end
                             
                             y = ymin + (ymax-ymin)*(ybottom - (yposkat(l-1,k))*0.05)  ; %pozice na ose y
-                            if k==1, color=colorskat{1,colorkatl}; else, color = colorskat{1,1}; end %green a red jsou proti kategorii 0, cerna je kat 1 vs kat 2
+                            if k==1, color=obj.colorskat{colorkatl}; else, color = obj.colorskat{1}; end %green a red jsou proti kategorii 0, cerna je kat 1 vs kat 2
                             if pvalue %pokud chci zobrazovat hodnotu p value jako krivku                                
                                 plot(Tr,obj.Wp(WpA).WpKat{k,l}(:,ch), ':','Color',color); %carkovana cara oznacuje signifikanci kategorie vuci jine kategorii
                             end
@@ -1488,7 +1495,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                                 kat2name =  obj.PsyData.CategoryName(kategories(k));
                                 kat3name = '';
                             end
-                            text(0.04+obj.Wp(WpA).epochtime(1),y, ['\color[rgb]{' num2str(colorskat{1,colorkatl}) '}' kat1name ...
+                            text(0.04+obj.Wp(WpA).epochtime(1),y, ['\color[rgb]{' num2str(obj.colorskat{colorkatl}) '}' kat1name ...
                                     '\color[rgb]{' num2str(color) '} *X* '  ...
                                     '\color[rgb]{' num2str(colorkatk(1,:)) '}' kat2name kat3name]); 
                               
@@ -1514,7 +1521,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                             line([Tr(1) Tr(end)],[y y]+(ymax-ymin)*0.03 ,'Color',[0.5 0.5 0.5]); 
                                 %kazde jmeno kategorie jinou barvou
                             if pvalue %pokud chci zobrazovat hodnotu p value jako krivku
-                               plot(Tr,obj.Wp(WpA).WpKatBaseline{k,1}(:,ch), '-.','Color',colorskat{1,k}); %teckovana cara oznacuje signifikanci kategorie vuci baseline
+                               plot(Tr,obj.Wp(WpA).WpKatBaseline{k,1}(:,ch), '-.','Color',obj.colorskat{kk+1}); %teckovana cara oznacuje signifikanci kategorie vuci baseline
                             end
                     end
                     %cara reakcnich casu pro tuhle kategorii
@@ -1683,52 +1690,162 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
             
         end  
-        function TimeIntervals(obj,ch,intervals) % Sofiia 09.01.2019 average time intervals
-            % default intervals = [0 0.2; 0.2 0.4; 0.4 0.6; 0.6 0.8; 0.8 1];
-            if ~exist('intervals') || isempty(intervals), intervals = [0 0.2; 0.2 0.4; 0.4 0.6; 0.6 0.8; 0.8 1]; end % default intervals
-            kats = obj.Wp(obj.WpActive).kats;
+        function TimeIntervals(obj,vch,intervals,nofile) % Sofiia 2020
+            %  average time intervals for one channel or for a vector of channels (e.g. across a particular structure)
+            %  numbers of channels can be obtained, for example, after applying CM.CH.FilterChannels({'lobe','precun'})
+            %  or if it's empty it will use numbers of channels after current filtering (from CM.CH.sortoder)
+            %  default intervals = [0 0.2; 0.2 0.4; 0.4 0.6; 0.6 0.8];
+            %  nofile - if 1, do not save any xls file, only plot figure
             
-            % initialize matrix
-            allmeans = zeros (size(intervals,1), size(obj.d,3)/3, numel(kats)); % average time intervals x epochs x category
-            T = (0 : 1/obj.fs : (size(obj.d,1)-1)/obj.fs) + obj.epochtime(1);
-            T2 = T(:);
+            if ~exist('intervals','var') || isempty(intervals), intervals = [0 0.2; 0.2 0.4; 0.4 0.6; 0.6 0.8]; end % default intervals
+            if ~exist('vch','var') || isempty(vch)
+                vch = obj.CH.sortorder; 
+                chshowstr = obj.CH.plotCh2D.chshowstr; %description of the selected channels - name from CM.CH.FilterChannels();
+            else
+                chshowstr = [ num2str(length(vch)) 'channels'];
+            end % will use numbers of channels after current filtering
+            if ~exist('nofile','var'), nofile = 0; end %save the file by default
+            kats = obj.Wp(obj.WpActive).kats; % define categories
             
-            for j = 1:numel(kats)
-                [d,~,RjEpCh,~]= obj.CategoryData(kats(j),[],[],ch); % get data
-                d = squeeze(d(:,ch,:)); % time x epoch
+            % initialize matrix for all channels
+            chanMeans = zeros (length(vch), numel(kats)*size(intervals,1)); % for statistica - all time intervals and category in columns
+            
+            %get data from obj.CategoryData for all channels at onces - to make the whole function faster
+            categorydata = cell(numel(kats),2); %store precomputed category data here 
+            for k = 1:numel(kats)
+                [d,~,RjEpCh,~]= obj.CategoryData(kats(k),[],[],vch); % get data for all channels
+                categorydata(k,:) = {d(:,vch,:),RjEpCh}; % save d (time x channels x epochs) and RjEpCh (channels x epochs)
+            end
+            
+            for ch = 1:size(vch,2) % for each channel                
+                % initialize matrix for an individual channel
+                allmeans = cell(size(intervals,1),numel(kats)); %  time intervals x kategories (x epochs)
+                categories = NaN(size(obj.d,3), 1); % vector to define categories for all epochs for an individual channel - for xls table
+                T = (0 : 1/obj.fs : (size(obj.d,1)-1)/obj.fs)' + obj.epochtime(1); % time in sec
+                nInd = 1; % initialize index for variable categories
+                ichanMeans = 1; % initialize index for chanMeans
                 
-                for int = 1:size(intervals,1)
-                    index = find(T2>intervals(int,1) & T2 <intervals(int,2));
-                    meanOverT = mean(d(index, :),1); % mean across time according to time intervals
-                    allmeans(int, : , j) = meanOverT; % put in matrix
+                for k = 1:numel(kats) % for each category%                   
+                    RjEpCh = categorydata{k,2}(ch,:); %previously stored RjEpCh
+                    d = squeeze(categorydata{k,1}(:,ch,~RjEpCh));  %previously stored d value                  
+                    categories(nInd:(nInd+size(d,2)-1)) = kats(k); % to establish the number of category for all epochs for an individual channel - for xls table
+                    nInd = size(d,2)+nInd;
+                    
+                    for int = 1:size(intervals,1)  % for each interval
+                        index = T>intervals(int,1) & T <=intervals(int,2);
+                        meanOverT = mean(d(index, :),1); % mean across time  according to time intervals - for each epoch
+                        allmeans{int,k} = meanOverT; % put in a cell array; time intervals x epochs
+                    end
+                    
+                end
+                
+                % means and std err over epochs
+                MOverEpoch = zeros(size(intervals,1),numel(kats)); % all means over epochs in one channel - for plot
+                EOverEp = zeros(size(intervals,1),numel(kats)); % all std err over epochs in one channel - for plot
+                for k = 1:numel(kats) % for each category
+                    catmeans = cell2mat(allmeans(:,k)); % time invervals x epochs
+                    MOverEpoch(:,k) = mean(catmeans,2); % mean over epochs
+                    EOverEp(:,k) = std(catmeans,[],2)/sqrt(size(catmeans,2)); % std err of mean over epochs
+                    chanMeans(ch, ichanMeans:(k*size(intervals,1))) = MOverEpoch(:,k)'; % to put means over epochs for each category and channel - for xls table
+                    ichanMeans = ichanMeans+size(intervals,1);
                 end
             end
             
+            % plotting
+            figure('Name','PlotResponseCh_for_average_time_intervals')
+            hue = 0.8;
+            colorskat = {[0 0 0],[0 1 0],[1 0 0],[0 0 1]; [hue hue hue],[hue 1 hue],[1 hue hue],[hue hue 1]}; % prvni radka - prumery, druha radka errorbars = svetlejsi
+            [katsnames,~,~] = obj.GetKatsNames(); % to get names of categories for a legend
+            ploth = zeros(1,numel(kats)); % handles of plots for legend
+            legendStr = cell(1,numel(kats)); % strings for legend
             
-            % plot mean and std across epochs
-            M = mean(allmeans(:,~RjEpCh(1,:),:),2);
-            M = squeeze(M(:,1,:));
-            E = std(allmeans(:,~RjEpCh(1,:),:),[],2)/sqrt(size(allmeans,2)); %std err of mean
-            E = squeeze(E(:,1,:));
+            % plot mean and std across epochs for one channel
+            if length(vch)==1
+                M=MOverEpoch; %set variable to be plotted - means
+                E=EOverEp;    %set variable to be plotted - errorbars
+                % the number of the channel in the title of plot
+                if ~isempty(obj.CH.sortedby) %pokud jsou kanaly serazene jinak nez podle cisla kanalu
+                    chstr = [ num2str(vch(ch)) '(' obj.CH.sortedby  num2str(obj.plotRCh.ch) ')' ];
+                elseif numel(obj.CH.sortorder) < obj.channels %pokud jsou kanaly nejak vyfiltrovane pomoci obj.CH.FilterChannels();
+                    chstr = [ num2str(vch(ch)) '(' num2str(obj.plotRCh.ch) '/'  num2str(numel(obj.CH.sortorder)) ')' ];
+                else
+                    chstr = num2str(vch(ch));
+                end
+                title(['channel ' chstr '/' num2str(obj.channels) ' - ' obj.PacientID()], 'Interpreter', 'none'); % v titulu obrazku bude i pacientID napriklad p132-VT18
+                
+            else
+                
+                % plot mean and std across channels
+                ichanMeans = 1;
+                MOverChan = zeros(size(intervals,1),numel(kats)); % all means over channels - for plot
+                EOverChan = zeros(size(intervals,1),numel(kats)); % all std err over channels - for plot
+                for k = 1:numel(kats) % for each category
+                    MOverChan(:,k) = mean(chanMeans(:,ichanMeans:(k*size(intervals,1))),1); % mean over channels
+                    EOverChan(:,k) = std(chanMeans(:,ichanMeans:(k*size(intervals,1))),[],1)/sqrt(size(chanMeans,1)); % std err of mean over channels
+                    ichanMeans = ichanMeans+size(intervals,1);
+                end
+                M=MOverChan; %set variable to be plotted - means
+                E=EOverChan; %set variable to be plotted - errorbars
+                title([num2str(length(vch)) ' channels: ' chshowstr ]); %title for multiple channels
+            end
+                        
+            for k=1:numel(kats)
+                hold on
+                errorbar(intervals(:, 2),M(:,k),E(:,k),'.','Color', colorskat{1,k}); % plot errors
+                hold on;
+                h_mean = plot(intervals(:, 2), M(:,k),'LineWidth',2,'Color',colorskat{1,k}); % plot means
+                ploth(k) = h_mean; % plot handle
+                legendStr{k} = katsnames{1,k}; % array of names of categories for a legend
+            end
+            legend(ploth,legendStr);
+            xticks([intervals(1, 1) (intervals( : , 2))'])
+            txtinterv = num2str(intervals);
+            xticklabels({'0', txtinterv(1:end, :)})
+            xlabel('time intervals, s');
             
-            figure(1), clf
-            h_errbar1 = errorbar((mean(intervals,2))',M(:,1) ,E(:,1),'.','Color',[1 0 0]); %nejdriv vykreslim errorbars aby byly vzadu [.8 .8 .8]
-            hold on;
-            h_mean1 = plot((mean(intervals,2))', M(:,1),'LineWidth',2,'Color',[1 0 0]);  %prumerna odpoved, ulozim si handle na krivku
-            hold on;
-            h_errbar2 = errorbar((mean(intervals,2))',M(:,2) ,E(:,2),'.','Color',[0 1 0]); 
-            hold on;
-            h_mean2 = plot((mean(intervals,2))', M(:,2),'LineWidth',2,'Color',[0 1 0]);  
-            hold on;
-            h_errbar3 = errorbar((mean(intervals,2))',M(:,3) ,E(:,3),'.','Color',[0 0 1]); 
-            hold on;
-            h_mean3 = plot((mean(intervals,2))', M(:,3),'LineWidth',2,'Color',[0 0 1]);  
-            xlim([intervals(1,1), intervals(end,end)]);
-            obj.plotRCh.range = [min(M(:,1))-max(E(:,1)) max(M(:,1))+max(E(:,1))]; 
-            legend([h_mean1 h_mean2 h_mean3], 'control','ego', 'allo')           
-            xlabel('time, s');
-        end
+            % export data in xls table
+            if nofile==0
+                if length(vch)==1
+                    % export data for one channel in xls table
+                    categories(isnan(categories))=[];  % remove all NaN
+                    tableX = num2cell([categories, (cell2mat(allmeans))']); % table for export, epochs over all categories x (kategory num, intervals)
+                    intervStr = cellstr(num2str(intervals,'%.1f-%.1f'));
+                    titles4table = ['category', intervStr']; % column names
+                    tableX = [titles4table; tableX]; % final table
+                    strch = ['channel-' num2str(vch)];  % to distinguish in filename more just one channel
+                else
+                    % export data for all channels (means over epochs and time intervals) in xls table
+                    labels = cell(length(vch),3); % cell array for brain labels
+                    if ~isempty(obj.CH.brainlabels) % if CM.CH.brainlabels contains names for brain labels, they will be put in a final table according to the number of channel
+                        for chan = 1:size(vch,2)
+                            labels{chan,1} = obj.CH.brainlabels(vch(chan)).class; % to establish a brain class for which the channel belongs - for xls table
+                            labels{chan,2} = obj.CH.brainlabels(vch(chan)).label; % to establish a brain label for which the channel belongs - for xls table
+                            labels{chan,3} = obj.CH.brainlabels(vch(chan)).lobe; % to establish a brain lobe for which the channel belongs - for xls table
+                        end
+                    end    % otherwise labels will be just empty cell array
 
+                    % long names for columns in STATISTICA (category + time interval)
+                    intervStr = cellstr(num2str(intervals,'%.1f-%.1f'));
+                    names4col = cell(1,numel(kats)*size(intervals,1));
+                    p=1;
+                    for k=1:numel(kats)
+                        for int = 1:size(intervals,1)
+                            Str = {katsnames{1,k},intervStr{int}};
+                            names4col(:,p) = join(Str, ': ');
+                            p=p+1;
+                        end
+                    end
+                    titles4table = ['number of channel', names4col, 'class','label','lobe']; % column names
+                    tableX = [titles4table; num2cell(vch'), num2cell(chanMeans), labels]; % final table
+                    strch = ['channels-' regexprep(chshowstr,{'{','}','[',']',' ','&'},{'','','','','-',''})]; % to distinguish in filename more than one channel
+                end
+
+                xlsfilename = ['logs\average_time_intervals_for ' strch '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') '.xls'];
+                xlswrite(xlsfilename,tableX);
+                disp([ 'xls tables saved: ' xlsfilename]);
+            end
+        end
+        
     %% SAVE AND LOAD FILE    
         function obj = Save(obj,filename)   
             %ulozi veskere promenne tridy do souboru
@@ -1760,12 +1877,10 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
             epochtime = obj.epochtime;      %#ok<PROP,NASGU>
             baseline = obj.baseline;        %#ok<PROP,NASGU>
-            CH_H=obj.CH.H;                  %#ok<NASGU>            
-            CH_plots = {obj.CH.plotCh2D obj.CH.plotCh3D}; % ulozeni parametru plotu mozku                        
-            CS_plots = {obj.CS.plotAUC obj.CS.plotAUC_m}; % ulozeni parametru plotu AUC krivek                        
-            [CH_plots,CS_plots,RCh_plots] = obj.SaveRemoveFh(CH_plots,CS_plots,obj.plotRCh);  %#ok<ASGLU> %smazu vsechny handely na obrazky             
+            CH_H=obj.CH.H;                  %#ok<NASGU>                                                                      
+            [CH_plots,CS_plots,RCh_plots] = obj.SaveRemoveFh(obj.plotRCh);  %#ok<ASGLU> %smazu vsechny handely na obrazky             
             CH_filterMatrix = obj.CH.filterMatrix; %#ok<NASGU>  
-            CH_brainlabels = obj.CH.brainlabels;
+            CH_brainlabels = obj.CH.brainlabels; %#ok<NASGU>
             els = obj.els;                  %#ok<PROP,NASGU>
             plotES = obj.plotES;            %#ok<PROP,NASGU>          
             RjCh = obj.RjCh;                %#ok<PROP,NASGU>
@@ -1786,8 +1901,16 @@ classdef CiEEGData < matlab.mixin.Copyable
                     'CH_filterMatrix','-v7.3');  
             disp(['ulozeno do ' filename2]); 
         end
-        function [CH_plots,CS_plots,RCh_plots, obj] = SaveRemoveFh(obj,CH_plots,CS_plots,RCh_plots)  %smazu vsechny handely na obrazky 
-            %{obj.CH.plotCh2D obj.CH.plotCh3D}
+        function [CH_plots,CS_plots,RCh_plots, obj] = SaveRemoveFh(obj,RCh_plots)  %smazu vsechny handely na obrazky 
+            %SaveRemoveFh - removes figure handles saved plot parameters
+            CS_plots = {obj.CS.plotAUC obj.CS.plotAUC_m}; % ulozeni parametru plotu AUC krivek  
+            CH_plots = cell(1,2);
+            if ~isempty(obj.CH.plotCh2D)
+                CH_plots{1} = obj.CH.plotCh2D;
+            end
+            if isprop(obj.CH,'channelPlot') && isprop(obj.CH.channelPlot,'plotCh3D') && ~isempty(obj.CH.channelPlot.plotCh3D)
+                CH_plots{2} = obj.CH.channelPlot.plotCh3D;
+            end
             if isfield(CH_plots{1}, 'fh' ), CH_plots{1} = rmfield(CH_plots{1}, {'fh'}); end  %potrebuju odstranit figure handly
             if isfield(CH_plots{1}, 'plotChH' ), CH_plots{1} = rmfield(CH_plots{1}, {'plotChH'}); end  %potrebuju odstranit figure handly
             if isfield(CH_plots{2}, 'fh' ), CH_plots{2} = rmfield(CH_plots{2}, {'fh'}); end  
@@ -1915,9 +2038,11 @@ classdef CiEEGData < matlab.mixin.Copyable
                 load(filename,'plotES'); obj.plotES = plotES;            %#ok<CPROPLC,CPROP,PROP>            
             end
             if ismember('CH_plots', {vars.name}) %nastaveni obou grafu mozku v CHHeader
-                load(filename,'CH_plots'); 
-                obj.CH.plotCh2D = CH_plots{1};   %#ok<IDISVAR,USENS>
-                obj.CH.plotCh3D = CH_plots{2};  
+                PL = load(filename,'CH_plots'); 
+                obj.CH.ChannelPlot2DInit(PL.CH_plots{1}); %now handled by function, as we do not want to overwrite existing fields
+                    %obj.plotCh2D.selCh is set before in obj.SetSelCh
+                obj.CH.channelPlot = ChannelPlot(obj.CH);
+                obj.CH.channelPlot.ChannelPlotInit(PL.CH_plots{2});  
             end
             if isfield(obj.CH.plotCh2D,'chshow') && length(obj.CH.sortorder) > length(obj.CH.plotCh2D.chshow)
                 obj.CH.sortorder = obj.CH.plotCh2D.chshow; %zatimco sortorder se neuklada, chshow ano
@@ -2288,15 +2413,16 @@ classdef CiEEGData < matlab.mixin.Copyable
                     if isprop(obj,'label') && ~isempty(obj.label), label = obj.label; else, label = ''; end
                     obj.CH.ChannelPlot2D(obj.plotRCh.ch,obj.plotRCh,@obj.PlotResponseCh,label);  %vykreslim obrazek mozku s vybranym kanalem
                     figure(obj.plotRCh.fh); %dam puvodni obrazek dopredu
-                case {'add' ,  'equal','f'}     % + oznaceni kanalu
-                    obj.SelChannel(obj.CH.sortorder(obj.plotRCh.ch));
-                    obj.PlotResponseCh( obj.plotRCh.ch); %prekreslim grafy
-                case {'g','h'}     % + oznaceni kanalu Mark 2-6
-                    obj.SelChannel(obj.CH.sortorder(obj.plotRCh.ch),eventDat.Key - 'f' +1 ); %g je 2, f je 1
-                    obj.PlotResponseCh( obj.plotRCh.ch); %prekreslim grafy
-                case {'j','k','l'}     % + oznaceni kanalu Mark 2-6
-                    obj.SelChannel(obj.CH.sortorder(obj.plotRCh.ch),eventDat.Key - 'f' ); %g je 2, f je 1
-                    obj.PlotResponseCh( obj.plotRCh.ch); %prekreslim grafy
+                case {'f','g','h','j','k','l'}     % channel marking
+                    if ~isempty(eventDat.Modifier) && strcmp(eventDat.Modifier{:},'shift') %you have to press alt+f etc, to prevent accidental marking
+                        switch eventDat.Key                                
+                            case {'f','g','h'}     % + oznaceni kanalu Mark 2-6
+                                obj.SelChannel(obj.CH.sortorder(obj.plotRCh.ch),eventDat.Key - 'f' +1 ); %g je 2, f je 1 
+                            case {'j','k','l'}     % + oznaceni kanalu Mark 2-6
+                                obj.SelChannel(obj.CH.sortorder(obj.plotRCh.ch),eventDat.Key - 'f' ); %g je 2, f je 1
+                        end
+                        obj.PlotResponseCh( obj.plotRCh.ch); %prekreslim grafy
+                    end                
                 case {'numpad6','d'}     % skok na dalsi oznaceny kanal   
                     if isfield(obj.plotRCh,'selCh')
                         selCh = find(any(obj.plotRCh.selCh,2)); %seznam cisel vybranych kanalu
@@ -2350,17 +2476,23 @@ classdef CiEEGData < matlab.mixin.Copyable
                 case 'x'    % XLS export
                     obj.Response2XLS();
                 case 'delete'
-                    ch = obj.CH.sortorder(obj.plotRCh.ch); %realne cislo kanalu
-                    if find(obj.RjCh==ch)
-                        obj.RjCh = obj.RjCh(obj.RjCh~=ch);
-                    else
-                        obj.RjCh = [obj.RjCh ch]; %obsahuje realna cisla kanalu
-                    end  
-                    obj.CH.RejectChannels(obj.RjCh);
-                    obj.PlotResponseCh();
+                    if ~isempty(eventDat.Modifier) && strcmp(eventDat.Modifier{:},'shift') %to prevent accidental rejection of channels
+                        ch = obj.CH.sortorder(obj.plotRCh.ch); %realne cislo kanalu
+                        if find(obj.RjCh==ch)
+                            obj.RjCh = obj.RjCh(obj.RjCh~=ch);
+                        else
+                            obj.RjCh = [obj.RjCh ch]; %obsahuje realna cisla kanalu
+                        end  
+                        obj.CH.RejectChannels(obj.RjCh);
+                        obj.PlotResponseCh();
+                    end
                 case 'm'  
                     obj.plotRCh.usemedian = 1 - obj.plotRCh.usemedian;                 
                     obj.PlotResponseCh();
+                case 'v' %plot the original reference responses
+                    if ~isempty(obj.OR) && isa(obj.OR,'CRefOrigVals') && ~obj.OR.isEmpty()
+                        obj.OR.PlotCh(obj.CH.sortorder(obj.plotRCh.ch)); 
+                    end
                 otherwise
                     %disp(['You just pressed: ' eventDat.Key]);
             end
@@ -2497,6 +2629,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             else
                 obj.plotRCh.selCh(ch,markno) = 1 - obj.plotRCh.selCh(ch,markno); %pridam kanal k vyberu , nebo odeberu             
             end
+            obj.CH.SetSelCh(obj.plotRCh.selCh);  %transfers channel marking to CHHeader class
         end
         function id = PacientID(obj,full)
             %vraci oznaceni pacienta, bud z CPsyData nebo z CHHeader
