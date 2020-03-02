@@ -626,34 +626,70 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             %label - muzu nazvat vyber jak potrebuju
             % Pozor - funguje na zaklade obj.plotCh2D.selCh, ktere se vytvari pri volani ChannelPlot2D, takze to se musi spusti nejdriv a i po zmene vyberu kanalu
             % 15.1.2020 - can use more filters, the function uses AND between them = intersect
+            % 29.02.2020 - can use filters of different labels simultaneously  (e.g. 'label' and 'class')
             
             filtered = false; 
             chshow = 1:numel(obj.H.channels); %show all channels by default
             chshowstr = {}; %label of the filter
+
             if exist('chlabels','var') && ~isempty(chlabels)
-                if strcmp(chlabels{1},'label')
-                    ChLabels = {obj.brainlabels(:).label}';
-                    chlabels = chlabels(2:end); 
-                    showstr = 'label=';
-                elseif strcmp(chlabels{1},'lobe')
-                    ChLabels = {obj.brainlabels(:).lobe}';
-                    chlabels = chlabels(2:end);
-                    showstr = 'lobe=';
-                elseif strcmp(chlabels{1},'class')
-                    ChLabels = {obj.brainlabels(:).class}';
-                    chlabels = chlabels(2:end);
-                    showstr = 'class=';
-                else
+                positions = cell(1,4);  % positions of main labels (+ one cell for the number of all labels)
+                names = cell(1,3); % their names 
+                amount = 0;  % count how many main labels are present (0,1,2 or 3)
+                for i=1:numel(chlabels) % to find a position of each main label if exists in chlabels
+                    if strcmp(chlabels{i},'label')
+                        amount=amount+1;
+                        positions{amount}=i;
+                        names{amount}='label';
+                    elseif strcmp(chlabels{i},'lobe')
+                        amount=amount+1;
+                        positions{amount}=i;
+                        names{amount} ='lobe';
+                    elseif strcmp(chlabels{i},'class')
+                        amount=amount+1;
+                        positions{amount}=i;
+                        names{amount}='class';                        
+                    end
+                end
+                
+                if amount == 0 % use neurology labels if brain labels don't exist in chlabels
                     ChLabels = {obj.H.channels(:).neurologyLabel}';
                     showstr = 'nlabel=';
-                end                
-                iL = contains(lower(ChLabels),lower(chlabels)); %prevedu oboji na mala pismena
+                    iL = contains(lower(ChLabels),lower(chlabels));  %prevedu oboji na mala pismena
+                else
+                    positions{amount+1}=numel(chlabels)+1;    % the number of all elements in chlabels+1 - needs for next cycle
+                    ChLabels = cell(numel(obj.H.channels),amount); 
+                    showstr = cell(1,amount);% cell array for structures of each brain label
+                    chlabelsL = cell(1,amount); % cell array for names of main brain labels
+                    iL = false(numel(obj.H.channels), amount);
+                    
+                    for j=1:amount
+                        if strcmp(names{j},'label')
+                            ChLabels(:,j) = {obj.brainlabels(:).label}';
+                            chlabelsL{j} = chlabels((positions{j}+1):(positions{j+1}-1));
+                            showstr{j} = names{j};
+                            iL(:,j) = contains(lower(ChLabels(:,j)),lower(chlabelsL{j}));
+                        elseif strcmp(names{j},'lobe')
+                            ChLabels(:,j) = {obj.brainlabels(:).lobe}';
+                            chlabelsL{j} = chlabels((positions{j}+1):(positions{j+1}-1));
+                            showstr{j} = names{j};
+                            iL(:,j) = contains(lower(ChLabels(:,j)),lower(chlabelsL{j}));
+                        elseif strcmp(names{j},'class')
+                            ChLabels(:,j) = {obj.brainlabels(:).class}';
+                            chlabelsL{j} = chlabels((positions{j}+1):(positions{j+1}-1));
+                            showstr{j} = names{j};
+                            iL(:,j) = contains(lower(ChLabels(:,j)),lower(chlabelsL{j}));
+                        end
+                    end
+                    iL = all(iL,2);  % reduce list of channels (sum of all brain labels)
+                end
+               
                 if exist('notchnlabels','var') && numel(notchnlabels) > 0
                     iLx = contains(lower(ChLabels),lower(notchnlabels));
                     iL = iL & ~iLx;
-                    chshowstr = [showstr cell2str(chlabels) ' not:' cell2str(notchnlabels)];
+                    chshowstr = [showstr cell2str(chlabelsL) ' not:' cell2str(notchnlabels)];
                 else
-                    chshowstr = [showstr cell2str(chlabels)];
+                    chshowstr = [showstr cell2str(chlabelsL)];
                 end
                 chshow = intersect(chshow,find(iL)'); %reduce list of channels to show                                               
                 filtered = true;
