@@ -75,9 +75,9 @@ classdef CHilbertL < CHilbert
         %% Getters
         
         % TODO! - rewrite to allow using RjEpCh a add Param parser probably
-        function envelopes = getenvelopes(obj, channels, frequencies, categories)
-        % returns HFreqEpochs for given set of channels and categories. For
-        %   average call getaverageenvelopes
+        function envelopes = getenvelopes(obj, varargin)
+        % returns HFreqEpochs for given set of channels, frequencies, and
+        %   categories. For average call getaverageenvelopes. 
         % 
         % channels: array of channels. eg. [1, 5, 20]. If empty, returns
         %   all channels. default []
@@ -88,25 +88,21 @@ classdef CHilbertL < CHilbert
         % categories. Adds +1 to category number because of reasons - so if
         %   you want category 1, you need to pass 0. default []
         % RETURN: matrix [time x channel x frequency x category]
-        % EXAMPLES:
-        %   
-            if ~exist('channels', 'var') || numel(channels) == 0
-                channels = 1:size(obj.HFreqEpochs, 2);
-            end
-            if ~exist('frequencies', 'var') || numel(frequencies) == 0
-                frequencies = 1:size(obj.HFreqEpochs, 3);
-            else
-                frequencies = obj.getfrequencyindices(frequencies);
-            end
-            if ~exist('categories', 'var') || numel(categories) == 0
-                categories = 1:size(obj.HFreqEpochs, 4);
-            else
-                categories = obj.getcategoryindices(categories);
-            end
-            envelopes = obj.HFreqEpochs(:, channels, frequencies, categories);
+        % EXAMPLES: 
+            p = inputParser;
+            addParameter(p, 'channels', 1:size(obj.HFreqEpochs, 2), @(x)(isnumeric(x) && (numel(x) > 0)));
+            addParameter(p, 'frequencies', 1:size(obj.HFreqEpochs, 3), @(x)(isnumeric(x) && (numel(x) > 0)));
+            % The numeric categories zero based
+            addParameter(p, 'categories', obj.Categories, @(x)(numel(x) > 0));
+            parse(p, varargin{:});
+            
+            frequencies = obj.getfrequencyindices(p.Results.frequencies);
+            categories = obj.getcategoryindices(p.Results.categories);
+            
+            envelopes = obj.HFreqEpochs(:, p.Results.channels, frequencies, categories);
         end
         
-        function envelopes = getaverageenvelopes(obj, channels, frequencies, categories)
+        function envelopes = getaverageenvelopes(obj, varargin)
         % averages envelopes per channels and categories and 
         %   for particular frequencies. Uses data in the obj.HFreq, 
         %   selects based on channels and category indices and returns 
@@ -128,20 +124,17 @@ classdef CHilbertL < CHilbert
         %   hilbert.getaverageenvelopes([], [], 1)
         %   % averages all channels across all categories
         %   hilbert.getaverageenvelopes([], [], [])
-            if ~exist('channels', 'var') || numel(channels) == 0
-                channels = 1:size(obj.HFreq, 2);
-            end
-            if ~exist('frequencies', 'var') || numel(frequencies) == 0
-                frequencies = 1:size(obj.HFreq, 3);
-            else
-                frequencies = obj.getfrequencyindices(frequencies);
-            end
-            if ~exist('categories', 'var') || numel(categories) == 0
-                categories = 1:size(obj.HFreq, 4);
-            else
-                categories = obj.getaveragecategoryindices(categories);
-            end
-            envelopes = obj.HFreq(:, channels, frequencies, categories);
+            p = inputParser;
+            addParameter(p, 'channels', isnumeric(x) && numel(x) > 0, 1:size(obj.HFreq, 2));
+            addParameter(p, 'frequencies', isnumeric(x) && numel(x) > 0, 1:size(obj.HFreq, 3));
+            addParameter(p, 'categories', numel(x) > 0, 1:size(obj.HFreq, 4));
+            parse(p, varargin);
+            
+            frequencies = obj.getfrequencyindices(p.Results.frequencies);
+            categories = obj.getaveragecategoryindices(p.Results.categories);
+
+            envelopes = obj.HFreq(:, p.Results.channels, frequencies, categories);
+            
             if numel(channels) >= 2, envelopes = mean(envelopes, 2); end
             if numel(categories) >= 2, envelopes = mean(envelopes, 4);end
             envelopes = squeeze(envelopes);
@@ -273,7 +266,7 @@ classdef CHilbertL < CHilbert
                     end
                     [~, ~, RjEpCh] = obj.CategoryData(iCategory);
                     
-                    envelopes = obj.getenvelopes([], frequencies(iFrequency), iCategory);
+                    envelopes = obj.getenvelopes('frequencies', frequencies(iFrequency), 'categories', iCategory);
                     response = squeeze(envelopes(iResponse(1):iResponse(2), :, :, :));
                     baseline = squeeze(envelopes(iBaseline(1):iBaseline(2), :, :, :));
                     % As we are passing the same set of epochs, we can
@@ -323,9 +316,9 @@ classdef CHilbertL < CHilbert
             
             for iFrequency = 1:numel(frequencies)
                 fprintf('Comparing for frequency %f\n', obj.Hfmean(iFrequency));
-                responseA = obj.getenvelopes([], frequencies(iFrequency), categories(1));
+                responseA = obj.getenvelopes('frequencies',frequencies(iFrequency), 'categories',categories(1));
                 responseA = squeeze(responseA(iResponse(1):iResponse(2), :, :, :));
-                responseB = obj.getenvelopes([], frequencies(iFrequency), categories(2));
+                responseB = obj.getenvelopes('frequencies', frequencies(iFrequency), 'categories', categories(2));
                 responseB = squeeze(responseB(iResponse(1):iResponse(2), :, :, :));
                 % As we are passing the same set of epochs, we can
                 % basically "clone" the epochs?
@@ -419,12 +412,12 @@ classdef CHilbertL < CHilbert
                 if iscell(categories(k))                  
                     dd = zeros(size(obj.HFreq, 1), size(obj.HFreq, 3), numel(categories{k}));
                     for ikat = 1:numel(categories{k})
-                        dd(:, :, ikat) = obj.getaverageenvelopes(ch, [], categories{k}(ikat));
+                        dd(:, :, ikat) = obj.getaverageenvelopes('channels', ch, 'categories', categories{k}(ikat));
                     end
                     % QUESTION - WHY IS THIS AVERAGING?
                     D = mean(dd, 3);
                 else
-                    D = obj.getaverageenvelopes(ch, [], categories(k));
+                    D = obj.getaverageenvelopes('channels', ch, 'categories', categories(k));
                 end
                 subplot(1, numel(categories), k);
                 T = obj.epochtime(1):0.1:obj.epochtime(2);
