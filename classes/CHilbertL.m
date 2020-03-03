@@ -28,7 +28,8 @@ classdef CHilbertL < CHilbert
         
         function obj = plotresponsefrequency(obj, channels, categories)
         % Restructured PlotResponseFreq function which allows plotting of
-        % either single or multiple channels averaged together. 
+        % either single or multiple channels averaged together.
+        %
         % channels: numeric array definich which channels to plot. If more than
         %   one channel is passed, data are averaged across all given
         %   channels. e.g. 
@@ -72,7 +73,8 @@ classdef CHilbertL < CHilbert
         end
         
         %% Getters
-         
+        
+        % TODO! - rewrite to allow using RjEpCh a add Param parser probably
         function envelopes = getenvelopes(obj, channels, frequencies, categories)
         % returns HFreqEpochs for given set of channels and categories. For
         %   average call getaverageenvelopes
@@ -205,6 +207,7 @@ classdef CHilbertL < CHilbert
         function indices = getfrequencyindices(obj, frequencies)
         % Returns indices of freqneuncies oif passed as float array. Or
         %   returns indices back if passed as integer array
+        %
         % frequencies: array of frequencies or their indices. If doubles are
         %   passed, then it is assumed its frequnecies. If integers/whole numbers
         %   are passed, then they are evaluated as indices
@@ -217,20 +220,24 @@ classdef CHilbertL < CHilbert
                 indices = frequencies;
             end
         end
-                
         %% Statistics
 
         function wp = wilcoxbaseline(obj, baselinetime, responsetime, frequencies, categories)
-        % Calculates rank test against a baseline.
+        % Calculates rank test for passed categories and frequencies against a baseline.
+        %
+        % Compares epochs during the response time to the epochs during to
+        % baselineteime in each channel, frequency and category. Returns a
+        % matrix with time x channel x frequency x category
         % 
         % baselinetime: numeric(2) in seconds defining baseline timewindow
         % responsetime: numeric(2) in seconds defining response timewindow
         % frequencies: array of frequencies to analyse. if [], runs for all
         %   frequencies. See obj.getenvelopes for description
-        % categories: list of cells of wanted categories. e.g. {'Ovoce'}
-        % RETURNS: a 4d matrix calculated p values by CStat.Wilcox2D. Non
-        %   calculated comparisons are left empty with NaNs. 
+        % categories: list of cells of wanted categories. e.g. {'Ovoce'} or
+        %   category numbers as they are in the psychodata (starting with 0)
+        % RETURNS: a 4d matrix calculated p values by CStat.Wilcox2D.  
         %   returned matrix is p value in time x channel x frequency x category
+        %   Non calculated comparisons are left empty with NaNs.    
         %   e.g. result(:, 1, 1, 2) is a array of p values for all times
         %   for first channel, first frequency, and second category
         %   if the results doesn't have a category 2 calculated, retunrs an
@@ -278,6 +285,9 @@ classdef CHilbertL < CHilbert
             end
         end
 
+        %%% comparing sets of channels instead of epcohs within a channel
+        % against each other
+        
         function wp = wilcoxcategories(obj, categories, responsetime, frequencies)
         % Compares two category responses in given time
         % 
@@ -325,15 +335,46 @@ classdef CHilbertL < CHilbert
             end
         end
         
-        function wp = wilcoxchannelcategories(obj, categories, channels, responsetime, frequencies)
-        % Runs a wilcox test for an average across given channels and
-        % compares them betweeen passed categories
+        function wp = wilcoxaveragebaseline(obj, baselinetime, responsetime, channels1, channels2, frequencies, categories)
+        % Compares sets of channels against each other. for given
+        % frequencies and categories
+        % Runs a wilcox test for an average across all non rejected epochs
         % 
-        % categories:
+        % categories: 
         % channels: two dimensional matrix of channels to average and run 
         % responsetime:
         % frequencies
-        % Notes: Basically runs like wilcoxchannelcategories but replaces 
+        %
+        
+        % Get the epoch data for given parameters and only non rejected
+        
+        % [~, ~, RjEpCh] = obj.CategoryData(iCategory);
+        % Average non rejected epochs across channels
+        % - resp: time x channel x frequency - cpomaring sets of channels
+        % against each other
+            
+        
+            wp = [];
+        end
+        
+        function wp = wilcoxaveragecategories(obj, categories, responsetime, channels1, channels2, frequencies)
+        % Runs a wilcox test for an average across epochs and
+        % compares them betweeen passed categories
+        % 
+        % categories: two categories to be compared
+        % channels: two dimensional matrix of channels to average and run 
+        % responsetime:
+        % frequencies
+        % Notes: Basically runs like wilcoxchannelcategories but replaces
+        % Validate only two categories
+        if iscell(categories)
+            categories = obj.PsyData.CategoryNum(categories);
+        end
+        [~, ~, ~, iEpochs1] = obj.CategoryData(categories(1));
+        [~, ~, ~, iEpochs2] = obj.CategoryData(categories(2));
+        % Filter epochs for given data
+        category1 = obj.HFreqEpochs;
+        % Filter given channels
             wp = [];
         end
     end  
