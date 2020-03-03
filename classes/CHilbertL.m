@@ -77,7 +77,7 @@ classdef CHilbertL < CHilbert
         % TODO! - rewrite to allow using RjEpCh a add Param parser probably
         function envelopes = getenvelopes(obj, varargin)
         % returns HFreqEpochs for given set of channels, frequencies, and
-        %   categories. For average call getaverageenvelopes. 
+        %   categories. For average call getaverageenvelopes. Contains
         % 
         % channels: array of channels. eg. [1, 5, 20]. If empty, returns
         %   all channels. default []
@@ -87,18 +87,31 @@ classdef CHilbertL < CHilbert
         % categories: array of categories. eg. [1,3]. If empty, returns all
         % categories. Adds +1 to category number because of reasons - so if
         %   you want category 1, you need to pass 0. default []
-        % RETURN: matrix [time x channel x frequency x category]
+        % rejected: logical defining if the rejected epochs should be
+        %   excluded. Defaults to true.
+        % RETURN: 4D matrix [time x channel x frequency x epoch]
         % EXAMPLES: 
+        %   hilbert.getenvelopes('channels', [1 3])
+        %   hilbert.getenvelopes('channels', 1, 'frequnecies', [52.75])
+        %   hilbert.getenvelopes('frequnecies', [52.75, 62.25], 'categories', {'Ovoce'})
             p = inputParser;
-            addParameter(p, 'channels', 1:size(obj.HFreqEpochs, 2), @(x)(isnumeric(x) && (numel(x) > 0)));
-            addParameter(p, 'frequencies', 1:size(obj.HFreqEpochs, 3), @(x)(isnumeric(x) && (numel(x) > 0)));
+            addParameter(p, 'channels', 1:size(obj.HFreqEpochs, 2), ...
+                @(x)(isnumeric(x) && (numel(x) > 0)));
+            addParameter(p, 'frequencies', 1:size(obj.HFreqEpochs, 3),...
+                @(x)(isnumeric(x) && (numel(x) > 0)));
             % The numeric categories zero based
-            addParameter(p, 'categories', obj.Categories, @(x)(numel(x) > 0));
+            addParameter(p, 'categories', obj.PsyData.Categories(false), @(x)(numel(x) > 0));
+            addParameter(p, 'rejected', true, @(x)validateattributes(x, {'logical'}));
             parse(p, varargin{:});
             
             frequencies = obj.getfrequencyindices(p.Results.frequencies);
             categories = obj.getcategoryindices(p.Results.categories);
             
+            if rejected
+                for category = categories
+                    
+                end
+            end
             envelopes = obj.HFreqEpochs(:, p.Results.channels, frequencies, categories);
         end
         
@@ -125,9 +138,9 @@ classdef CHilbertL < CHilbert
         %   % averages all channels across all categories
         %   hilbert.getaverageenvelopes([], [], [])
             p = inputParser;
-            addParameter(p, 'channels', isnumeric(x) && numel(x) > 0, 1:size(obj.HFreq, 2));
-            addParameter(p, 'frequencies', isnumeric(x) && numel(x) > 0, 1:size(obj.HFreq, 3));
-            addParameter(p, 'categories', numel(x) > 0, 1:size(obj.HFreq, 4));
+            addParameter(p, 'channels', 1:size(obj.HFreq, 2), @(x)isnumeric(x) && (numel(x) > 0));
+            addParameter(p, 'frequencies', 1:size(obj.HFreq, 3), @(x)isnumeric(x) && (numel(x) > 0));
+            addParameter(p, 'categories', obj.PsyData.Categories, @(x)numel(x) > 0);
             parse(p, varargin);
             
             frequencies = obj.getfrequencyindices(p.Results.frequencies);
