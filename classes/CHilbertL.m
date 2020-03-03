@@ -352,8 +352,7 @@ classdef CHilbertL < CHilbert
         % Average non rejected epochs across channels
         % - resp: time x channel x frequency - cpomaring sets of channels
         % against each other
-            
-        
+
             wp = [];
         end
         
