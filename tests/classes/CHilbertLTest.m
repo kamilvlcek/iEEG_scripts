@@ -44,9 +44,33 @@ envelopes2 = testCase.TestData.hilbert.getenvelopes('frequencies',...
     testCase.TestData.hilbert.Hfmean([1 3]));
 assertNotEmpty(testCase, envelopes2);
 verifyEqual(testCase, envelopes, envelopes2);
-% Getting only select categories
 end
 
+% Getting only select categories
 function testGetenvelopesCategories(testCase)
+originalSize = size(testCase.TestData.hilbert.HFreqEpochs);
+categoryNum = testCase.TestData.hilbert.PsyData.Categories(false);
+categoryNames = testCase.TestData.hilbert.PsyData.CategoryName(categoryNum, []);
 
+envelopes = testCase.TestData.hilbert.getenvelopes('categories',...
+    categoryNum([1 3]));
+assertNotEmpty(testCase, envelopes);
+
+envelopes2 = testCase.TestData.hilbert.getenvelopes('categories',...
+    categoryNames([1 3]));
+assertNotEmpty(testCase, envelopes);
+verifyEqual(testCase, envelopes, envelopes2);
+end
+
+%% Wilcox tests
+function testWilcoxbaseline(testCase)
+wp = testCase.TestData.hilbert.wilcoxbaseline('baseline', [-0.1 0], ...
+    'response', [0.01 0.1], 'frequencies', 1, 'categories', {'Ovoce'});
+verifyNotEmpty(testCase, wp);
+%verifySize(testCase, wp, size(tesCate.TestData.hilbert));
+wp = testCase.TestData.hilbert.wilcoxbaseline('baseline', [-0.2 0],...
+    'response', [0.01 0.1], 'frequencies', 1, 'categories', 1);
+verifyNotEmpty(testCase, wp);
+
+% test squeezing
 end

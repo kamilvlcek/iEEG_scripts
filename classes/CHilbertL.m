@@ -74,7 +74,6 @@ classdef CHilbertL < CHilbert
         
         %% Getters
         
-        % TODO! - rewrite to allow using RjEpCh a add Param parser probably
         function envelopes = getenvelopes(obj, varargin)
         % returns HFreqEpochs for given set of channels, frequencies, and
         %   categories. For average call getaverageenvelopes. Contains
@@ -226,74 +225,83 @@ classdef CHilbertL < CHilbert
                 indices = frequencies;
             end
         end
+        
         %% Statistics
-
-        function wp = wilcoxbaseline(obj, baselinetime, responsetime, frequencies, categories)
+        %TODO - add stripping of unused dimensions
+        function wp = wilcoxbaseline(obj, varargin)
         % Calculates rank test for passed categories and frequencies against a baseline.
         %
         % Compares epochs during the response time to the epochs during to
         % baselineteime in each channel, frequency and category. Returns a
         % matrix with time x channel x frequency x category
         % 
-        % baselinetime: numeric(2) in seconds defining baseline timewindow
-        % responsetime: numeric(2) in seconds defining response timewindow
+        % baseline: numeric(2) in seconds defining baseline timewindow
+        % response: numeric(2) in seconds defining response timewindow
         % frequencies: array of frequencies to analyse. if [], runs for all
         %   frequencies. See obj.getenvelopes for description
         % categories: list of cells of wanted categories. e.g. {'Ovoce'} or
         %   category numbers as they are in the psychodata (starting with 0)
-        % RETURNS: a 4d matrix calculated p values by CStat.Wilcox2D.  
+        % channels:
+        % squeeze: if true, only selects calculated values, nont returning
+        % Nans.
+        % RETURNS: a 4d matrix calculated p values by CStat.Wilcox2D. 
         %   returned matrix is p value in time x channel x frequency x category
-        %   Non calculated comparisons are left empty with NaNs.    
+        %   Non calculated comparisons are left empty with NaNs, or
+        %   squeezed.
         %   e.g. result(:, 1, 1, 2) is a array of p values for all times
         %   for first channel, first frequency, and second category
         %   if the results doesn't have a category 2 calculated, retunrs an
         %   array of NaNs
         % example: 
-        %   obj.wilcoxbaseline([-0.1 0], [0.2 0.5])
-            iResponse = obj.gettimewindowindices(responsetime);
-            iBaseline = obj.gettimewindowindices(baselinetime);
+        %   obj.wilcoxbaseline('baselinetime', [-0.1 0], 'responsetime', [0.2 0.5])
+            p = inputParser;
+            addParameter(p, 'channels', 1:size(obj.HFreqEpochs, 2), ...
+                @(x)(isnumeric(x) && (numel(x) > 0)));
+            addParameter(p, 'frequencies', 1:size(obj.HFreqEpochs, 3),...
+                @(x)(isnumeric(x) && (numel(x) > 0)));
+            addParameter(p, 'categories', obj.PsyData.Categories(false), @(x)(numel(x) > 0));
+            addParameter(p, 'baseline', obj.baseline, @(x)(numel(x) == 2));
+            addParameter(p, 'response', [obj.baseline(2) obj.epochtime(2)], @(x)(numel(x) == 2));
+            addParameter(p, 'squeeze', false, @islogical);
+            parse(p, varargin{:});
+            
+            iResponse = obj.gettimewindowindices(p.Results.response);
+            iBaseline = obj.gettimewindowindices(p.Results.baseline);
             if any([numel(iBaseline) ~= 2, numel(iResponse) ~= 2]), return; end
             
             % returned matrix is time x channel x frequency x category comparison
-            wpSize = [diff(iResponse) + 1, ...
-                size(obj.HFreqEpochs, 2), ...
-                size(obj.HFreqEpochs, 3), ...
-                size(unique(obj.epochData(:,1)), 1)];
-            wp = NaN(wpSize);
+            wp = NaN(diff(iResponse) + 1,...
+                size(obj.HFreqEpochs, 2),...
+                size(obj.HFreqEpochs, 3),...
+                size(obj.PsyData.Categories(false), 2));
             
-            if ~exist('frequencies', 'var') || numel(frequencies) == 0
-                frequencies = 1:wpSize(3);
+            if iscell(p.Results.categories)
+                iCategories = obj.PsyData.CategoryNum(p.Results.categories);
+            else
+                iCategories = p.Result.categories;
             end
-            if ~exist('categories', 'var') || numel(categories) == 0
-                categories = 1:wpSize(4);
-            end
-            
+            iFrequencies = obj.getfrequencyindices(p.Results.frequencies); 
             % separate comparison for each channel, frequency and category
-            for iFrequency = 1:numel(frequencies)
+            for iFrequency = iFrequencies
                 fprintf('Comparing for frequency %f\n', obj.Hfmean(iFrequency));
-                for category = categories
-                    if(iscell(category))
-                        iCategory = obj.PsyData.CategoryNum(category);
-                    else
-                        iCategory = category;
-                    end
+                for iCategory = iCategories
                     [~, ~, RjEpCh] = obj.CategoryData(iCategory);
                     
-                    envelopes = obj.getenvelopes('frequencies', frequencies(iFrequency), 'categories', iCategory);
+                    envelopes = obj.getenvelopes('channels', p.Results.channels,...
+                        'frequencies', iFrequency, 'categories', iCategory);
+                    % selects times and squeezes the categories and frequency
                     response = squeeze(envelopes(iResponse(1):iResponse(2), :, :, :));
                     baseline = squeeze(envelopes(iBaseline(1):iBaseline(2), :, :, :));
-                    % As we are passing the same set of epochs, we can
-                    % basically "clone" the epochs?
-                    tempWp = CStat.Wilcox2D(response, baseline, 0, [], '', ...
+                    tempWp = CStat.Wilcox2D(response, baseline, 0, [], '',...
                         RjEpCh, RjEpCh);
-                    wp(:, :, iFrequency, iCategory + 1) = tempWp;
+                    wp(:, p.Results.channels, iFrequency, iCategory + 1) = tempWp;
                 end
+            end
+            if p.Results.squeeze
+                wp = wp(:, p.Results.channels, iFrequencies, iCategories + 1);
             end
         end
 
-        %%% comparing sets of channels instead of epcohs within a channel
-        % against each other
-        
         function wp = wilcoxcategories(obj, categories, responsetime, frequencies)
         % Compares two category responses in given time
         % 
@@ -341,6 +349,9 @@ classdef CHilbertL < CHilbert
             end
         end
         
+        %%% comparing sets of channels instead of epcohs within a channel
+        % against each other
+        
         function wp = wilcoxaveragebaseline(obj, baselinetime, responsetime, channels1, channels2, frequencies, categories)
         % Compares sets of channels against each other. for given
         % frequencies and categories
@@ -350,7 +361,6 @@ classdef CHilbertL < CHilbert
         % channels: two dimensional matrix of channels to average and run 
         % responsetime:
         % frequencies
-        %
         
         % Get the epoch data for given parameters and only non rejected
         
@@ -358,7 +368,7 @@ classdef CHilbertL < CHilbert
         % Average non rejected epochs across channels
         % - resp: time x channel x frequency - cpomaring sets of channels
         % against each other
-
+            
             wp = [];
         end
         
@@ -425,7 +435,8 @@ classdef CHilbertL < CHilbert
                 if iscell(categories(k))                  
                     dd = zeros(size(obj.HFreq, 1), size(obj.HFreq, 3), numel(categories{k}));
                     for ikat = 1:numel(categories{k})
-                        dd(:, :, ikat) = obj.getaverageenvelopes('channels', ch, 'categories', categories{k}(ikat));
+                        dd(:, :, ikat) = obj.getaverageenvelopes('channels', ch, ...
+                            'categories', categories{k}(ikat));
                     end
                     % QUESTION - WHY IS THIS AVERAGING?
                     D = mean(dd, 3);
@@ -500,7 +511,8 @@ classdef CHilbertL < CHilbert
             end
             switch eventDat.Key
                 case {'multiply', '8'} % dialog na vlozeni minima a maxima osy y
-                    answ = inputdlg('Enter ymax and min:', 'Yaxis limits', [1 50], {num2str(obj.plotFrequency.ylim)});
+                    answ = inputdlg('Enter ymax and min:', 'Yaxis limits', ...
+                        [1 50], {num2str(obj.plotFrequency.ylim)});
                     if numel(answ) == 0, return; end
                     % answ cell 1x1 - cancel is cell 0x0
                     if isempty(answ{1}) || any(answ{1} == '*'), obj.plotFrequency.ylim = [];

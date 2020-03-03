@@ -16,7 +16,10 @@ hilbert.plotresponsefrequency(1:4, 0:3);
 
 %% Wilcox 
 %against a baseline for all frequencies
-wBaseline = hilbert.wilcoxbaseline([-0.2 0], [0.01 0.8], [], {'Ovoce'});
+wBaseline = hilbert.wilcoxbaseline('baseline', [-0.2 0], 'response', [0.01 0.8],...
+    'frequencies', 1, 'categories', {'Ovoce'});
+wBaseline = hilbert.wilcoxbaseline('baseline', [-0.2 0], 'response', [0.01 0.8],...
+    'frequencies', 1, 'categories', {'Ovoce'}, 'squeeze', true);
 % Wilcox agains baseline returs a 4D matrix with
 % time x channel x frequency x category p values.
 % the following plots the p values for time x channel for the
