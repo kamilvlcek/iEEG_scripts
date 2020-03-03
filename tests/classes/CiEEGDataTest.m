@@ -3,7 +3,7 @@ tests = functiontests(localfunctions);
 end
 
 function setupOnce(testCase)
-testCase.TestData.hilbert = CHilbertL('..\example-data\p073_PPA CHilbert 50-150Hz -0.2-0.8 refBipo Ep2019-11 FEX_CHilb.mat');
+testCase.TestData.hilbert = CHilbertL('..\test-data\test_CHilb.mat');
 end
 
 function teardownOnce(testCase)

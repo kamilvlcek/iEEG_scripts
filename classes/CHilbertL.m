@@ -107,7 +107,7 @@ classdef CHilbertL < CHilbert
             frequencies = obj.getfrequencyindices(p.Results.frequencies);
             categories = obj.getcategoryindices(p.Results.categories);
             
-            if rejected
+            if p.Results.rejected
                 for category = categories
                     
                 end
