@@ -226,9 +226,7 @@ classdef ChannelPlot < matlab.mixin.Copyable
                     end
                 end
                 
-                if ~isempty(obj.CH.hull) && obj.plotCh3D.hullindex > 0
-                    obj.CH.HullPlot3D(obj.plotCh3D.hullindex);
-                end
+                obj.PlotClusters(); %plot channel clusters if any exist            
                 obj.plotCh3D.dispChannels = chnsel; % ulozim vyber zobrazenych kanalu (je potreba pro klikani)
                 obj.highlightChannel(); %if there is any channel to be highligted, do it
                 %rozhybani obrazku            
@@ -236,6 +234,24 @@ classdef ChannelPlot < matlab.mixin.Copyable
             else
                 disp('No MNI data');
             end
+        end
+        function PlotClusters(obj)
+            %PlotClusters - plots the previosly computer clusters if any exist, according to the current popis
+            if ~isempty(obj.CH.clusters) 
+                iCluster = obj.CH.GetCluster(obj.plotCh3D.popis);
+                if iCluster
+                    C = obj.CH.clusters(iCluster).C;
+                    plot3(C(:,1),C(:,2),C(:,3),'kx','MarkerSize',15,'LineWidth',3); %clusters on right side
+                    hold on
+                    plot3(-C(:,1),C(:,2),C(:,3),'kx','MarkerSize',15,'LineWidth',3); %clusters on left side
+                end
+            end 
+            
+            %older plotting of complex hull
+            if ~isempty(obj.CH.hull) && obj.plotCh3D.hullindex > 0
+                obj.CH.HullPlot3D(obj.plotCh3D.hullindex);
+            end
+                
         end
 
         function [clrs,sizes,rangeZ,reverse] = colors4ChannelPlot(obj,chnsel,chnvals,rangeZ)
@@ -422,6 +438,9 @@ classdef ChannelPlot < matlab.mixin.Copyable
                    if im > numel(markertypes), im = 1; end
                    obj.plotCh3D.markertype = markertypes{im}; 
                    obj.ChannelPlot3D(); 
+                  case {'divide','slash'} %slash on numerical keyboard - automatic range of colorbar
+                    obj.plotCh3D.rangeZ = [min(obj.plotCh3D.chnvals) max(obj.plotCh3D.chnvals)]; 
+                    obj.ChannelPlot3D(); %plot the figure again
               end
         end
 

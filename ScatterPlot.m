@@ -61,7 +61,8 @@ classdef ScatterPlot < handle
             %   parametry axis* urcuji typ dat zobrazeny na osach
             obj.ieegdata = ieegdata;
             obj.header = copy(obj.ieegdata.CH); %vytvorim nezavislou kopii kvuli PlotBrain, aby ne kolize z AUCPlotM grafem
-            obj.header.channelPlot = copy(obj.ieegdata.CH.channelplot); % explicitly create copy of the channelplot Object
+            obj.header.channelPlot =  ChannelPlot(obj.header); % create new ChannelPlot object with a link to the current header
+            obj.header.channelPlot.ChannelPlotInit(obj.ieegdata.CH.channelPlot.plotCh3D); %copy the setup from the CH.CH.channelPlot object
             obj.selCh = ieegdata.plotRCh.selCh; %vyber kanalu fghjkl * pocet kanalu
             obj.selChNames = ieegdata.plotRCh.selChNames; %vyber kanalu fghjkl * pocet kanalu
             obj.dispSelChName = [];

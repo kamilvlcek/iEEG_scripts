@@ -18,6 +18,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         classname; %trida v ktere je Header vytvoren
         brainlabels; %struct array, obsahuje ruzna vlastni olabelovani kanalu
         hull; %data for convex hull
+        clusters; %cluster data {popis,C,idx,channels}
     end
     %#ok<*PROPLC>
     
@@ -903,7 +904,95 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 disp('no ChannelPlot figure to plot in');
             end
         end
-        
+        function ComputeClusters(obj,nClusters,dofig)
+            %ComputeClusters Computes clusters using k-means for current channel selection
+            %   plots simple chart
+            %   stores the data in obj.clusters
+            if ~exist('dofig','var'), dofig = 1; end
+            mni0 = [[obj.H.channels.MNI_x]',[obj.H.channels.MNI_y]',[obj.H.channels.MNI_z]'];            
+            mni = mni0(obj.channelPlot.plotCh3D.chnsel,:); %computes clusters from currently plottech channels in ChannelPlot
+            mni_l2r=[abs(mni(:,1)),mni(:,2),mni(:,3)]; %left brain side made right
+            % opts = statset('Display','final');
+            %tohle dava nejlepsi vysledky. 50 replicates je treba, aby pokazde clustery dopadly stejne
+            [idx,C,sumd,D] = kmeans(mni_l2r,nClusters,'Distance','cityblock','Replicates',50);%,'Options',opts
+
+            if dofig
+                figure('Name',[ num2str(nClusters) ' clusters']); 
+                plot3(C(:,1),C(:,2),C(:,3),'kx','MarkerSize',15,'LineWidth',3);
+                hold on
+                plot3(-C(:,1),C(:,2),C(:,3),'kx','MarkerSize',15,'LineWidth',3);
+
+                barvy = 'rgbcmyk';
+                for c = 1:nClusters
+                    plot3(mni(idx==c,1),mni(idx==c,2),mni(idx==c,3),[barvy(c) '.'],'MarkerSize',12);
+                end
+                view([0 90]); %axial horizontal view
+                title(obj.channelPlot.plotCh3D.popis);
+                xlabel('MNI X'); %levoprava souradnice
+                ylabel('MNI Y'); %predozadni souradnice
+                zlabel('MNI Z'); %hornodolni
+            end
+            
+            if isempty(obj.clusters) 
+                obj.clusters = struct('popis',{},'C',{},'idx',{},'sumd',{},'D',{},'channels',{}); %empty struct with 4 fields
+            end  
+            iCluster = obj.GetCluster(obj.channelPlot.plotCh3D.popis);
+            if ~iCluster
+                obj.clusters(end+1).popis = obj.channelPlot.plotCh3D.popis;
+                iCluster = numel(obj.clusters);
+            end
+            obj.clusters(iCluster).C = C;
+            obj.clusters(iCluster).idx = idx;
+            obj.clusters(iCluster).sumd = sumd;
+            obj.clusters(iCluster).D = D;
+            obj.clusters(iCluster).channels=obj.channelPlot.plotCh3D.chnsel;            
+        end
+        function [iCluster]=GetCluster(obj,popis)  
+              %GetCluster - returns the index of channel cluster corresponding to popis              
+              iCluster = false;
+              if ~isempty(obj.clusters)
+                  for j = 1:numel(obj.clusters)
+                      if isequal(obj.clusters(j).popis,popis)
+                          iCluster = j;
+                          break;
+                      end
+                  end
+              end
+        end
+        function [PC,K] = OptimalClusters(obj,Cutoff)
+            %CLUSTERS finds the optimal number of clusters
+            %   accorting to the Elbow method and 90% of explained variance
+            mni0 = [[obj.H.channels.MNI_x]',[obj.H.channels.MNI_y]',[obj.H.channels.MNI_z]'];
+            chns = obj.sortorder;
+            mni = mni0(chns,:);
+            mni_l2r=[abs(mni(:,1)),mni(:,2),mni(:,3)]; %left made right
+           
+            % https://nl.mathworks.com/matlabcentral/fileexchange/65823-kmeans_opt
+            % the elbow method to find the optimal no of cluster to explain 90% of total variance
+            ToTest =numel(chns); %maximum clusters to test
+            if ~exist('Cutoff','var'), Cutoff = 0.9; end
+            D=zeros(ToTest,1); %variance for number of clusters 1-n
+            Repeats = 3;
+            fprintf('repeat of %i:',numel(D));
+            for j = 1:ToTest
+                [~,~,dist] = kmeans(mni_l2r,j,'Distance','cityblock','emptyaction','drop');%,'Options',opts
+                D(j)=sum(dist); %best so far
+                for cc=2:Repeats %repeat the algoritm several times to get better result ,'Replicates',50 is too slow here
+                    [~,~,dist]=kmeans(mni_l2r,j,'Distance','cityblock','emptyaction','drop');
+                    D(j)=min(sum(dist),D(j));
+                end
+                if mod(j,10) == 0, fprintf('%i ',j); end
+            end
+            fprintf('.. done\n');
+
+            Var=D(1:end-1)-D(2:end); %calculate %variance explained
+            PC=cumsum(Var)/(D(1)-D(end));
+            figure('Name','%variance explained');
+            plot(PC,'.');
+
+            [r,~]=find(PC>Cutoff); %find the best index
+            K=1+r(1,1);
+        end
     end
     methods (Access = public,Static)
         function ExportHeadersAll()
@@ -1051,8 +1140,8 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 structure={obj.BrainAtlas_zkratky{iL,2},obj.BrainAtlas_zkratky{iL,3}}; 
                 structure(cellfun(@isempty,structure))={''}; %potrebuju mit prvky chararray
             end
-          end         
-
+          end
+          
           function obj = hybejPlot2D(obj,~,eventDat) 
               iCh = find(obj.plotCh2D.ch_displayed==obj.sortorder(obj.plotCh2D.chsel)); %index v obj.plotCh2D.ch_displayed
               switch eventDat.Key
