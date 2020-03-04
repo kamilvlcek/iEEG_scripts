@@ -86,8 +86,11 @@ classdef CHilbertL < CHilbert
         % categories: array of categories. eg. [1,3]. If empty, returns all
         % categories. Adds +1 to category number because of reasons - so if
         %   you want category 1, you need to pass 0. default []
-        % rejected: logical defining if the rejected epochs should be
-        %   excluded. Defaults to true.
+        % reject: logical defining if the rejected epochs should be
+        %   excluded. You can only reject epochs if you are selecting a
+        %   single category or a single channel, as epochs are rejected per
+        %   channel x category and trying to return multiple would result
+        %   in an uneven matrix. Defaults to false.
         % RETURN: 4D matrix [time x channel x frequency x epoch]
         % EXAMPLES: 
         %   hilbert.getenvelopes('channels', [1 3])
@@ -100,18 +103,35 @@ classdef CHilbertL < CHilbert
                 @(x)(isnumeric(x) && (numel(x) > 0)));
             % The numeric categories zero based
             addParameter(p, 'categories', obj.PsyData.Categories(false), @(x)(numel(x) > 0));
-            addParameter(p, 'rejected', true, @(x)validateattributes(x, {'logical'}));
+            addParameter(p, 'reject', false, @islogical);
             parse(p, varargin{:});
             
             frequencies = obj.getfrequencyindices(p.Results.frequencies);
-            categories = obj.getcategoryindices(p.Results.categories);
+            iCategories = obj.getcategoryindices(p.Results.categories);
             
-            if p.Results.rejected
-                for category = categories
-                    
+            % NOT FULLY WORKING because I am not sure how to implement it
+            % This only works if there are no per channel specific epoch
+            % rejections - e.g. all channels have the same epoch removed.
+            % Otherwise the returned matrix would be uneven - e.g. 51
+            % epochs in 4th dimention for channel 1 but only 50 for channel
+            % 2. This could be solved by inserting NaNs but if feels as odd
+            % behaviour
+            if p.Results.reject
+                if numel(p.Results.categories) ~= 1
+                    warning('Can only reject epochs for a single category');
+                else
+                    category = obj.categorytonum(p.Results.categories);
+                    [~, ~, ~, iEpochs] = obj.CategoryData(category(1));
+                    if ~all(sum(iEpochs)==sum(iEpochs(:,1)))
+                        warning(['Not all channels have the same number of',...
+                            ' epochs rejected, cannot return.']);
+                        return
+                    else
+                        iCategories = iEpochs(:,1);
+                    end
                 end
             end
-            envelopes = obj.HFreqEpochs(:, p.Results.channels, frequencies, categories);
+            envelopes = obj.HFreqEpochs(:, p.Results.channels, frequencies, iCategories);
         end
         
         function envelopes = getaverageenvelopes(obj, varargin)
@@ -152,6 +172,7 @@ classdef CHilbertL < CHilbert
             envelopes = squeeze(envelopes);
         end
         
+        % TODO - use existing psyData functions
         function indices = getcategoryindices(obj, categories)
         % Returns indices of given categories in the obj.HFreqEpochs
         % categories: vector of either characters cells or numbers defining
@@ -395,6 +416,17 @@ classdef CHilbertL < CHilbert
     end  
     
     %% Visualisations
+    methods(Access = private)
+        function iCategories = categorytonum(obj, categories)
+            %Converts categories cells to their numeric counterparts
+            if iscell(categories)
+                iCategories = obj.PsyData.CategoryNum(categories);
+            else
+                iCategories = categories;
+            end
+        end
+    end
+    
     methods  (Access = private)
         % Buffering of the plot, loading settings from saved ïn the 
         % obj.plotFrequency. Returns existing plot if it exists

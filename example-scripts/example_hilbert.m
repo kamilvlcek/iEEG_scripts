@@ -53,3 +53,5 @@ all(sel(:,1,52) == res(:, 1,1,2))
 % K, this was reshaped as I expected - e.g. sel is a vector of 51 events
 % for each channel (20) and reshaping it keeps the first two dimensions and
 % then splits it into 51 x 20
+
+

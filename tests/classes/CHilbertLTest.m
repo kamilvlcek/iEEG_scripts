@@ -10,6 +10,7 @@ function teardownOnce(testCase)
 testCase.TestData.hilbert = [];
 end
 
+%% getenvelopes
 function testGetanvelopesAll(testCase)
 originalSize = size(testCase.TestData.hilbert.HFreqEpochs);
 envelopes = testCase.TestData.hilbert.getenvelopes();
@@ -60,6 +61,16 @@ envelopes2 = testCase.TestData.hilbert.getenvelopes('categories',...
     categoryNames([1 3]));
 assertNotEmpty(testCase, envelopes);
 verifyEqual(testCase, envelopes, envelopes2);
+end
+
+% Rejecting bad epochs
+function testGetenvelopesReject(testCase)
+category = 1;
+[~, ~, ~, iEpochs] = testCase.TestData.hilbert.CategoryData(category);
+originalSize = size(testCase.TestData.hilbert.HFreqEpochs);
+originalSize(4) = sum(iEpochs(:, 1));
+envelopes = testCase.TestData.hilbert.getenvelopes('categories', category, 'reject', true);
+verifySize(testCase, envelopes, originalSize);
 end
 
 %% Wilcox tests
