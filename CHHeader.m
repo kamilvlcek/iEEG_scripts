@@ -171,6 +171,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 end
                 if ~isfield(obj.plotCh2D,'chsel'), obj.plotCh2D.chsel = 1;  end %one selected channel markad by red point
                 if ~isfield(obj.plotCh2D,'label'), obj.plotCh2D.label = ''; end        
+                if ~isfield(obj.plotCh2D,'boundary'), obj.plotCh2D.boundary = 0; end        
             end
             if exist('plotCh2D','var') && isstruct(plotCh2D)
                 fields = fieldnames(plotCh2D);
@@ -224,7 +225,10 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             z = [obj.H.channels(:).MNI_z];                
             
             load('GMSurfaceMesh.mat'); %seda hmota v MNI
-            if isfield(obj.plotCh2D,'boundary') && obj.plotCh2D.boundary && ~isfield(obj.plotCh2D,'BrainBoundaryXY') %trva docela dlouho nez se to spocita
+            if isfield(obj.plotCh2D,'boundary') && obj.plotCh2D.boundary ...
+                    && (~isfield(obj.plotCh2D,'BrainBoundaryXY') ...
+                    || ~isfield(obj.plotCh2D,'BrainBoundaryXZ') )
+                    %trva docela dlouho nez se to spocita
                 obj.plotCh2D.BrainBoundaryXY = boundary(GMSurfaceMesh.node(:,1),GMSurfaceMesh.node(:,2)); %vnejsi hranice mozku
                 obj.plotCh2D.BrainBoundaryYZ = boundary(GMSurfaceMesh.node(:,2),GMSurfaceMesh.node(:,3));
                 obj.plotCh2D.BrainBoundaryXZ = boundary(GMSurfaceMesh.node(:,1),GMSurfaceMesh.node(:,3)); %coronal view
@@ -256,7 +260,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             xyz = iff(obj.plotCh2D.coronalview, [1 3], [1 2]); %jesti zobrazovat MNI souradnice xy (=axial) nebo xz (=coronal)
             MNIxyz = vertcat(x,y,z); %abych mohl pouzivat souradnice xyz dynamicky podle coronalview
             Yaxislabel = iff(obj.plotCh2D.coronalview, 'MNI Z', 'MNI Y'); 
-            if isfield(obj.plotCh2D,'boundary') && obj.plotCh2D.boundary
+            if isfield(obj.plotCh2D,'boundary') && obj.plotCh2D.boundary && isfield(obj.plotCh2D,'BrainBoundaryXY') && isfield(obj.plotCh2D,'BrainBoundaryXZ')
                 %defaultne budu vykreslovat scatter, ale kvuli kopirovani se bude hodit i jen boundary
                 BrainBoundary = iff(obj.plotCh2D.coronalview,obj.plotCh2D.BrainBoundaryXZ,obj.plotCh2D.BrainBoundaryXY); 
                 plot(GMSurfaceMesh.node(BrainBoundary,xyz(1)),GMSurfaceMesh.node(BrainBoundary,xyz(2)));
