@@ -922,9 +922,9 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 hold on
                 plot3(-C(:,1),C(:,2),C(:,3),'kx','MarkerSize',15,'LineWidth',3);
 
-                barvy = 'rgbcmyk';
+                barvy = distinguishable_colors(nClusters);  %number of clusters
                 for c = 1:nClusters
-                    plot3(mni(idx==c,1),mni(idx==c,2),mni(idx==c,3),[barvy(c) '.'],'MarkerSize',12);
+                    plot3(mni(idx==c,1),mni(idx==c,2),mni(idx==c,3),'.','MarkerSize',12,'MarkerFaceColor',barvy(c,:));
                 end
                 view([0 90]); %axial horizontal view
                 title(obj.channelPlot.plotCh3D.popis);
@@ -963,7 +963,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             %CLUSTERS finds the optimal number of clusters
             %   accorting to the Elbow method and 90% of explained variance
             mni0 = [[obj.H.channels.MNI_x]',[obj.H.channels.MNI_y]',[obj.H.channels.MNI_z]'];
-            chns = obj.sortorder;
+            chns = obj.channelPlot.plotCh3D.chnsel;
             mni = mni0(chns,:);
             mni_l2r=[abs(mni(:,1)),mni(:,2),mni(:,3)]; %left made right
            
@@ -986,12 +986,41 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             fprintf('.. done\n');
 
             Var=D(1:end-1)-D(2:end); %calculate %variance explained
-            PC=cumsum(Var)/(D(1)-D(end));
-            figure('Name','%variance explained');
-            plot(PC,'.');
-
+            PC=cumsum(Var)/(D(1)-D(end));                        
             [r,~]=find(PC>Cutoff); %find the best index
             K=1+r(1,1);
+            
+            figure('Name','%variance explained');
+            plot(PC,'o');
+            xlim([0 K]);
+        end
+        function Clusters2XLS(obj,xlslabel)
+            if ~exist('xlslabel','var') || isempty(xlslabel) , xlslabel = ''; end
+            if ~isempty(obj.clusters)
+                noMarks = sum(~cellfun(@isempty,obj.plotCh2D.selChNames)); %number of used marks fghjkl
+                varnames ={'ch','name','pacient','RjCh','class','label','lobe','MNI_x','MNI_y','MNI_z'};
+                nVarN0 = numel(varnames); %number of varnames before clusters
+                for c = 1:numel(obj.clusters) %for all cluster sets
+                    popis = iff(iscell(obj.clusters(c).popis),  obj.clusters(c).popis(1) ,obj.clusters(c).popis);
+                    varnames = horzcat(varnames,popis,['C' num2str(c) 'dist']); %#ok<AGROW>
+                end
+                varnames = horzcat(varnames,obj.plotCh2D.selChNames(1:noMarks));
+                output = cell(numel(obj.H.channels),numel(varnames));
+                for ch = 1:numel(obj.H.channels)                    
+                    output(ch,1:4) = {num2str(ch),obj.H.channels(ch).name,obj.PacientTag(ch),num2str(sum(obj.RjCh==ch))};
+                    output(ch,5:7) = iff(isempty(obj.brainlabels),{'','',''},{obj.brainlabels(ch).class,obj.brainlabels(ch).label,obj.brainlabels(ch).lobe});
+                    output(ch,8:10) = {obj.H.channels(ch).MNI_x,obj.H.channels(ch).MNI_y,obj.H.channels(ch).MNI_z};
+                    for c = 1:numel(obj.clusters) %for all cluster sets
+                        ich = obj.clusters(c).channels == ch; 
+                        output(ch,c*2+nVarN0-1) = {obj.clusters(c).idx(ich)}; %number of cluster
+                        output(ch,c*2+nVarN0) = {obj.clusters(c).D(ich,c)}; %distance to this cluster centroid
+                    end                    
+                    output(ch,c*2+nVarN0+1:end) = num2cell(obj.plotCh2D.selCh(ch,1:noMarks));%count of channel marking fghjkl 
+                end
+                xlsfilename = ['./logs/Clusters2XLS' '_' xlslabel '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS')];
+                xlswrite(xlsfilename ,vertcat(varnames,output)); %write to xls file
+                disp([xlsfilename '.xls with ' num2str(size(output,1)) ' lines saved']);
+            end
         end
     end
     methods (Access = public,Static)

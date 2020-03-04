@@ -153,11 +153,29 @@ classdef ScatterPlot < handle
             ylim(obj.ax,yrange);
         end
         
-        function CopyChannelPlot3DROI(obj)
-            %copies ROI from ChannelPlot3D figure from ScatterPlot object to original CHilbertMulti object
+        function CopyHeaderParams(obj)
+            %copies variosu header properties of CHHeader from ScatterPlot object to original CHilbertMulti object            
             %to be saved with the CM object and not deleted with the SP object
-            obj.ieegdata.CH.plotCh3D.roi = obj.header.plotCh3D.roi ;
-            disp( [num2str(size(obj.header.plotCh3D.roi,1)) ' ROIs copied']);
+            % currently obj.header.plotCh3D.roi and obj.header.clusters
+%             if isfield(obj.header.plotCh3D,'roi') && ~isempty(obj.header.plotCh3D.roi)
+%                 obj.ieegdata.CH.plotCh3D.roi = obj.header.plotCh3D.roi ;            
+%                 disp( [num2str(size(obj.header.plotCh3D.roi,1)) ' ROIs copied']);
+%             end
+            if ~isempty(obj.header.clusters)
+                obj.ieegdata.CH.clusters = obj.header.clusters;
+                disp( [num2str(numel(obj.header.clusters)) ' Cluster sets copied']);
+            end
+            fields = fieldnames(obj.header.channelPlot.plotCh3D);
+            copied = 0;
+            for f = fields'
+                ff = cell2mat(f);
+                fv = obj.header.channelPlot.plotCh3D.(ff);
+                if ~isempty(fv) && ~ishandle(fv(1))  
+                    obj.ieegdata.CH.channelPlot.plotCh3D.(ff) = obj.header.channelPlot.plotCh3D.(ff);
+                    copied = copied + 1;
+                end
+            end
+            disp( [num2str(copied) ' plotCh3D fields copied']);
         end
 
     end

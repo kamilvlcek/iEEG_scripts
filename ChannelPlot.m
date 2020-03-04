@@ -236,16 +236,14 @@ classdef ChannelPlot < matlab.mixin.Copyable
             end
         end
         function PlotClusters(obj)
-            %PlotClusters - plots the previosly computer clusters if any exist, according to the current popis
-            if ~isempty(obj.CH.clusters) 
-                iCluster = obj.CH.GetCluster(obj.plotCh3D.popis);
-                if iCluster
-                    C = obj.CH.clusters(iCluster).C;
-                    plot3(C(:,1),C(:,2),C(:,3),'kx','MarkerSize',15,'LineWidth',3); %clusters on right side
-                    hold on
-                    plot3(-C(:,1),C(:,2),C(:,3),'kx','MarkerSize',15,'LineWidth',3); %clusters on left side
-                end
-            end 
+            %PlotClusters - plots the previosly computer clusters if any exist, according to the current popis            
+            iCluster = obj.CH.GetCluster(obj.plotCh3D.popis);
+            if iCluster
+                C = obj.CH.clusters(iCluster).C;
+                plot3(C(:,1),C(:,2),C(:,3),'kx','MarkerSize',20,'LineWidth',3); %clusters on right side
+                hold on
+                plot3(-C(:,1),C(:,2),C(:,3),'kx','MarkerSize',20,'LineWidth',3); %clusters on left side
+            end           
             
             %older plotting of complex hull
             if ~isempty(obj.CH.hull) && obj.plotCh3D.hullindex > 0
@@ -307,6 +305,22 @@ classdef ChannelPlot < matlab.mixin.Copyable
                             end
                         end
                     end
+                case 3 %colors according to clusters                   
+                    clrs = repmat([.5 .5 .5],numel(chnvals),1); %default grey color for each channel      
+                    iCluster = obj.CH.GetCluster(obj.plotCh3D.popis);
+                    if iCluster
+                        barvy = distinguishable_colors(size(obj.CH.clusters(iCluster).C,1));  %number of clusters
+                        for j = 1:size(obj.CH.clusters(iCluster).C,1)
+                            ichannels = obj.CH.clusters(iCluster).idx==j; %channels plotted that are in the current cluster
+                            ch = obj.CH.clusters(iCluster).channels(ichannels);
+                            ch = intersect(ch,chnsel); %reduced for only the selected channels
+                            if numel(ch) > 0
+                               ichannel = ismember(chnsel,ch); %index of channels in chnsel and chnvals
+                               clrs(ichannel,:)=repmat(barvy(j,:),length(ch),1); %previous color is overwriten
+                            end
+                        end
+                    end
+                    
             end
             obj.plotCh3D.sizes = sizes;
           end
@@ -428,9 +442,11 @@ classdef ChannelPlot < matlab.mixin.Copyable
                   case {'subtract' , 'hyphen'}    %decrease the font size of channel labels
                     obj.plotCh3D.fontsize = obj.plotCh3D.fontsize - 1; 
                     obj.ChannelPlot3D();  
-                  case 'v' %toggle color code of 3D scatter
+                  case 'v' %toggle color code of 3D scatter                    
+                    iCluster = obj.CH.GetCluster(obj.plotCh3D.popis);
+                    colorusemax = iff(iCluster,4,3); %when there are the clusters computed, show them when plotCh3D.coloruse = 4
                     obj.plotCh3D.coloruse = obj.plotCh3D.coloruse + 1;
-                    if obj.plotCh3D.coloruse >= 3, obj.plotCh3D.coloruse=0; end %values only 0 1 or 2%                   
+                    if obj.plotCh3D.coloruse >= colorusemax, obj.plotCh3D.coloruse=0; end %values only 0 1 or 2%                   
                     obj.ChannelPlot3D(); 
                   case 'm' %toggle markertypes to use for scatter 3D
                    markertypes = {'o','s','d','p'};
