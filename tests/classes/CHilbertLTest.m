@@ -75,6 +75,7 @@ end
 
 %% Wilcox tests
 function testWilcoxbaseline(testCase)
+% ADD checks for size
 wp = testCase.TestData.hilbert.wilcoxbaseline('baseline', [-0.1 0], ...
     'response', [0.01 0.1], 'frequencies', 1, 'categories', {'Ovoce'});
 verifyNotEmpty(testCase, wp);
@@ -82,6 +83,19 @@ verifyNotEmpty(testCase, wp);
 wp = testCase.TestData.hilbert.wilcoxbaseline('baseline', [-0.2 0],...
     'response', [0.01 0.1], 'frequencies', 1, 'categories', 1);
 verifyNotEmpty(testCase, wp);
-
 % test squeezing
+end
+
+function testWilcoxcategories(testCase)
+originalSize = size(testCase.TestData.hilbert.HFreqEpochs);
+wp = testCase.TestData.hilbert.wilcoxcategories({'Ovoce' 'Scene'},...
+    'frequencies', 1);
+assertNotEmpty(testCase, wp);
+verifySize(testCase, wp, originalSize([1 2 3]));
+
+wp = testCase.TestData.hilbert.wilcoxcategories({'Ovoce' 'Scene'},...
+    'channels', 1, 'frequencies', 1);
+assertNotEmpty(testCase, wp);
+verifySize(testCase, wp, originalSize([1 2 3]));
+% Test erroring in case multiple categories are passed
 end

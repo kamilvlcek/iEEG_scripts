@@ -16,20 +16,24 @@ hilbert.plotresponsefrequency(1:4, 0:3);
 
 %% Wilcox 
 %against a baseline for all frequencies
-wBaseline = hilbert.wilcoxbaseline('baseline', [-0.2 0], 'response', [0.01 0.8],...
-    'frequencies', 1, 'categories', {'Ovoce'});
-wBaseline = hilbert.wilcoxbaseline('baseline', [-0.2 0], 'response', [0.01 0.8],...
-    'frequencies', 1, 'categories', {'Ovoce'}, 'squeeze', true);
 % Wilcox agains baseline returs a 4D matrix with
 % time x channel x frequency x category p values.
 % the following plots the p values for time x channel for the
 % first frequency (52 Hz) and first category ('Ovoce')
+wBaseline = hilbert.wilcoxbaseline('baseline', [-0.2 0], 'response', [0.01 0.8],...
+    'frequencies', 1, 'categories', {'Ovoce'});
 plotpintime(wBaseline(:, :, 1, 1), [0.01 0.8]);
 % This plots the time x Frequencies for the 18the channel for category ('Ovoce')
 plotpintime(squeeze(wBaseline(:, 18, :, 1)), [0.01 0.8], hilbert.Hfmean);
 
+% unless we "squeeze" the output
+wBaseline = hilbert.wilcoxbaseline('baseline', [-0.2 0], 'response', [0.01 0.8],...
+    'frequencies', 1, 'categories', {'Ovoce'}, 'squeeze', true);
+plotpintime(wBaseline, [0.01 0.8]);
+
 % Comparing for Scene
-wBaseline = hilbert.wilcoxbaseline([-0.2 0], [0.01 0.8], [], {'Object'});
+wBaseline = hilbert.wilcoxbaseline('baseline', [-0.2 0], 'response', [0.01 0.8],...
+    'categories', {'Object'});
 plotpintime(squeeze(wBaseline(:, 1, :, 4)), [0.01 0.8], hilbert.Hfmean);
 
 % Wilcox category comparison

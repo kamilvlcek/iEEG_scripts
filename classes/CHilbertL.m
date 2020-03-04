@@ -94,8 +94,8 @@ classdef CHilbertL < CHilbert
         % RETURN: 4D matrix [time x channel x frequency x epoch]
         % EXAMPLES: 
         %   hilbert.getenvelopes('channels', [1 3])
-        %   hilbert.getenvelopes('channels', 1, 'frequnecies', [52.75])
-        %   hilbert.getenvelopes('frequnecies', [52.75, 62.25], 'categories', {'Ovoce'})
+        %   hilbert.getenvelopes('channels', 1, 'frequencies', [52.75])
+        %   hilbert.getenvelopes('frequencies', [1 3], 'categories', {'Ovoce'})
             p = inputParser;
             addParameter(p, 'channels', 1:size(obj.HFreqEpochs, 2), ...
                 @(x)(isnumeric(x) && (numel(x) > 0)));
@@ -307,7 +307,6 @@ classdef CHilbertL < CHilbert
                 fprintf('Comparing for frequency %f\n', obj.Hfmean(iFrequency));
                 for iCategory = iCategories
                     [~, ~, RjEpCh] = obj.CategoryData(iCategory);
-                    
                     envelopes = obj.getenvelopes('channels', p.Results.channels,...
                         'frequencies', iFrequency, 'categories', iCategory);
                     % selects times and squeezes the categories and frequency
@@ -323,7 +322,7 @@ classdef CHilbertL < CHilbert
             end
         end
 
-        function wp = wilcoxcategories(obj, categories, responsetime, frequencies)
+        function wp = wilcoxcategories(obj, categories, varargin)
         % Compares two category responses in given time
         % 
         % categories: numeric(2) or cell(2){character} defining categories.
@@ -335,32 +334,36 @@ classdef CHilbertL < CHilbert
         % example:
         %   obj.wilcoxcategories([0 1])
         %   obj.wilcoxcategories([{'Ovoce'} {'Scene'}], [0 0.5], 5:6)
-            if ~exist('responsetime', 'var') || numel(responsetime) == 0
-                responsetime = obj.epochtime(1:2);
-            end
-            iResponse = obj.gettimewindowindices(responsetime);
-            if any([numel(iResponse) ~= 2, numel(categories) ~= 2]), return; end
+            p = inputParser;
+            addRequired(p, 'categories', @(x)(numel(x) == 2));
+            addParameter(p, 'responsetime', obj.epochtime(1:2),...
+                @(x)(numel(x) == 2));
+            addParameter(p, 'channels', 1:size(obj.HFreqEpochs, 2), ...
+                @(x)(isnumeric(x) && (numel(x) > 0)));
+            addParameter(p, 'frequencies', 1:size(obj.HFreqEpochs, 3),...
+                @(x)(isnumeric(x) && (numel(x) > 0)));
+            addParameter(p, 'squeeze', false, @islogical);
+            parse(p, categories, varargin{:});
             
-            wpSize = [diff(iResponse) + 1, ...
+            iResponse = obj.gettimewindowindices(p.Results.responsetime);
+            wp = NaN([diff(iResponse) + 1, ...
                 size(obj.HFreqEpochs, 2), ...
-                size(obj.HFreqEpochs, 3)];
-            wp = NaN(wpSize);
+                size(obj.HFreqEpochs, 3)]);
             
-            if ~exist('frequencies', 'var') || numel(frequencies) == 0
-                frequencies = 1:wpSize(3);
-            end
-            
-            rejectedEpochs = {2};
+            rejectedEpochs = cell(2);
             for iCategory = 1:2
                 [~, ~, RjEpCh] = obj.CategoryData(categories{(iCategory)});
                 rejectedEpochs(iCategory) = {RjEpCh};
             end
             
-            for iFrequency = 1:numel(frequencies)
+            iFrequencies = obj.getfrequencyindices(p.Results.frequencies); 
+            for iFrequency = iFrequencies
                 fprintf('Comparing for frequency %f\n', obj.Hfmean(iFrequency));
-                responseA = obj.getenvelopes('frequencies',frequencies(iFrequency), 'categories',categories(1));
+                responseA = obj.getenvelopes('frequencies', iFrequency,...
+                    'categories', categories(1));
                 responseA = squeeze(responseA(iResponse(1):iResponse(2), :, :, :));
-                responseB = obj.getenvelopes('frequencies', frequencies(iFrequency), 'categories', categories(2));
+                responseB = obj.getenvelopes('frequencies', iFrequency,...
+                    'categories', categories(2));
                 responseB = squeeze(responseB(iResponse(1):iResponse(2), :, :, :));
                 % As we are passing the same set of epochs, we can
                 % basically "clone" the epochs?
@@ -373,19 +376,20 @@ classdef CHilbertL < CHilbert
         %%% comparing sets of channels instead of epcohs within a channel
         % against each other
         
-        function wp = wilcoxaveragebaseline(obj, baselinetime, responsetime, channels1, channels2, frequencies, categories)
+        function wp = wilcoxaveragebaseline(obj, varargin)
         % Compares sets of channels against each other. for given
         % frequencies and categories
         % Runs a wilcox test for an average across all non rejected epochs
         % 
-        % categories: 
-        % channels: two dimensional matrix of channels to average and run 
+        % categories:
+        % channels1:
+        % channels2:
         % responsetime:
-        % frequencies
+        % frequencies:´
         
         % Get the epoch data for given parameters and only non rejected
         
-        % [~, ~, RjEpCh] = obj.CategoryData(iCategory);
+        % [~, ~, RjEpCh, iEpoch] = obj.CategoryData(iCategory);
         % Average non rejected epochs across channels
         % - resp: time x channel x frequency - cpomaring sets of channels
         % against each other
@@ -393,7 +397,7 @@ classdef CHilbertL < CHilbert
             wp = [];
         end
         
-        function wp = wilcoxaveragecategories(obj, categories, responsetime, channels1, channels2, frequencies)
+        function wp = wilcoxaveragecategories(obj, categories, varargin)
         % Runs a wilcox test for an average across epochs and
         % compares them betweeen passed categories
         % 
@@ -415,7 +419,7 @@ classdef CHilbertL < CHilbert
         end
     end  
     
-    %% Visualisations
+    %% Private helpers
     methods(Access = private)
         function iCategories = categorytonum(obj, categories)
             %Converts categories cells to their numeric counterparts
@@ -427,6 +431,7 @@ classdef CHilbertL < CHilbert
         end
     end
     
+    %% Visualisations
     methods  (Access = private)
         % Buffering of the plot, loading settings from saved ïn the 
         % obj.plotFrequency. Returns existing plot if it exists
