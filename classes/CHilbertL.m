@@ -127,7 +127,9 @@ classdef CHilbertL < CHilbert
                 else
                     category = obj.categorytonum(p.Results.categories);
                     [~, ~, ~, iEpochs] = obj.CategoryData(category(1));
-                    if ~all(sum(iEpochs)==sum(iEpochs(:,1)))
+                    % we are only interested in the subset of channels
+                    iEpochs = iEpochs(:,p.Results.channels); 
+                    if ~all(sum(iEpochs) == sum(iEpochs(:,1)))
                         warning(['Not all channels have the same number of',...
                             ' epochs rejected, cannot return.']);
                         return
@@ -301,11 +303,7 @@ classdef CHilbertL < CHilbert
                 size(obj.HFreqEpochs, 3),...
                 size(obj.PsyData.Categories(false), 2));
             
-            if iscell(p.Results.categories)
-                iCategories = obj.PsyData.CategoryNum(p.Results.categories);
-            else
-                iCategories = p.Result.categories;
-            end
+            iCategories = obj.categorytonum(p.Results.categories);
             iFrequencies = obj.getfrequencyindices(p.Results.frequencies);
             % separate comparison for each channel, frequency and category
             for iFrequency = iFrequencies
@@ -381,21 +379,25 @@ classdef CHilbertL < CHilbert
         %%% comparing sets of channels instead of epcohs within a channel
         % against each other
         
-        function wp = wilcoxaveragebaseline(obj, channels1, channels2, varargin)
-        % Compares sets of channels against each other. for given
-        % frequencies and categories
+        function wp = wilcoxaveragebaseline(obj, varargin)
+        % Compares averages of channels against each other
         % Runs a wilcox test for an average across all non rejected epochs
         % REQUIRED PARAMETERS
-        % channels1: array of channel number in the first group
-        % channels2: array of channel number in the second group
+        % channels: array of channel number in the first group
         % OPTIONAL PARAMETERS:
         % categories: array fo categories to analyze
         % frequencies:´array of frequencies to analyze
         % baseline: baseline time in seconds. Defaults to obj.baseline
         % response: response time in seconds
+        % squeeze: logical if only selected frequencies and categories 
+        % RETURN:
+        %   returns 3d matrix time x frequency x category with p values and
+        %   NaNs where data was not required. If squeeze is true, then only
+        %   returns squeezed amtrix with only selected values should be
+        %   returned
             p = inputParser;
-            addRequired(p, 'channels1', @isnumeric);
-            addRequired(p, 'channels2', @isnumeric);
+            addParameter(p, 'channels', 1:size(obj.HFreqEpochs, 2), ...
+                @(x)(isnumeric(x) && (numel(x) > 0)));
             addParameter(p, 'frequencies', 1:size(obj.HFreqEpochs, 3),...
                 @(x)(isnumeric(x) && (numel(x) > 0)));
             addParameter(p, 'categories', obj.PsyData.Categories(false),...
@@ -405,38 +407,48 @@ classdef CHilbertL < CHilbert
                 @(x)(numel(x) == 2));
             addParameter(p, 'squeeze', false,...
                 @(x)(numel(x) == 1 && islogical(x)));
-            parse(p, channels1, channels2, varargin{:});
+            parse(p, varargin{:});
             
             iCategories = obj.categorytonum(p.Results.categories);
             iFrequencies = obj.getfrequencyindices(p.Results.frequencies);
+            % baseline is time x frequency x channel
+            baselineSize = [diff(obj.gettimewindowindices(p.Results.baseline)) + 1 ...
+               1 numel(p.Results.channels)];
+            responseSize = [diff(obj.gettimewindowindices(p.Results.response)) + 1 ...
+                1 baselineSize(2)];
             
-            % Get the epoch data for given parameters and only non rejected
+            wp = NaN(responseSize(1), size(obj.HFreqEpochs, 2),...
+                size(obj.PsyData.Categories(false), 2));
+            
             for iFrequency = iFrequencies
                 fprintf('Comparing for frequency %f\n', obj.Hfmean(iFrequency));
                 for iCategory = iCategories
-                    env1bas = obj.getenvelopes('channels', p.Results.channels1,...
-                        'frequencies', iFrequency, 'categories', iCategory,...
-                        'time', baseline, 'reject', true);
-                    env2bas = obj.getenvelopes('channels', p.Results.channels2,...
-                        'frequencies', iFrequency, 'categories', iCategory,...
-                        'time', baseline, 'reject', true);
-                    env1res = obj.getenvelopes('channels', p.Results.channels1,...
-                        'frequencies', iFrequency, 'categories', iCategory,...
-                        'time', response, 'reject', true);
-                    env2res = obj.getenvelopes('channels', p.Results.channels2,...
-                        'frequencies', iFrequency, 'categories', iCategory,...
-                        'time', response, 'reject', true);
-                    
-                    [env1bas, env2bas, env1res, env2res] = arrayfun(...
-                        @(x)mean(x, 4), [env1bas, env2bas, env1res, env2res]);
-                    
-                    wp(:, p.Results.channels, iFrequency, iCategory + 1) = tempWp;
+                    % because it is possible that each channel has a
+                    % different number of rejected epochs, we have to
+                    % select and average per channel :( TODO - when the
+                    % getenvelopes returns in case of unequal rejections,
+                    % then this can be heavilly streamlined
+                    baseline = NaN(baselineSize);
+                    response = NaN(responseSize);
+                    for channel = p.Results.channels
+                        tempBaseline = obj.getenvelopes('channels',channel,...
+                            'frequencies',iFrequency,'categories',iCategory,...
+                            'time', p.Results.baseline,'reject',true);
+                        tempResponse = obj.getenvelopes('channels',channel,...
+                            'frequencies',iFrequency,'categories',iCategory,...
+                            'time', p.Results.response, 'reject',true);
+                        % Averaging across epochs - need to have 3
+                        % dimensions due to how wilcox 3d works
+                        baseline(:, 1, channel) = mean(tempBaseline, 4);
+                        response(:, 1, channel) = mean(tempResponse, 4);
+                    end
+                    tempWp = wilcox3d(response, baseline);
+                    wp(:, iFrequency, iCategory + 1) = tempWp;
                 end
             end
             if p.Results.squeeze
-                wp = wp(:, p.Results.channels, iFrequencies, iCategories + 1);
+                wp = wp(:, iFrequencies, iCategories + 1);
             end
-            wp = [];
         end
         
         function wp = wilcoxaveragecategories(obj, categories, varargin)

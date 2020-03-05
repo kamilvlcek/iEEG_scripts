@@ -111,3 +111,8 @@ assertNotEmpty(testCase, wp);
 verifySize(testCase, wp, originalSize([1 2 3]));
 % Test erroring in case multiple categories are passed
 end
+
+function testWilcoxaveragebaseline(testCase)
+wp = testCase.TestData.hilbert.wilcoxaveragebaseline([1:10]);
+end
+

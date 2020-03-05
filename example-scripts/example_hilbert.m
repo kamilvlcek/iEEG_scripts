@@ -45,6 +45,12 @@ plotpintime(squeeze(wCategory(:, 18, :)), [0.0 0.8], hilbert.Hfmean);
 wCategory = hilbert.wilcoxcategories([{'Ovoce'} {'Scene'}], [0.0 0.5]);
 plotpintime(squeeze(wCategory(:, 18, :)), [0.0 0.8])
 
+
+%% Wilcox second order
+wp = hilbert.wilcoxaveragebaseline('channels', 1:5, 'baseline', [-0.2 0], 'frequencies', 1:5);
+% returns time x frequency x category
+plotpintime(wp(:, :, 1), [0.0 0.8])
+
 %% Testing
 [~, ~, ~, iEpochs] = hilbert.CategoryData(1);
 per = permute(hilbert.HFreqEpochs, [1 3 4 2]);
