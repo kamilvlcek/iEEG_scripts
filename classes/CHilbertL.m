@@ -414,27 +414,28 @@ classdef CHilbertL < CHilbert
             for iFrequency = iFrequencies
                 fprintf('Comparing for frequency %f\n', obj.Hfmean(iFrequency));
                 for iCategory = iCategories
-                    [~, ~, RjEpCh] = obj.CategoryData(iCategory);
-                    envelopes1 = obj.getenvelopes('channels', p.Results.channels1,...
-                        'frequencies', iFrequency, 'categories', iCategory, 'time', baseline);
-                    envelopes2 = obj.getenvelopes('channels', p.Results.channels2,...
-                        'frequencies', iFrequency, 'categories', iCategory, 'time', baseline);
-                    % selects times and squeezes the categories and frequency
-                    response = squeeze(envelopes(iResponse(1):iResponse(2), :, :, :));
-                    baseline = squeeze(envelopes(iBaseline(1):iBaseline(2), :, :, :));
-                    tempWp = CStat.Wilcox2D(response, baseline, 0, [], '',...
-                        RjEpCh, RjEpCh);
+                    env1bas = obj.getenvelopes('channels', p.Results.channels1,...
+                        'frequencies', iFrequency, 'categories', iCategory,...
+                        'time', baseline, 'reject', true);
+                    env2bas = obj.getenvelopes('channels', p.Results.channels2,...
+                        'frequencies', iFrequency, 'categories', iCategory,...
+                        'time', baseline, 'reject', true);
+                    env1res = obj.getenvelopes('channels', p.Results.channels1,...
+                        'frequencies', iFrequency, 'categories', iCategory,...
+                        'time', response, 'reject', true);
+                    env2res = obj.getenvelopes('channels', p.Results.channels2,...
+                        'frequencies', iFrequency, 'categories', iCategory,...
+                        'time', response, 'reject', true);
+                    
+                    [env1bas, env2bas, env1res, env2res] = arrayfun(...
+                        @(x)mean(x, 4), [env1bas, env2bas, env1res, env2res]);
+                    
                     wp(:, p.Results.channels, iFrequency, iCategory + 1) = tempWp;
                 end
             end
             if p.Results.squeeze
                 wp = wp(:, p.Results.channels, iFrequencies, iCategories + 1);
             end
-            % [~, ~, RjEpCh, iEpoch] = obj.CategoryData(iCategory);
-            % Average non rejected epochs across channels
-            % - resp: time x channel x frequency - cpomaring sets of channels
-            % against each other
-            
             wp = [];
         end
         
