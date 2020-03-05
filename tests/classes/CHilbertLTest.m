@@ -116,3 +116,8 @@ function testWilcoxaveragebaseline(testCase)
 wp = testCase.TestData.hilbert.wilcoxaveragebaseline([1:10]);
 end
 
+
+function testWilcoxaveragecategories(testCase)
+
+end
+

@@ -287,7 +287,8 @@ classdef CHilbertL < CHilbert
                 @(x)(isnumeric(x) && (numel(x) > 0)));
             addParameter(p, 'frequencies', 1:size(obj.HFreqEpochs, 3),...
                 @(x)(isnumeric(x) && (numel(x) > 0)));
-            addParameter(p, 'categories', obj.PsyData.Categories(false), @(x)(numel(x) > 0));
+            addParameter(p, 'categories', obj.PsyData.Categories(false),...
+                @(x)(numel(x) > 0));
             addParameter(p, 'baseline', obj.baseline, @(x)(numel(x) == 2));
             addParameter(p, 'response', [obj.baseline(2) obj.epochtime(2)], @(x)(numel(x) == 2));
             addParameter(p, 'squeeze', false, @islogical);
@@ -339,12 +340,12 @@ classdef CHilbertL < CHilbert
         %   obj.wilcoxcategories([{'Ovoce'} {'Scene'}], [0 0.5], 5:6)
             p = inputParser;
             addRequired(p, 'categories', @(x)(numel(x) == 2));
-            addParameter(p, 'responsetime', obj.epochtime(1:2),...
-                @(x)(numel(x) == 2));
             addParameter(p, 'channels', 1:size(obj.HFreqEpochs, 2), ...
                 @(x)(isnumeric(x) && (numel(x) > 0)));
             addParameter(p, 'frequencies', 1:size(obj.HFreqEpochs, 3),...
                 @(x)(isnumeric(x) && (numel(x) > 0)));
+            addParameter(p, 'response', obj.epochtime(1:2),...
+                @(x)(numel(x) == 2));
             addParameter(p, 'squeeze', false, @islogical);
             parse(p, categories, varargin{:});
             
@@ -417,7 +418,7 @@ classdef CHilbertL < CHilbert
             responseSize = [diff(obj.gettimewindowindices(p.Results.response)) + 1 ...
                 1 baselineSize(2)];
             
-            wp = NaN(responseSize(1), size(obj.HFreqEpochs, 2),...
+            wp = NaN(responseSize(1), size(obj.HFreqEpochs, 3),...
                 size(obj.PsyData.Categories(false), 2));
             
             for iFrequency = iFrequencies
@@ -461,17 +462,45 @@ classdef CHilbertL < CHilbert
         % frequencies
         % Notes: Basically runs like wilcoxchannelcategories but replaces
         % Validate only two categories
-        if iscell(categories)
-            categories = obj.PsyData.CategoryNum(categories);
+        % RETURNS
+        % 2d matrix with p values with time x frequnecy
+            p = inputParser;
+            addRequired(p, 'categories', @(x)(numel(x) > 0));
+            p = obj.addchannelsparameter(p);
+            p = obj.addfrequenciesparameter(p);
+            p = obj.addresponseparameter(p);
+            addParameter(p, 'squeeze', false, @(x) islogical(x));
+            parse(p, categories, varargin{:});
+
+            iCategories = obj.categorytonum(p.Results.categories);
+            iFrequencies = obj.getfrequencyindices(p.Results.frequencies);
+            
+            % out is time x frequency
+            wp = NaN(diff(obj.gettimewindowindices(p.Results.response)) + 1,...
+                size(obj.HFreqEpochs, 3));
+            % time x single frequency x channel
+            tempSize = [size(wp,1) 1 size(obj.HFreqEpochs, 2)];
+            for iFrequency = iFrequencies
+                category1 = NaN(tempSize); category2 = NaN(tempSize);
+                for channel = p.Results.channels
+                    tempCategory1 = obj.getenvelopes('channels',channel,...
+                        'frequencies',iFrequency,'categories',iCategories(1),...
+                        'time', p.Results.response, 'reject',true);
+                    tempCategory2 = obj.getenvelopes('channels',channel,...
+                        'frequencies',iFrequency,'categories',iCategories(2),...
+                        'time', p.Results.response, 'reject',true);
+                    % Averaging across epochs - need to have 3
+                    % dimensions due to how wilcox 3d works
+                    category1(:, 1, channel) = mean(tempCategory1, 4);
+                    category2(:, 1, channel) = mean(tempCategory2, 4);
+                end
+                wp(:, iFrequency) = wilcox3d(category1, category2);
+            end
+            if p.Results.squeeze
+                wp = wp(:, iFrequencies);
+            end
         end
-        [~, ~, ~, iEpochs1] = obj.CategoryData(categories(1));
-        [~, ~, ~, iEpochs2] = obj.CategoryData(categories(2));
-        % Filter epochs for given data
-        category1 = obj.HFreqEpochs;
-        % Filter given channels
-            wp = [];
-        end
-    end  
+    end
     
     %% Private helpers
     methods(Access = private)
@@ -482,6 +511,24 @@ classdef CHilbertL < CHilbert
             else
                 iCategories = categories;
             end
+        end
+        
+        function parser = addchannelsparameter(obj, parser)
+            % Adds channels frequencies and categories parameters
+            addParameter(parser, 'channels', 1:size(obj.HFreqEpochs, 2), ...
+                @(x)(isnumeric(x) && (numel(x) > 0)));
+        end
+        
+        function parser = addfrequenciesparameter(obj, parser)
+            addParameter(parser, 'frequencies',...
+                1:size(obj.HFreqEpochs, 3),...
+                @(x)(isnumeric(x) && (numel(x) > 0)));
+        end
+        
+        function parser = addresponseparameter(obj, parser)
+             addParameter(parser, 'response',...
+                 [obj.baseline(2) obj.epochtime(2)],...
+                 @(x)(numel(x) == 2));
         end
     end
     

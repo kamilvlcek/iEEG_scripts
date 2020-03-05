@@ -28,7 +28,7 @@ plotpintime(squeeze(wBaseline(:, 18, :, 1)), [0.01 0.8], hilbert.Hfmean);
 
 % unless we "squeeze" the output
 wBaseline = hilbert.wilcoxbaseline('baseline', [-0.2 0], 'response', [0.01 0.8],...
-    'frequencies', 1, 'categories', {'Ovoce'}, 'squeeze', true);
+    'frequencies', 1:5, 'categories', {'Ovoce'}, 'squeeze', true);
 plotpintime(wBaseline, [0.01 0.8]);
 
 % Comparing for Scene
@@ -47,9 +47,13 @@ plotpintime(squeeze(wCategory(:, 18, :)), [0.0 0.8])
 
 
 %% Wilcox second order
+% Baseline
 wp = hilbert.wilcoxaveragebaseline('channels', 1:5, 'baseline', [-0.2 0], 'frequencies', 1:5);
 % returns time x frequency x category
 plotpintime(wp(:, :, 1), [0.0 0.8])
+
+% category
+wp = hilbert.wilcoxaveragecategories([0 1], 'channels', 1:5, 'frequencies', 1:5);
 
 %% Testing
 [~, ~, ~, iEpochs] = hilbert.CategoryData(1);
