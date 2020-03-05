@@ -170,7 +170,7 @@ classdef ScatterPlot < handle
             for f = fields'
                 ff = cell2mat(f);
                 fv = obj.header.channelPlot.plotCh3D.(ff);
-                if ~isempty(fv) && ~ishandle(fv(1))  
+                if ~isempty(fv) && ~isobject(fv(1)) && (~isgraphics(fv(1)) || isequal(fv,0)) %isgraphics is true for 0
                     obj.ieegdata.CH.channelPlot.plotCh3D.(ff) = obj.header.channelPlot.plotCh3D.(ff);
                     copied = copied + 1;
                 end

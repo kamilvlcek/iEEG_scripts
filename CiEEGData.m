@@ -1881,6 +1881,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             [CH_plots,CS_plots,RCh_plots] = obj.SaveRemoveFh(obj.plotRCh);  %#ok<ASGLU> %smazu vsechny handely na obrazky             
             CH_filterMatrix = obj.CH.filterMatrix; %#ok<NASGU>  
             CH_brainlabels = obj.CH.brainlabels; %#ok<NASGU>
+            CH_clusters = obj.CH.clusters;   %#ok<NASGU> %5.3.2020 TODO - Header data save by CHHeader object
             els = obj.els;                  %#ok<PROP,NASGU>
             plotES = obj.plotES;            %#ok<PROP,NASGU>          
             RjCh = obj.RjCh;                %#ok<PROP,NASGU>
@@ -1896,7 +1897,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             if isa(obj,'CHilbertMulti'), label = obj.label; else label = []; end %#ok<NASGU>
             [pathstr,fname,ext] = CiEEGData.matextension(filename);        
             filename2 = fullfile(pathstr,[fname ext]);
-            save(filename2,'d','tabs','tabs_orig','fs','header','sce','PsyDataP','PsyData','testname','epochtime','baseline','CH_H','CH_plots','CH_brainlabels', 'CS_plots','els',...
+            save(filename2,'d','tabs','tabs_orig','fs','header','sce','PsyDataP','PsyData','testname','epochtime','baseline','CH_H','CH_plots','CH_brainlabels','CH_clusters','CS_plots','els',...
                     'plotES','RCh_plots','RjCh','RjEpoch','RjEpochCh','epochTags','epochLast','reference','epochData','Wp','DE','DatumCas', 'label', ...
                     'CH_filterMatrix','-v7.3');  
             disp(['ulozeno do ' filename2]); 
@@ -1977,6 +1978,9 @@ classdef CiEEGData < matlab.mixin.Copyable
             end 
             if ismember('CH_brainlabels', {vars.name})
                 load(filename,'CH_brainlabels');      obj.CH.brainlabels = CH_brainlabels;                              
+            end 
+            if ismember('CH_clusters', {vars.name}) %5.3.2020
+                load(filename,'CH_clusters');      obj.CH.clusters = CH_clusters;                              
             end 
             if ismember('Wp', {vars.name})
                 load(filename,'Wp');      obj.Wp = Wp; %#ok<CPROPLC,CPROP,PROP>

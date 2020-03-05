@@ -912,9 +912,9 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             mni0 = [[obj.H.channels.MNI_x]',[obj.H.channels.MNI_y]',[obj.H.channels.MNI_z]'];            
             mni = mni0(obj.channelPlot.plotCh3D.chnsel,:); %computes clusters from currently plottech channels in ChannelPlot
             mni_l2r=[abs(mni(:,1)),mni(:,2),mni(:,3)]; %left brain side made right
-            % opts = statset('Display','final');
-            %tohle dava nejlepsi vysledky. 50 replicates je treba, aby pokazde clustery dopadly stejne
-            [idx,C,sumd,D] = kmeans(mni_l2r,nClusters,'Distance','cityblock','Replicates',50);%,'Options',opts
+            
+            %following settings give best results for MNI data. 200 replicates seem to be necessary for clusters to be reproducible
+            [idx,C,sumd,D] = kmeans(mni_l2r,nClusters,'Distance','cityblock','Replicates',200);
 
             if dofig
                 figure('Name',[ num2str(nClusters) ' clusters']); 
