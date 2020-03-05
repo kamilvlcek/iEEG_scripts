@@ -49,19 +49,31 @@ end
 
 % Getting only select categories
 function testGetenvelopesCategories(testCase)
-originalSize = size(testCase.TestData.hilbert.HFreqEpochs);
-categoryNum = testCase.TestData.hilbert.PsyData.Categories(false);
-categoryNames = testCase.TestData.hilbert.PsyData.CategoryName(categoryNum, []);
+hilbert = testCase.TestData.hilbert;
+% Validate passing wrong parameters
+verifyError(testCase, @()hilbert.getenvelopes('category',[]),...
+    'MATLAB:InputParser:ArgumentFailedValidation');
 
-envelopes = testCase.TestData.hilbert.getenvelopes('categories',...
-    categoryNum([1 3]));
+originalSize = size(testCase.TestData.hilbert.HFreqEpochs);
+categoryNum = hilbert.PsyData.Categories(false);
+categoryNames = hilbert.PsyData.CategoryName(categoryNum, []);
+
+envelopes = hilbert.getenvelopes('categories', categoryNum([1 3]));
 assertNotEmpty(testCase, envelopes);
 
-envelopes2 = testCase.TestData.hilbert.getenvelopes('categories',...
-    categoryNames([1 3]));
+envelopes2 = hilbert.getenvelopes('categories',categoryNames([1 3]));
 assertNotEmpty(testCase, envelopes);
 verifyEqual(testCase, envelopes, envelopes2);
 end
+
+
+% Getting only specific timeframes
+function testGetenvelopesTime(testCase)
+hilbert = testCase.TestData.hilbert;
+verifyError(testCase, @()hilbert.getenvelopes('time',[]),...
+    'MATLAB:InputParser:ArgumentFailedValidation');
+end
+
 
 % Rejecting bad epochs
 function testGetenvelopesReject(testCase)
