@@ -172,6 +172,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 end
                 if ~isfield(obj.plotCh2D,'chsel'), obj.plotCh2D.chsel = 1;  end %one selected channel markad by red point
                 if ~isfield(obj.plotCh2D,'label'), obj.plotCh2D.label = ''; end        
+                if ~isfield(obj.plotCh2D,'boundary'), obj.plotCh2D.boundary = 0; end        
             end
             if exist('plotCh2D','var') && isstruct(plotCh2D)
                 fields = fieldnames(plotCh2D);
@@ -225,7 +226,10 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             z = [obj.H.channels(:).MNI_z];                
             
             load('GMSurfaceMesh.mat'); %seda hmota v MNI
-            if isfield(obj.plotCh2D,'boundary') && obj.plotCh2D.boundary && ~isfield(obj.plotCh2D,'BrainBoundaryXY') %trva docela dlouho nez se to spocita
+            if isfield(obj.plotCh2D,'boundary') && obj.plotCh2D.boundary ...
+                    && (~isfield(obj.plotCh2D,'BrainBoundaryXY') ...
+                    || ~isfield(obj.plotCh2D,'BrainBoundaryXZ') )
+                    %trva docela dlouho nez se to spocita
                 obj.plotCh2D.BrainBoundaryXY = boundary(GMSurfaceMesh.node(:,1),GMSurfaceMesh.node(:,2)); %vnejsi hranice mozku
                 obj.plotCh2D.BrainBoundaryYZ = boundary(GMSurfaceMesh.node(:,2),GMSurfaceMesh.node(:,3));
                 obj.plotCh2D.BrainBoundaryXZ = boundary(GMSurfaceMesh.node(:,1),GMSurfaceMesh.node(:,3)); %coronal view
@@ -257,7 +261,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             xyz = iff(obj.plotCh2D.coronalview, [1 3], [1 2]); %jesti zobrazovat MNI souradnice xy (=axial) nebo xz (=coronal)
             MNIxyz = vertcat(x,y,z); %abych mohl pouzivat souradnice xyz dynamicky podle coronalview
             Yaxislabel = iff(obj.plotCh2D.coronalview, 'MNI Z', 'MNI Y'); 
-            if isfield(obj.plotCh2D,'boundary') && obj.plotCh2D.boundary
+            if isfield(obj.plotCh2D,'boundary') && obj.plotCh2D.boundary && isfield(obj.plotCh2D,'BrainBoundaryXY') && isfield(obj.plotCh2D,'BrainBoundaryXZ')
                 %defaultne budu vykreslovat scatter, ale kvuli kopirovani se bude hodit i jen boundary
                 BrainBoundary = iff(obj.plotCh2D.coronalview,obj.plotCh2D.BrainBoundaryXZ,obj.plotCh2D.BrainBoundaryXY); 
                 plot(GMSurfaceMesh.node(BrainBoundary,xyz(1)),GMSurfaceMesh.node(BrainBoundary,xyz(2)));
@@ -627,34 +631,50 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             %label - muzu nazvat vyber jak potrebuju
             % Pozor - funguje na zaklade obj.plotCh2D.selCh, ktere se vytvari pri volani ChannelPlot2D, takze to se musi spusti nejdriv a i po zmene vyberu kanalu
             % 15.1.2020 - can use more filters, the function uses AND between them = intersect
+            % 29.02.2020 - can use filters of different labels simultaneously  (e.g. 'label' and 'class')
             
             filtered = false; 
             chshow = 1:numel(obj.H.channels); %show all channels by default
             chshowstr = {}; %label of the filter
+
             if exist('chlabels','var') && ~isempty(chlabels)
-                if strcmp(chlabels{1},'label')
-                    ChLabels = {obj.brainlabels(:).label}';
-                    chlabels = chlabels(2:end); 
-                    showstr = 'label=';
-                elseif strcmp(chlabels{1},'lobe')
-                    ChLabels = {obj.brainlabels(:).lobe}';
-                    chlabels = chlabels(2:end);
-                    showstr = 'lobe=';
-                elseif strcmp(chlabels{1},'class')
-                    ChLabels = {obj.brainlabels(:).class}';
-                    chlabels = chlabels(2:end);
-                    showstr = 'class=';
-                else
-                    ChLabels = {obj.H.channels(:).neurologyLabel}';
+                positions = cell(1,4);  % positions of main labels (+ one cell for the number of all labels)
+                names = cell(1,3); % their names 
+                nMainLabels = 0;  % count how many main labels are present (0,1,2 or 3)
+                for iChL=1:numel(chlabels) % to find a position of each main label if exists in chlabels
+                    if strcmp(chlabels{iChL},'label') || strcmp(chlabels{iChL},'lobe') || strcmp(chlabels{iChL},'class')
+                        nMainLabels=nMainLabels+1;
+                        positions{nMainLabels}=iChL;
+                        names{nMainLabels}=chlabels{iChL};                       
+                    end
+                end
+                ChLabels = {obj.H.channels(:).neurologyLabel}';
+                if nMainLabels == 0 % use neurology labels if brain labels don't exist in chlabels                    
                     showstr = 'nlabel=';
-                end                
-                iL = contains(lower(ChLabels),lower(chlabels)); %prevedu oboji na mala pismena
+                    iL = contains(lower(ChLabels),lower(chlabels));  %prevedu oboji na mala pismena
+                else
+                    positions{nMainLabels+1}=numel(chlabels)+1;    % the number of all elements in chlabels+1 - needs for next cycle
+                    showstr = cell(1,nMainLabels);% cell array for structures of each brain label
+                    chlabelsL = cell(1,nMainLabels); % cell array for names of main brain labels
+                    iL = false(numel(obj.H.channels), nMainLabels);
+                    
+                    for iML=1:nMainLabels
+                        if strcmp(names{iML},'label') || strcmp(names{iML},'lobe') || strcmp(names{iML},'class')
+                            L = {obj.brainlabels(:).(names{iML})}';
+                            chlabelsL{iML} = chlabels((positions{iML}+1):(positions{iML+1}-1));
+                            showstr{iML} = names{iML};
+                            iL(:,iML) = contains(lower(L),lower(chlabelsL{iML}));                        
+                        end
+                    end
+                    iL = all(iL,2);  % reduce list of channels (sum of all brain labels)
+                end
+               
                 if exist('notchnlabels','var') && numel(notchnlabels) > 0
                     iLx = contains(lower(ChLabels),lower(notchnlabels));
                     iL = iL & ~iLx;
-                    chshowstr = [showstr cell2str(chlabels) ' not:' cell2str(notchnlabels)];
+                    chshowstr = [showstr cell2str(chlabelsL) ' not:' cell2str(notchnlabels)];
                 else
-                    chshowstr = [showstr cell2str(chlabels)];
+                    chshowstr = [showstr cell2str(chlabelsL)];
                 end
                 chshow = intersect(chshow,find(iL)'); %reduce list of channels to show                                               
                 filtered = true;
