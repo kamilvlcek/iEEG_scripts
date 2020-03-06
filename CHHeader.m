@@ -924,6 +924,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 disp('no ChannelPlot figure to plot in');
             end
         end
+        %% Clustering of channels based on MNI
         function ComputeClusters(obj,nClusters,dofig)
             %ComputeClusters Computes clusters using k-means for current channel selection
             %   plots simple chart
@@ -938,19 +939,20 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
 
             if dofig
                 figure('Name',[ num2str(nClusters) ' clusters']); 
-                plot3(C(:,1),C(:,2),C(:,3),'kx','MarkerSize',15,'LineWidth',3);
+                plot3(C(:,1),C(:,2),C(:,3),'kx','MarkerSize',15,'LineWidth',3); %the X marks for cluster centroids - right side
                 hold on
-                plot3(-C(:,1),C(:,2),C(:,3),'kx','MarkerSize',15,'LineWidth',3);
+                plot3(-C(:,1),C(:,2),C(:,3),'kx','MarkerSize',15,'LineWidth',3); %the X marks for cluster centroids - left side
 
                 barvy = distinguishable_colors(nClusters);  %number of clusters
                 for c = 1:nClusters
-                    plot3(mni(idx==c,1),mni(idx==c,2),mni(idx==c,3),'.','MarkerSize',12,'MarkerFaceColor',barvy(c,:));
+                    plot3(mni(idx==c,1),mni(idx==c,2),mni(idx==c,3),'.','MarkerSize',12,'MarkerFaceColor',barvy(c,:)); %points in this cluster
                 end
                 view([0 90]); %axial horizontal view
                 title(obj.channelPlot.plotCh3D.popis);
                 xlabel('MNI X'); %levoprava souradnice
                 ylabel('MNI Y'); %predozadni souradnice
                 zlabel('MNI Z'); %hornodolni
+                axis equal;
             end
             
             if isempty(obj.clusters) 
@@ -1041,6 +1043,40 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 xlswrite(xlsfilename ,vertcat(varnames,output)); %write to xls file
                 disp([xlsfilename '.xls with ' num2str(size(output,1)) ' lines saved']);
             end
+        end
+        function PlotClusters(obj)
+            %PlotClusters - plots the previosly computer clusters if any exist, according to the current popis            
+            barvy = 'gbrmcyk';
+            figure('Name',[num2str(numel(obj.clusters)) ' sets of clusters']);
+            mni0 = [[obj.H.channels.MNI_x]',[obj.H.channels.MNI_y]',[obj.H.channels.MNI_z]'];                        
+            for iCluster = 1:numel(obj.clusters)           
+                C = obj.clusters(iCluster).C;
+                plot3(C(:,1),C(:,2),C(:,3),[barvy(iCluster) 'x'],'MarkerSize',20,'LineWidth',3); %clusters on right side
+                text(C(:,1)+5,C(:,2)+5,C(:,3)+5, cellstr(num2str((1:size(C,1))')),'FontSize',12,'FontWeight','bold','Color',barvy(iCluster));
+                hold on
+                plot3(-C(:,1),C(:,2),C(:,3),[barvy(iCluster) 'x'],'MarkerSize',20,'LineWidth',3); %clusters on left side
+                text(-C(:,1)+5,C(:,2)+5,C(:,3)+5, cellstr(num2str((1:size(C,1))')),'FontSize',12,'FontWeight','bold','Color',barvy(iCluster));            
+                %plot the connecting lines to nearest clusters from other cluster sets                
+                for iCluster0 = 1:numel(obj.clusters)  %cycle over all preceding cluster sets
+                    if iCluster0 ~= iCluster
+                        for iC = 1:size(C,1) %cycle over all clusters in the current set
+                            D = sqrt(sum((obj.clusters(iCluster0).C - C(iC,:)).^2, 2)); %distances of the current cluster to all points in preceding cluster set
+                            [~,I]=min(D); %index of the smallest distance
+                            C0 = obj.clusters(iCluster0).C(I,:);
+                            plot3([C(iC,1) C0(1)],[C(iC,2) C0(2)],[C(iC,3) C0(3)],barvy(iCluster)); %line between the closest centroids
+                            plot3([-C(iC,1) -C0(1)],[C(iC,2) C0(2)],[C(iC,3) C0(3)],barvy(iCluster)); %left side of brain
+                        end
+                    end
+                end
+                mni = mni0(obj.clusters(iCluster).channels,:); %the mni of channels in this cluster
+                plot3(mni(:,1),mni(:,2),mni(:,3),'.','MarkerSize',12,'MarkerEdgeColor',barvy(iCluster)); %points in this cluster
+            end
+            obj.channelPlot.Plot3DBoundary;                
+            view([108 13]); %saggital [90 0], [0 90]=axial horizontal view
+            xlabel('MNI X'); %levoprava souradnice
+            ylabel('MNI Y'); %predozadni souradnice
+            zlabel('MNI Z'); %hornodolni
+            axis equal;
         end
     end
     methods (Access = public,Static)

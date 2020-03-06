@@ -24,6 +24,7 @@ classdef ChannelPlot < matlab.mixin.Copyable
                 if ~isfield(obj.plotCh3D,'fontsize'), obj.plotCh3D.fontsize = 7; end   %index of brainlabel to plot convex hull 
                 if ~isfield(obj.plotCh3D,'coloruse'), obj.plotCh3D.coloruse = 0; end   %which color to use 0=according to value size, 1=according to channel marks as in 2D plot, 2=according to brain labels
                 if ~isfield(obj.plotCh3D,'markertype'), obj.plotCh3D.markertype = 'o'; end   %which markertype to use in scatter3 - default is ball
+                if ~isfield(obj.plotCh3D,'showclusters'), obj.plotCh3D.showclusters = 1; end   %if to show clusters of channels marked by X
             end
             if exist('plotCh3D','var') && isstruct(plotCh3D)
                 fields = fieldnames(plotCh3D);
@@ -238,11 +239,13 @@ classdef ChannelPlot < matlab.mixin.Copyable
         function PlotClusters(obj)
             %PlotClusters - plots the previosly computer clusters if any exist, according to the current popis            
             iCluster = obj.CH.GetCluster(obj.plotCh3D.popis);
-            if iCluster
+            if iCluster && obj.plotCh3D.showclusters
                 C = obj.CH.clusters(iCluster).C;
                 plot3(C(:,1),C(:,2),C(:,3),'kx','MarkerSize',20,'LineWidth',3); %clusters on right side
+                text(C(:,1)+5,C(:,2)+5,C(:,3)+5, cellstr(num2str((1:size(C,1))')),'FontSize',11,'FontWeight','bold');
                 hold on
                 plot3(-C(:,1),C(:,2),C(:,3),'kx','MarkerSize',20,'LineWidth',3); %clusters on left side
+                text(-C(:,1)+5,C(:,2)+5,C(:,3)+5, cellstr(num2str((1:size(C,1))')),'FontSize',11,'FontWeight','bold');
             end           
             
             %older plotting of complex hull
@@ -457,6 +460,9 @@ classdef ChannelPlot < matlab.mixin.Copyable
                   case {'divide','slash'} %slash on numerical keyboard - automatic range of colorbar
                     obj.plotCh3D.rangeZ = [min(obj.plotCh3D.chnvals) max(obj.plotCh3D.chnvals)]; 
                     obj.ChannelPlot3D(); %plot the figure again
+                  case 'q' %show / hides the clusters
+                    obj.plotCh3D.showclusters = 1 - obj.plotCh3D.showclusters;
+                    obj.ChannelPlot3D(); %plot the figure again   
               end
         end
 
