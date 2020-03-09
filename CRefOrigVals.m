@@ -19,12 +19,19 @@ classdef CRefOrigVals < matlab.mixin.Copyable
     
     methods (Access = public)
         function obj = CRefOrigVals(E)
-            assert(strcmp(E.reference,'Bipolar'), 'CRefOrigVals: data musi byt bipolarni');
-            obj.Eh = E;                
-            obj.setup = eval(['setup_' E.PsyData.testname]); %nactu nastaveni
-            obj.Load();
+            if ~ strcmp(E.reference,'Bipolar')
+                disp('CRefOrigVals: the original CiEEGData data should be bipolar');
+            else
+                obj.Eh = E;  
+                obj.setup = eval(['setup_' E.PsyData.testname]); %nactu nastaveni
+                obj.Load();
+            end            
         end
         function GetData(obj)
+            if isempty(obj.Eh)
+                disp('no original CiEEGData data loaded');
+                return; 
+            end
             obj.ValMax = zeros(numel(obj.Eh.Wp(obj.Eh.WpActive).kats),numel(obj.Eh.CH.H.channels),2);
             obj.TMax = zeros(numel(obj.Eh.Wp(obj.Eh.WpActive).kats),numel(obj.Eh.CH.H.channels),2);
             obj.kats = obj.Eh.Wp(obj.Eh.WpActive).kats;
@@ -77,6 +84,10 @@ classdef CRefOrigVals < matlab.mixin.Copyable
             end
         end
         function PlotCh(obj,ch)
+            if isempty(obj.Eh)
+                disp('no original CiEEGData data loaded');
+                return; 
+            end
             assert(~isempty(obj.ValMax),'CRefOrigVals: nejsou nactena data');
             assignhandle = false;
             if ~exist('ch','var'), ch = 1; end
@@ -113,6 +124,10 @@ classdef CRefOrigVals < matlab.mixin.Copyable
             end
         end
         function E = PlotResponseCh(obj,ch)
+            if isempty(obj.Eh)
+                disp('no original CiEEGData data loaded');
+                return; 
+            end
             plotfigure = true;
             if isfield(obj.PlotRCh,'fh') && ~isempty(obj.PlotRCh.fh) && ishghandle(obj.PlotRCh.fh) 
                 if obj.PlotRCh.ch == ch  % Pokud je obj.PlotChH prazdne pole, ishghandle() vraci prazdne logicke pole, ktere se interpertuje jako true a nejde porovnat se skalarni logickou hodnotou isempty() (R2018a linux)
@@ -144,6 +159,10 @@ classdef CRefOrigVals < matlab.mixin.Copyable
         end
             
         function Save(obj)
+            if isempty(obj.Eh)
+                disp('no original CiEEGData data loaded');
+                return; 
+            end
             fname = obj.filenameM(obj.Eh.filename);
             ValMax = obj.ValMax; %#ok<PROP,NASGU>
             TMax = obj.TMax; %#ok<PROP,NASGU>
@@ -157,6 +176,10 @@ classdef CRefOrigVals < matlab.mixin.Copyable
             disp(['saved to ' fname ]);
         end
         function Load(obj)
+            if isempty(obj.Eh)
+                disp('no original CiEEGData data loaded');
+                return; 
+            end
             fname = obj.filenameM(obj.Eh.filename);
             if exist(fname,'file')
                 V = load(fname);
@@ -182,6 +205,10 @@ classdef CRefOrigVals < matlab.mixin.Copyable
             ie = isempty(obj.ValMax);
         end
         function ExportXLS(obj)
+            if isempty(obj.Eh)
+                disp('no original CiEEGData data loaded');
+                return; 
+            end
             varsfirst = {'chnum' 'bipolarName','maxNeurologyLabel'};
             varskat = {'_valmax1' '_valmax2' '_valmaxdiff' '_signif' '_maxChName' '_maxNeurologyLabel' };
             cellOut = cell(size(obj.chnums,1), numel(varsfirst) + numel(varskat)*numel(obj.kats));

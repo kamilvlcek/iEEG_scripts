@@ -423,14 +423,16 @@ classdef CStat < handle
             cellout = cell(numel(channels),16); % z toho bude vystupni xls tabulka s prehledem vysledku
             for ch = 1:numel(channels)  %XXX: iterace pres kanaly, predpokladam, ze je jen jedna platna kombinace {k,l} nize!
                 channelHeader = obj.plotAUC.Eh.CH.H.channels(channels(ch));                
-                for k = 1:numel(obj.plotAUC.kategories)-1
-                for l = k+1:numel(obj.plotAUC.kategories)
+                for kk = 1:numel(obj.plotAUC.kategories)-1
+                for ll = kk+1:numel(obj.plotAUC.kategories)
+                    if obj.plotAUC.reversekats, [l, k] = deal(kk,ll); else,  [k, l] = deal(kk,ll); end %swap both variables content
+                    
                     if obj.plotAUC.katplot(obj.plotAUC.setup.legendkomb(k,l)) > 0 ... %pokud se tahle kombinace kategorii ma kreslit
                     && ~isempty( obj.plotAUC.aucdata(channels(ch)).AUC) %a AUC data existuji
                         
-                        AUC = obj.plotAUC.aucdata(channels(ch)).AUC{k,l};
+                        AUC = obj.plotAUC.aucdata(channels(ch)).AUC{k,l}; %columns - AUC, lower CI, upper CI
                         X = linspace(obj.plotAUC.time(1),obj.plotAUC.time(2),size(AUC,1));
-                        
+                        %TODO use only time, when categories are significantly different
                         [amax, idx, idxFrac] = cMax(AUC(:,1), val_fraction, 0.5); %Nalezne maximum / minimum krivky curve, i jeho podilu (napr poloviny) a jeho parametry
                         tmax = X(idx);
                         thalf = X(idxFrac); %cas poloviny maxima, nebo jineho podilu                       

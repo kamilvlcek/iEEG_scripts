@@ -241,18 +241,25 @@ classdef ChannelPlot < matlab.mixin.Copyable
             iCluster = obj.CH.GetCluster(obj.plotCh3D.popis);
             if iCluster && obj.plotCh3D.showclusters
                 C = obj.CH.clusters(iCluster).C;
+                nClusters = size(C,1);
                 plot3(C(:,1),C(:,2),C(:,3),'kx','MarkerSize',20,'LineWidth',3); %clusters on right side
-                text(C(:,1)+5,C(:,2)+5,C(:,3)+5, cellstr(num2str((1:size(C,1))')),'FontSize',11,'FontWeight','bold');
+                if isfield(obj.CH.clusters,'names') && ~isempty(obj.CH.clusters(iCluster).names)
+                    clusternames = cellstr(horzcat( ...
+                        char(obj.CH.clusters(iCluster).names), repmat('(',nClusters,1), num2str((1:nClusters)'), repmat(')',nClusters,1) ...
+                    ));
+                else
+                     clusternames = cellstr(horzcat( num2str((1:nClusters)')));
+                end
+                text(C(:,1)+5,C(:,2)+5,C(:,3)+5, clusternames,'FontSize',11,'FontWeight','bold');
                 hold on
                 plot3(-C(:,1),C(:,2),C(:,3),'kx','MarkerSize',20,'LineWidth',3); %clusters on left side
-                text(-C(:,1)+5,C(:,2)+5,C(:,3)+5, cellstr(num2str((1:size(C,1))')),'FontSize',11,'FontWeight','bold');
+                text(-C(:,1)+5,C(:,2)+5,C(:,3)+5, clusternames,'FontSize',11,'FontWeight','bold');
             end           
             
             %older plotting of complex hull
             if ~isempty(obj.CH.hull) && obj.plotCh3D.hullindex > 0
                 obj.CH.HullPlot3D(obj.plotCh3D.hullindex);
-            end
-                
+            end                
         end
 
         function [clrs,sizes,rangeZ,reverse] = colors4ChannelPlot(obj,chnsel,chnvals,rangeZ)

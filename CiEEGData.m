@@ -1909,7 +1909,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             if ~isempty(obj.CH.plotCh2D)
                 CH_plots{1} = obj.CH.plotCh2D;
             end
-            if isprop(obj.CH,'channelPlot') && isprop(obj.CH.channelPlot,'plotCh3D') && ~isempty(obj.CH.channelPlot.plotCh3D)
+            if isprop(obj.CH,'channelPlot') && ~isempty(obj.CH.channelPlot) && isprop(obj.CH.channelPlot,'plotCh3D') && ~isempty(obj.CH.channelPlot.plotCh3D)
                 CH_plots{2} = obj.CH.channelPlot.plotCh3D;
             end
             if isfield(CH_plots{1}, 'fh' ), CH_plots{1} = rmfield(CH_plots{1}, {'fh'}); end  %potrebuju odstranit figure handly

@@ -1051,15 +1051,23 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             mni0 = [[obj.H.channels.MNI_x]',[obj.H.channels.MNI_y]',[obj.H.channels.MNI_z]'];                        
             for iCluster = 1:numel(obj.clusters)           
                 C = obj.clusters(iCluster).C;
+                nClusters = size(C,1);
                 plot3(C(:,1),C(:,2),C(:,3),[barvy(iCluster) 'x'],'MarkerSize',20,'LineWidth',3); %clusters on right side
-                text(C(:,1)+5,C(:,2)+5,C(:,3)+5, cellstr(num2str((1:size(C,1))')),'FontSize',12,'FontWeight','bold','Color',barvy(iCluster));
+                if isfield(obj.clusters(iCluster),'names') && ~isempty(obj.clusters(iCluster).names)
+                    clusternames = cellstr(horzcat( ...
+                        char(obj.clusters(iCluster).names), repmat('(',nClusters,1), num2str((1:nClusters)'), repmat(')',nClusters,1) ...
+                    ));
+                else
+                     clusternames = cellstr(horzcat( num2str((1:nClusters)')));
+                end
+                text(C(:,1)+5,C(:,2)+5,C(:,3)+5,clusternames ,'FontSize',12,'FontWeight','bold','Color',barvy(iCluster));
                 hold on
                 plot3(-C(:,1),C(:,2),C(:,3),[barvy(iCluster) 'x'],'MarkerSize',20,'LineWidth',3); %clusters on left side
-                text(-C(:,1)+5,C(:,2)+5,C(:,3)+5, cellstr(num2str((1:size(C,1))')),'FontSize',12,'FontWeight','bold','Color',barvy(iCluster));            
+                text(-C(:,1)+5,C(:,2)+5,C(:,3)+5, clusternames,'FontSize',12,'FontWeight','bold','Color',barvy(iCluster));            
                 %plot the connecting lines to nearest clusters from other cluster sets                
                 for iCluster0 = 1:numel(obj.clusters)  %cycle over all preceding cluster sets
                     if iCluster0 ~= iCluster
-                        for iC = 1:size(C,1) %cycle over all clusters in the current set
+                        for iC = 1:nClusters %cycle over all clusters in the current set
                             D = sqrt(sum((obj.clusters(iCluster0).C - C(iC,:)).^2, 2)); %distances of the current cluster to all points in preceding cluster set
                             [~,I]=min(D); %index of the smallest distance
                             C0 = obj.clusters(iCluster0).C(I,:);
@@ -1077,6 +1085,15 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             ylabel('MNI Y'); %predozadni souradnice
             zlabel('MNI Z'); %hornodolni
             axis equal;
+        end
+        function NameClusters(obj,iSet,names)
+            %sets names to clusters in the iSet cluster set. names is cellarray with names in order of original clusters
+            if iSet <= numel(obj.clusters) 
+                if iscell(names) && numel(names)==size(obj.clusters(iSet).C,1)
+                   obj.clusters(iSet).names = iff(size(names,2)==1,names,names'); %the array should be vertical
+                   disp([ num2str(numel(names)) ' names asigned']);
+                end                
+            end
         end
     end
     methods (Access = public,Static)
