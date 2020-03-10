@@ -51,7 +51,7 @@ end
 function testGetenvelopesCategories(testCase)
 hilbert = testCase.TestData.hilbert;
 % Validate passing wrong parameters
-verifyError(testCase, @()hilbert.getenvelopes('category',[]),...
+verifyError(testCase, @()hilbert.getenvelopes('categories',[]),...
     'MATLAB:InputParser:ArgumentFailedValidation');
 
 originalSize = size(testCase.TestData.hilbert.HFreqEpochs);
@@ -99,21 +99,22 @@ verifyNotEmpty(testCase, wp);
 end
 
 function testWilcoxcategories(testCase)
+hilbert = testCase.TestData.hilbert;
 originalSize = size(testCase.TestData.hilbert.HFreqEpochs);
-wp = testCase.TestData.hilbert.wilcoxcategories({'Ovoce' 'Scene'},...
-    'frequencies', 1);
+wp = hilbert.wilcoxcategories({'Ovoce' 'Scene'},...
+    'frequencies', 1, 'response', hilbert.epochtime(1:2));
 assertNotEmpty(testCase, wp);
 verifySize(testCase, wp, originalSize([1 2 3]));
 
-wp = testCase.TestData.hilbert.wilcoxcategories({'Ovoce' 'Scene'},...
-    'channels', 1, 'frequencies', 1);
+wp = hilbert.wilcoxcategories({'Ovoce' 'Scene'},...
+    'channels', 1, 'frequencies', 1, 'response',...
+    hilbert.epochtime(1:2));
 assertNotEmpty(testCase, wp);
 verifySize(testCase, wp, originalSize([1 2 3]));
 % Test erroring in case multiple categories are passed
 end
 
 function testWilcoxaveragebaseline(testCase)
-wp = testCase.TestData.hilbert.wilcoxaveragebaseline([1:10]);
 end
 
 

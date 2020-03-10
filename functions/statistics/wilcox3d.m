@@ -1,3 +1,10 @@
+% TODO - this behaves weridly for the unequal sizes in the first axis
+% Say if the matrices are time x channel x frequency and you are testing
+% agains the baseline. Therefore matrix A is 50 x 10 x 10 and B is say 
+% 10 x 10 x 10, as the baseline is shorter. A(1:10, :, :) will be compared
+% to B(1:10,:,:) in B, but A(11:50, :, :) will ALSO be comapred to B(10, :, :)
+% Basically all the above B size are compared to the last B
+
 function wp = wilcox3d(A, B, varargin)
     % A: 3d matrix of interest. The repeated measures need to be in the
     %   3rd axix
@@ -20,6 +27,7 @@ function wp = wilcox3d(A, B, varargin)
     for j = 1:size(A, 1)
         for k = 1:size(A, 2)
             aa = squeeze(A(j,k,:));
+            % TODO - this is a bit questionable
             bb = squeeze(B(min(j,size(B,1)), min(k,size(B,2)),:));
             % need to have at least two values
             if any([numel(aa) < 2, numel(bb) < 2])

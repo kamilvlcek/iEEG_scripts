@@ -56,18 +56,3 @@ plotpintime(wp(:, :, 1), [0.0 0.8])
 % category
 wp = hilbert.wilcoxaveragecategories([0 1], 'channels', 1:5, 'frequencies', 1:5);
 plotpintime(wp(:, :, 1), [0.0 0.8])
-
-%% Testing
-[~, ~, ~, iEpochs] = hilbert.CategoryData(1);
-per = permute(hilbert.HFreqEpochs, [1 3 4 2]);
-sel = per(:,:,iEpochs);
-res = reshape(sel, [64 20 51 20]);
-% Checking how it was reshaped
-all(sel(:,1,1) == res(:,1,1,1))
-all(sel(:,1,2) == res(:,1,2,1))
-all(sel(:,1,52) == res(:,1,1,2))
-% K, this was reshaped as I expected - e.g. sel is a vector of 51 events
-% for each channel (20) and reshaping it keeps the first two dimensions and
-% then splits it into 51 x 20
-
-
