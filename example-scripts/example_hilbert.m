@@ -23,10 +23,11 @@ hilbert.plotresponsefrequency(1:4, 0:3);
 wBaseline = hilbert.wilcoxbaseline('baseline', [-0.2 0], 'response', [0.01 0.8],...
     'frequencies', 1, 'categories', {'Ovoce'});
 plotpintime(wBaseline(:, :, 1, 1), [0.01 0.8]);
-% This plots the time x Frequencies for the 18the channel for category ('Ovoce')
+% This plots the time x Frequencies for the 18the channel for the 2nd category ('Ovoce')
 plotpintime(squeeze(wBaseline(:, 18, :, 1)), [0.01 0.8], hilbert.Hfmean);
 
-% unless we "squeeze" the output
+% we can "squeeze" the output, which drops the non calculated comparisons
+% in frequencies/channels/categories
 wBaseline = hilbert.wilcoxbaseline('baseline', [-0.2 0], 'response', [0.01 0.8],...
     'frequencies', 1:5, 'categories', {'Ovoce'}, 'squeeze', true);
 plotpintime(wBaseline, [0.01 0.8]);
@@ -37,7 +38,7 @@ wBaseline = hilbert.wilcoxbaseline('baseline', [-0.2 0], 'response', [0.01 0.8],
 plotpintime(squeeze(wBaseline(:, 1, :, 4)), [0.01 0.8], hilbert.Hfmean);
 
 % Wilcox category comparison
-wCategory = hilbert.wilcoxcategories([{'Ovoce'} {'Scene'}], [0.0 0.8]);
+wCategory = hilbert.wilcoxcategories([{'Ovoce'} {'Scene'}], 'response', [0.0 0.8]);
 % PLots P value for difference between Ovoce and Scene for 18th channel for
 % all frequencies
 plotpintime(squeeze(wCategory(:, 18, :)), [0.0 0.8], hilbert.Hfmean);
@@ -54,6 +55,7 @@ plotpintime(wp(:, :, 1), [0.0 0.8])
 
 % category
 wp = hilbert.wilcoxaveragecategories([0 1], 'channels', 1:5, 'frequencies', 1:5);
+plotpintime(wp(:, :, 1), [0.0 0.8])
 
 %% Testing
 [~, ~, ~, iEpochs] = hilbert.CategoryData(1);
@@ -61,9 +63,9 @@ per = permute(hilbert.HFreqEpochs, [1 3 4 2]);
 sel = per(:,:,iEpochs);
 res = reshape(sel, [64 20 51 20]);
 % Checking how it was reshaped
-all(sel(:,1,1) == res(:, 1,1,1))
-all(sel(:,1,2) == res(:, 1,2,1))
-all(sel(:,1,52) == res(:, 1,1,2))
+all(sel(:,1,1) == res(:,1,1,1))
+all(sel(:,1,2) == res(:,1,2,1))
+all(sel(:,1,52) == res(:,1,1,2))
 % K, this was reshaped as I expected - e.g. sel is a vector of 51 events
 % for each channel (20) and reshaping it keeps the first two dimensions and
 % then splits it into 51 x 20
