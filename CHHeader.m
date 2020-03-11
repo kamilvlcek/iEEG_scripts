@@ -429,10 +429,21 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
 %             obj.plotCh2D.plotAUCH = fh; %ulozim handle na CStat.AUCPlot funkci,abych ji mohl volat z grafu ChannelPlot2D
 %         end
         function tag= PacientTag(obj,ch)
-            %vraci tag pacienta, napriklad p73
-            if strcmp(obj.classname,'CHilbertMulti') && exist('ch','var') && ch > 0
-                str = split(obj.H.channels(ch).name);
-                tag = str{1}; %pokud se jedna o CHilbertMulti a zadam cislo kanalu, vracim cislo pacienta z tohoto kanalu
+            %returns pacient tag, ie. p73
+            if strcmp(obj.classname,'CHilbertMulti') && exist('ch','var')
+                if numel(ch)>1  %if list of channels
+                    tag = cell(numel(ch),1); %output will be cell array
+                    for ich = 1:numel(ch)
+                        tag{ich} = obj.PacientTag(ch(ich)); %recursion for one channel only
+                    end
+                elseif isempty(ch) %empty array with no channel number
+                    tag = cell(0,0); %return empty cell array
+                elseif isnumeric(ch) && ch > 0 && ch<numel(obj.H.channels) %ich channel num is valid
+                    str = split(obj.H.channels(ch).name);
+                    tag = str{1}; %pokud se jedna o CHilbertMulti a zadam cislo kanalu, vracim cislo pacienta z tohoto kanalu
+                else
+                    tag = obj.PacientTag(); %recursion for the whole file
+                end
             else
                 if isfield(obj.H,'patientTag'), tag = obj.H.patientTag; else, tag=obj.H.subjName; end
             end
@@ -864,10 +875,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                rjCount = numel(intersect(chIndex,obj.RjCh)); %number of rejected channels for this label
                marksCount =  sum(obj.plotCh2D.selCh(chIndex,1:noMarks),1); %count of channel marking fghjkl    
                %pacient counts
-               pTags = cell(numel(chIndex),1); %pacient name for each channel for this label
-               for ch = 1:numel(chIndex)
-                   pTags{ch}=obj.PacientTag(chIndex(ch));
-               end                  
+               pTags = obj.PacientTag(chIndex); %pacient name for each channel for this label               
                marksPacientCount = zeros(1,noMarks);               
                for m=1:noMarks
                    marksPacientCount(m) = numel(unique(pTags(logical(obj.plotCh2D.selCh(chIndex,m))))); %no of patients for this mark                  
@@ -1016,32 +1024,90 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             plot(PC,'o');
             xlim([0 K]);
         end
-        function Clusters2XLS(obj,xlslabel)
+        function Clusters2XLS(obj,xlslabel,includeRjCh,dofig)            
             if ~exist('xlslabel','var') || isempty(xlslabel) , xlslabel = ''; end
+            if ~exist('includeRjCh','var') || isempty(includeRjCh) , includeRjCh = 0; end %
+            if ~exist('dofig','var') || isempty(dofig) , dofig = 1; end %
             if ~isempty(obj.clusters)
+                %table of all channels in the file with info about clusters for each one
                 noMarks = sum(~cellfun(@isempty,obj.plotCh2D.selChNames)); %number of used marks fghjkl
                 varnames ={'ch','name','pacient','RjCh','class','label','lobe','MNI_x','MNI_y','MNI_z'};
                 nVarN0 = numel(varnames); %number of varnames before clusters
-                for c = 1:numel(obj.clusters) %for all cluster sets
-                    popis = iff(iscell(obj.clusters(c).popis),  obj.clusters(c).popis(1) ,obj.clusters(c).popis);
-                    varnames = horzcat(varnames,popis,['C' num2str(c) 'dist']); %#ok<AGROW>
+                for iClSet = 1:numel(obj.clusters) %for all cluster sets
+                    popis = iff(iscell(obj.clusters(iClSet).popis),  obj.clusters(iClSet).popis(1) ,obj.clusters(iClSet).popis);
+                    varnames = horzcat(varnames,popis,['C' num2str(iClSet) 'dist'],['C' num2str(iClSet) 'name']); %#ok<AGROW>
                 end
+                nVarNC = (numel(varnames) - nVarN0)/numel(obj.clusters); %number of columns per cluster
                 varnames = horzcat(varnames,obj.plotCh2D.selChNames(1:noMarks));
                 output = cell(numel(obj.H.channels),numel(varnames));
-                for ch = 1:numel(obj.H.channels)                    
+                for ch = 1:numel(obj.H.channels)  %cycle over all channels in the file                  
                     output(ch,1:4) = {num2str(ch),obj.H.channels(ch).name,obj.PacientTag(ch),num2str(sum(obj.RjCh==ch))};
                     output(ch,5:7) = iff(isempty(obj.brainlabels),{'','',''},{obj.brainlabels(ch).class,obj.brainlabels(ch).label,obj.brainlabels(ch).lobe});
                     output(ch,8:10) = {obj.H.channels(ch).MNI_x,obj.H.channels(ch).MNI_y,obj.H.channels(ch).MNI_z};
-                    for c = 1:numel(obj.clusters) %for all cluster sets
-                        ich = obj.clusters(c).channels == ch; 
-                        output(ch,c*2+nVarN0-1) = {obj.clusters(c).idx(ich)}; %number of cluster
-                        output(ch,c*2+nVarN0) = {obj.clusters(c).D(ich,c)}; %distance to this cluster centroid
+                    for iClSet = 1:numel(obj.clusters) %for all cluster sets
+                        ich = obj.clusters(iClSet).channels == ch; %index of this channel in this set of clusters - one number only
+                        if sum(ich) > 0
+                            output(ch,iClSet*nVarNC+nVarN0-2) = {obj.clusters(iClSet).idx(ich)}; %number of the cluster for this channel
+                            output(ch,iClSet*nVarNC+nVarN0-1) = {obj.clusters(iClSet).D(ich,iClSet)}; %distance to this cluster centroid
+                            if isfield(obj.clusters,'names') && ~isempty(obj.clusters(iClSet).names)
+                                output(ch,iClSet*nVarNC+nVarN0) = obj.clusters(iClSet).names(obj.clusters(iClSet).idx(ich)); %distance to this cluster centroid                        
+                            end                        
+                        end
                     end                    
-                    output(ch,c*2+nVarN0+1:end) = num2cell(obj.plotCh2D.selCh(ch,1:noMarks));%count of channel marking fghjkl 
+                    output(ch,iClSet*nVarNC+nVarN0+1:end) = num2cell(obj.plotCh2D.selCh(ch,1:noMarks));%count of channel marking fghjkl 
                 end
-                xlsfilename = ['./logs/Clusters2XLS' '_' xlslabel '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS')];
+                xlsfilename = ['./logs/Clusters2XLS_channels_' '_' xlslabel '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS')];
                 xlswrite(xlsfilename ,vertcat(varnames,output)); %write to xls file
                 disp([xlsfilename '.xls with ' num2str(size(output,1)) ' lines saved']);
+                
+                labels = lower({obj.brainlabels.label}); %cell array of brainlabels
+                ulabels = unique(labels);
+                varnames = {'ClusterSet','clusterN','NameofCluster','ChannelsCount','pacients','xCentroid','yCentroid','zCentroid','Sumd'};
+                nVarN0 = numel(varnames); %number of varnames before brainlabels
+                varnames = horzcat(varnames,ulabels);
+                output = cell(obj.getClustersNum(),numel(varnames));
+                iOutput = 1;
+                chartdata = zeros(obj.getClustersNum(),numel(ulabels)); %numeric data (frequencies) for figure
+                clusterNames = cell(obj.getClustersNum(),1);
+                for iClSet = 1:numel(obj.clusters) %cycle over all cluster sets
+                    nCl = size(obj.clusters(iClSet).C,1);
+                    for iCl = 1: nCl %over all clusters in this cluster set
+                        if isfield(obj.clusters,'names') && ~isempty(obj.clusters(iClSet).names)
+                            clName = obj.clusters(iClSet).names{iCl};
+                            clusterNames(iOutput) = {clName};
+                        else
+                            clName = '';
+                            clusterNames(iOutput) = {['S-' num2str(iCl)]};
+                        end
+                        ChCl = obj.clusters(iClSet).idx == iCl; %index of channels in this cluster (from the current cluster set
+                        channelNumbers = obj.clusters(iClSet).channels(ChCl);
+                        pTags = obj.PacientTag(channelNumbers); %pacient name for each channel for this label    
+                        output(iOutput,1:nVarN0)={ num2str(iClSet), num2str(iCl), clName, ... %we have to convert number to char arrays
+                                num2str(sum(ChCl)), numel(unique(pTags)) , ... %clustercount
+                                double2str(obj.clusters(iClSet).C(iCl,1)),double2str(obj.clusters(iClSet).C(iCl,2)),double2str(obj.clusters(iClSet).C(iCl,2)), ... 
+                                double2str(obj.clusters(iClSet).sumd(iCl)) ...
+                          };
+                        for j = 1:numel(ulabels)
+                            chIndex = find(contains(labels,ulabels{j})); %channels with this brain label
+                            if ~includeRjCh, chIndex = setdiff(chIndex,obj.RjCh); end %channels without the rejected channels
+                            chIndex = intersect(chIndex,channelNumbers); %numbers of channels in this cluster and this brain label
+                            output( iOutput,nVarN0+j) = {num2str(numel(chIndex))};
+                            chartdata(iOutput,j) = numel(chIndex);
+                        end
+                        iOutput = iOutput +1;
+                    end                    
+                end
+                xlsfilename = ['./logs/Clusters2XLS_brainlabels_' '_' xlslabel '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS')];
+                xlswrite(xlsfilename ,vertcat(varnames,output)); %write to xls file
+                disp([xlsfilename '.xls with ' num2str(size(output,1)) ' lines saved']);
+                
+                if dofig
+                    figure('Name','Clusters vs BrainLabels');
+                    imagesc(chartdata);
+                    colorbar;
+                    set(gca,'xtick',1:numel(ulabels),'xticklabel',ulabels);
+                    set(gca,'ytick',1:numel(clusterNames),'yticklabel',clusterNames);
+                end
             end
         end
         function PlotClusters(obj)
@@ -1243,7 +1309,13 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 structure(cellfun(@isempty,structure))={''}; %potrebuju mit prvky chararray
             end
           end
-          
+          function N= getClustersNum(obj)
+              %get the number of clusters over all clusters sets
+              N = 0;
+              for iClSet = 1:numel(obj.clusters) %cycle over all cluster sets
+                  N = N + size(obj.clusters(iClSet).C,1);
+              end
+          end
           function obj = hybejPlot2D(obj,~,eventDat) 
               iCh = find(obj.plotCh2D.ch_displayed==obj.sortorder(obj.plotCh2D.chsel)); %index v obj.plotCh2D.ch_displayed
               switch eventDat.Key
