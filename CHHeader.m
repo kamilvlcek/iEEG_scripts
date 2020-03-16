@@ -19,6 +19,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         brainlabels; %struct array, obsahuje ruzna vlastni olabelovani kanalu
         hull; %data for convex hull
         clusters; %cluster data {popis,C,idx,channels}
+        plotClusters; %info to the PlotClusters figure
     end
     %#ok<*PROPLC>
     
@@ -967,8 +968,8 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 obj.clusters = struct('popis',{},'C',{},'idx',{},'sumd',{},'D',{},'channels',{}); %empty struct with 4 fields
             end  
             iCluster = obj.GetCluster(obj.channelPlot.plotCh3D.popis);
-            if ~iCluster
-                obj.clusters(end+1).popis = obj.channelPlot.plotCh3D.popis;
+            if ~iCluster                
+                obj.clusters(end+1).popis = {obj.channelPlot.plotCh3D.popis}; %first cell of cell array (of different popis for this cluster set)
                 iCluster = numel(obj.clusters);
             end
             obj.clusters(iCluster).C = C;
@@ -982,9 +983,17 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
               iCluster = false;
               if ~isempty(obj.clusters)
                   for j = 1:numel(obj.clusters)
-                      if isequal(obj.clusters(j).popis,popis)
-                          iCluster = j;
-                          break;
+                      if ~iCluster %if we still did not find the cluster
+                          if isequal(obj.clusters(j).popis,popis)
+                              iCluster = j;
+                              break;
+                          end
+                          for ipopis = 1:numel(obj.clusters(j).popis)
+                              if isequal(obj.clusters(j).popis{ipopis},popis) %the popis of cluster could be cell inside of obj.clusters(j).popis{ipopis}
+                                iCluster = j;
+                                break;
+                              end
+                          end
                       end
                   end
               end
@@ -1015,11 +1024,11 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             end
             fprintf('.. done\n');
 
-            Var=D(1:end-1)-D(2:end); %calculate %variance explained
+            Var=D(1:end-1)-D(2:end); %calculate %variance explained - 
             PC=cumsum(Var)/(D(1)-D(end));                        
             [r,~]=find(PC>Cutoff); %find the best index
             K=1+r(1,1);
-            
+            fprintf('%d clusters explain %.1f%% of total variance\n',K,PC(r(1,1))*100);
             figure('Name','%variance explained');
             plot(PC,'o');
             xlim([0 K]);
@@ -1027,11 +1036,11 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         function Clusters2XLS(obj,xlslabel,includeRjCh,dofig)            
             if ~exist('xlslabel','var') || isempty(xlslabel) , xlslabel = ''; end
             if ~exist('includeRjCh','var') || isempty(includeRjCh) , includeRjCh = 0; end %
-            if ~exist('dofig','var') || isempty(dofig) , dofig = 1; end %
+            if ~exist('dofig','var') || isempty(dofig) , dofig = 0; end % create figure?
             if ~isempty(obj.clusters)
                 %table of all channels in the file with info about clusters for each one
                 noMarks = sum(~cellfun(@isempty,obj.plotCh2D.selChNames)); %number of used marks fghjkl
-                varnames ={'ch','name','pacient','RjCh','class','label','lobe','MNI_x','MNI_y','MNI_z'};
+                varnames ={'ch','name','pacient','RjCh','neurologyLabel','class','label','lobe','MNI_x','MNI_y','MNI_z'};
                 nVarN0 = numel(varnames); %number of varnames before clusters
                 for iClSet = 1:numel(obj.clusters) %for all cluster sets
                     popis = iff(iscell(obj.clusters(iClSet).popis),  obj.clusters(iClSet).popis(1) ,obj.clusters(iClSet).popis);
@@ -1040,15 +1049,22 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 nVarNC = (numel(varnames) - nVarN0)/numel(obj.clusters); %number of columns per cluster
                 varnames = horzcat(varnames,obj.plotCh2D.selChNames(1:noMarks));
                 output = cell(numel(obj.H.channels),numel(varnames));
+                clusterNum = obj.getClustersNum(); %numbers of clusters in each cluster set - array
+                clusterMainChannels = nan(sum(clusterNum),2); % channels closest to each cluster centroid, columns: channel number, distance to centroid
                 for ch = 1:numel(obj.H.channels)  %cycle over all channels in the file                  
-                    output(ch,1:4) = {num2str(ch),obj.H.channels(ch).name,obj.PacientTag(ch),num2str(sum(obj.RjCh==ch))};
-                    output(ch,5:7) = iff(isempty(obj.brainlabels),{'','',''},{obj.brainlabels(ch).class,obj.brainlabels(ch).label,obj.brainlabels(ch).lobe});
-                    output(ch,8:10) = {obj.H.channels(ch).MNI_x,obj.H.channels(ch).MNI_y,obj.H.channels(ch).MNI_z};
+                    output(ch,1:5) = {num2str(ch),obj.H.channels(ch).name,obj.PacientTag(ch),num2str(sum(obj.RjCh==ch)),obj.H.channels(ch).neurologyLabel};
+                    output(ch,6:8) = iff(isempty(obj.brainlabels),{'','',''},{obj.brainlabels(ch).class,obj.brainlabels(ch).label,obj.brainlabels(ch).lobe});
+                    output(ch,9:11) = {obj.H.channels(ch).MNI_x,obj.H.channels(ch).MNI_y,obj.H.channels(ch).MNI_z};
                     for iClSet = 1:numel(obj.clusters) %for all cluster sets
                         ich = obj.clusters(iClSet).channels == ch; %index of this channel in this set of clusters - one number only
                         if sum(ich) > 0
-                            output(ch,iClSet*nVarNC+nVarN0-2) = {obj.clusters(iClSet).idx(ich)}; %number of the cluster for this channel
-                            output(ch,iClSet*nVarNC+nVarN0-1) = {obj.clusters(iClSet).D(ich,iClSet)}; %distance to this cluster centroid
+                            iCl = obj.clusters(iClSet).idx(ich); %number of assigned cluster for this channel in this cluster set
+                            output(ch,iClSet*nVarNC+nVarN0-2) = {iCl}; 
+                            output(ch,iClSet*nVarNC+nVarN0-1) = {obj.clusters(iClSet).D(ich,iCl)}; %distance to this cluster centroid
+                            iclusterMainChannels = sum(clusterNum(1:iClSet-1))+iCl; %index of row in clusterMainChannels
+                            if isnan(clusterMainChannels(iclusterMainChannels,1)) || clusterMainChannels(iclusterMainChannels,2) > obj.clusters(iClSet).D(ich,iCl)
+                                clusterMainChannels(iclusterMainChannels,:) = [ch,obj.clusters(iClSet).D(ich,iCl)];                                                         
+                            end
                             if isfield(obj.clusters,'names') && ~isempty(obj.clusters(iClSet).names)
                                 output(ch,iClSet*nVarNC+nVarN0) = obj.clusters(iClSet).names(obj.clusters(iClSet).idx(ich)); %distance to this cluster centroid                        
                             end                        
@@ -1062,16 +1078,16 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 
                 labels = lower({obj.brainlabels.label}); %cell array of brainlabels
                 ulabels = unique(labels);
-                varnames = {'ClusterSet','clusterN','NameofCluster','ChannelsCount','pacients','xCentroid','yCentroid','zCentroid','Sumd'};
+                varnames = {'ClusterSet','clusterN','NameofCluster','ChannelsCount','pacients','xCentroid','yCentroid','zCentroid','Sumd','closestChannel','closestChannelDist','neurologyLabel'};                
                 nVarN0 = numel(varnames); %number of varnames before brainlabels
                 varnames = horzcat(varnames,ulabels);
-                output = cell(obj.getClustersNum(),numel(varnames));
-                iOutput = 1;
-                chartdata = zeros(obj.getClustersNum(),numel(ulabels)); %numeric data (frequencies) for figure
-                clusterNames = cell(obj.getClustersNum(),1);
+                output = cell(sum(clusterNum),numel(varnames));                
+                chartdata = zeros(sum(clusterNum),numel(ulabels)); %numeric data (frequencies) for figure
+                clusterNames = cell(sum(clusterNum),1);
                 for iClSet = 1:numel(obj.clusters) %cycle over all cluster sets
                     nCl = size(obj.clusters(iClSet).C,1);
                     for iCl = 1: nCl %over all clusters in this cluster set
+                        iOutput = sum(clusterNum(1:iClSet-1))+iCl; %index of row in output
                         if isfield(obj.clusters,'names') && ~isempty(obj.clusters(iClSet).names)
                             clName = obj.clusters(iClSet).names{iCl};
                             clusterNames(iOutput) = {clName};
@@ -1084,8 +1100,9 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                         pTags = obj.PacientTag(channelNumbers); %pacient name for each channel for this label    
                         output(iOutput,1:nVarN0)={ num2str(iClSet), num2str(iCl), clName, ... %we have to convert number to char arrays
                                 num2str(sum(ChCl)), numel(unique(pTags)) , ... %clustercount
-                                double2str(obj.clusters(iClSet).C(iCl,1)),double2str(obj.clusters(iClSet).C(iCl,2)),double2str(obj.clusters(iClSet).C(iCl,2)), ... 
+                                double2str(obj.clusters(iClSet).C(iCl,1)),double2str(obj.clusters(iClSet).C(iCl,2)),double2str(obj.clusters(iClSet).C(iCl,3)), ... 
                                 double2str(obj.clusters(iClSet).sumd(iCl)) ...
+                                clusterMainChannels(iOutput,1),clusterMainChannels(iOutput,2),obj.H.channels(clusterMainChannels(iOutput,1)).neurologyLabel ...
                           };
                         for j = 1:numel(ulabels)
                             chIndex = find(contains(labels,ulabels{j})); %channels with this brain label
@@ -1093,8 +1110,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                             chIndex = intersect(chIndex,channelNumbers); %numbers of channels in this cluster and this brain label
                             output( iOutput,nVarN0+j) = {num2str(numel(chIndex))};
                             chartdata(iOutput,j) = numel(chIndex);
-                        end
-                        iOutput = iOutput +1;
+                        end                        
                     end                    
                 end
                 xlsfilename = ['./logs/Clusters2XLS_brainlabels_' '_' xlslabel '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS')];
@@ -1112,19 +1128,22 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         end
         function PlotClusters(obj)
             %PlotClusters - plots the previosly computer clusters if any exist, according to the current popis            
-            barvy = 'gbrmcyk';
-            figure('Name',[num2str(numel(obj.clusters)) ' sets of clusters']);
+            barvy = 'gbrmcyk';            
+            if isfield(obj.plotClusters,'fh') && ishandle(obj.plotClusters.fh)
+                figure(obj.plotClusters.fh); %pouziju uz vytvoreny figure
+                clf(obj.plotClusters.fh); %graf vycistim
+            else
+                obj.plotClusters.fh = figure('Name',[num2str(numel(obj.clusters)) ' sets of clusters']);                   
+            end
             mni0 = [[obj.H.channels.MNI_x]',[obj.H.channels.MNI_y]',[obj.H.channels.MNI_z]'];                        
             for iCluster = 1:numel(obj.clusters)           
                 C = obj.clusters(iCluster).C;
                 nClusters = size(C,1);
                 plot3(C(:,1),C(:,2),C(:,3),[barvy(iCluster) 'x'],'MarkerSize',20,'LineWidth',3); %clusters on right side
                 if isfield(obj.clusters(iCluster),'names') && ~isempty(obj.clusters(iCluster).names)
-                    clusternames = cellstr(horzcat( ...
-                        char(obj.clusters(iCluster).names), repmat('(',nClusters,1), num2str((1:nClusters)'), repmat(')',nClusters,1) ...
-                    ));
+                    clusternames = cellstr(horzcat( char(obj.clusters(iCluster).names))); %, repmat('(',nClusters,1), num2str((1:nClusters)'), repmat(')',nClusters,1)                     
                 else
-                     clusternames = cellstr(horzcat( num2str((1:nClusters)')));
+                    clusternames = cellstr(horzcat( num2str((1:nClusters)')));
                 end
                 text(C(:,1)+5,C(:,2)+5,C(:,3)+5,clusternames ,'FontSize',12,'FontWeight','bold','Color',barvy(iCluster));
                 hold on
@@ -1151,6 +1170,8 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             ylabel('MNI Y'); %predozadni souradnice
             zlabel('MNI Z'); %hornodolni
             axis equal;
+            %rozhybani obrazku            
+            set(obj.plotClusters.fh,'KeyPressFcn',@obj.hybejPlotClusters);
         end
         function NameClusters(obj,iSet,names)
             %sets names to clusters in the iSet cluster set. names is cellarray with names in order of original clusters
@@ -1160,6 +1181,19 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                    disp([ num2str(numel(names)) ' names asigned']);
                 end                
             end
+        end
+        function AssignClusterTitle(obj,iSet,popis)
+            %assigns new title to the given cluster set. Or current ChannelPlot3D popis is no else given
+            if ~exist('popis','var')
+                popis = obj.channelPlot.plotCh3D.popis;  
+                if( numel(obj.clusters(iSet).channels) ~= numel(obj.channelPlot.plotCh3D.chnsel) )
+                    disp(['ERROR: channel numbers do not fit: current plot: ' num2str(numel(obj.channelPlot.plotCh3D.chnsel)) ', cluster set ' num2str(iSet) ': ' num2str(numel(obj.clusters(iSet).channels))]);                       
+                    %TODO - if the current channel no is lower - it should be OK - then channelPlot3D should consider only the active channels
+                    return;
+                end         
+            end
+            obj.clusters(iSet).popis{end+1} = {popis};   
+            disp(['cluster Title assigned: ' cell2str(popis)]);
         end
     end
     methods (Access = public,Static)
@@ -1309,11 +1343,11 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 structure(cellfun(@isempty,structure))={''}; %potrebuju mit prvky chararray
             end
           end
-          function N= getClustersNum(obj)
-              %get the number of clusters over all clusters sets
-              N = 0;
+          function N = getClustersNum(obj)
+              %get the number of clusters in each cluster set - array
+              N = zeros(1,numel(obj.clusters));
               for iClSet = 1:numel(obj.clusters) %cycle over all cluster sets
-                  N = N + size(obj.clusters(iClSet).C,1);
+                  N(iClSet) = size(obj.clusters(iClSet).C,1);
               end
           end
           function obj = hybejPlot2D(obj,~,eventDat) 
@@ -1456,7 +1490,18 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                   
               end
           end
-
+          function obj = hybejPlotClusters(obj,~,eventDat)              
+              switch eventDat.Key
+                  case 's'    %sagital view                                                             
+                      view([90 0]); 
+                  case {'c','f'} %coronal = predozadni, frontal                                                                  
+                      view([0 0]); %zleva
+                  case {'h','a'} %horizontal = hornodolni nebo axial                                              
+                      view([0 90]); 
+                  case {'z'}
+                      view([108 13]); %original view  
+              end
+          end
     end
     methods (Access = private,Static)
          function str = joinNoDuplicates(C,delim)
