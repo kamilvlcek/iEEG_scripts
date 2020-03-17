@@ -5,9 +5,9 @@ open(patient_file)
 hilbert = CHilbertL(patient_file);
 
 % Existing plot response for a single channel and multiple categories
-hilbert.PlotResponseFreq(20, 0:3);
+hilbert.PlotResponseFreq(20);
 % Doesn't work with the cells because I don't understand how the categories are being passed
-hilbert.plotresponsefrequency(20, 0:3);
+hilbert.plotresponsefrequency(20);
 hilbert.plotresponsefrequency(1:5, 0:3);
 
 % Newly added plot response which shoudl "average" given channels
@@ -29,12 +29,12 @@ plotpintime(squeeze(wBaseline(:, 18, :, 1)), [0.01 0.8], hilbert.Hfmean);
 % we can "squeeze" the output, which drops the non calculated comparisons
 % in frequencies/channels/categories
 wBaseline = hilbert.wilcoxbaseline('baseline', [-0.2 0], 'response', [0.01 0.8],...
-    'frequencies', 1:5, 'categories', {'Ovoce'}, 'squeeze', true);
+    'frequencies', 1:5, 'categories', {'Scene'}, 'squeeze', true);
 plotpintime(wBaseline, [0.01 0.8]);
 
 % Comparing for Scene
 wBaseline = hilbert.wilcoxbaseline('baseline', [-0.2 0], 'response', [0.01 0.8],...
-    'categories', {'Object'});
+    'categories', {'Scene'});
 plotpintime(squeeze(wBaseline(:, 1, :, 4)), [0.01 0.8], hilbert.Hfmean);
 
 % Wilcox category comparison
@@ -51,8 +51,14 @@ plotpintime(squeeze(wCategory(:, 18, :)), [0.0 0.8])
 % Baseline
 wp = hilbert.wilcoxaveragebaseline('channels', 1:5, 'baseline', [-0.2 0], 'frequencies', 1:5);
 % returns time x frequency x category
-plotpintime(wp(:, :, 1), [0.0 0.8])
+plotpintime(wp(:, :, 1), [0.0 0.8], hilbert.Hfmean);
 
-% category
+wp = hilbert.wilcoxaveragebaseline('channels', 1:5, 'baseline', [-0.2 0], 'frequencies', 1:5, 'categories', {'Scene'});
+plotpintime(wp(:, :, 2), [0.0 0.8], hilbert.Hfmean);
+
+% categories comparison
 wp = hilbert.wilcoxaveragecategories([0 1], 'channels', 1:5, 'frequencies', 1:5);
-plotpintime(wp(:, :, 1), [0.0 0.8])
+plotpintime(wp(:, :, 1), [0.0 0.8], hilbert.Hfmean);
+
+wp = hilbert.wilcoxaveragecategories({'Face' 'Scene'}, 'channels', 1:5, 'frequencies', 1:5);
+plotpintime(wp(:, :, 1), [0.0 0.8], hilbert.Hfmean);
