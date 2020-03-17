@@ -6,13 +6,13 @@
 % Basically all the above B size are compared to the last B
 
 function wp = wilcox3d(A, B, varargin)
-% WILCOX3D compares two 3d matrices in the 3rd dimension
+% WILCOX3D compares two 3d matrices in their 3rd dimension.
 % Original author: Lukáš Hejtmánek
 %
 % A: 3d matrix of interest. The repeated measures need to be in the
 %   3rd axix
-% B: 3d matrix. Can have either of the first two dimensions = 1.
-%   Then it is compared to all values in A
+% B: 3d matrix. Needs to either have the same size in  Can have size either of the first two dimensions == 1.
+%   Then it is compared to all values in A. 
 % fdr: logical if fdr should be calculated
 % fdrMethod: string defining 'pdep' (default) or 'dep'
 % paired: logical, if paired test to be used. Default 0
@@ -26,21 +26,34 @@ addParameter(p, 'fdrMethod', 'pdep',...
     @(x)isstring(x) && any(strcmp({'pdep' 'dep'},x)));
 parse(p, A, B, varargin{:});
 A = p.Results.A; B = p.Results.B;
+
+%% validations
+% B needs to either have size 1 or it needs to be the same as A in the first
+% two dimensions
+sizeValid = (size(B,1) == size(A,1)) || (size(B,1) == 1);
+sizeValid = sizeValid && ((size(B,2) == size(A,2)) || (size(B,2) == 1));
+if ~sizeValid, warning('Passed matrices do not have acceptable sizes'); end
+% need to have at least two values
+observationsValid = (size(A,3) > 1 || size(B,3) > 1);
+if ~observationsValid, warning('Passed matrices do not have acceptable sizes'); end
+if(any(~[sizeValid observationsValid]))
+    wp = [];
+    return
+end
+
+%% calculation
 wp = NaN(size(A,1), size(A,2));
-for j = 1:size(A, 1)
-    for k = 1:size(A, 2)
-        aa = squeeze(A(j,k,:));
-        % TODO - this is a bit questionable
-        bb = squeeze(B(min(j,size(B,1)), min(k,size(B,2)),:));
-        % need to have at least two values
-        if any([numel(aa) < 2, numel(bb) < 2])
-            wp(j,k) = NaN;
+
+for jA = 1:size(A, 1)
+    jB = min(size(B,1), jA); %either jA, or 1
+    for kA = 1:size(A, 2)
+        kB = min(size(B,2), kA);%either kA, or 1
+        aa = squeeze(A(jA, kB,:));
+        bb = squeeze(B(jB, kB, :));
+        if p.Results.paired
+            wp(jA,kA) = signrank(aa,bb);
         else
-            if p.Results.paired
-                wp(j,k) = signrank(aa,bb);
-            else
-                wp(j,k) = ranksum(aa,bb);
-            end
+            wp(jA,kA) = ranksum(aa,bb);
         end
     end
 end
