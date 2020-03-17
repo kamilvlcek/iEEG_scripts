@@ -1,6 +1,6 @@
 classdef CHilbertL < CHilbert
     % HILBERT.CLASS extension for CHilbert class
-    %   Lukas Hejtmanek
+    % Original author: Lukáš Hejtmánek
     
     properties (Access = public)
         % HFreq; % hilberova obalka pro kazde frekvenci pasmo - time x channel x freq (x kategorie)

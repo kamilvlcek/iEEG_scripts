@@ -1,6 +1,7 @@
 function [] = plotpintime(results, x, y)
 %PLOTPINTIME plots a graph of p values with X axis of time
 %   Allows plotting a size of a floating effect in timedomain comparisons.
+%   Original author: Lukáš Hejtmánek
 %   
 %   results: 2D Matrix with time in the X axis and values corresponsing to 
 %   x: dimensions for the x axis. default 1:size(results, 1)
