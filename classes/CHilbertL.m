@@ -464,15 +464,14 @@ classdef CHilbertL < CHilbert
 
             iCategories = obj.categorytonum(p.Results.categories);
             iFrequencies = obj.getfrequencyindices(p.Results.frequencies);
-            
-            % out is time x frequency
-            wp = NaN(diff(obj.gettimewindowindices(p.Results.response)) + 1,...
-                size(obj.HFreqEpochs, 3));
+            channels = p.Results.channels;
+
             % default matrix is time x single frequency x channel
-            defaultCategory = NaN(size(wp,1), 1, size(obj.HFreqEpochs, 2));
+            category1 = NaN(diff(obj.gettimewindowindices(p.Results.response)) + 1,...
+                obj.nfrequencies, numel(channels));
+            category2 = category1;
             for iFrequency = iFrequencies
-                category1 = defaultCategory; category2 = defaultCategory;
-                for channel = p.Results.channels
+                for channel = channels
                     % because it is possible that each channel has a
                     % different number of rejected epochs, we have to
                     % select and average per channel :( TODO - when the
@@ -484,15 +483,19 @@ classdef CHilbertL < CHilbert
                     tempCategory2 = obj.getenvelopes('channels',channel,...
                         'frequencies',iFrequency,'categories',iCategories(2),...
                         'time',p.Results.response,'reject',true);
-                    % Averaging across epochs - need to have 3
-                    % dimensions due to how wilcox 3d works
-                    category1(:, 1, channel) = mean(tempCategory1, 4);
-                    category2(:, 1, channel) = mean(tempCategory2, 4);
+                    category1(:, iFrequency, channel) = mean(tempCategory1, 4);
+                    category2(:, iFrequency, channel) = mean(tempCategory2, 4);
                 end
-                wp(:, iFrequency) = wilcox3d(category1, category2);
             end
-            if p.Results.squeeze
-                wp = wp(:, iFrequencies);
+            % removes the NaNs from the baseline and response
+            category1 = category1(:, iFrequencies, :);
+            category2 = category2(:, iFrequencies, :);
+            wp = wilcox3d(category1, category2);
+            if ~p.Results.squeeze
+                % out is time x frequency
+                tempWp = NaN(size(wp, 1), obj.nfrequencies);
+                tempWp(:, iFrequencies) = wp;
+                wp = tempWp;
             end
         end
     end
