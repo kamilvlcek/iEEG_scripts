@@ -554,7 +554,7 @@ classdef CHilbertL < CHilbert
             
             % Only rewrites categorties if not already set
             if numel(categories) > 0, obj.plotFrequency.kategories = categories;
-            elseif ~isfield(obj.plotFrequency, 'kategories') && numel(obj.plotFrequency.kategories) == 0
+            elseif ~isfield(obj.plotFrequency, 'kategories') || numel(obj.plotFrequency.kategories) == 0
                 if isfield(obj.Wp(obj.WpActive), 'kats'), categories = obj.Wp(obj.WpActive).kats;
                 else, categories = obj.PsyData.Categories(); end
                 obj.plotFrequency.kategories = categories;
