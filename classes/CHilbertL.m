@@ -394,47 +394,48 @@ classdef CHilbertL < CHilbert
             addParameter(p, 'squeeze', false, @(x)(numel(x) == 1 && islogical(x)));
             parse(p, varargin{:});
             
+            channels = p.Results.channels;
+            
             iCategories = obj.categorytonum(p.Results.categories);
             iFrequencies = obj.getfrequencyindices(p.Results.frequencies);
             
-            % Prepares empty matrices. Each is time x frequency x channel
-            baselineDefault = NaN(1, 1, numel(p.Results.channels));
-            responseDefault = NaN(diff(obj.gettimewindowindices(p.Results.response)) + 1,...
-                1, numel(p.Results.channels));
-            
             % creates a buffer so we don't change the matrix size in the
             % loop -  3d matrix time x frequency x category
-            wp = NaN(size(responseDefault, 1), obj.nfrequencies, obj.ncategories);
-                
-            for iFrequency = iFrequencies
-                fprintf('Comparing for frequency %f\n', obj.Hfmean(iFrequency));
-                for iCategory = iCategories
+            wp = NaN(diff(obj.gettimewindowindices(p.Results.response)) + 1,...
+                obj.nfrequencies, obj.ncategories);
+            for iCategory = iCategories
+                disp(['Calculating for category ', obj.PsyData.CategoryName(iCategory)]);
+                % Prepares empty matrices. Each is time x frequency x channel
+                baseline = NaN(1, obj.nfrequencies, numel(channels));
+                response = NaN(size(wp, 1), obj.nfrequencies, numel(channels));
+                for iFrequency = iFrequencies
                     % because it is possible that each channel has a
                     % different number of rejected epochs, we have to
                     % select and average per channel :( TODO - when the
                     % getenvelopes returns in case of unequal rejections,
                     % then this can be heavilly streamlined
-                    baseline = baselineDefault;
-                    response = responseDefault;
-                    for channel = p.Results.channels
+                    for channel = channels
                         tempBaseline = obj.getenvelopes('channels',channel,...
                             'frequencies',iFrequency,'categories',iCategory,...
                             'time',p.Results.baseline,'reject',true);
                         tempResponse = obj.getenvelopes('channels',channel,...
                             'frequencies',iFrequency,'categories',iCategory,...
                             'time',p.Results.response, 'reject',true);
-                        % Averaging across epochs - need to have 3
-                        % dimensions due to how wilcox 3d works
+                        % averaging across epochs
+                        response(:, iFrequency, channel) = mean(tempResponse, 4);
                         tempBaseline = mean(tempBaseline, 4);
-                        baseline(1, 1, channel) = mean(tempBaseline, 1);
-                        response(:, 1, channel) = mean(tempResponse, 4);
+                        %averaging baseline time to a single measurement
+                        baseline(1, iFrequency, channel) = mean(tempBaseline, 1);
                     end
-                    tempWp = wilcox3d(response, baseline);
-                    wp(:, iFrequency, iCategory + 1) = tempWp;
                 end
+                % removes the NaNs from the baseline and response
+                baseline = baseline(:, iFrequencies, channels);
+                response = response(:, iFrequencies, channels);
+                tempWp = wilcox3d(response, baseline);
+                wp(:, iFrequencies, iCategory + 1) = tempWp;
             end
-            % fdr here?
-            if p.Results.squeeze
+           
+            if ~p.Results.squeeze
                 wp = wp(:, iFrequencies, iCategories + 1);
             end
         end
