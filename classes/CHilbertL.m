@@ -398,8 +398,7 @@ classdef CHilbertL < CHilbert
             iFrequencies = obj.getfrequencyindices(p.Results.frequencies);
             
             % Prepares empty matrices. Each is time x frequency x channel
-            baselineDefault = NaN(diff(obj.gettimewindowindices(p.Results.baseline)) + 1,...
-               1, numel(p.Results.channels));
+            baselineDefault = NaN(1, 1, numel(p.Results.channels));
             responseDefault = NaN(diff(obj.gettimewindowindices(p.Results.response)) + 1,...
                 1, numel(p.Results.channels));
             
@@ -426,13 +425,15 @@ classdef CHilbertL < CHilbert
                             'time',p.Results.response, 'reject',true);
                         % Averaging across epochs - need to have 3
                         % dimensions due to how wilcox 3d works
-                        baseline(:, 1, channel) = mean(tempBaseline, 4);
+                        tempBaseline = mean(tempBaseline, 4);
+                        baseline(1, 1, channel) = mean(tempBaseline, 1);
                         response(:, 1, channel) = mean(tempResponse, 4);
                     end
                     tempWp = wilcox3d(response, baseline);
                     wp(:, iFrequency, iCategory + 1) = tempWp;
                 end
             end
+            % fdr here?
             if p.Results.squeeze
                 wp = wp(:, iFrequencies, iCategories + 1);
             end
