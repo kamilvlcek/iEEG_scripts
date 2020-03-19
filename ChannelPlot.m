@@ -245,11 +245,9 @@ classdef ChannelPlot < matlab.mixin.Copyable
                 nClusters = size(C,1);
                 plot3(C(:,1),C(:,2),C(:,3),'kx','MarkerSize',20,'LineWidth',3); %clusters on right side
                 if isfield(obj.CH.clusters,'names') && ~isempty(obj.CH.clusters(iCluster).names)
-                    clusternames = cellstr(horzcat( ...
-                        char(obj.CH.clusters(iCluster).names), repmat('(',nClusters,1), num2str((1:nClusters)'), repmat(')',nClusters,1) ...
-                    ));
+                    clusternames = cellstr(horzcat( char(obj.CH.clusters(iCluster).names) )); %, repmat('(',nClusters,1), num2str((1:nClusters)'), repmat(')',nClusters,1)
                 else
-                     clusternames = cellstr(horzcat( num2str((1:nClusters)')));
+                    clusternames = cellstr(horzcat( num2str((1:nClusters)')));
                 end
                 text(C(:,1)+5,C(:,2)+5,C(:,3)+5, clusternames,'FontSize',11,'FontWeight','bold');
                 hold on
