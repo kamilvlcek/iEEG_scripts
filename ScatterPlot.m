@@ -518,7 +518,10 @@ classdef ScatterPlot < handle
                     end
                     obj.dispSelChName = [];
                     obj.updatePlot();
-                case {'f','g','h','j','k','l'}
+                case {'f','g','h','j','k','l'} %show only channels with this marking
+                    if ~isempty(eventDat.Modifier) && strcmp(eventDat.Modifier{:},'shift') %shift means to show only this marking
+                          obj.dispSelChN = [0 0 0 0 0 0]; %show no channels
+                    end
                     obj.dispSelChN = xor('fghjkl'==eventDat.Key,obj.dispSelChN);
                     obj.dispSelCh = find(any(obj.selCh(:,obj.dispSelChN),2)');
                     obj.dispSelChName = cell2str(obj.selChNames(obj.dispSelChN)); %string from all cell fields

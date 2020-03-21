@@ -4,17 +4,18 @@ function filenames = BatchHilbert(testname,cfg)
 %15.9.2016 - AlloEgo zarovnani podle odpovedi
 %25.5.2017 - Pridani reference a ERP
 
-if ~exist('cfg','var'), cfg = struct; end; %pokud zadnou strukturu neuvedu, pouzivaji se defaultni nastaveni
+if ~exist('cfg','var'), cfg = struct; end %pokud zadnou strukturu neuvedu, pouzivaji se defaultni nastaveni
 if ~isfield(cfg,'hybernovat'), cfg.hybernovat = 0; end %jestli chci po konci skriptu pocitac uspat - ma prednost
 if ~isfield(cfg,'vypnout'), cfg.vypnout = 0; end %jestli chci po konci skriptu pocitac vypnout (a nechci ho hybernovat) 
 if ~isfield(cfg,'pouzetest'), cfg.pouzetest = 0; end %jestli chci jen otestovat pritomnost vsech souboru 
 if ~isfield(cfg,'overwrite'), cfg.overwrite = 0;  end %jestil se maji prepsat puvodni data, nebo ohlasit chyba a pokracovat v dalsim souboru 
 if ~isfield(cfg,'podilcasuodpovedi'), cfg.podilcasuodpovedi = 0; end  %jestli se maji epochy resamplovat na podil casu mezi podnetem a odpovedi
 if ~isfield(cfg,'freqepochs'), cfg.freqepochs = 0; end %jestli se maji uklada frekvencni data od vsech epoch - velka data!
-if ~isfield(cfg,'extractepochs'), cfg.extractepochs = 1; end; %muzu uklada nezepochovana data
+if ~isfield(cfg,'extractepochs'), cfg.extractepochs = 1; end %muzu uklada nezepochovana data
 if ~isfield(cfg,'srovnejresp'), cfg.srovnejresp = 0; end %jestli se maji epochy zarovnava podle odpovedi
 if ~isfield(cfg,'suffix'), cfg.suffix = ['Ep' datestr(now,'YYYY-mm')]; end %defaultne automaticka pripona rok-mesic
-if ~isfield(cfg,'pacienti'), cfg.pacienti = {}; end; %muzu analyzovat jen vyber pacientu
+if ~isfield(cfg,'pacienti'), cfg.pacienti = {}; end %muzu analyzovat jen vyber pacientu
+if ~isfield(cfg,'normalization'), cfg.normalization = 'orig'; end %type of normalization after hilbert transform
 
 [ pacienti, setup,frekvence,reference  ] = pacienti_setup_load( testname,cfg.srovnejresp ); %11.1.2018 - 0 = zarovnani podle podnetu, 1=zarovnani podle odpovedi
 if numel(cfg.pacienti)>0
@@ -203,7 +204,7 @@ for f=1:numel(frekvence)
                                 end                                
                                 E.PasmoFrekvence(frekvence(f).freq,[],prekryv,iff(cfg.podilcasuodpovedi,2,[])); 
                                     %pokud podilcasu, zdecimuju zatim jen malo, cele se mi ale nevejde do pameti
-                                E.Normalize('orig'); %puvodni moje normalizace
+                                E.Normalize(cfg.normalization); %normalize the frequency bands
                             end
                             if cfg.extractepochs 
                                 disp('extracting epochs ...');

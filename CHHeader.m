@@ -1192,12 +1192,14 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             %rozhybani obrazku            
             set(obj.plotClusters.fh,'KeyPressFcn',@obj.hybejPlotClusters);
         end
-        function NameClusters(obj,iSet,names)
-            %sets names to clusters in the iSet cluster set. names is cellarray with names in order of original clusters
+        function [names]=NameClusters(obj,iSet,names)
+            %sets names to clusters in the iSet cluster set. names is cellarray with names in order of original clusters            
             if iSet <= numel(obj.clusters) 
-                if iscell(names) && numel(names)==size(obj.clusters(iSet).C,1)
+                if exist('names','var') && iscell(names) && numel(names)==size(obj.clusters(iSet).C,1)
                    obj.clusters(iSet).names = iff(size(names,2)==1,names,names'); %the array should be vertical
                    disp([ num2str(numel(names)) ' names asigned']);
+                else
+                   names = obj.clusters(iSet).names; %return the current names
                 end                
             end
         end

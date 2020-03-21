@@ -95,7 +95,10 @@ classdef CHilbert < CiEEGData
          %function for different normalization methods
          %to be used after PasmoFrekvence
          %TODO musi se osetrit, kdyz je prumer 0
+         %according to MikeXCohen the normalization should be done using mean and std of baseline. 
+         
             if ~exist('channels','var'), channels = 1:obj.channels; end
+            if ~exist('type','var') || isempty(type), type='orig'; end %default normalization 
             switch type
                 case 'orig' %(fpower./mean(fpower)) - povodna normalizacia
                     for ch = channels
@@ -115,14 +118,14 @@ classdef CHilbert < CiEEGData
                             obj.HFreq(:,ch,f) = (obj.HFreq(:,ch,f)-mean(obj.HFreq(:,ch,f)))./std(obj.HFreq(:,ch,f));
                         end
                     end
-                case 'log' %log = 1/fpower
+                case 'db' %db=10*log10(fpower/mean(fpower)) 
                     for ch = channels
                         for f = 1:size(obj.HFreq,3)
-                            obj.HFreq(:,ch,f) = (obj.HFreq(:,ch,f)-mean(obj.HFreq(:,ch,f)))./std(obj.HFreq(:,ch,f));
+                            obj.HFreq(:,ch,f) = 10*log10(obj.HFreq(:,ch,f)./mean(obj.HFreq(:,ch,f)));
                         end
                     end
                 otherwise
-                    error('neznamy typ normalizace');
+                    error(['unknown normalization: ' type]);
             end
             obj.d = squeeze(mean(obj.HFreq,3)); 
             obj.normalization = type; %pro zpetnou referenci

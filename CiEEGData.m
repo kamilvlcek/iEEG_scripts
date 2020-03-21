@@ -1900,7 +1900,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             save(filename2,'d','tabs','tabs_orig','fs','header','sce','PsyDataP','PsyData','testname','epochtime','baseline','CH_H','CH_plots','CH_brainlabels','CH_clusters','CS_plots','els',...
                     'plotES','RCh_plots','RjCh','RjEpoch','RjEpochCh','epochTags','epochLast','reference','epochData','Wp','DE','DatumCas', 'label', ...
                     'CH_filterMatrix','-v7.3');  
-            disp(['ulozeno do ' filename2]); 
+            disp(['saved to ' filename2]); 
         end
         function [CH_plots,CS_plots,RCh_plots, obj] = SaveRemoveFh(obj,RCh_plots)  %smazu vsechny handely na obrazky 
             %SaveRemoveFh - removes figure handles saved plot parameters
