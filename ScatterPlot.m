@@ -43,7 +43,7 @@ classdef ScatterPlot < handle
         valFraction@double;    % podil z maximalni hodnoty pro trigger tfrac
         intFraction@double;    % podil z maximalni hodnoty pro trigger tint
         
-        categories %seznam cisel kategorii od nejdulezitejsi (podle poradi ve statistice)
+        categories; %seznam cisel kategorii od nejdulezitejsi (podle poradi ve statistice)
         categoryNames %jmena kategorii odpovidajici obj.categories
         categoriesSelectionIndex %aktualne zobrazene kategorie, na zacatku 1:numel(obj.categories)
 

@@ -206,27 +206,14 @@ classdef ChannelPlot < matlab.mixin.Copyable
                     end
                     caxis(rangeZ); 
                 end %barevna skala, jen pokud jsou ruzne hodnoty kanalu
+                obj.PlotSizeLegend([0.5 1.5 2.5],rangeZ); %plots three balls with this size as a scale for sizes of scatter3
                 if obj.plotCh3D.zoom < 2, axis equal;  end %maximalni zoom je bez stejnych os
                 title(popis);
                 if isfield(obj.plotCh3D,'background') && obj.plotCh3D.background==0
                     set(gca,'color','none'); %zadne bile pozadi, pak ani v corelu
                 end
-                if obj.plotCh3D.coloruse == 2 && ~isempty(obj.CH.brainlabels) && length(obj.CH.brainlabels)==numel(obj.CH.H.channels)
-                    labels = lower({obj.CH.brainlabels.label});
-                    ulabels = unique(labels); %cell array of unique brainlabels
-                    barvy = distinguishable_colors(numel(ulabels));
-                    for ilabel = 1:numel(ulabels)
-                       if isequal( [90 0],obj.plotCh3D.view) || isequal([-90 0],obj.plotCh3D.view) %sagital
-                           x = 0; y = -110; z = 80-5*ilabel;
-                       elseif isequal( [0 90 ],obj.plotCh3D.view) || isequal([[ 180 -90]],obj.plotCh3D.view) %axial
-                           x = -70; y = 80-5*ilabel; z = 0;
-                       else
-                           x = -70; y = 0; z = 80-5*ilabel;
-                       end
-                       text(x,y,z,ulabels{ilabel},'Color',barvy(ilabel,:),'FontSize',11,'FontWeight','bold');                       
-                    end
-                end
                 
+                obj.PlotColorNames(); %plot naming of the colors used for individual channels
                 obj.PlotClusters(); %plot channel clusters if any exist            
                 obj.plotCh3D.dispChannels = chnsel; % ulozim vyber zobrazenych kanalu (je potreba pro klikani)
                 obj.highlightChannel(); %if there is any channel to be highligted, do it
@@ -236,6 +223,8 @@ classdef ChannelPlot < matlab.mixin.Copyable
                 disp('No MNI data');
             end
         end
+    end
+    methods  (Access = private)
         function PlotClusters(obj)
             %PlotClusters - plots the previosly computer clusters if any exist, according to the current popis   
             %TODO - plot cluster for even only the part of the channels in a cluster set            
@@ -260,24 +249,31 @@ classdef ChannelPlot < matlab.mixin.Copyable
                 obj.CH.HullPlot3D(obj.plotCh3D.hullindex);
             end                
         end
-
+        function PlotColorNames(obj)
+            %plot naming of the colors used for individual channels
+            %currently only BrainLabels
+            if obj.plotCh3D.coloruse == 2 && ~isempty(obj.CH.brainlabels) && length(obj.CH.brainlabels)==numel(obj.CH.H.channels)
+                labels = lower({obj.CH.brainlabels.label});
+                ulabels = unique(labels); %cell array of unique brainlabels
+                barvy = distinguishable_colors(numel(ulabels));
+                for ilabel = 1:numel(ulabels)
+                   if isequal( [90 0],obj.plotCh3D.view) || isequal([-90 0],obj.plotCh3D.view) %sagital
+                       x = 0; y = -110; z = 80-5*ilabel;
+                   elseif isequal( [0 90 ],obj.plotCh3D.view) || isequal([[ 180 -90]],obj.plotCh3D.view) %axial
+                       x = -70; y = 80-5*ilabel; z = 0;
+                   else
+                       x = -70; y = 0; z = 80-5*ilabel;
+                   end
+                   text(x,y,z,ulabels{ilabel},'Color',barvy(ilabel,:),'FontSize',11,'FontWeight','bold');                       
+                end
+            end
+        end
         function [clrs,sizes,rangeZ,reverse] = colors4ChannelPlot(obj,chnsel,chnvals,rangeZ)
             nblocks = numel(chnvals); %the number of colors will be the same as channels
-            cmap = parula(nblocks+1); %+1 as the values will be rounded up or down
-            reverse = 0; %if to reverse to color map and size of the points in scatter3D 
-            if isempty(rangeZ)
-                rangeZ = [min(chnvals) max(chnvals)];                 
-            elseif rangeZ(1) > rangeZ(2) %pokud dam minmax v obrazenem poradi, barvy i velikosti taky v obracenem poradi
-                reverse = 1;
-                rangeZ = flip(rangeZ);            
-                cmap = flip(cmap,1);
-            end
+            cmap = parula(nblocks+1); %+1 as the values will be rounded up or down            
+            [sizes,reverse,chnvalsN]=ChannelPlot.ScatterSizes(chnvals,rangeZ);            
+            if reverse, cmap = flip(cmap,1); end %if to reverse to color map and size of the points in scatter3D 
             
-            chnvalsN = chnvals - rangeZ(1); %substract minimum
-            chnvalsN = chnvalsN/diff(rangeZ); % normalization  - divide by maximum => values are [0;1]          
-            chnvalsN(isnan(chnvalsN)) = 0; % in case of all zeros, feplace nan to 0
-            chnvalsN(chnvalsN<0) = 0; chnvalsN(chnvalsN>1) = 1; %limit the range to [0;1];    
-            sizes = 20+200*iff(reverse,1-chnvalsN,chnvalsN); %velikosti kulicek 
             switch obj.plotCh3D.coloruse
                 case 0 %colors based on channel vals
                     clrs = cmap(round(nblocks*chnvalsN)+1, :); % rgb color values for each channel (chns x 3), prevedu na rozsah 1-nblocks a priradim barvy
@@ -353,8 +349,34 @@ classdef ChannelPlot < matlab.mixin.Copyable
                 XYZ(:,dimenze(d,1)) = GMSurfaceMesh.node(obj.plotCh3D.BrainBoundaryXYZ{d},dimenze(d,1));
                 XYZ(:,dimenze(d,2)) = GMSurfaceMesh.node(obj.plotCh3D.BrainBoundaryXYZ{d},dimenze(d,2));                                    
                 plot3(XYZ(:,1),XYZ(:,2),XYZ(:,3));               
-            end
-            
+            end            
+        end
+        function obj = PlotSizeLegend(obj,chnvals,rangeZ)
+             %plots the size scale of scatter3 balls 
+             positions = struct('x',[],'y',[],'z',[]);
+             for ival = 1:numel(chnvals)
+                   if isequal( [90 0],obj.plotCh3D.view) || isequal([-90 0],obj.plotCh3D.view) %sagital
+                       positions(ival).x = 0; 
+                       positions(ival).y = -110+ival*10; 
+                       positions(ival).z = -70;
+                       textpos = [0 -3 6];
+                   elseif isequal( [0 90 ],obj.plotCh3D.view) || isequal([[ 180 -90]],obj.plotCh3D.view) %axial
+                       positions(ival).x = -70+ival*10; 
+                       positions(ival).y = -110; 
+                       positions(ival).z = 0;
+                       textpos = [-3 6 0];
+                   else %coronal
+                       positions(ival).x = -70+ival*10; 
+                       positions(ival).y = 0; 
+                       positions(ival).z = -70; 
+                       textpos = [-3 0 6];
+                   end   
+                   text(positions(ival).x+textpos(1),positions(ival).y+textpos(2),positions(ival).z+textpos(3), ...
+                        num2str(chnvals(ival)),'Color',[0 0 0],'FontSize',10); 
+             end
+             [sizes,~,~]=ChannelPlot.ScatterSizes(chnvals,rangeZ);  
+             scatter3([positions.x],[positions.y],[positions.z],sizes,'k');
+              
         end
         
         function obj = hybejPlot3D(obj,~,eventDat)
@@ -509,7 +531,23 @@ classdef ChannelPlot < matlab.mixin.Copyable
             if isfield(obj.plotCh3D,'fh') && ~isempty(obj.plotCh3D.fh) && ishandle(obj.plotCh3D.fh) 
                 close(obj.plotCh3D.fh); 
             end
+        end        
+    end
+     %% staticke metody
+    methods (Static,Access = private)
+        function [sizes,reverse,chnvalsN]=ScatterSizes(chnvals,rangeZ)
+            reverse = 0; %if to reverse to color map and size of the points in scatter3D 
+            if isempty(rangeZ)
+                rangeZ = [min(chnvals) max(chnvals)];                 
+            elseif rangeZ(1) > rangeZ(2) %pokud dam minmax v obrazenem poradi, barvy i velikosti taky v obracenem poradi
+                reverse = 1;
+                rangeZ = flip(rangeZ);                            
+            end
+            chnvalsN = chnvals - rangeZ(1); %substract minimum
+            chnvalsN = chnvalsN/diff(rangeZ); % normalization  - divide by maximum => values are [0;1]          
+            chnvalsN(isnan(chnvalsN)) = 0; % in case of all zeros, feplace nan to 0
+            chnvalsN(chnvalsN<0) = 0; chnvalsN(chnvalsN>1) = 1; %limit the range to [0;1];    
+            sizes = 20+200*iff(reverse,1-chnvalsN,chnvalsN); %velikosti kulicek 
         end
-        
     end
 end

@@ -121,7 +121,8 @@ classdef CHilbert < CiEEGData
                 case 'db' %db=10*log10(fpower/mean(fpower)) 
                     for ch = channels
                         for f = 1:size(obj.HFreq,3)
-                            obj.HFreq(:,ch,f) = 10*log10(obj.HFreq(:,ch,f)./mean(obj.HFreq(:,ch,f)));
+                            chdata = obj.HFreq(:,ch,f)./mean(obj.HFreq(:,ch,f));
+                            obj.HFreq(:,ch,f) = 10*log10(chndata + 1 - min(chdata) ); % values >=1 for log10
                         end
                     end
                 otherwise
