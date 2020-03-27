@@ -122,7 +122,7 @@ classdef CHilbert < CiEEGData
                     for ch = channels
                         for f = 1:size(obj.HFreq,3)
                             chdata = obj.HFreq(:,ch,f)./mean(obj.HFreq(:,ch,f));
-                            obj.HFreq(:,ch,f) = 10*log10(chndata + 1 - min(chdata) ); % values >=1 for log10
+                            obj.HFreq(:,ch,f) = 10*log10(chdata + 1 - min(chdata) ); % values >=1 for log10
                         end
                     end
                 otherwise
