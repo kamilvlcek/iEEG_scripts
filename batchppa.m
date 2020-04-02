@@ -8,8 +8,9 @@ if podnet
     disp(' ++++ ANALYZA 1 - RAZENI PODLE PODNETU ++++');
     pacienti = {'p183','p222'}; %
     cfg = struct('hybernovat',0,'suffix','Ep2019-11','freqepochs',1);
-    cfg.pacienti = pacienti; %kdyz to tam vlozim rovnou, tak se mi udela struct array
+%     cfg.pacienti = pacienti; %kdyz to tam vlozim rovnou, tak se mi udela struct array
     cfg.overwrite=0; %vyjimecne
+    %cfg.normalization='db'; %use different normalization than orig (=divide by mean)
     filenames = BatchHilbert('ppa',cfg);    
 end
 %% potom analyza s razenim podle odpovedi
