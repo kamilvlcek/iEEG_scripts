@@ -384,7 +384,7 @@ classdef CHilbert < CiEEGData
             %parametr loadall se hodi pro FE data se vsemi ulozenymi epochami, ktere jsou giganticke
             if ~exist('loadall','var') || isempty(loadall) , loadall = 1; end
             if ~exist('onlyself','var') || onlyself == 0
-                assert(exist(CHilbert.filenameE(filename),'file')==2, ['soubor s daty CHilbert neexistuje:' char(10) CHilbert.filenameE(filename) char(10) 'mozna se jedna o data tridy CiEEGData?']);    
+                assert(exist(CHilbert.filenameE(filename),'file')==2, ['soubor s daty CHilbert neexistuje:' newline CHilbert.filenameE(filename) newline 'mozna se jedna o data tridy CiEEGData?']);    
                 Load@CiEEGData(obj,CHilbert.filenameE(filename));  
             end
             if exist(CHilbert.filenameH(filename),'file')                

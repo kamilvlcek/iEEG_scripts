@@ -742,7 +742,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     obj.plotCh2D.chshowstr = strjoin(chshowstr,' & '); 
                 else
                     obj.plotCh2D.chshowstr = chshowstr;
-                end
+                end                
                 disp(['shown ' num2str(numel(obj.plotCh2D.chshow)) ' channels: ' obj.plotCh2D.chshowstr]); 
             else            
                 obj.plotCh2D.chshow = 1:numel(obj.H.channels);
@@ -750,6 +750,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 obj.sortorder = 1:numel(obj.H.channels); %defaultni sort order pro vsechny kanaly
                 disp('all channels shown');
             end
+            obj.plotCh2D.filterargs = struct('chlabels',chlabels,'notchnlabels',notchnlabels,'selCh',selCh, 'chnum',chnum,'label',label); %saves copy of arguments - to be clear how the data were filtered
             notify(obj, 'FilterChanged');
         end
         function obj = BrainLabelsImport(obj,brainlbs,filename)
