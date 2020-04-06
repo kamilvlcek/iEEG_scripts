@@ -265,6 +265,10 @@ classdef CHilbertL < CHilbert
         %       obj.getenvelopes for description
         %   categories: array of wanted categories. See obj.getenvelopes for description
         %   channels: array of wanted channels. See obj.getenvelopes for description
+        %   fdrMethod: if the fdr Correction shhould be applied. Correction
+        %       is applied for each channel and category separately (across all
+        %       calculated frequencies and time). Values can be either 
+        %       [] (no correction - default), pdep or dep. 
         %   squeeze: if true, only selects calculated values, not returning NaNs
         % RETURNS: a 4d matrix calculated p values by CStat.Wilcox2D. 
         %   returned matrix is p value in time x channel x frequency x category
@@ -283,6 +287,8 @@ classdef CHilbertL < CHilbert
             addParameter(p, 'baseline', obj.baseline, @(x)(numel(x) == 2));
             addParameter(p, 'response', [obj.baseline(2) obj.epochtime(2)],...
                 @(x)(numel(x) == 2));
+            addParameter(p, 'fdrMethod', [],...
+                @(x)isstring(x) && any(strcmp({'pdep' 'dep'},x)));
             addParameter(p, 'squeeze', false, @islogical);
             parse(p, varargin{:});
             
@@ -307,12 +313,28 @@ classdef CHilbertL < CHilbert
                         'frequencies', iFrequency, 'categories', iCategory);
                     % selects times and squeezes the categories and frequency
                     response = squeeze(envelopes(iResponse(1):iResponse(2), :, :, :));
+                    
+                    %% This should be probably averaged in the first dim
                     baseline = squeeze(envelopes(iBaseline(1):iBaseline(2), :, :, :));
-                    tempWp = CStat.Wilcox2D(response, baseline, 0, [], '',...
-                        RjEpCh, RjEpCh);
+                    baseline = mean(baseline, 1);
+                    % NO FDR CORRECTION 
+                    tempWp = CStat.Wilcox2D(response, baseline, 0, 0, '',...
+-                        RjEpCh, RjEpCh);
                     wp(:, p.Results.channels, iFrequency, iCategory + 1) = tempWp;
                 end
             end
+            % FDR correction for each channel and category separately
+            if ~isempty(p.Results.fdrMethod)
+                message(['Performing fdr correction ' p.Results.fdrMethod]);
+                for iCategory = iCategories
+                    for channel = p.Results.channels
+                        tempWp = wp(:, channel, :, iCategory + 1);
+                        [~, ~, adj_p] = fdr_bh(tempWp, 0.05, p.Results.fdrMethod, 'no');
+                        wp(:, channel, :, iCategory + 1) = adj_p;
+                    end
+                end
+            end
+            % squeezing
             if p.Results.squeeze
                 wp = wp(:, p.Results.channels, iFrequencies, iCategories + 1);
             end
@@ -329,6 +351,10 @@ classdef CHilbertL < CHilbert
         %   channels: array of channels to select. see getenvelopes
         %   frequencies: array of frequencies to select. see getenvelopes
         %   response: numeric(2) in seconds defining response timewindow.
+        %   fdrMethod: if the fdr correction shhould be applied. Correction
+        %       is applied for each channel separately (across all
+        %       calculated frequencies and time). Values can be either 
+        %       [] (no correction - default), pdep or dep. 
         %   squeeze: should the non calculated values be dropped?
         % RETURNS: a 3d matrix with calculated p values by CStat.Wilcox2D
         %   matrix is time x channel x frequency
@@ -364,9 +390,22 @@ classdef CHilbertL < CHilbert
                 responseB = squeeze(responseB(iResponse(1):iResponse(2), :, :, :));
                 % As we are passing the same set of epochs, we can
                 % basically "clone" the epochs?
-                tempWp = CStat.Wilcox2D(responseA, responseB, 0, [], '',...
+                % NO FDR at this point
+                tempWp = CStat.Wilcox2D(responseA, responseB, 0, 0, '',...
                     rejectedEpochs{(1)}, rejectedEpochs{(2)});
                 wp(:, :, iFrequency) = tempWp;
+            end
+            if ~isempty(p.Results.fdrMethod)
+                message(['Performing fdr correction ' p.Results.fdrMethod]);
+                for channel = p.Results.channels
+                    tempWp = wp(:, channel, :);
+                    [~, ~, adj_p] = fdr_bh(tempWp, 0.05, p.Results.fdrMethod, 'no');
+                    wp(:, channel, :) = adj_p;
+                end
+            end
+            % squeezing
+            if p.Results.squeeze
+                wp = wp(:, p.Results.channels, iFrequencies);
             end
         end
         
@@ -393,6 +432,8 @@ classdef CHilbertL < CHilbert
             p = obj.addcategoriesparameter(p);
             p = obj.addresponseparameter(p);
             addParameter(p, 'baseline', obj.baseline, @(x)(numel(x) == 2));
+            addParameter(p, 'fdrMethod', [],...
+                @(x)isstring(x) && any(strcmp({'pdep' 'dep'},x)));
             addParameter(p, 'squeeze', false, @(x)(numel(x) == 1 && islogical(x)));
             parse(p, varargin{:});
             
@@ -516,7 +557,7 @@ classdef CHilbertL < CHilbert
         %% Parsers
         function parser = addchannelsparameter(obj, parser)
             % Adds channels frequencies and categories parameters
-            addParameter(parser, 'channels', 1:obj.nchannels, ...
+            addParameter(parser, 'channels', 1:obj.nchannels,...
                 @(x)(isnumeric(x) && (numel(x) > 0)));
         end
         
