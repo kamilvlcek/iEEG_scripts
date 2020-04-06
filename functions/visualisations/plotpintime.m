@@ -21,7 +21,7 @@ figure('Name', 'P value in time');
 % variable to each column is a point in time fro multiple variables
 plt = imagesc(x, y, (1 - results)', [0.95 1]);
 set(plt, 'AlphaData', ~isnan(results'));
-axis ij;
+axis xy;
 xlabel('time');
 colorbar;
 end
