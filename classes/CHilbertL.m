@@ -284,11 +284,10 @@ classdef CHilbertL < CHilbert
             p = obj.addchannelsparameter(p);
             p = obj.addfrequenciesparameter(p);
             p = obj.addcategoriesparameter(p);
+            p = obj.addfdrparameter(p);
             addParameter(p, 'baseline', obj.baseline, @(x)(numel(x) == 2));
             addParameter(p, 'response', [obj.baseline(2) obj.epochtime(2)],...
                 @(x)(numel(x) == 2));
-            addParameter(p, 'fdrMethod', [],...
-                @(x)isstring(x) && any(strcmp({'pdep' 'dep'},x)));
             addParameter(p, 'squeeze', false, @islogical);
             parse(p, varargin{:});
             
@@ -366,6 +365,7 @@ classdef CHilbertL < CHilbert
             p = obj.addchannelsparameter(p);
             p = obj.addfrequenciesparameter(p);
             p = obj.addresponseparameter(p);
+            p = obj.addfdrparameter(p);
             addParameter(p, 'squeeze', false, @islogical);
             parse(p, categories, varargin{:});
             
@@ -418,6 +418,7 @@ classdef CHilbertL < CHilbert
         % OPTIONAL PARAMETERS:
         %   channels: array of channels to select. see getenvelopes
         %   frequencies: array of frequencies to select. see getenvelopes
+        %   categories: array of categories to select. see getenvelopes
         %   baseline: numeric(2) in seconds defining baseline timewindow.
         %   response: numeric(2) in seconds defining response timewindow.
         %   squeeze: should the non calculated values be dropped?
@@ -578,6 +579,10 @@ classdef CHilbertL < CHilbert
                  @(x)(numel(x) == 2));
         end
         
+        function parser = addfdrparameter(~, parser)
+             addParameter(parser, 'fdrMethod', [],...
+                @(x)isstring(x) && any(strcmp({'pdep' 'dep'},x)));
+        end
         %% getters
         function n = nchannels(obj)
             n = size(obj.HFreq, 2);

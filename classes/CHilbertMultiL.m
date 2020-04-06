@@ -41,6 +41,8 @@ classdef CHilbertMultiL < CHilbertL
              end
              disp(['Total channels: ' num2str(channelsNum) ]);
         end
+        
+        % TODO - change this to a field name loop or apply
         function obj = Clear(obj)
             %smaze data objektu, kvuli volani z ImportExtract, jinak je mozna jednodussi znova objekt vytvorit
             obj.d = [];
@@ -75,6 +77,7 @@ classdef CHilbertMultiL < CHilbertL
             obj.DatumCas = {};
             disp('data objektu smazana');
         end
+        
         function obj = ImportExtract(obj,filenames,label)
             if numel(obj.filenames)>0
                 if obj.filesimported == 0 %nejaky soubor naimportovan castecne kvuli chybe - musim smazat
@@ -134,10 +137,12 @@ classdef CHilbertMultiL < CHilbertL
             obj.SetSelCh([]);
             disp(['nacteno souboru: ' num2str(obj.filesimported)]);
         end
+        
         function obj = SetLabel(obj,label)
             %kdyz chci pridat label jeste po tom, co jsem udelal ImportExtract
             obj.label = label;
         end
+        
         function [d,tabs,RjEpochCh,P,epochData] = PrehazejEpochy(obj,d,tabs,RjEpochCh,P,epochData,test) 
             %vyradi treningove epochy ze vsech dat 
             %pokud je potreba, prehazi epochy podle blokyprehazej
@@ -185,6 +190,7 @@ classdef CHilbertMultiL < CHilbertL
             end
             
         end
+        
         function obj = GetD(obj,d,RjEpochCh,HFreqEpochs)
             %ulozi nova eeg data k predchazejicim - prida je do spolecneho pole obj.d  
             if ~isempty(obj.d) && size(obj.d,3) < size(d,3) %pokud v existujicim d je mensi pocet epoch nez v novem
@@ -208,6 +214,7 @@ classdef CHilbertMultiL < CHilbertL
 %                 obj.HFreqEpochs = cat(2,obj.HFreqEpochs,HFreqEpochs);
 %             end
         end
+        
         function GetHfreq(obj,Hf,Hfmean,HFreq,HFreqEpochs)
             %spoji frekvencni data z predchozich a noveho souboru
             if isempty(obj.Hf)
@@ -231,6 +238,7 @@ classdef CHilbertMultiL < CHilbertL
                 end
             end
         end
+        
         function GetRef(obj,reference)
             if isempty(obj.reference)
                 obj.reference = reference; %jen prvni soubor
@@ -238,6 +246,7 @@ classdef CHilbertMultiL < CHilbertL
                 assert(isequal(obj.reference,reference),'reference musi byt stejna');
             end
         end
+        
         function obj = GetTabs(obj,tabs) %,tabs_orig,f
             %spoji tabs z predchozich a noveho souboru
             if isempty(obj.tabs) %budu pouzivat tabs z prvniho souboru
@@ -254,6 +263,7 @@ classdef CHilbertMultiL < CHilbertL
             %obj.orig(f).tabs = tabs;                     
             %obj.orig(f).tabs_orig = tabs_orig; 
         end
+        
         function obj = GetPsyData(obj,P,fileno)
             %pokud prvni soubor, ulozi P data
             %pokud dalsi soubor v poradi, ulozi P data z noveho souboru do zalohy v obj.ori            
@@ -271,6 +281,7 @@ classdef CHilbertMultiL < CHilbertL
             end            
             obj.PsyData.RemoveTraining(); %odstranim treninkove trialy
         end
+        
         function obj = GetEpochData(obj,epochData,fileno,test,poprehozenibloku)
             %porovna poradi bloku v puvodnich souborej a novem souboru
             %pokud je jine, vytvori pole blokyprehazej, ktere se pak pouzije v PrehazejEpochy
@@ -305,7 +316,8 @@ classdef CHilbertMultiL < CHilbertL
                 end          
                 obj.orig(fileno).epochData = epochData; % ulozim original taky                        
             end
-        end        
+        end
+        
         function obj = GetHeader(obj,H,fileno,P)
             %spoji header (kanaly) v puvodnich souborech a tom novem
             if isfield(P,'pacientid') && ~isempty(P.pacientid)
@@ -350,6 +362,7 @@ classdef CHilbertMultiL < CHilbertL
             obj.subjNames{fileno,1} = H.subjName;
             obj.orig(fileno).H = H; %orignalni header ulozim, v kazdem pripade
         end
+        
         function obj = GetEpochTime(obj,epochtime,baseline)
             %epochtime - cas epochy, napriklad -0.2 - 1.2, taky musi byt pro vsechny soubory stejne
             if numel(epochtime)==2, epochtime(3) = 0; end %defaultne epochuji podle podnetu
@@ -365,9 +378,11 @@ classdef CHilbertMultiL < CHilbertL
                 obj.baseline = baseline;
             end              
         end
+        
         function obj = GetStat(obj) %zatim neimportuju
             obj.Wp = [];
         end
+        
         function PAC = GetPAC(obj,filename)
             %vytvori strukturu, ktera se pak da nacist do CM.ExtractData pro vytvoreni stejnych extraktu z jineho souboru
             %filename je jmeno souboru, ze ktereho je tento CM soubor, napriklad 'Menrot CHilbert 50-150 -1.0-1.5 refBipo Ep2018-01_CHilb.mat'
@@ -392,6 +407,7 @@ classdef CHilbertMultiL < CHilbertL
                 iPAC = iPAC + 1;                
             end
         end
+        
         function els = RepairEls(obj)
             %funkce ktera opravi obj.els, pokud je spatne vytvorena
             previousNick = '';
@@ -415,7 +431,7 @@ classdef CHilbertMultiL < CHilbertL
         
         %% SAVE AND LOAD FILE
         %dve funkce na ulozeni a nacteni dat tridy
-        %uklada se vcetne dat parenta CHilbert a pres nej taky CiEEGData        
+        %uklada se vcetne dat parenta CHilbert a pres nej taky CiEEGData
         function obj = Save(obj,filename)
             if ~exist('filename','var')
                 if exist(obj.mfilename,'file')==2
@@ -444,7 +460,8 @@ classdef CHilbertMultiL < CHilbertL
                 save(CHilbertMulti.filenameM(filename),'filenames','orig','blokyprehazej','filesimported','subjNames','label','mfilename','-v7.3'); %do druheho souboru data z teto tridy
             end
         end
-         %pokud je druhy parametr 1, nenacitaji se data z parenta
+        
+        %pokud je druhy parametr 1, nenacitaji se data z parenta
         function obj = Load(obj,filename,onlyself)
             %parametr loadall se hodi pro FE data se vsemi ulozenymi epochami, ktere jsou giganticke
             
@@ -470,6 +487,7 @@ classdef CHilbertMultiL < CHilbertL
             obj.hfilename = filename; 
         end 
     end
+    
     methods (Static,Access = public)
         function filenames = ExtractData(PAC,testname,filename,label,overwrite)
             %filenames = ExtractData(PAC,testname,filename,label)
@@ -554,6 +572,7 @@ classdef CHilbertMultiL < CHilbertL
             end            
         end
     end
+    
     methods (Static,Access = private)
         function bloky = GetBlocks(epochData)
             %ziska info o blocich 
@@ -589,7 +608,8 @@ classdef CHilbertMultiL < CHilbertL
             %v PPA pri serazeni 650 podle 325 bloku se hleda v cislech az 386
             bpdiff = setdiff([1:size(bloky1,1)]',blokyprehazej(:,4)); %cisla bloku, ktera zatim chybi v seznamu k prehazeni
             blokyprehazej(size(bloky0,1)+1: size(bloky1,1),4) = bpdiff;
-        end       
+        end
+        
         function [str]= basename(filename)
             % vraci filename s koncem path pro identifikaci pacienta
             %[path,basename,ext] = fileparts(filename); %takhle to nechci
@@ -600,6 +620,7 @@ classdef CHilbertMultiL < CHilbertL
             fslash = strfind(filename,'\');
             str = filename(fslash(end-3)+1:end); %tri casti casti path pred basename - aby bylo i jmeno pacienta
         end
+        
         function [RjEpochCh] = RjEpoch2Ch(RjEpoch,RjEpochCh)
             %prevede RjEpoch do RjEpochCh - rozkopiruje na vsechny kanaly
             RjEpochCh2 = false(1,size(RjEpochCh,2)); %epochy jen

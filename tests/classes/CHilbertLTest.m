@@ -26,7 +26,7 @@ originalSize = size(testCase.TestData.hilbert.HFreqEpochs);
 envelopes = testCase.TestData.hilbert.getenvelopes('channels', [1 3]);
 assertNotEmpty(testCase, envelopes);
 
-
+envSize = size(envelopes);
 verifyEqual(testCase, envSize([1 3 4]), originalSize([1 3 4]));
 end
 
