@@ -251,8 +251,9 @@ classdef CHilbertL < CHilbert
         end
         
         %% Statistics
+        % TODO - the fdr correction switch
         function wp = wilcoxbaseline(obj, varargin)
-        % Calculates rank test for passed categories and frequencies against a baseline.
+        % Calculates rank test for power against a baseline. 
         %
         % Compares epochs during the response time to the epochs during to
         %   baselineteime in each channel, frequency and category separately. 
@@ -317,6 +318,7 @@ classdef CHilbertL < CHilbert
             end
         end
 
+        % TODO - the fdr correction switch - currently run per frequnecy
         function wp = wilcoxcategories(obj, categories, varargin)
         % Compares two category responses in given time
         % 
