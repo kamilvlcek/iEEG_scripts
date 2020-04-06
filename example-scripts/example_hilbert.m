@@ -1,9 +1,11 @@
+%% Loading
 patient_file = '..\example-data\p073_PPA CHilbert 50-150Hz -0.2-0.8 refBipo Ep2019-11 FEX_CHilb.mat';
 
 open(patient_file)
 % file has no information about referencing
 hilbert = CHilbertL(patient_file);
 
+%% 
 % Existing plot response for a single channel and multiple categories
 hilbert.PlotResponseFreq(20);
 % Doesn't work with the cells because I don't understand how the categories are being passed
@@ -30,7 +32,7 @@ plotpintime(squeeze(wBaseline(:, 18, :, 1)), [0.01 0.8], hilbert.Hfmean);
 % in frequencies/channels/categories
 wBaseline = hilbert.wilcoxbaseline('baseline', [-0.2 0], 'response', [0.01 0.8],...
     'frequencies', 1:5, 'categories', {'Scene'}, 'squeeze', true);
-plotpintime(wBaseline, [0.01 0.8]);
+plotpintime(wBaseline(:, :, 1), [0.01 0.8]);
 
 % Comparing for Scene
 wBaseline = hilbert.wilcoxbaseline('baseline', [-0.2 0], 'response', [0.01 0.8],...
@@ -45,7 +47,6 @@ plotpintime(squeeze(wCategory(:, 18, :)), [0.0 0.8], hilbert.Hfmean);
 
 wCategory = hilbert.wilcoxcategories([{'Ovoce'} {'Scene'}], [0.0 0.5]);
 plotpintime(squeeze(wCategory(:, 18, :)), [0.0 0.8])
-
 
 %% Wilcox second order
 % Baseline
@@ -62,3 +63,20 @@ plotpintime(wp(:, :, 1), [0.0 0.8], hilbert.Hfmean);
 
 wp = hilbert.wilcoxaveragecategories({'Face' 'Scene'}, 'channels', 1:5, 'frequencies', 1:5);
 plotpintime(wp(:, :, 1), [0.0 0.8], hilbert.Hfmean);
+
+
+%% Plot P reversed Y
+frequencies = 1:5;
+wp = hilbert.wilcoxaveragebaseline('channels', 1:5, 'baseline', [-0.2 0], 'frequencies', frequencies);
+categorySelect = 1;
+categoryData = wp(:, :, categorySelect);
+title = ['Significant difference from baseline in ', hilbert.PsyData.CategoryName(categorySelect - 1)];
+
+figure('Name', title);
+% Transposes results - from each column is timeseries for a particular
+% variable to each column is a point in time fro multiple variables
+plt = imagesc([0.0 0.8], hilbert.Hfmean(frequencies), (1 - categoryData)', [0.95 1]);
+set(plt, 'AlphaData', ~isnan(categoryData'));
+axis xy;
+xlabel('time');
+colorbar;
