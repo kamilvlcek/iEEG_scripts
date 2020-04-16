@@ -1094,9 +1094,10 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 xlswrite(xlsfilename ,vertcat(varnames,output),'channels'); %write to xls file, sheet channels
                 disp([xlsfilename '.xls, sheet channels, with ' num2str(size(output,1)) ' lines saved']);
                 
+                %table with all cluster across clustersets with info
                 labels = lower({obj.brainlabels.label}); %cell array of brainlabels
                 ulabels = unique(labels);
-                varnames = {'ClusterSet','clusterN','NameofCluster','ChannelsCount','EpiChannels','pacients','xCentroid','yCentroid','zCentroid','Sumd','closestChannel','closestChannelDist','neurologyLabel'};                
+                varnames = {'ClusterSet','clusterN','NameofCluster','ChannelsCount','EpiChannels','pacients','xCentroid','yCentroid','zCentroid','xstderr','ystderr','zstderr','L/R','Sumd','closestChannel','closestChannelDist','neurologyLabel','maxLabels'};                
                 nVarN0 = numel(varnames); %number of varnames before brainlabels
                 varnames = horzcat(varnames,ulabels);
                 output = cell(sum(clusterNum),numel(varnames));                
@@ -1117,13 +1118,18 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                         ChCl = obj.clusters(iClSet).idx == iCl; %index of channels in this cluster (from the current cluster set)
                         channelNumbers = obj.clusters(iClSet).channels(ChCl); %absolute channem numbers
                         pTags = obj.PacientTag(channelNumbers); %pacient name for each channel for this label    
+                        mni = [obj.H.channels(channelNumbers).MNI_x;obj.H.channels(channelNumbers).MNI_y;obj.H.channels(channelNumbers).MNI_z]'; %mni coordinates of channels in this cluster
+                        strmaxLabels = obj.getMaxLabelsCount(channelNumbers,'maxlabel');                        
                         output(iOutput,1:nVarN0)={ num2str(iClSet), num2str(iCl), clName, ... %'ClusterSet','clusterN','NameofCluster' - we have to convert number to char arrays
                                 num2str(sum(ChCl)), num2str(numel(intersect(epiChs,channelNumbers))), num2str(numel(unique(pTags))) , ... %'ChannelsCount','EpiChannels','pacients'
-                                double2str(obj.clusters(iClSet).C(iCl,1)),double2str(obj.clusters(iClSet).C(iCl,2)),double2str(obj.clusters(iClSet).C(iCl,3)), ... 
-                                double2str(obj.clusters(iClSet).sumd(iCl)) ...
-                                clusterMainChannels(iOutput,1),clusterMainChannels(iOutput,2),obj.H.channels(clusterMainChannels(iOutput,1)).neurologyLabel ...
+                                double2str(obj.clusters(iClSet).C(iCl,1),0),double2str(obj.clusters(iClSet).C(iCl,2),0),double2str(obj.clusters(iClSet).C(iCl,3),0), ...  %centroid
+                                double2str(stderr(mni(:,1)),0),double2str(stderr(mni(:,2)),0),double2str(stderr(mni(:,3)),0), ...  %mni range - stderr 
+                                sprintf('''%i/%i',sum(mni(:,1)<0),sum(mni(:,1)>=0)), ... %channels L/R, according to the MNI x coordinate
+                                double2str(obj.clusters(iClSet).sumd(iCl)), ...                                 
+                                clusterMainChannels(iOutput,1),clusterMainChannels(iOutput,2),obj.H.channels(clusterMainChannels(iOutput,1)).neurologyLabel, ...
+                                strmaxLabels ... %string with counts of maxLabels
                           };
-                        for j = 1:numel(ulabels)
+                        for j = 1:numel(ulabels) %cycle over unique brainlabels
                             chIndex = find(contains(labels,ulabels{j})); %channels with this brain label
                             if ~includeRjCh, chIndex = setdiff(chIndex,obj.RjCh); end %channels without the rejected channels
                             chIndex = intersect(chIndex,channelNumbers); %numbers of channels in this cluster and this brain label
@@ -1370,6 +1376,21 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
               N = zeros(1,numel(obj.clusters));
               for iClSet = 1:numel(obj.clusters) %cycle over all cluster sets
                   N(iClSet) = size(obj.clusters(iClSet).C,1);
+              end
+          end
+          function strlabels = getMaxLabelsCount(obj, channelNumbers,fieldname) 
+              %returns formated list of entried in brainlabels field with counts in parentheses
+              strlabels = '';
+              if isfield(obj.brainlabels,fieldname)
+                maxLabels = lower({obj.brainlabels(channelNumbers).(fieldname)}'); %unique labels for each channel, manually from neurology labels
+                umaxLabels=unique(maxLabels); %unique
+                cmaxLabels = countmember(umaxLabels,maxLabels);  %counts of unique labels
+                [B,I]=sort(cmaxLabels,'descend');                
+                for j = 1:numel(B)
+                    strlabels = [strlabels sprintf('%s(%i),', umaxLabels{I(j)}, B(j))]; %#ok<AGROW>
+                end
+%               else
+%                 warning(['the field ' fieldname ' doesnot exist in obj.brainlabels']);              
               end
           end
           function obj = hybejPlot2D(obj,~,eventDat) 

@@ -21,6 +21,8 @@ classdef CRefOrigVals < matlab.mixin.Copyable
         function obj = CRefOrigVals(E)
             if ~ strcmp(E.reference,'Bipolar')
                 disp('CRefOrigVals: the original CiEEGData data should be bipolar');
+            elseif isempty(E.PsyData)
+                disp('CRefOrigVals: no PsyData');
             else
                 obj.Eh = E;  
                 obj.setup = eval(['setup_' E.PsyData.testname]); %nactu nastaveni
