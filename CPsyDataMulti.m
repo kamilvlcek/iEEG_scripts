@@ -45,7 +45,37 @@ classdef CPsyDataMulti < CPsyData
             obj.nS = obj.nS + 1;
             obj.SubjectChange(obj.iS + 1);
             obj.blocksMulti = [obj.blocksMulti, {[]}]; %pridam dalsi prazdny cell na konec
-        end        
+        end  
+        function Responses2XLS(obj,xlslabel)
+            %export xls table for responses of all patients in CHilbertMulti file
+            %similar to psydataavg(), but this function works over all patients without CHilbertMulti file
+            if ~exist('xlslabel','var') || isempty(xlslabel) , xlslabel = ''; end
+            iS_backup =obj.iS; %backup the current active subject
+            [katnum, katstr] = obj.Categories(0); %assume same categories in all subjects
+            varnames = {'n','subjname'}; %columnames
+            varn0 = numel(varnames); %number of beginning columns            
+            for ikat = 1:numel(katnum)
+                varnames = horzcat(varnames,{ ['rt_' katstr{ikat} '_mean'],['rt_' katstr{ikat} '_stderr'],['resp_' katstr{ikat} '_mean'],['resp_' katstr{ikat}  '_stderr']}); %#ok<AGROW>
+            end
+            katn0 = (numel(varnames) - varn0) / numel(katnum); %number of columns per category
+            output = cell(obj.nS,numel(varnames));
+            for iS=1:obj.nS %#ok<*PROPLC,*PROP>
+                obj.SubjectChange(iS);                
+                [resp,rt,kat,test] = obj.GetResponses();
+                output(iS,1:varn0) = {num2str(iS),obj.P.pacientid};
+                for ikat=1:numel(katnum)
+                    iresp = kat==katnum(ikat) & test==1; %succes ration compute from all test responses
+                    irt = iresp & resp==1; %rt compute only from correct responses                    
+                    means = [mean(rt(irt)) mean(resp(iresp))]; %mean rt and resp
+                    stderr = [std(rt(irt))/sqrt(length(rt(irt)))  std(resp(iresp))/sqrt(length(resp(iresp)))]; %stderr of rt and resp
+                    output(iS,varn0+(ikat-1)*katn0+1 : varn0+(ikat-1)*katn0+4) = {double2str(means(1),3) , double2str(stderr(1),3)  , double2str(means(2),3) , double2str(stderr(1),3) };
+                end                
+            end
+            xlsfilename = ['./logs/Responses2XLS_' xlslabel '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS')];
+            xlswrite(xlsfilename ,vertcat(varnames,output)); %write to xls file
+            disp([xlsfilename '.xls, with ' num2str(size(output,1)) ' lines saved']);
+            obj.SubjectChange(iS_backup); %activate the orignal subject
+        end
     end
     
 end

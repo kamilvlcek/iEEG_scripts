@@ -477,7 +477,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             EEGStat = CEEGStat(obj.d,obj.fs);
             WpA = obj.WpActive; %jen zkratka
             %CELKOVA SIGNIFIKANCE VUCI BASELINE - bez ohledu na kategorie
-            baseline = EEGStat.Baseline(obj.epochtime,obj.baseline);
+            baseline = EEGStat.Baseline(obj.epochtime,obj.baseline); %time of the baseline for statistics - from epochtime(1)
             [Pbaseline,ibaseline,iepochtime,itimewindow] = EEGStat.WilcoxBaseline(obj.epochtime,baseline,timewindow,iEp,obj.RjEpochCh | ~iEpCh);   %puvodni baseline uz v epose nemam        
                 %11.12.2017 - pocitam signifikanci hned po konci baseline
                 %ibaseline je cast iepochtime pred koncem baseline nebo pred casem 0
@@ -1881,6 +1881,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             [CH_plots,CS_plots,RCh_plots] = obj.SaveRemoveFh(obj.plotRCh);  %#ok<ASGLU> %smazu vsechny handely na obrazky             
             CH_filterMatrix = obj.CH.filterMatrix; %#ok<NASGU>  
             CH_brainlabels = obj.CH.brainlabels; %#ok<NASGU>
+            CH_clusters = obj.CH.clusters;   %#ok<NASGU> %5.3.2020 TODO - Header data save by CHHeader object
             els = obj.els;                  %#ok<PROP,NASGU>
             plotES = obj.plotES;            %#ok<PROP,NASGU>          
             RjCh = obj.RjCh;                %#ok<PROP,NASGU>
@@ -1896,10 +1897,10 @@ classdef CiEEGData < matlab.mixin.Copyable
             if isa(obj,'CHilbertMulti'), label = obj.label; else label = []; end %#ok<NASGU>
             [pathstr,fname,ext] = CiEEGData.matextension(filename);        
             filename2 = fullfile(pathstr,[fname ext]);
-            save(filename2,'d','tabs','tabs_orig','fs','header','sce','PsyDataP','PsyData','testname','epochtime','baseline','CH_H','CH_plots','CH_brainlabels', 'CS_plots','els',...
+            save(filename2,'d','tabs','tabs_orig','fs','header','sce','PsyDataP','PsyData','testname','epochtime','baseline','CH_H','CH_plots','CH_brainlabels','CH_clusters','CS_plots','els',...
                     'plotES','RCh_plots','RjCh','RjEpoch','RjEpochCh','epochTags','epochLast','reference','epochData','Wp','DE','DatumCas', 'label', ...
                     'CH_filterMatrix','-v7.3');  
-            disp(['ulozeno do ' filename2]); 
+            disp(['saved to ' filename2]); 
         end
         function [CH_plots,CS_plots,RCh_plots, obj] = SaveRemoveFh(obj,RCh_plots)  %smazu vsechny handely na obrazky 
             %SaveRemoveFh - removes figure handles saved plot parameters
@@ -1908,7 +1909,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             if ~isempty(obj.CH.plotCh2D)
                 CH_plots{1} = obj.CH.plotCh2D;
             end
-            if isprop(obj.CH,'channelPlot') && isprop(obj.CH.channelPlot,'plotCh3D') && ~isempty(obj.CH.channelPlot.plotCh3D)
+            if isprop(obj.CH,'channelPlot') && ~isempty(obj.CH.channelPlot) && isprop(obj.CH.channelPlot,'plotCh3D') && ~isempty(obj.CH.channelPlot.plotCh3D)
                 CH_plots{2} = obj.CH.channelPlot.plotCh3D;
             end
             if isfield(CH_plots{1}, 'fh' ), CH_plots{1} = rmfield(CH_plots{1}, {'fh'}); end  %potrebuju odstranit figure handly
@@ -1977,6 +1978,9 @@ classdef CiEEGData < matlab.mixin.Copyable
             end 
             if ismember('CH_brainlabels', {vars.name})
                 load(filename,'CH_brainlabels');      obj.CH.brainlabels = CH_brainlabels;                              
+            end 
+            if ismember('CH_clusters', {vars.name}) %5.3.2020
+                load(filename,'CH_clusters');      obj.CH.clusters = CH_clusters;                              
             end 
             if ismember('Wp', {vars.name})
                 load(filename,'Wp');      obj.Wp = Wp; %#ok<CPROPLC,CPROP,PROP>
