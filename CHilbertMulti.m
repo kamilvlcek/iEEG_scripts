@@ -424,7 +424,7 @@ classdef CHilbertMulti < CHilbert
                 if exist(obj.mfilename,'file')==2
                     filename = obj.mfilename; %nazev a cesta, pod kterym naposled ulozeno
                 elseif exist(obj.hfilename,'file')==2
-                    filename = obj.hfilename; %tohle se uklada pøi Load jako naèitané jméno souboru
+                    filename = obj.hfilename; %tohle se uklada pï¿½i Load jako naï¿½itanï¿½ jmï¿½no souboru
                 elseif exist(obj.filename,'file')==2
                     filename = obj.filename; %nazev cieegdat
                 else
@@ -444,7 +444,7 @@ classdef CHilbertMulti < CHilbert
                 subjNames = obj.subjNames; %#ok<PROPLC,NASGU> 
                 label = obj.label; %#ok<NASGU,PROPLC> 
                 mfilename = obj.mfilename; %#ok<NASGU,PROPLC>              
-                save(CHilbertMulti.filenameM(filename),'filenames','orig','blokyprehazej','filesimported','subjNames','label','mfilename','-v7.3'); %do druheho souboru data z teto tridy
+                save(saveFileName(filename, 'CHMult'),'filenames','orig','blokyprehazej','filesimported','subjNames','label','mfilename','-v7.3'); %do druheho souboru data z teto tridy
             end
         end
          %pokud je druhy parametr 1, nenacitaji se data z parenta
@@ -455,8 +455,9 @@ classdef CHilbertMulti < CHilbert
                 assert(exist(CHilbert.filenameH(filename),'file')==2, ['soubor s daty CHilbert neexistuje:' char(10) CHilbert.filenameH(filename) char(10) 'mozna se jedna o data tridy CiEEGData?']);    
                 Load@CHilbert(obj,CHilbert.filenameH(filename));  
             end
-            if exist(CHilbertMulti.filenameM(filename),'file')                
-                load(CHilbertMulti.filenameM(filename),'orig','filenames','blokyprehazej','filesimported','subjNames','label','mfilename');
+            chmFileName = saveFileName(filename, 'CHMult');
+            if exist(chmFileName,'file')                
+                load(chmFileName,'orig','filenames','blokyprehazej','filesimported','subjNames','label','mfilename');
                 obj.orig = orig;        %#ok<CPROPLC>
                 obj.filenames = filenames;               %#ok<CPROPLC>                 
                 obj.blokyprehazej = blokyprehazej; %#ok<CPROPLC> 
@@ -466,9 +467,9 @@ classdef CHilbertMulti < CHilbert
                 obj.mfilename = mfilename;      %#ok<CPROPLC>            
                 %vars = whos('-file',filename);               
                 
-                disp(['nacten soubor ' CHilbertMulti.filenameM(filename)]); 
+                disp(['nacten soubor ' chmFileName]); 
             else
-                warning(['soubor CHilbertMulti neexistuje ' CHilbert.filenameH(filename)]);
+                warning(['soubor CHilbertMulti neexistuje ' chmFileName]);
             end
             obj.hfilename = filename; 
         end 
@@ -533,14 +534,6 @@ classdef CHilbertMulti < CHilbert
                 disp(['zadne soubory nenalezeny: ' filenameExtract]);
             end
         end        
-        function filename2 = filenameM(filename)
-            %vraci jmeno souboru s daty tridy CHilbertMulti
-           filename=strrep(filename,'_CHilb',''); %odstranim pripony vytvorene pri save
-           filename=strrep(filename,'_CiEEG','');
-           filename=strrep(filename,'_CHMult','');
-           [pathstr,fname,ext] = CiEEGData.matextension(filename);         
-           filename2 = fullfile(pathstr,[fname '_CHMult' ext]);
-        end
         function [katname,interval,signum] = GetLabelInfo(label)
             %vrati rozclenene label na informace vlozene pomoci BatchExtracts
             C = strsplit(label,'_');
