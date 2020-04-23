@@ -258,7 +258,7 @@ classdef ScatterPlot < handle
             selChRj = obj.selCh(RjCh,:); %filter vyrazenych kanalu ve vyberu fghjkl
             
             % Delete plot variables if there was a plot open
-            if exist('obj.plots', 'var')
+            if isprop(obj, 'plots')
                 delete(obj.plots); 
                 delete(obj.sbox);
                 delete(obj.pbox);            
