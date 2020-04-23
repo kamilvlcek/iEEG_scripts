@@ -165,6 +165,7 @@ classdef ChannelPlot < matlab.mixin.Copyable
                
                 if ~isempty(selch) && selch>0
                     scatter3(XYZ.X(selch),XYZ.Y(selch),XYZ.Z(selch),max(sizes),[0 0 0]);
+                    obj.highlightChannel(obj.plotCh3D.dispChannels(selch));
                 end
                 
                 if ~isempty(roi) && numel(roi)>=4 %[x y z edge]
@@ -223,7 +224,41 @@ classdef ChannelPlot < matlab.mixin.Copyable
                 disp('No MNI data');
             end
         end
+        
+        function highlightChannel(obj, ch)
+          %channel is absolute channel number
+          if ~exist('ch','var') || isempty(ch)
+              if isfield(obj.plotCh3D,'ch_highlighted')
+                ch = obj.plotCh3D.ch_highlighted;
+              else
+                ch = 0; %no highlighted channel
+              end
+          end
+             
+          if ch && isfield(obj.plotCh3D,'fh') && ishandle(obj.plotCh3D.fh) % pokud mam otevreny plot
+            ax = obj.plotCh3D.fh.CurrentAxes;
+            %disp(displayedChannels(closestChannel).name)
+            x = obj.CH.H.channels(ch).MNI_x; y = obj.CH.H.channels(ch).MNI_y; z = obj.CH.H.channels(ch).MNI_z;
+            if isfield(obj.plotCh3D, 'selHandle') % smazu predchozi oznaceni, pokud nejake bylo
+                delete(obj.plotCh3D.selHandle)
+            end
+            if isfield(obj.plotCh3D, 'selNameHandle') % smazu predchozi oznaceni, pokud nejake bylo
+                delete(obj.plotCh3D.selNameHandle)
+            end
+            obj.plotCh3D.selHandle = scatter3(ax, x, y, z, obj.plotCh3D.sizes(obj.plotCh3D.chnsel==ch)+60, 'ok', 'LineWidth', 2); % oznacim vybrany kanal na 3D grafu
+            obj.plotCh3D.selNameHandle = annotation(obj.plotCh3D.fh, 'textbox',[0 1 0 0],'String',obj.CH.H.channels(ch).name,'FitBoxToText','on');
+          else  % pokud se zadny kanal nenasel (kliknuti mimo)
+             if isfield(obj.plotCh3D, 'selHandle') % smazu predchozi oznaceni, pokud nejake bylo
+               delete(obj.plotCh3D.selHandle)
+             end
+             if isfield(obj.plotCh3D, 'selNameHandle') % smazu predchozi oznaceni, pokud nejake bylo
+                delete(obj.plotCh3D.selNameHandle)
+            end
+          end
+           obj.plotCh3D.ch_highlighted = ch;
+        end
     end
+    
     methods  (Access = private)
         function PlotClusters(obj)
             %PlotClusters - plots the previosly computer clusters if any exist, according to the current popis   
@@ -494,39 +529,7 @@ classdef ChannelPlot < matlab.mixin.Copyable
               end
         end
 
-        function highlightChannel(obj, ch)
-          %channel is absolute channel number
-          if ~exist('ch','var') || isempty(ch)
-              if isfield(obj.plotCh3D,'ch_highlighted')
-                ch = obj.plotCh3D.ch_highlighted;
-              else
-                ch = 0; %no highlighted channel
-              end
-          end
-             
-          if ch && isfield(obj.plotCh3D,'fh') && ishandle(obj.plotCh3D.fh) % pokud mam otevreny plot
-            ax = obj.plotCh3D.fh.CurrentAxes;
-            %disp(displayedChannels(closestChannel).name)
-            x = obj.CH.H.channels(ch).MNI_x; y = obj.CH.H.channels(ch).MNI_y; z = obj.CH.H.channels(ch).MNI_z;
-            if isfield(obj.plotCh3D, 'selHandle') % smazu predchozi oznaceni, pokud nejake bylo
-                delete(obj.plotCh3D.selHandle)
-            end
-            if isfield(obj.plotCh3D, 'selNameHandle') % smazu predchozi oznaceni, pokud nejake bylo
-                delete(obj.plotCh3D.selNameHandle)
-            end
-            obj.plotCh3D.selHandle = scatter3(ax, x, y, z, obj.plotCh3D.sizes(obj.plotCh3D.chnsel==ch)+60, 'ok', 'LineWidth', 2); % oznacim vybrany kanal na 3D grafu
-            obj.plotCh3D.selNameHandle = annotation(obj.plotCh3D.fh, 'textbox',[0 1 0 0],'String',obj.CH.H.channels(ch).name,'FitBoxToText','on');
-          else  % pokud se zadny kanal nenasel (kliknuti mimo)
-             if isfield(obj.plotCh3D, 'selHandle') % smazu predchozi oznaceni, pokud nejake bylo
-               delete(obj.plotCh3D.selHandle)
-             end
-             if isfield(obj.plotCh3D, 'selNameHandle') % smazu predchozi oznaceni, pokud nejake bylo
-                delete(obj.plotCh3D.selNameHandle)
-            end
-          end
-           obj.plotCh3D.ch_highlighted = ch;
-        end
-        
+       
         function delete(obj) %destructor of a handle class
             if isfield(obj.plotCh3D,'fh') && ~isempty(obj.plotCh3D.fh) && ishandle(obj.plotCh3D.fh) 
                 close(obj.plotCh3D.fh); 
