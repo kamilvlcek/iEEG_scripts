@@ -99,11 +99,13 @@ classdef ScatterPlot < handle
             
             obj.setCategories();
             
-            obj.drawScatterPlot(0.9, 0.5); %default values for valFraction and intFraction
+            obj.valFraction = 0.9;
+            obj.intFraction = 0.5;
+            
+            obj.drawScatterPlot(); %default values for valFraction and intFraction
         end
         
-        function drawScatterPlot(obj, valFraction, intFraction)
-            obj.setTriggerValues(valFraction, intFraction);
+        function drawScatterPlot(obj)
             obj.initAxes();
             obj.updatePlot();
             obj.fixAxesLimits();
@@ -243,11 +245,6 @@ classdef ScatterPlot < handle
             set(obj.fig, 'WindowButtonDownFcn', @obj.hybejScatterPlotClick);
         end
         
-        function setTriggerValues(obj, valFraction, intFraction)
-            obj.valFraction = valFraction;
-            obj.intFraction = intFraction;
-        end
-        
         function fixAxesLimits(obj)
             xlim(xlim(obj.ax));
             ylim(ylim(obj.ax));
@@ -259,16 +256,26 @@ classdef ScatterPlot < handle
             selChFiltered = obj.selCh(obj.dispChannels,:); %channels x marks - filter kanalu ve vyberu fghjkl
             RjCh = intersect(intersect(obj.dispFilterCh, obj.dispSelCh),obj.ieegdata.RjCh); %vyrazene kanaly z tech nyni zobrazenych - cisla kanalu
             selChRj = obj.selCh(RjCh,:); %filter vyrazenych kanalu ve vyberu fghjkl
-            delete(obj.plots); obj.plots = [];
-            delete(obj.sbox);
-            delete(obj.pbox);            
-            delete(obj.connectionsPlot); obj.connectionsPlot = [];
-            delete(obj.numbers); obj.numbers = [];  
-            for j = 1:numel(obj.texthandles)
-                if isgraphics(obj.texthandles(j)) && obj.texthandles(j) ~= 0
-                    delete(obj.texthandles(j));  
+            
+            % Delete plot variables if there was a plot open
+            if exist('obj.plots', 'var')
+                delete(obj.plots); 
+                delete(obj.sbox);
+                delete(obj.pbox);            
+                delete(obj.connectionsPlot);
+                delete(obj.numbers);
+                for j = 1:numel(obj.texthandles)
+                    if isgraphics(obj.texthandles(j)) && obj.texthandles(j) ~= 0
+                        delete(obj.texthandles(j));  
+                    end
                 end
-            end            
+            end
+            
+            % Initialize arrays
+            obj.plots = [];
+            obj.connectionsPlot = [];
+            obj.numbers = [];
+            
             obj.texthandles = nan(2,numel(obj.categories)); %kategories in first row, chanel legent in second row
             
             if ~isempty(obj.dispSelChName)
