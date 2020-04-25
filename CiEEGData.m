@@ -114,7 +114,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
             end %(nargin ~= 0)
             %tyhle objekty potrebuju inicializovat i pokud je objekt prazdny - CHilbertMulti
-            obj.PL = CPlots(); %prazdny objekt na grafy
+            obj.PL = CPlots(obj); %prazdny objekt na grafy
             if ~isprop(obj,'CS') || ~isa(obj.CS,'CStat') , obj.CS = CStat(); end %prazdy objekt na statistiku, ale mozna uz byl nacteny pomoci load             
             obj.OR=CRefOrigVals(obj); %try to load OrigRegVals if exist
         end      
