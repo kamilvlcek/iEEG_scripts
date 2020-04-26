@@ -439,7 +439,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     end
                 elseif isempty(ch) %empty array with no channel number
                     tag = cell(0,0); %return empty cell array
-                elseif isnumeric(ch) && ch > 0 && ch<numel(obj.H.channels) %ich channel num is valid
+                elseif isnumeric(ch) && ch > 0 && ch<=numel(obj.H.channels) %ich channel num is valid
                     str = split(obj.H.channels(ch).name);
                     tag = str{1}; %pokud se jedna o CHilbertMulti a zadam cislo kanalu, vracim cislo pacienta z tohoto kanalu
                 else
@@ -873,7 +873,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             if ~exist('includeEpiCh','var') || isempty(includeEpiCh) , includeEpiCh = 1; end % include epileptict channels by default
             if ~exist('computehull','var') || isempty(computehull) , computehull = 0; end
             labels = lower({obj.brainlabels.label}); %cell array of brainlabels
-            ulabels = unique(labels); 
+            ulabels = [unique(labels) 'all']; %cellarray 1 x n, the last for all channels regardless of brainlabels
             noMarks = sum(~cellfun(@isempty,obj.plotCh2D.selChNames)); %number of used marks fghjkl            
             hulldata = cell(numel(ulabels),5);
             selChNamesPac = cell(1,noMarks); %counts of patients
@@ -891,7 +891,11 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 ];
             output = cell(numel(ulabels),size(varnames,2)); %columns label,noChannels, noPacients,noRejected, noChInMarks fghjkl 1-6, noPacInMarks
             for j = 1:numel(ulabels) %cycle over all brainlabels
-               chIndex = find(contains(labels,ulabels{j})); %channels with this brain label
+               if j < numel(ulabels)
+                  chIndex = find(contains(labels,ulabels{j})); %channels with this brain label
+               else
+                  chIndex = 1:numel(obj.brainlabels); %all channels for the last cycle, according to brainlabels
+               end
                if ~includeRjCh, chIndex = setdiff(chIndex,obj.RjCh);  end %channels without the rejected channels
                if ~includeEpiCh, chIndex = setdiff(chIndex,epiChs);  end %channels without the epileptic channels
                %channels counts
@@ -899,7 +903,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                epiCount = numel(intersect(chIndex,epiChs)); %number of epileptic channels for this label
                marksCount =  sum(obj.plotCh2D.selCh(chIndex,1:noMarks),1); %count of channel marking fghjkl    
                %pacient counts
-               pTags = obj.PacientTag(chIndex); %pacient name for each channel for this label               
+               pTags = obj.PacientTag(chIndex); %pacient name for each channel for this label, not unique, channels x 1               
                marksPacientCount = zeros(1,noMarks);               
                for m=1:noMarks
                    marksPacientCount(m) = numel(unique(pTags(logical(obj.plotCh2D.selCh(chIndex,m))))); %no of patients for this mark                  

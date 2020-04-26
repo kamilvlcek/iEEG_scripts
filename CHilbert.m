@@ -546,7 +546,7 @@ classdef CHilbert < CiEEGData
                         BPD.VALS{int,kat} = prumery(ich,int,kategorie(kat));
                     else
                         ich = true(size(prumery,1),1);
-                        BPD.VALS{int,kat} = ones(size(prumery,1),1);
+                        BPD.VALS{int,kat} = zeros(size(prumery,1),1); %zero values for last catefory with all channels
                     end
                         
                     BPD.NAMES{int,kat}= names(ich);
