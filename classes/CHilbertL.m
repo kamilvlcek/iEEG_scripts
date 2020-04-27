@@ -56,7 +56,7 @@ classdef CHilbertL < CHilbert
             set(obj.plotFrequency.fh, 'KeyPressFcn', @obj.frequencyplothandle);
         end
         
-        function obj = PlotResponseFreqMean(obj,  categories, ch)
+        function obj = PlotResponseFreqMean(obj,  categories, zlim, ch)
         % Wrapper around plotresponsefrequency for plotting a response
         % frequencies for multiple channels
         % ch: numeric array definich which channels to plot. If more than
@@ -74,7 +74,10 @@ classdef CHilbertL < CHilbert
             if ~exist('categories','var') || isempty(categories)                
                 categories = obj.Wp(obj.WpActive).kats;
             end
-            obj.plotresponsefrequency(ch, categories)
+            if exist('zlim','var') && numel(zlim) == 2
+                obj.plotFrequency.ylim = zlim;
+            end
+            obj.plotresponsefrequency(ch, categories);
         end
         
         %% Getters
@@ -659,7 +662,9 @@ classdef CHilbertL < CHilbert
                 % Buffers the x and y limits to use in future plots
                 maxy = max([maxy max(D(:))]); miny = min([miny min(D(:))]);
             end
-            obj.plotFrequency.ylim = [miny maxy];
+            if ~isfield(obj.plotFrequency,'ylim') || isempty(obj.plotFrequency.ylim) 
+                obj.plotFrequency.ylim = [miny maxy];
+            end
         end
         
         %Adds labels to the plotfrequency plot
@@ -672,8 +677,15 @@ classdef CHilbertL < CHilbert
                 %or error out
                 title(obj.PsyData.CategoryName(cellval(categories, k)));
                 if k == 1
-                    chstr = iff(isempty(obj.CH.sortedby), num2str(ch), ...
-                        [num2str(ch) '(' obj.CH.sortedby  num2str(obj.plotFrequency.ch) ')']);
+                    
+                    if numel(ch) > 5
+                        chnshow = [ num2str(numel(ch)) 'x']; 
+                    else
+                        chnshow = num2str(ch);
+                    end 
+                    
+                    chstr = iff(isempty(obj.CH.sortedby), chnshow, ...
+                        [chnshow '(' obj.CH.sortedby  num2str(obj.plotFrequency.ch) ')']);
                     ylabel(['channel ' chstr ' - freq [Hz]']);
                     % TODO - Temporary fix for the multiple channel
                     % selection original:`any(obj.plotRCh.selCh(ch, :), 2) == 1`
