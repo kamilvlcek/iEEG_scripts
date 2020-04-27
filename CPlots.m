@@ -10,7 +10,7 @@ classdef CPlots < matlab.mixin.Copyable
         function obj = CPlots(E) %constructor
             obj.Eh = E; %save handle to main object
         end 
-        function PlotResponseChMean(obj,kategories,channels)
+        function PlotResponseChMean(obj,kategories,ylimits, channels,fdrlevel)
             if ~exist('kategories','var') || isempty(kategories)                 
                 WpA = obj.Eh.WpActive; %jen zkratka                
                 if ~isempty(obj.Eh.Wp) && isfield(obj.Eh.Wp(WpA), 'kats')
@@ -19,20 +19,31 @@ classdef CPlots < matlab.mixin.Copyable
                     kategories = obj.Eh.PsyData.Categories();
                 end
             end
+            if ~exist('ylimits','var')                  
+                if isfield(obj.PlotRChMean,'ylimits')
+                    ylimits = obj.PlotRChMean.ylimits;
+                else
+                    ylimits = [];    
+                end
+            end
+            
             if ~exist('channels','var') || isempty(channels) 
                 channels = obj.Eh.CH.plotCh2D.chshow;                
                 figuretitle = [obj.Eh.CH.plotCh2D.chshowstr ' chns: ' num2str(numel(channels))];                
             else
                 figuretitle = ['channels: ' num2str(numel(channels))];                
             end
+            if ~exist('fdrlevel','var') || isempty(fdrlevel) 
+                fdrlevel = 1;  %less strict fdr correction, 2 is more strict                      
+            end
             
             obj.PlotRChMean.channels = channels;
             obj.PlotRChMean.kategories = kategories;
+            obj.PlotRChMean.ylimits = ylimits;
             
             chnshow = mat2str(channels(1:(min(20,numel(channels)))));
             if numel(channels) > 20, chnshow = [chnshow ' ...']; end
-            popis = ['ChShow:  ' obj.Eh.CH.plotCh2D.chshowstr '=' chnshow];
-            
+                        
             hue = 0.8;
             colorsErrorBars = cellfun(@(a) min(a+hue, 1), obj.Eh.colorskat, 'UniformOutput', false);
             katlinewidth = 2;
@@ -45,24 +56,40 @@ classdef CPlots < matlab.mixin.Copyable
                         
             T = linspace(obj.Eh.epochtime(1),obj.Eh.epochtime(2),size(obj.Eh.d,1)); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
             ymax = 0;
+            CHM = zeros(size(obj.Eh.d,1),numel(kategories),numel(channels)); %time x channels x kategories
             for k = 1 : numel(kategories) %index 1-3 (nebo 4)
                 katnum = kategories(k);
                 colorkatk = [obj.Eh.colorskat{katnum+1} ; colorsErrorBars{katnum+1}]; %dve barvy, na caru a stderr plochu kolem                
-                [katdata,~,RjEpCh] = obj.Eh.CategoryData(katnum,[],[],channels);%katdata now time x x channels epochs                
-                CHM = zeros(numel(channels),size(katdata,1));
+                [katdata,~,RjEpCh] = obj.Eh.CategoryData(katnum,[],[],channels);%katdata now time x x channels epochs                                
                 for ich = 1:numel(channels)
-                    CHM(ich,:) = mean(katdata(:,channels(ich),~RjEpCh(1,:)),3);
+                    CHM(:,k,ich) = mean(katdata(:,channels(ich),~RjEpCh(ich,:)),3);
                 end
-                M = mean(CHM,1);               
-                E = std(CHM,[],1)/sqrt(size(CHM,1)); %std err of mean                
+                M = mean(CHM(:,k,:),3);  %mean over channels 
+                E = std(CHM(:,k,:),[],3)/sqrt(size(CHM(:,k,:),3)); %std err of mean over channels          
                 ymax = max(ymax,max(M+E));
                 ciplot(M+E, M-E, T, colorkatk(2,:)); %funguje dobre pri kopii do corelu, ulozim handle na barevny pas 
                 hold on;
                 plot(T,M,'LineWidth',katlinewidth,'Color',colorkatk(1,:));  %prumerna odpoved,  ulozim si handle na krivku                      
-            end            
+            end 
+            if numel(kategories) == 2         
+                paired = 1; %paired
+                Wp = CStat.Wilcox2D(CHM(:,1,:), CHM(:,2,:),0,fdrlevel,'kat 1 vs 2',[],[],paired); %more strict dep method
+                iWp = Wp <= 0.05;      % Wilcoxon signed rank         
+                y = ylimits(1)*0.95;
+                WpLims = [find(iWp,1) find(iWp,1,'last')];
+                if ~isempty(WpLims)
+                    plot([T(WpLims(1)) T(WpLims(2))],[y y],'LineWidth',5,'Color',[255 99 71]./255); %full line between start and end of significance
+                    if mean(iWp(WpLims(1) : WpLims(2)))<1 %if there are non signifant parts 
+                        y = ylimits(1)*0.9;
+                        plot(T(iWp),ones(1,sum(iWp))*y, '*','Color','red'); %stars
+                    end
+                end
+            end
             xlim(obj.Eh.epochtime(1:2)); 
-            title(figuretitle);
-            text(0,0.99*ymax,popis, 'FontSize', 10);
+            if ~isempty(ylimits), ylim(ylimits); end
+            title(figuretitle);          
+            xlabel('time [s]');
+            ylabel('BGA power change');
             obj.PlotRChMean.filterListener = addlistener(obj.Eh.CH, 'FilterChanged', @obj.filterChangedCallbackPlotResponseChMean);
         end
         function filterChangedCallbackPlotResponseChMean(obj,~,~)   %update chart if the filter is changed         
