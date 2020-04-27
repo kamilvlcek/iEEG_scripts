@@ -44,7 +44,8 @@ classdef CHilbertL < CHilbert
             if ~exist('channels', 'var'), channels = []; end
             if ~exist('categories', 'var'), categories = []; end
            
-            obj.prepareplotcategoriespowertime(channels, categories);
+            obj.prepareplotcategoriespowertime(channels, categories); 
+            % kamil: the channels are indexes in obj.CH.sortorder, no absolute channels numbers, is it ok?
             % Shouldn't the Ch be obj.plotF.ch? The CHHeader has it as a 
             % field not a function and thus it is very difficult to unravel
             % The original function has the ch in plotF.ch, but uses the
@@ -55,7 +56,7 @@ classdef CHilbertL < CHilbert
             set(obj.plotFrequency.fh, 'KeyPressFcn', @obj.frequencyplothandle);
         end
         
-        function obj = PlotResponseFreqMean(obj, ch, categories)
+        function obj = PlotResponseFreqMean(obj,  categories, ch)
         % Wrapper around plotresponsefrequency for plotting a response
         % frequencies for multiple channels
         % ch: numeric array definich which channels to plot. If more than
@@ -69,6 +70,10 @@ classdef CHilbertL < CHilbert
         %   obj.PlotResponseFreqMean(1, [0:2])
         %   obj.PlotResponseFreqMean([1, 2:5, 8], [0:2])
         %   obj.PlotResponseFreqMean([1:5], 2)
+            if ~exist('ch','var') || isempty(ch), ch = 1:numel(obj.CH.sortorder); end %ch is later used as index in obj.CH.sortorder
+            if ~exist('categories','var') || isempty(categories)                
+                categories = obj.Wp(obj.WpActive).kats;
+            end
             obj.plotresponsefrequency(ch, categories)
         end
         
@@ -121,9 +126,9 @@ classdef CHilbertL < CHilbert
                     warning('Can only reject epochs for a single category');
                 else
                     category = obj.categorytonum(p.Results.categories);
-                    [~, ~, ~, iEpochs] = obj.CategoryData(category(1));
+                    [~, ~, ~, iEpochs] = obj.CategoryData(category(1),[],[],p.Results.channels(1));
                     % we are only interested in the subset of channels
-                    iEpochs = iEpochs(:,p.Results.channels); 
+                    %iEpochs = iEpochs(:,p.Results.channels); 
                     if ~all(sum(iEpochs) == sum(iEpochs(:,1)))
                         warning(['Not all channels have the same number of',...
                             ' epochs rejected, cannot return.']);
@@ -558,18 +563,18 @@ classdef CHilbertL < CHilbert
         %% Parsers
         function parser = addchannelsparameter(obj, parser)
             % Adds channels frequencies and categories parameters
-            addParameter(parser, 'channels', 1:obj.nchannels,...
+            addParameter(parser, 'channels', obj.CH.sortorder,...%1:obj.nchannels
                 @(x)(isnumeric(x) && (numel(x) > 0)));
         end
         
         function parser = addfrequenciesparameter(obj, parser)
             addParameter(parser, 'frequencies',...
-                1:obj.nfrequencies,...
+                1:numel(obj.Hfmean),... %1:obj.nfrequencies
                 @(x)(isnumeric(x) && (numel(x) > 0)));
         end
         
         function parser = addcategoriesparameter(obj, parser)
-            addParameter(parser, 'categories', obj.PsyData.Categories(false),...
+            addParameter(parser, 'categories', obj.Wp(obj.WpActive).kats,... %obj.PsyData.Categories(false)
                 @(x)(numel(x) > 0));
         end
         
@@ -617,7 +622,7 @@ classdef CHilbertL < CHilbert
             if isfield(obj.plotFrequency, 'fh') && ishandle(obj.plotFrequency.fh)
                 figure(obj.plotFrequency.fh);
             else
-                obj.plotFrequency.fh = figure('Name', 'ResponseFreq', 'Position', [20, 500, 1200, 300]);
+                obj.plotFrequency.fh = figure('Name', 'ResponseFreq', 'Position', [20, 500, 400*numel(categories), 300]);
                 colormap jet;
             end
         end
@@ -626,6 +631,7 @@ classdef CHilbertL < CHilbert
         % Actual plotting function. Takes channels and categories and
         % creates imagesc based on averaged data (averaged across channels
         % and categories passed)
+        % kamil: ch are absolute channel numbers
         function obj = plotcategoriespowertime(obj, ch, categories)
              [miny, maxy] = obj.getplotylimit();
              for k = 1:numel(categories)
@@ -672,12 +678,13 @@ classdef CHilbertL < CHilbert
                     % TODO - Temporary fix for the multiple channel
                     % selection original:`any(obj.plotRCh.selCh(ch, :), 2) == 1`
                     % QUESTION - not sure what the plotRch.selCh does
-                    if isprop(obj, 'plotRCh') && isfield(obj.plotRCh, 'selCh') && ...
-                            any(any(obj.plotRCh.selCh(ch, :)))
-                        klavesy = 'fghjkl';
-                        text(0, obj.Hf(1), ['*' klavesy(logical(obj.plotRCh.selCh(ch, :)))], ...
-                            'FontSize', 15, 'Color', 'red');
-                    end
+%                     if isprop(obj, 'plotRCh') && isfield(obj.plotRCh, 'selCh') && ...
+%                             any(any(obj.plotRCh.selCh(ch, :)))
+%                         klavesy = 'fghjkl';
+%                         text(0, obj.Hf(1), ['*' klavesy(logical(obj.plotRCh.selCh(ch, :)))], ...
+%                             'FontSize', 15, 'Color', 'red');
+%                     end
+                    title( obj.PsyData.CategoryName(cellval(categories,k)));
                 end
                 if k == numel(categories), colorbar('Position', [0.92 0.1 0.02 0.82]); end
             end
