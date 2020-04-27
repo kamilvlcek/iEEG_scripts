@@ -387,41 +387,42 @@ classdef CHilbert < CiEEGData
                 assert(exist(CHilbert.filenameE(filename),'file')==2, ['soubor s daty CHilbert neexistuje:' newline CHilbert.filenameE(filename) newline 'mozna se jedna o data tridy CiEEGData?']);    
                 Load@CiEEGData(obj,CHilbert.filenameE(filename));  
             end
-            if exist(CHilbert.filenameH(filename),'file')                
-                load(CHilbert.filenameH(filename),'HFreq','Hf','yrange');
+            if exist(CHilbert.filenameH(filename),'file')  
+                filenameH = CHilbert.filenameH(filename);
+                load(filenameH,'HFreq','Hf','yrange');
                 obj.HFreq = HFreq;        %#ok<CPROPLC>
                 obj.Hf = Hf;               %#ok<CPROPLC>                 
                 obj.yrange = yrange;
-                vars = whos('-file',filename);
+                vars = whos('-file',filenameH);
                 if ismember('Hfmean', {vars.name}) %7.4.2017
-                    load(filename,'Hfmean');      obj.Hfmean = Hfmean; %#ok<CPROPLC>
+                    load(filenameH,'Hfmean');      obj.Hfmean = Hfmean; %#ok<CPROPLC>
                 else
                     obj.Hfmean = (obj.Hf(1:end-1) + obj.Hf(2:end)) ./ 2;
                 end
                 
                 if ismember('fphase', {vars.name}) %15.5.2018
-                    load(filename,'fphase');      obj.fphase = fphase; %#ok<CPROPLC>
+                    load(filenameH,'fphase');      obj.fphase = fphase; %#ok<CPROPLC>
                 else
                     obj.fphase = [];
                 end
                 if ismember('normalization', {vars.name}) 
-                    load(filename,'normalization');      obj.normalization = normalization; %#ok<CPROPLC>
+                    load(filenameH,'normalization');      obj.normalization = normalization; %#ok<CPROPLC>
                 else
                     obj.normalization = [];
                 end
                 if loadall 
                     if ismember('HFreqEpochs', {vars.name}) %7.4.2017
-                        load(filename,'HFreqEpochs');      obj.HFreqEpochs = HFreqEpochs; %#ok<CPROPLC>
+                        load(filenameH,'HFreqEpochs');      obj.HFreqEpochs = HFreqEpochs; %#ok<CPROPLC>
                     else
                         obj.HFreqEpochs = [];
                     end
                     if ismember('fphaseEpochs', {vars.name}) %15.5.2018
-                        load(filename,'fphaseEpochs');      obj.fphaseEpochs = fphaseEpochs; %#ok<CPROPLC>
+                        load(filenameH,'fphaseEpochs');      obj.fphaseEpochs = fphaseEpochs; %#ok<CPROPLC>
                     else
                         obj.fphaseEpochs = [];
                     end
                     if ismember('frealEpochs', {vars.name}) %15.5.2018
-                        load(filename,'frealEpochs');      obj.frealEpochs = frealEpochs; %#ok<CPROPLC>
+                        load(filenameH,'frealEpochs');      obj.frealEpochs = frealEpochs; %#ok<CPROPLC>
                     else
                         obj.frealEpochs = [];
                     end
