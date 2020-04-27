@@ -439,7 +439,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     end
                 elseif isempty(ch) %empty array with no channel number
                     tag = cell(0,0); %return empty cell array
-                elseif isnumeric(ch) && ch > 0 && ch<numel(obj.H.channels) %ich channel num is valid
+                elseif isnumeric(ch) && ch > 0 && ch<=numel(obj.H.channels) %ich channel num is valid
                     str = split(obj.H.channels(ch).name);
                     tag = str{1}; %pokud se jedna o CHilbertMulti a zadam cislo kanalu, vracim cislo pacienta z tohoto kanalu
                 else
@@ -644,7 +644,11 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             % Pozor - funguje na zaklade obj.plotCh2D.selCh, ktere se vytvari pri volani ChannelPlot2D, takze to se musi spusti nejdriv a i po zmene vyberu kanalu
             % 15.1.2020 - can use more filters, the function uses AND between them = intersect
             % 29.02.2020 - can use filters of different labels simultaneously  (e.g. 'label' and 'class')
-            
+            if ~exist('label','var'), label = []; end 
+            if ~exist('notchnlabels','var') || (iscell(notchnlabels) && isempty(notchnlabels))
+                notchnlabels = []; %empty cell array causes error in struct command obj.plotCh2D.filterargs
+            end
+                
             filtered = false; 
             chshow = 1:numel(obj.H.channels); %show all channels by default
             chshowstr = {}; %label of the filter
@@ -654,7 +658,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 names = cell(1,3); % their names 
                 nMainLabels = 0;  % count how many main labels are present (0,1,2 or 3)
                 for iChL=1:numel(chlabels) % to find a position of each main label if exists in chlabels
-                    if strcmp(chlabels{iChL},'label') || strcmp(chlabels{iChL},'lobe') || strcmp(chlabels{iChL},'class')
+                    if strcmp(chlabels{iChL},'label') || strcmp(chlabels{iChL},'lobe') || strcmp(chlabels{iChL},'class') || strcmp(chlabels{iChL},'cluster')
                         nMainLabels=nMainLabels+1;
                         positions{nMainLabels}=iChL;
                         names{nMainLabels}=chlabels{iChL};                       
@@ -673,10 +677,21 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     
                     for iML=1:nMainLabels
                         if strcmp(names{iML},'label') || strcmp(names{iML},'lobe') || strcmp(names{iML},'class')
-                            L = {obj.brainlabels(:).(names{iML})}';
-                            chlabelsL{iML} = chlabels((positions{iML}+1):(positions{iML+1}-1));
-                            showstr{iML} = names{iML};
-                            iL(:,iML) = contains(lower(L),lower(chlabelsL{iML}));                        
+                            L = {obj.brainlabels(:).(names{iML})}'; %current brainlabel (label, lobe or class), the whole column
+                            chlabelsL{iML} = chlabels((positions{iML}+1):(positions{iML+1}-1)); %labels I am searching for 
+                            showstr{iML} = names{iML}; %name of the column in obj.brainlabels
+                            iL(:,iML) = contains(lower(L),lower(chlabelsL{iML}));
+                        elseif strcmp(names{iML},'cluster') 
+                            showstr{iML}='cluster'; 
+                            clusternames = chlabels((positions{iML}+1):(positions{iML+1}-1)); % names of clusters to search                            
+                            channelNumbers = []; %absolute channels numbers of channels in all clusters
+                            for cn = 1:numel(clusternames)
+                                [iClSet,iCl]=obj.GetCluster([],clusternames{cn});
+                                ChCl = obj.clusters(iClSet).idx == iCl; %index of channels in this cluster (from the current cluster set)
+                                channelNumbers = union(channelNumbers,obj.clusters(iClSet).channels(ChCl)); %absolute channel numbers
+                            end
+                            iL(channelNumbers,iML) = true;
+                            chlabelsL{iML} = clusternames;
                         end
                     end
                     iL = all(iL,2);  % reduce list of channels (sum of all brain labels)
@@ -728,12 +743,14 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             if exist('chnum','var') && ~isempty(chnum)
                 if size(chnum,1) > size(chnum,2), chnum = chnum'; end %chci mit cisla kanalu v radku
                 chshow = intersect(chnshow,chnum); %priradim primo cisla kanalu                
-                if exist('label','var') && ~isempty(label)
-                    chshowstr = horzcat(chshowstr,{labels});
+                if  ~isempty(label)
+                    chshowstr = horzcat(chshowstr,{labels});                    
                 else
-                    chshowstr = horzcat(chshowstr,{'chnum'});
+                    chshowstr = horzcat(chshowstr,{'chnum'});                    
                 end
                 filtered = true;
+            else
+                chnum = [];                
             end
             if filtered
                 obj.plotCh2D.chshow = chshow;
@@ -856,7 +873,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             if ~exist('includeEpiCh','var') || isempty(includeEpiCh) , includeEpiCh = 1; end % include epileptict channels by default
             if ~exist('computehull','var') || isempty(computehull) , computehull = 0; end
             labels = lower({obj.brainlabels.label}); %cell array of brainlabels
-            ulabels = unique(labels); 
+            ulabels = [unique(labels) 'all']; %cellarray 1 x n, the last for all channels regardless of brainlabels
             noMarks = sum(~cellfun(@isempty,obj.plotCh2D.selChNames)); %number of used marks fghjkl            
             hulldata = cell(numel(ulabels),5);
             selChNamesPac = cell(1,noMarks); %counts of patients
@@ -874,7 +891,11 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 ];
             output = cell(numel(ulabels),size(varnames,2)); %columns label,noChannels, noPacients,noRejected, noChInMarks fghjkl 1-6, noPacInMarks
             for j = 1:numel(ulabels) %cycle over all brainlabels
-               chIndex = find(contains(labels,ulabels{j})); %channels with this brain label
+               if j < numel(ulabels)
+                  chIndex = find(contains(labels,ulabels{j})); %channels with this brain label
+               else
+                  chIndex = 1:numel(obj.brainlabels); %all channels for the last cycle, according to brainlabels
+               end
                if ~includeRjCh, chIndex = setdiff(chIndex,obj.RjCh);  end %channels without the rejected channels
                if ~includeEpiCh, chIndex = setdiff(chIndex,epiChs);  end %channels without the epileptic channels
                %channels counts
@@ -882,7 +903,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                epiCount = numel(intersect(chIndex,epiChs)); %number of epileptic channels for this label
                marksCount =  sum(obj.plotCh2D.selCh(chIndex,1:noMarks),1); %count of channel marking fghjkl    
                %pacient counts
-               pTags = obj.PacientTag(chIndex); %pacient name for each channel for this label               
+               pTags = obj.PacientTag(chIndex); %pacient name for each channel for this label, not unique, channels x 1               
                marksPacientCount = zeros(1,noMarks);               
                for m=1:noMarks
                    marksPacientCount(m) = numel(unique(pTags(logical(obj.plotCh2D.selCh(chIndex,m))))); %no of patients for this mark                  
@@ -988,12 +1009,16 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             obj.clusters(iCluster).channels=obj.channelPlot.plotCh3D.chnsel;            
             fprintf('%d clusters created for %d channels\n',nClusters,numel(obj.channelPlot.plotCh3D.chnsel));
         end
-        function [iCluster]=GetCluster(obj,popis)  
-              %GetCluster - returns the index of channel cluster corresponding to popis              
+        function [iCluster,iName]=GetCluster(obj,popis, name)  
+              %GetCluster - returns the index of channel cluster set corresponding to popis 
+              %if name is given, returns both iCluster and iName (index of cluster in clusterset according to its name)
+              %currently popis OR name can be searched
+              if ~exist('name','var'), name = []; end %empty name, does not use it for search
               iCluster = false;
+              iName = false;
               if ~isempty(obj.clusters)
-                  for j = 1:numel(obj.clusters)
-                      if ~iCluster %if we still did not find the cluster
+                  for j = 1:numel(obj.clusters) %cycle over cluster sets
+                      if ~iCluster && ~isempty(popis) %if we still did not find the cluster and we have the popis                     
                           if isequal(obj.clusters(j).popis,popis)
                               iCluster = j;
                               break;
@@ -1003,7 +1028,16 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                                 iCluster = j;
                                 break;
                               end
-                          end
+                          end                          
+                      end
+                      if ~iName && ~isempty(name) %if we still did not find the name and search for it 
+                          for cn = 1:numel(obj.clusters(j).names)
+                              if strcmp(obj.clusters(j).names{cn},name) 
+                                  iName = cn;   
+                                  if ~iCluster, iCluster = j; end
+                                  break;
+                              end
+                          end                          
                       end
                   end
               end

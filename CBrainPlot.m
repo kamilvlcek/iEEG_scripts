@@ -258,6 +258,20 @@ classdef CBrainPlot < matlab.mixin.Copyable
             else
                 obj.plotBrain3Dcfg.Names = 1; %defaultne se delaji obrazky s popisem elektrod            
             end            
+           %barevna skala od Nadi
+            obj.plotBrain3Dcfg.customColors.customColor = true; % custom colormap oddeli negativne a pozitivne hodnoty - 29.6.2018
+            obj.plotBrain3Dcfg.customColors.flip = 0; %pokud chci prehodit barvy
+            obj.plotBrain3Dcfg.customColors.darkneg = [0 153 0]; %dark green
+            obj.plotBrain3Dcfg.customColors.lightneg = [212 255 171]; %light green
+            
+            %obj.plotBrain3Dcfg.customColors.lightpos = [246 203 203]; %light red
+            %obj.plotBrain3Dcfg.customColors.darkpos = [162 2 2]; %dark red
+            
+            obj.plotBrain3Dcfg.customColors.darkpos = [0 0 153]; %dark blue
+            obj.plotBrain3Dcfg.customColors.lightpos = [0 153 255]; %light red
+            obj.plotBrain3Dcfg.customColors.zeroclr = [0 0 0]; %the color of zero values 
+            
+            obj.plotBrain3Dcfg.customColors.supermaxcolor = [192 192 192]; %the color of custom value
             
         end
         function PlotBrain3D(obj,kategorie)
@@ -282,14 +296,8 @@ classdef CBrainPlot < matlab.mixin.Copyable
             plotSetup.figureVisible = 'off';   %nechci zobrazovat obrazek 
             plotSetup.FontSize = 4; 
             plotSetup.myColorMap = iff(signum ~= 0,parula(128) ,jet(128));  %#ok<PROPLC>  %pokud jednostrane rozdily, chci parula
-            %barevna skala od Nadi
-            plotSetup.customColors.customColor = true; % custom colormap oddeli negativne a pozitivne hodnoty - 29.6.2018
-            plotSetup.customColors.flip = 0; %pokud chci prehodit barvy
-            plotSetup.customColors.darkneg = [50 145 0]; %tmave zelena
-            plotSetup.customColors.lightneg = [212 255 171];
-            plotSetup.customColors.lightpos = [246 203 203];
-            plotSetup.customColors.darkpos = [162 2 2]; %tmave cervena
-            plotSetup.customColors.zeroclr = [0 0 0]; %the color of zero values
+            
+            plotSetup.customColors = obj.plotBrain3Dcfg.customColors; %barevna skala od Nadi        
             plotSetup.figureNamePrefix = [ obj.testname '_' num2str(obj.Hf([1 end]),'%i-%iHz') '_' obj.reference '_names']; %default name
             if strcmp(plotSetup.figureVisible,'off')
                 disp('figures invisible');
@@ -322,13 +330,28 @@ classdef CBrainPlot < matlab.mixin.Copyable
                         iVALS = 1;
                         katikat = cellval(kategorie,ikat); %index of internal category - plotted to the same figure
                         for ikat2=1:numel(katikat) %cycle over categories plotted to the same jpg
-                            kat = katikat(ikat2);                            
+                            kat = cellval(katikat,ikat2);                              
+                            ValsNegative = false;                            
+                            plotSetup.customColors.SuperMax = false; 
+                            if isstring(kat) || ischar(kat) %if kat is string it should be plotted with all same values in a specific color : customColors.supermaxcolor
+                                kat = str2double(kat); % the string kat has to be the last one in kategorie
+                                katikat{ikat2} = kat;
+                                plotSetup.customColors.SuperMax = true; %transfer info to use the supermax value to main_brainPlot
+                            elseif kat < 0
+                                kat = abs(kat);
+                                if iscell(katikat) %for supermax kat, the kats numbers hav to be in cellarray
+                                    katikat{ikat2} = kat;
+                                else
+                                    katikat(ikat2) = kat;
+                                end
+                                ValsNegative = true;                            
+                            end
                             iV = iV_All{interval,ikat}{ikat2}; 
                             if ikat2==1 %this will be set from the first category
-                                katname = obj.katstr{kat};
+                                katname = obj.katstr{kat};                                
                                 plotSetup.circle_size = iff(strcmp(katname,'all') || strcmp(katname,'AllEl'),28,56); %mensi kulicka pokud vsechny elektrody                
                                 if numel(katikat)>1
-                                    katname = cell2str(obj.katstr(katikat),1);
+                                    katname = cell2str(obj.katstr(abs(cell2double(katikat))),1); %kats can be negative, and could be also string in cell array if SuperMax is used
                                 end
                                 brainlabel = obj.GetBrainLabel(); %pokud v label na druhe pozici je nazev mozkove oblasti 
                                 figureNameNames = [ obj.testname brainlabel '_' num2str(obj.intervals(interval,:),'%.1f-%.1fs')  '_' katname '_' num2str(signum) ... %#ok<PROPLC>
@@ -342,6 +365,12 @@ classdef CBrainPlot < matlab.mixin.Copyable
                                 if signum ~= 0 %#ok<PROPLC>
                                     vals_channels = vals_channels*signum; %#ok<PROPLC> %u zapornych hodnot prehodim znamenko
                                 end
+                                if ValsNegative % this category should be plotted as negative;
+                                    vals_channels = vals_channels*-1; 
+                                elseif plotSetup.customColors.SuperMax
+                                    vals_channels = ones(size(vals_channels))*max(max(vals_channels),max(VALS_channels))*1.01; %1 percent larger value, % the string kat has to be the last one in kategorie
+                                    plotSetup.colorScale = [min(VALS_channels) max(VALS_channels)]; %range of values without this supermax value
+                                end 
                                 mni_channels = obj.MNI{interval,kat}(iV);                                                                                                 
                                 names_channels = iff(obj.plotBrain3Dcfg.NLabels, obj.NLabels{interval,kat}(iV), obj.NAMES{interval,kat}(iV));                        
 
@@ -365,6 +394,9 @@ classdef CBrainPlot < matlab.mixin.Copyable
                         
                         %2. plot the JPGs
                             %without channel description
+                            if isempty(plotSetup.colorScale) %force range of values to main_brainPlot
+                                plotSetup.colorScale = [min(VALS_channels) max(VALS_channels)];
+                            end
                             if obj.plotBrain3Dcfg.NoNames 
                                 if  isempty(dir([ plotSetup.outputDir '3D_model\' figureNameNoNames '*'])) || obj.plotBrain3Dcfg.overwrite==1 
                                     plotSetup.figureNamePrefix = figureNameNoNames;
@@ -684,7 +716,9 @@ classdef CBrainPlot < matlab.mixin.Copyable
                     katikat = cellval(kategorie,ikat);
                     iV = cell(numel(katikat),1); %logical index of channels to be plotted in this internal category
                     for ikat2=1:numel(katikat) %INTERNAL CATEGORY: we can have multiple categories in one picture. In this order                                                          
-                        kat = katikat(ikat2);
+                        kat = cellval(katikat,ikat2);
+                        if isstring(kat) || ischar(kat), kat = str2double(kat); end %because SuperMax values, which are as chars
+                        kat = abs(kat); %kategory number can be negative
                         if signum > 0 
                             iV{ikat2} = obj.VALS{interval,kat} > 0; %jen kladne rozdily
                         elseif signum <0 

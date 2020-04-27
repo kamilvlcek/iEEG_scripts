@@ -114,7 +114,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
             end %(nargin ~= 0)
             %tyhle objekty potrebuju inicializovat i pokud je objekt prazdny - CHilbertMulti
-            obj.PL = CPlots(); %prazdny objekt na grafy
+            obj.PL = CPlots(obj); %prazdny objekt na grafy
             if ~isprop(obj,'CS') || ~isa(obj.CS,'CStat') , obj.CS = CStat(); end %prazdy objekt na statistiku, ale mozna uz byl nacteny pomoci load             
             obj.OR=CRefOrigVals(obj); %try to load OrigRegVals if exist
         end      
@@ -152,17 +152,24 @@ classdef CiEEGData < matlab.mixin.Copyable
         function obj = RejectChannels(obj,RjCh,noprint,add)
             %ulozi cisla vyrazenych kanalu - kvuli pocitani bipolarni reference 
             %variable add causes to add the new rejected channels instead of replace
-            if iscolumn(RjCh), RjCh = RjCh'; end %we need a row of channels
-            if exist('add','var') && add==1
-                obj.RjCh = union(obj.RjCh,RjCh);
-                msg = 'additional ';
+            if isa(RjCh,'CiEEGData')                
+                E = RjCh;
+                assert(obj.channels==E.channels,'number of channels in different in the object');
+                obj.RjCh = E.RjCh;
+                msg = 'from object ';
             else
-                msg = '';
-            end
-            obj.RjCh = RjCh;
+                if iscolumn(RjCh), RjCh = RjCh'; end %we need a row of channels
+                if exist('add','var') && add==1
+                    obj.RjCh = union(obj.RjCh,RjCh);
+                    msg = 'additional ';
+                else
+                    msg = '';
+                end
+                obj.RjCh = RjCh;
+            end           
             obj.CH.RejectChannels(obj.RjCh); %ulozim to i do headeru
             if ~exist('noprint','var') || isempty(noprint)                
-                disp(['rejected ' msg num2str(numel(RjCh)) ' channels']); 
+                disp(['rejected ' msg num2str(numel(obj.RjCh)) ' channels']); 
             end
         end
         function obj = RejectEpochs(obj,RjEpoch,RjEpochCh)
@@ -230,6 +237,15 @@ classdef CiEEGData < matlab.mixin.Copyable
             if isempty(selCh)
                 obj.plotRCh.selCh = zeros(obj.channels,6);
                 obj.plotRCh.selChNames = cell(1,6); %potrebuju mit jmena alespon prazdna
+            elseif isa(selCh,'CiEEGData') %the first argument is CiEEGData object
+                E = selCh; %just rename it
+                assert(obj.channels==E.channels,'number of channels in different in the object');
+                obj.plotRCh.selCh = E.plotRCh.selCh; %copy all fields from that object
+                obj.plotRCh.selChNames = E.plotRCh.selChNames;
+                obj.plotRCh.selChSignum = E.plotRCh.selChSignum;
+                obj.plotRCh.selChN = E.plotRCh.selChN;
+                obj.plotRCh.selChSave = E.plotRCh.selChSave; 
+                disp('all SelCh field copied from CiEEGData object');
             elseif selCh(end) >=999 %kdy zadam 999 nebo vyssi cislo, tak se vyberou vsechny kanaly
                 obj.plotRCh.selCh = zeros(obj.channels,6);
                 obj.plotRCh.selChNames = cell(1,6);
@@ -243,7 +259,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             else
                 obj.plotRCh.selCh = selCh; %cele pole najednou
             end
-            obj.CH.SetSelCh(obj.plotRCh.selCh);  %transfers channel marking to CHHeader class
+            obj.CH.SetSelCh(obj.plotRCh.selCh,obj.plotRCh.selChNames);   %transfers channel marking to CHHeader class
         end
         function obj = SetSelChName(obj,selChNames,markno)
             %SETSELCHNAME - sets selChNames for one mark (if marno is 1-6) or for more marks 1-numel(selChNames)
