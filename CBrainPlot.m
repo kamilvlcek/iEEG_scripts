@@ -258,6 +258,21 @@ classdef CBrainPlot < matlab.mixin.Copyable
             else
                 obj.plotBrain3Dcfg.Names = 1; %defaultne se delaji obrazky s popisem elektrod            
             end            
+           %barevna skala od Nadi
+            obj.plotBrain3Dcfg.customColors.customColor = true; % custom colormap oddeli negativne a pozitivne hodnoty - 29.6.2018
+            obj.plotBrain3Dcfg.customColors.flip = 0; %pokud chci prehodit barvy
+            obj.plotBrain3Dcfg.customColors.darkneg = [0 153 0]; %dark green
+            obj.plotBrain3Dcfg.customColors.lightneg = [212 255 171]; %light green
+            
+            %obj.plotBrain3Dcfg.customColors.lightpos = [246 203 203]; %light red
+            %obj.plotBrain3Dcfg.customColors.darkpos = [162 2 2]; %dark red
+            
+            obj.plotBrain3Dcfg.customColors.darkpos = [0 0 153]; %dark blue
+            obj.plotBrain3Dcfg.customColors.lightpos = [0 153 255]; %light red
+            obj.plotBrain3Dcfg.customColors.zeroclr = [0 0 0]; %the color of zero values 
+            
+            obj.plotBrain3Dcfg.customColors.supermaxcolor = [192 192 192]; %the color of custom value
+            
         end
         function PlotBrain3D(obj,kategorie)
             %vykresli jpg obrazky jednotlivych kategorii a kontrastu mezi nimi            
@@ -281,13 +296,8 @@ classdef CBrainPlot < matlab.mixin.Copyable
             plotSetup.figureVisible = 'off';   %nechci zobrazovat obrazek 
             plotSetup.FontSize = 4; 
             plotSetup.myColorMap = iff(signum ~= 0,parula(128) ,jet(128));  %#ok<PROPLC>  %pokud jednostrane rozdily, chci parula
-            %barevna skala od Nadi
-            plotSetup.customColors.customColor = true; % custom colormap oddeli negativne a pozitivne hodnoty - 29.6.2018
-            plotSetup.customColors.flip = 0; %pokud chci prehodit barvy
-            plotSetup.customColors.darkneg = [50 145 0]; %tmave zelena
-            plotSetup.customColors.lightneg = [212 255 171];
-            plotSetup.customColors.lightpos = [246 203 203];
-            plotSetup.customColors.darkpos = [162 2 2]; %tmave cervena
+            
+            plotSetup.customColors = obj.plotBrain3Dcfg.customColors; %barevna skala od Nadi        
             plotSetup.figureNamePrefix = [ obj.testname '_' num2str(obj.Hf([1 end]),'%i-%iHz') '_' obj.reference '_names']; %default name
             if strcmp(plotSetup.figureVisible,'off')
                 disp('figures invisible');
@@ -298,7 +308,8 @@ classdef CBrainPlot < matlab.mixin.Copyable
             if ~obj.plotBrain3Dcfg.Names 
                disp('obrazky Names negeneruju');
             end
-            tablelog = cell(obj.pocetcykluPlot3D(kategorie,signum)+2,7);%#ok<PROPLC> % z toho bude vystupni xls tabulka s prehledem vysledku
+            [tablerows,VALS_rows,iV_All] = obj.pocetcykluPlot3D(kategorie,signum); %#ok<PROPLC>
+            tablelog = cell(tablerows+2,7);% z toho bude vystupni xls tabulka s prehledem vysledku
             tablelog(1,:) = {datestr(now),obj.filename,'','','','',''}; %hlavicky xls tabulky
             tablelog(2,:) = {'interval','kategorie','chname','neurologyLabel','mni','val','selected'}; %hlavicky xls tabulky
             [ChMap,ChNames] = obj.ChannelMap();
@@ -306,74 +317,115 @@ classdef CBrainPlot < matlab.mixin.Copyable
             iTL = 2; %index v tablelog
             tic; %zadnu merit cas            
             for interval = 1:size(obj.VALS,1) 
-                for kat = kategorie
-                    if signum > 0 %#ok<PROPLC>
-                        iV = obj.VALS{interval,kat} > 0; %jen kladne rozdily
-                    elseif signum <0 %#ok<PROPLC>
-                        iV = obj.VALS{interval,kat} < 0; %jen zaporne rozdily
-                    elseif ~isempty(obj.selCh{interval,kat})
-                        iV = ismember(1:numel(obj.VALS{interval,kat}),find(any(obj.selCh{interval,kat},2))); %vyber kanalu k zobrazeni, napriklad z CHilbertMulti
-                    else
-                        iV = true(size(obj.VALS{interval,kat})); %vsechny rozdily
-                    end                    
-%                
-                    katname = obj.katstr{kat};
-                    plotSetup.circle_size = iff(strcmp(katname,'all') || strcmp(katname,'AllEl'),28,56); %mensi kulicka pokud vsechny elektrody                
-                    
-                    brainlabel = obj.GetBrainLabel(); %pokud v label na druhe pozici je nazev mozkove oblasti 
-                    figureNameNames = [ obj.testname brainlabel '_' num2str(obj.intervals(interval,:),'%.1f-%.1fs')  '_' katname '_' num2str(signum) ... %#ok<PROPLC>
-                            '_' num2str(obj.Hf([1 end]),'%i-%iHz') '_' obj.reference '_names'];
-                    figureNameNoNames = [ obj.testname brainlabel '_' num2str(obj.intervals(interval,:),'%.1f-%.1fs')  '_' katname '_' num2str(signum) ... %#ok<PROPLC>
-                            '_' num2str(obj.Hf([1 end]),'%i-%iHz') '_' obj.reference '_NOnames'];
-                    if numel(obj.VALS{interval,kat}(iV)) > 0
+                for ikat = 1:numel(kategorie) %cycle over categories plotted to different jpgs
+                    VSum = VALS_rows(interval,ikat);
+                    if VSum >0 %if anny channels to plot across all categories
                         
-                        vals_channels = obj.VALS{interval,kat}(iV); %parametr  main_brainPlot
-                        if signum ~= 0 %#ok<PROPLC>
-                            vals_channels = vals_channels*signum; %#ok<PROPLC> %u zapornych hodnot prehodim znamenko
-                        end
-                        mni_channels = obj.MNI{interval,kat}(iV);                                                                                                 
-                        names_channels = iff(obj.plotBrain3Dcfg.NLabels, obj.NLabels{interval,kat}(iV), obj.NAMES{interval,kat}(iV));                        
+                        %1. fill the data for one JPG pictures
+                        VALS_channels = zeros(VSum,1);
+                        MNI_channels = struct('MNI_x',{},'MNI_y',{},'MNI_z',{});
+                        MNI_channels(VSum,1).MNI_x = 0; %inicializa the whole struct
                         
-                        if ~strcmp(obj.katstr{kat},'AllEl') %nechci to pro kategorii vsech elektrod
-                            for iVal = 1:numel(vals_channels)
-                                tablelog(iVal + iTL,:) = { sprintf('[%.1f %.1f]',obj.intervals(interval,:)),obj.katstr{kat}, obj.NAMES{interval,kat}{iVal}, obj.NLabels{interval,kat}{iVal}, ...
-                                    sprintf('[%.1f,%.1f,%.1f]',mni_channels(iVal).MNI_x, mni_channels(iVal).MNI_y, mni_channels(iVal).MNI_z), vals_channels(iVal),int8(iV(iVal))};
-                                iChNames = contains(ChNames(:,1),obj.NAMES{interval,kat}{iVal});
-                                ChMap(iChNames,kat,interval) = vals_channels(iVal);
+                        NAMES_channels = cell(VSum,1);
+                        iVALS = 1;
+                        katikat = cellval(kategorie,ikat); %index of internal category - plotted to the same figure
+                        for ikat2=1:numel(katikat) %cycle over categories plotted to the same jpg
+                            kat = cellval(katikat,ikat2);                              
+                            ValsNegative = false;                            
+                            plotSetup.customColors.SuperMax = false; 
+                            if isstring(kat) || ischar(kat) %if kat is string it should be plotted with all same values in a specific color : customColors.supermaxcolor
+                                kat = str2double(kat); % the string kat has to be the last one in kategorie
+                                katikat{ikat2} = kat;
+                                plotSetup.customColors.SuperMax = true; %transfer info to use the supermax value to main_brainPlot
+                            elseif kat < 0
+                                kat = abs(kat);
+                                if iscell(katikat) %for supermax kat, the kats numbers hav to be in cellarray
+                                    katikat{ikat2} = kat;
+                                else
+                                    katikat(ikat2) = kat;
+                                end
+                                ValsNegative = true;                            
                             end
-                            
-                            iTL = iTL + numel(vals_channels);
+                            iV = iV_All{interval,ikat}{ikat2}; 
+                            if ikat2==1 %this will be set from the first category
+                                katname = obj.katstr{kat};                                
+                                plotSetup.circle_size = iff(strcmp(katname,'all') || strcmp(katname,'AllEl'),28,56); %mensi kulicka pokud vsechny elektrody                
+                                if numel(katikat)>1
+                                    katname = cell2str(obj.katstr(abs(cell2double(katikat))),1); %kats can be negative, and could be also string in cell array if SuperMax is used
+                                end
+                                brainlabel = obj.GetBrainLabel(); %pokud v label na druhe pozici je nazev mozkove oblasti 
+                                figureNameNames = [ obj.testname brainlabel '_' num2str(obj.intervals(interval,:),'%.1f-%.1fs')  '_' katname '_' num2str(signum) ... %#ok<PROPLC>
+                                        '_' num2str(obj.Hf([1 end]),'%i-%iHz') '_' obj.reference '_names'];
+                                figureNameNoNames = [ obj.testname brainlabel '_' num2str(obj.intervals(interval,:),'%.1f-%.1fs')  '_' katname '_' num2str(signum) ... %#ok<PROPLC>
+                                        '_' num2str(obj.Hf([1 end]),'%i-%iHz') '_' obj.reference '_NOnames'];
+                            end
+                            if numel(obj.VALS{interval,kat}(iV)) > 0
+
+                                vals_channels = obj.VALS{interval,kat}(iV); %parametr  main_brainPlot
+                                if signum ~= 0 %#ok<PROPLC>
+                                    vals_channels = vals_channels*signum; %#ok<PROPLC> %u zapornych hodnot prehodim znamenko
+                                end
+                                if ValsNegative % this category should be plotted as negative;
+                                    vals_channels = vals_channels*-1; 
+                                elseif plotSetup.customColors.SuperMax
+                                    vals_channels = ones(size(vals_channels))*max(max(vals_channels),max(VALS_channels))*1.01; %1 percent larger value, % the string kat has to be the last one in kategorie
+                                    plotSetup.colorScale = [min(VALS_channels) max(VALS_channels)]; %range of values without this supermax value
+                                end 
+                                mni_channels = obj.MNI{interval,kat}(iV);                                                                                                 
+                                names_channels = iff(obj.plotBrain3Dcfg.NLabels, obj.NLabels{interval,kat}(iV), obj.NAMES{interval,kat}(iV));                        
+
+                                if ~strcmp(obj.katstr{kat},'AllEl') %do not export all-channels category to xls
+                                    for iVal = 1:numel(vals_channels)
+                                        tablelog(iVal + iTL,:) = { sprintf('[%.1f %.1f]',obj.intervals(interval,:)),obj.katstr{kat}, obj.NAMES{interval,kat}{iVal}, obj.NLabels{interval,kat}{iVal}, ...
+                                            sprintf('[%.1f,%.1f,%.1f]',mni_channels(iVal).MNI_x, mni_channels(iVal).MNI_y, mni_channels(iVal).MNI_z), vals_channels(iVal),int8(iV(iVal))};
+                                        iChNames = contains(ChNames(:,1),obj.NAMES{interval,kat}{iVal});
+                                        ChMap(iChNames,kat,interval) = vals_channels(iVal);
+                                    end
+                                    iTL = iTL + numel(vals_channels);
+                                end
+                                VALS_channels(iVALS:iVALS+sum(iV)-1,1) = vals_channels;
+                                [MNI_channels(iVALS:iVALS+sum(iV)-1,1).MNI_x] = mni_channels(:).MNI_x;
+                                [MNI_channels(iVALS:iVALS+sum(iV)-1,1).MNI_y] = mni_channels(:).MNI_y;
+                                [MNI_channels(iVALS:iVALS+sum(iV)-1,1).MNI_z] = mni_channels(:).MNI_z;
+                                NAMES_channels(iVALS:iVALS+sum(iV)-1) = names_channels;
+                                iVALS = iVALS + sum(iV);                                                              
+                            end
                         end
                         
-                        %nejdriv vykreslim bez popisku elektrod
-                        if obj.plotBrain3Dcfg.NoNames 
-                            if  isempty(dir([ plotSetup.outputDir '3D_model\' figureNameNoNames '*'])) || obj.plotBrain3Dcfg.overwrite==1 
-                                plotSetup.figureNamePrefix = figureNameNoNames;
-                                disp(plotSetup.figureNamePrefix);                            
-                                brainsurface = main_brainPlot(vals_channels,mni_channels,[],brainsurface,plotSetup);  %#ok<PROPLC>
-                                %volam Jirkuv skript, vsechny ty promenne predtim jsou do nej
-                                if isempty(obj.brainsurface)
-                                    obj.brainsurface = brainsurface; %#ok<PROPLC> %ulozim si ho pro dalsi volani
-                                end
-                            else
-                                disp(['soubor uz existuje ' figureNameNoNames ' - neprepisuju ']);
-                            end                       
-                        end
-                        %a pak jeste s popisy elektrod  
-                        if obj.plotBrain3Dcfg.Names                                                  
-                            if isempty(dir([ plotSetup.outputDir '3D_model\' figureNameNames '*'])) || obj.plotBrain3Dcfg.overwrite==1 
-                                plotSetup.figureNamePrefix = figureNameNames;
-                                disp(plotSetup.figureNamePrefix);                                                     
-                                brainsurface = main_brainPlot(vals_channels,mni_channels,names_channels,brainsurface,plotSetup);    %#ok<PROPLC>  
-                                if isempty(obj.brainsurface)
-                                    obj.brainsurface = brainsurface; %#ok<PROPLC> %ulozim si ho pro dalsi volani
-                                end
-                            else
-                                disp(['soubor uz existuje ' figureNameNames ' - neprepisuju ']);
-                            end                        
-                        end
+                        %2. plot the JPGs
+                            %without channel description
+                            if isempty(plotSetup.colorScale) %force range of values to main_brainPlot
+                                plotSetup.colorScale = [min(VALS_channels) max(VALS_channels)];
+                            end
+                            if obj.plotBrain3Dcfg.NoNames 
+                                if  isempty(dir([ plotSetup.outputDir '3D_model\' figureNameNoNames '*'])) || obj.plotBrain3Dcfg.overwrite==1 
+                                    plotSetup.figureNamePrefix = figureNameNoNames;
+                                    disp(plotSetup.figureNamePrefix);                            
+                                    brainsurface = main_brainPlot(VALS_channels,MNI_channels,[],brainsurface,plotSetup);  %#ok<PROPLC>
+                                    %volam Jirkuv skript, vsechny ty promenne predtim jsou do nej
+                                    if isempty(obj.brainsurface)
+                                        obj.brainsurface = brainsurface; %#ok<PROPLC> %ulozim si ho pro dalsi volani
+                                    end
+                                else
+                                    disp(['the file already exists ' figureNameNoNames ' - not ovetwriting ']);
+                                end                       
+                            end
+                            %with channel names
+                            if obj.plotBrain3Dcfg.Names                                                  
+                                if isempty(dir([ plotSetup.outputDir '3D_model\' figureNameNames '*'])) || obj.plotBrain3Dcfg.overwrite==1 
+                                    plotSetup.figureNamePrefix = figureNameNames;
+                                    disp(plotSetup.figureNamePrefix);                                                     
+                                    brainsurface = main_brainPlot(VALS_channels,MNI_channels,NAMES_channels,brainsurface,plotSetup);    %#ok<PROPLC>  
+                                    if isempty(obj.brainsurface)
+                                        obj.brainsurface = brainsurface; %#ok<PROPLC> %ulozim si ho pro dalsi volani
+                                    end
+                                else
+                                    disp(['the file already exists ' figureNameNames ' - not ovetwriting ']);
+                                end                        
+                            end
+                        
                     else  
-                        disp(['zadne hodnoty pro ' plotSetup.figureNamePrefix ' - neukladam ']);                                         
+                            disp(['no values for ' plotSetup.figureNamePrefix ' - not saving jpg ']);  
                     end
                     hotovoProc = floor(((interval-1)*(numel(kategorie)) + kat) / numel(obj.VALS) * 100) ;                    
                     disp(['hotovo '  num2str(hotovoProc) '% za ' num2str(floor(toc/6)/10) ' minut']);
@@ -652,21 +704,36 @@ classdef CBrainPlot < matlab.mixin.Copyable
         end        
     end
     methods (Access=private)
-        function n = pocetcykluPlot3D(obj,kategorie,signum)
+        function [tablerows,VALS_rows,iV_All] = pocetcykluPlot3D(obj,kategorie,signum)
+            %counts how many channels to plot for each category and interval
+            %also creates logical indexing of channels for each category and interval
             %spocita kolik kanalu celkem vykresli PlotBrain3D pro tyto parametry
-            n = 0; 
-            for interval = 1:size(obj.VALS,1)  
-                for kat = kategorie
-                    if ~strcmp(obj.katstr{kat},'AllEl') %nechci to pro kategorii vsech elektrod
+            tablerows = 0; %number of rows in the output xls table
+            VALS_rows = zeros(size(obj.VALS,1),numel(kategorie)); %number of channels (rows) to be plotted
+            iV_All = cell(size(obj.VALS,1),numel(kategorie)); %intervals x kategories %to store indexes of channels for each category 
+            for interval = 1:size(obj.VALS,1)  %inervals to be plotted
+                for ikat = 1:numel(kategorie) %kategories to be plotted 
+                    katikat = cellval(kategorie,ikat);
+                    iV = cell(numel(katikat),1); %logical index of channels to be plotted in this internal category
+                    for ikat2=1:numel(katikat) %INTERNAL CATEGORY: we can have multiple categories in one picture. In this order                                                          
+                        kat = cellval(katikat,ikat2);
+                        if isstring(kat) || ischar(kat), kat = str2double(kat); end %because SuperMax values, which are as chars
+                        kat = abs(kat); %kategory number can be negative
                         if signum > 0 
-                            iV = obj.VALS{interval,kat} > 0; %jen kladne rozdily
+                            iV{ikat2} = obj.VALS{interval,kat} > 0; %jen kladne rozdily
                         elseif signum <0 
-                            iV = obj.VALS{interval,kat} < 0; %jen zaporne rozdily
+                            iV{ikat2} = obj.VALS{interval,kat} < 0; %jen zaporne rozdily
+                        elseif ~isempty(obj.selCh{interval,kat})
+                            iV{ikat2} = ismember(1:numel(obj.VALS{interval,kat}),find(any(obj.selCh{interval,kat},2))); %vyber kanalu k zobrazeni, napriklad z CHilbertMulti
                         else
-                            iV = true(size(obj.VALS{interval,kat})); %vsechny rozdily
+                            iV{ikat2} = true(size(obj.VALS{interval,kat})); %vsechny rozdily
                         end
-                        n = n + numel(obj.VALS{interval,kat}(iV));
+                        if ~strcmp(obj.katstr{kat},'AllEl') %nechci to pro kategorii vsech elektrod
+                            tablerows = tablerows +  sum(iV{ikat2});
+                        end
+                        VALS_rows(interval,ikat) = VALS_rows(interval,ikat) + sum(iV{ikat2});
                     end
+                    iV_All{interval,ikat} = iV;
                 end
             end
         end  

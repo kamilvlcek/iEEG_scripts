@@ -3,9 +3,79 @@ classdef CPlots < matlab.mixin.Copyable
     %   Detailed explanation goes here
     
     properties
+        Eh; %handle to CiEEGData object       
+        PlotRChMean; %data for  PlotResponseChMean        
     end
-    
-    methods (Static,Access = public)
+    methods (Access = public)
+        function obj = CPlots(E) %constructor
+            obj.Eh = E; %save handle to main object
+        end 
+        function PlotResponseChMean(obj,kategories,channels)
+            if ~exist('kategories','var') || isempty(kategories)                 
+                WpA = obj.Eh.WpActive; %jen zkratka                
+                if ~isempty(obj.Eh.Wp) && isfield(obj.Eh.Wp(WpA), 'kats')
+                    kategories = obj.Eh.Wp(WpA).kats; %pokud jsou kategorie v parametru, prvni volba je pouzit je ze statistiky
+                else
+                    kategories = obj.Eh.PsyData.Categories();
+                end
+            end
+            if ~exist('channels','var') || isempty(channels) 
+                channels = obj.Eh.CH.plotCh2D.chshow;                
+                figuretitle = [obj.Eh.CH.plotCh2D.chshowstr ' chns: ' num2str(numel(channels))];                
+            else
+                figuretitle = ['channels: ' num2str(numel(channels))];                
+            end
+            
+            obj.PlotRChMean.channels = channels;
+            obj.PlotRChMean.kategories = kategories;
+            
+            chnshow = mat2str(channels(1:(min(20,numel(channels)))));
+            if numel(channels) > 20, chnshow = [chnshow ' ...']; end
+            popis = ['ChShow:  ' obj.Eh.CH.plotCh2D.chshowstr '=' chnshow];
+            
+            hue = 0.8;
+            colorsErrorBars = cellfun(@(a) min(a+hue, 1), obj.Eh.colorskat, 'UniformOutput', false);
+            katlinewidth = 2;
+            if isfield(obj.PlotRChMean,'fh') && (verLessThan('matlab','9.0') || isvalid(obj.PlotRChMean.fh)) %isvalid je od verze 2016
+                figure(obj.PlotRChMean.fh); %pouziju uz vytvoreny graf
+                clf(obj.PlotRChMean.fh); %graf vycistim
+            else
+                obj.PlotRChMean.fh = figure('Name','PlotResponseChMean','CloseRequestFcn', @obj.tearDownFigCallbackPlotResponseChMean);
+            end
+                        
+            T = linspace(obj.Eh.epochtime(1),obj.Eh.epochtime(2),size(obj.Eh.d,1)); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
+            ymax = 0;
+            for k = 1 : numel(kategories) %index 1-3 (nebo 4)
+                katnum = kategories(k);
+                colorkatk = [obj.Eh.colorskat{katnum+1} ; colorsErrorBars{katnum+1}]; %dve barvy, na caru a stderr plochu kolem                
+                [katdata,~,RjEpCh] = obj.Eh.CategoryData(katnum,[],[],channels);%katdata now time x x channels epochs                
+                CHM = zeros(numel(channels),size(katdata,1));
+                for ich = 1:numel(channels)
+                    CHM(ich,:) = mean(katdata(:,channels(ich),~RjEpCh(1,:)),3);
+                end
+                M = mean(CHM,1);               
+                E = std(CHM,[],1)/sqrt(size(CHM,1)); %std err of mean                
+                ymax = max(ymax,max(M+E));
+                ciplot(M+E, M-E, T, colorkatk(2,:)); %funguje dobre pri kopii do corelu, ulozim handle na barevny pas 
+                hold on;
+                plot(T,M,'LineWidth',katlinewidth,'Color',colorkatk(1,:));  %prumerna odpoved,  ulozim si handle na krivku                      
+            end            
+            xlim(obj.Eh.epochtime(1:2)); 
+            title(figuretitle);
+            text(0,0.99*ymax,popis, 'FontSize', 10);
+            obj.PlotRChMean.filterListener = addlistener(obj.Eh.CH, 'FilterChanged', @obj.filterChangedCallbackPlotResponseChMean);
+        end
+        function filterChangedCallbackPlotResponseChMean(obj,~,~)   %update chart if the filter is changed         
+            if ~isequal(obj.Eh.CH.plotCh2D.chshow, obj.PlotRChMean.channels) %jinak se to z nejakeho duvodu po zmene filtru vola porad dokolecka
+                obj.PlotResponseChMean(obj.PlotRChMean.kategories);
+            end
+        end
+        function tearDownFigCallbackPlotResponseChMean(obj,src,~)
+            delete(obj.PlotRChMean.filterListener);
+            delete(src);
+        end  
+    end
+    methods (Static,Access = public)       
         function PlotElectrodeEpiEvents(els,RjCh,DE,objtabs,tabs_orig,epochs,samples,epochtime,timeax,timeaxy,sec,time_n,elmaxmax,shift,iD)
             %27.4. - nahrazuju cast funkce CiEEGData.PlotElectrode toutu funkci, kvuli zkraceni, ale predavam strasne moc argumentu
             %treba bych mohl uz driv predat hodne z nich? A mit je jako properties tehle tridy?
@@ -76,6 +146,7 @@ classdef CPlots < matlab.mixin.Copyable
             ylim([-2 2]);
             fprintf('Art: %f +- %f, Nat %f +- %f\n',amean,aerr,nmean,nerr);
         end
+
     end
     
 end

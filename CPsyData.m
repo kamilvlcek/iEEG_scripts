@@ -163,6 +163,22 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             %vraci odpovedi cloveka - spravne/spatne, reakcni cas, kategorie 
             S = obj.P.sloupce;
             resp = obj.P.data(:,S.spravne); % spravnost odpovedi
+            if strcmp(obj.testname,'ppa')
+                klavesa = obj.P.data(:,S.klavesa); % spravnost odpovedi
+                iovoce = obj.P.data(:,S.kategorie) == 0; %ovoce
+                iklavesa = klavesa == 1; %pressed space bar
+                if sum(iovoce & iklavesa)>0 %if he responded at least ones for ovoce
+                    if mean(resp(iovoce & iklavesa) < 0.5) %if correct response is marked by 0
+                       resp(iovoce) = 1- resp(iovoce); %reverse all ovoce reponses: 1=correct
+                    end
+                else
+                    iklavesa = klavesa == -1; %index of no responses
+                    if mean(resp(iovoce & iklavesa) > 0.5) %if incorrect reps is marked by 1
+                        resp(iovoce) = 1- resp(iovoce); %reverse all ovoce reponses: 1=correct
+                    end
+                end
+                tab = [resp(iovoce & iklavesa), klavesa(iovoce & iklavesa)];
+            end
             rt = obj.P.data(:,S.rt); % reakcni casy
             kat = obj.P.data(:,S.kategorie); %kategorie
             test = obj.P.data(:,S.zpetnavazba)==0; %vratim index testovych trialu
@@ -213,16 +229,19 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         end
         %% PLOT FUNCTIONS
         function [obj, chyby] = PlotResponses(obj)
+            %plots reponses times of all trials and blocks,including errors and success rate
+            %blue circles - response time,green line=conditions, 
             %nakresli graf rychlosti vsech odpovedi a bloku, vcetne chyb a uspesnosti za blok
+            
             S = obj.P.sloupce;
             test = obj.P.data(:,:); %vyberu vsechny trialy
             if isfield(obj,'fh') && ishandle(obj.fhR) 
                 figure(obj.fhR); %pokud uz graf existuje, nebudu tvorit znova
                 clf; %smazu aktualni figure
             else                
-                obj.fhR = figure('Name','Responses');
+                obj.fhR = figure('Name','PlotResponses');
             end
-            plot(test(:,S.rt),'-o');
+            plot(test(:,S.rt),'-o'); %plot responses time of all trials
             hold on;
             treningtrials = find(obj.P.data(:,S.zpetnavazba)==1);            
             bar(treningtrials,test(treningtrials,S.rt),'FaceColor',[0.7 0.7 0.7],'EdgeColor',[0.7 0.7 0.7]); %oznacim treningove pokusy

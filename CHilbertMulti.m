@@ -21,7 +21,7 @@ classdef CHilbertMulti < CHilbert
         end
         
         function FILES = TestExtract(obj,filenames)
-            FILES = cell(size(filenames,1),2);
+            FILES = cell(size(filenames,1),3);
             channelsNum = 0;
              for fileno = 1:size(filenames,1)
                 filename = filenames{fileno,1}; %cell array, zatim to musi byt plna cesta                
@@ -29,11 +29,11 @@ classdef CHilbertMulti < CHilbert
                     disp(obj.basename(filename)); %zobrazim jmeno souboru s pouze koncem 
                     obj.filenames{fileno,1} = filename;
                     clear d;
-                    load(filename,'d','P','fs'); %nacte vsechny promenne
+                    load(filename,'d','P','fs','baseline'); %nacte vsechny promenne
                     test = ~P.data(:,P.sloupce.zpetnavazba); %index testovych epoch
                     d = d(:,:,test);
                     %disp(['  velikost d (samples x channels x epochs):' num2str(size(d))]); 
-                    FILES(fileno,:) = {obj.basename(filename), [ 'd: ' num2str(size(d),'%i ') ', fs: ' num2str(fs)]};
+                    FILES(fileno,:) = {obj.basename(filename), [ 'd: ' num2str(size(d),'%i ') ', fs: ', num2str(fs)],num2str(baseline,"%.3f-%.3f")};
                     channelsNum = channelsNum + size(d,2);
                 else
                     disp(['soubor neexistuje ' filename]);
@@ -363,7 +363,7 @@ classdef CHilbertMulti < CHilbert
             end  
             %baseline - cas 
             if ~isempty(obj.baseline)
-                assert(isequal(obj.baseline,baseline),'baseline musi byt stejne');
+                assert(isequal(obj.baseline,baseline),['baseline musi byt stejne, puvodni:' num2str(obj.baseline,"%.2f-%.2f") ',nova: ' num2str(baseline,"%.2f-%.2f") ]);
             else
                 obj.baseline = baseline;
             end              
@@ -474,13 +474,14 @@ classdef CHilbertMulti < CHilbert
         end 
     end
     methods (Static,Access = public)
-        function filenames = ExtractData(PAC,testname,filename,label,overwrite)
+        function filenames = ExtractData(PAC,testname,filename,label,overwrite,loadall)
             %filenames = ExtractData(PAC,testname,filename,label)
             %podle struct vystupu z funkce CBrainPlot.StructFind, jmena testu, a jmena souboru
             %u kazdeho pacienta vytvori extract pro danou strukturu se jmenemm label
             %vrati seznam filenames, ktery se pak da primo pouzit ve funkcich TestExtract a ImportExtract
             %overwrite urcuje, jestli se maji prepisovat existujici soubory
             if ~exist('overwrite','var'), overwrite = 0; end %defaultne se nemaji prepisovat existujici soubory
+            if ~exist('loadall','var'), loadall = 0; end %by default we dont want to load HFreqEpochs,fphaseEpochs,frealEpochs
             
             pacienti = unique({PAC.pacient}); %trik po delsim usili vygooglovany, jak ziskat ze struct jedno pole
             filenames = cell(numel(pacienti),1);
@@ -489,7 +490,7 @@ classdef CHilbertMulti < CHilbert
             
             for p = 1:numel(pacienti)                                
                 ipacienti = strcmp({PAC.pacient}, pacienti{p})==1; %indexy ve strukture PAC pro tohoto pacienta
-                E = pacient_load(pacienti{p},testname,filename,[],[],[],0);  %pokud spatny testname, zde se vrati chyba
+                E = pacient_load(pacienti{p},testname,filename,[],[],[],loadall);  %pokud spatny testname, zde se vrati chyba
                 if ~isempty(E) %soubor muze neexistovat, chci pokracovat dalsim souborem
                     [filename_extract,basefilename_extract] = E.ExtractData([PAC(ipacienti).ch],label,overwrite);
                     filenames{p,1} = filename_extract;

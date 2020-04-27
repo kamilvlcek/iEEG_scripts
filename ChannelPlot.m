@@ -24,6 +24,7 @@ classdef ChannelPlot < matlab.mixin.Copyable
                 if ~isfield(obj.plotCh3D,'fontsize'), obj.plotCh3D.fontsize = 7; end   %index of brainlabel to plot convex hull 
                 if ~isfield(obj.plotCh3D,'coloruse'), obj.plotCh3D.coloruse = 0; end   %which color to use 0=according to value size, 1=according to channel marks as in 2D plot, 2=according to brain labels
                 if ~isfield(obj.plotCh3D,'markertype'), obj.plotCh3D.markertype = 'o'; end   %which markertype to use in scatter3 - default is ball
+                if ~isfield(obj.plotCh3D,'showclusters'), obj.plotCh3D.showclusters = 1; end   %if to show clusters of channels marked by X
             end
             if exist('plotCh3D','var') && isstruct(plotCh3D)
                 fields = fieldnames(plotCh3D);
@@ -205,30 +206,15 @@ classdef ChannelPlot < matlab.mixin.Copyable
                     end
                     caxis(rangeZ); 
                 end %barevna skala, jen pokud jsou ruzne hodnoty kanalu
+                obj.PlotSizeLegend([0.5 1.5 2.5],rangeZ); %plots three balls with this size as a scale for sizes of scatter3
                 if obj.plotCh3D.zoom < 2, axis equal;  end %maximalni zoom je bez stejnych os
                 title(popis);
                 if isfield(obj.plotCh3D,'background') && obj.plotCh3D.background==0
                     set(gca,'color','none'); %zadne bile pozadi, pak ani v corelu
                 end
-                if obj.plotCh3D.coloruse == 2 && ~isempty(obj.CH.brainlabels) && length(obj.CH.brainlabels)==numel(obj.CH.H.channels)
-                    labels = lower({obj.CH.brainlabels.label});
-                    ulabels = unique(labels); %cell array of unique brainlabels
-                    barvy = distinguishable_colors(numel(ulabels));
-                    for ilabel = 1:numel(ulabels)
-                       if isequal( [90 0],obj.plotCh3D.view) || isequal([-90 0],obj.plotCh3D.view) %sagital
-                           x = 0; y = -110; z = 80-5*ilabel;
-                       elseif isequal( [0 90 ],obj.plotCh3D.view) || isequal([[ 180 -90]],obj.plotCh3D.view) %axial
-                           x = -70; y = 80-5*ilabel; z = 0;
-                       else
-                           x = -70; y = 0; z = 80-5*ilabel;
-                       end
-                       text(x,y,z,ulabels{ilabel},'Color',barvy(ilabel,:),'FontSize',11,'FontWeight','bold');                       
-                    end
-                end
                 
-                if ~isempty(obj.CH.hull) && obj.plotCh3D.hullindex > 0
-                    obj.CH.HullPlot3D(obj.plotCh3D.hullindex);
-                end
+                obj.PlotColorNames(); %plot naming of the colors used for individual channels
+                obj.PlotClusters(); %plot channel clusters if any exist            
                 obj.plotCh3D.dispChannels = chnsel; % ulozim vyber zobrazenych kanalu (je potreba pro klikani)
                 obj.highlightChannel(); %if there is any channel to be highligted, do it
                 %rozhybani obrazku            
@@ -237,24 +223,57 @@ classdef ChannelPlot < matlab.mixin.Copyable
                 disp('No MNI data');
             end
         end
-
+    end
+    methods  (Access = private)
+        function PlotClusters(obj)
+            %PlotClusters - plots the previosly computer clusters if any exist, according to the current popis   
+            %TODO - plot cluster for even only the part of the channels in a cluster set            
+            iCluster = obj.CH.GetCluster(obj.plotCh3D.popis);
+            if iCluster && obj.plotCh3D.showclusters
+                C = obj.CH.clusters(iCluster).C;
+                nClusters = size(C,1);
+                plot3(C(:,1),C(:,2),C(:,3),'kx','MarkerSize',20,'LineWidth',3); %clusters on right side
+                if isfield(obj.CH.clusters,'names') && ~isempty(obj.CH.clusters(iCluster).names)
+                    clusternames = cellstr(horzcat( char(obj.CH.clusters(iCluster).names) )); %, repmat('(',nClusters,1), num2str((1:nClusters)'), repmat(')',nClusters,1)
+                else
+                    clusternames = cellstr(horzcat( num2str((1:nClusters)')));
+                end
+                text(C(:,1)+5,C(:,2)+5,C(:,3)+5, clusternames,'FontSize',11,'FontWeight','bold');
+                hold on
+                plot3(-C(:,1),C(:,2),C(:,3),'kx','MarkerSize',20,'LineWidth',3); %clusters on left side
+                text(-C(:,1)+5,C(:,2)+5,C(:,3)+5, clusternames,'FontSize',11,'FontWeight','bold');
+            end           
+            
+            %older plotting of complex hull
+            if ~isempty(obj.CH.hull) && obj.plotCh3D.hullindex > 0
+                obj.CH.HullPlot3D(obj.plotCh3D.hullindex);
+            end                
+        end
+        function PlotColorNames(obj)
+            %plot naming of the colors used for individual channels
+            %currently only BrainLabels
+            if obj.plotCh3D.coloruse == 2 && ~isempty(obj.CH.brainlabels) && length(obj.CH.brainlabels)==numel(obj.CH.H.channels)
+                labels = lower({obj.CH.brainlabels.label});
+                ulabels = unique(labels); %cell array of unique brainlabels
+                barvy = distinguishable_colors(numel(ulabels));
+                for ilabel = 1:numel(ulabels)
+                   if isequal( [90 0],obj.plotCh3D.view) || isequal([-90 0],obj.plotCh3D.view) %sagital
+                       x = 0; y = -110; z = 80-5*ilabel;
+                   elseif isequal( [0 90 ],obj.plotCh3D.view) || isequal([[ 180 -90]],obj.plotCh3D.view) %axial
+                       x = -70; y = 80-5*ilabel; z = 0;
+                   else
+                       x = -70; y = 0; z = 80-5*ilabel;
+                   end
+                   text(x,y,z,ulabels{ilabel},'Color',barvy(ilabel,:),'FontSize',11,'FontWeight','bold');                       
+                end
+            end
+        end
         function [clrs,sizes,rangeZ,reverse] = colors4ChannelPlot(obj,chnsel,chnvals,rangeZ)
             nblocks = numel(chnvals); %the number of colors will be the same as channels
-            cmap = parula(nblocks+1); %+1 as the values will be rounded up or down
-            reverse = 0; %if to reverse to color map and size of the points in scatter3D 
-            if isempty(rangeZ)
-                rangeZ = [min(chnvals) max(chnvals)];                 
-            elseif rangeZ(1) > rangeZ(2) %pokud dam minmax v obrazenem poradi, barvy i velikosti taky v obracenem poradi
-                reverse = 1;
-                rangeZ = flip(rangeZ);            
-                cmap = flip(cmap,1);
-            end
+            cmap = parula(nblocks+1); %+1 as the values will be rounded up or down            
+            [sizes,reverse,chnvalsN]=ChannelPlot.ScatterSizes(chnvals,rangeZ);            
+            if reverse, cmap = flip(cmap,1); end %if to reverse to color map and size of the points in scatter3D 
             
-            chnvalsN = chnvals - rangeZ(1); %substract minimum
-            chnvalsN = chnvalsN/diff(rangeZ); % normalization  - divide by maximum => values are [0;1]          
-            chnvalsN(isnan(chnvalsN)) = 0; % in case of all zeros, feplace nan to 0
-            chnvalsN(chnvalsN<0) = 0; chnvalsN(chnvalsN>1) = 1; %limit the range to [0;1];    
-            sizes = 20+200*iff(reverse,1-chnvalsN,chnvalsN); %velikosti kulicek 
             switch obj.plotCh3D.coloruse
                 case 0 %colors based on channel vals
                     clrs = cmap(round(nblocks*chnvalsN)+1, :); % rgb color values for each channel (chns x 3), prevedu na rozsah 1-nblocks a priradim barvy
@@ -291,6 +310,22 @@ classdef ChannelPlot < matlab.mixin.Copyable
                             end
                         end
                     end
+                case 3 %colors according to clusters                   
+                    clrs = repmat([.5 .5 .5],numel(chnvals),1); %default grey color for each channel      
+                    iCluster = obj.CH.GetCluster(obj.plotCh3D.popis);
+                    if iCluster
+                        barvy = distinguishable_colors(size(obj.CH.clusters(iCluster).C,1));  %number of clusters
+                        for j = 1:size(obj.CH.clusters(iCluster).C,1)
+                            ichannels = obj.CH.clusters(iCluster).idx==j; %channels plotted that are in the current cluster
+                            ch = obj.CH.clusters(iCluster).channels(ichannels);
+                            ch = intersect(ch,chnsel); %reduced for only the selected channels
+                            if numel(ch) > 0
+                               ichannel = ismember(chnsel,ch); %index of channels in chnsel and chnvals
+                               clrs(ichannel,:)=repmat(barvy(j,:),length(ch),1); %previous color is overwriten
+                            end
+                        end
+                    end
+                    
             end
             obj.plotCh3D.sizes = sizes;
           end
@@ -314,8 +349,34 @@ classdef ChannelPlot < matlab.mixin.Copyable
                 XYZ(:,dimenze(d,1)) = GMSurfaceMesh.node(obj.plotCh3D.BrainBoundaryXYZ{d},dimenze(d,1));
                 XYZ(:,dimenze(d,2)) = GMSurfaceMesh.node(obj.plotCh3D.BrainBoundaryXYZ{d},dimenze(d,2));                                    
                 plot3(XYZ(:,1),XYZ(:,2),XYZ(:,3));               
-            end
-            
+            end            
+        end
+        function obj = PlotSizeLegend(obj,chnvals,rangeZ)
+             %plots the size scale of scatter3 balls 
+             positions = struct('x',[],'y',[],'z',[]);
+             for ival = 1:numel(chnvals)
+                   if isequal( [90 0],obj.plotCh3D.view) || isequal([-90 0],obj.plotCh3D.view) %sagital
+                       positions(ival).x = 0; 
+                       positions(ival).y = -110+ival*10; 
+                       positions(ival).z = -70;
+                       textpos = [0 -3 6];
+                   elseif isequal( [0 90 ],obj.plotCh3D.view) || isequal([[ 180 -90]],obj.plotCh3D.view) %axial
+                       positions(ival).x = -70+ival*10; 
+                       positions(ival).y = -110; 
+                       positions(ival).z = 0;
+                       textpos = [-3 6 0];
+                   else %coronal
+                       positions(ival).x = -70+ival*10; 
+                       positions(ival).y = 0; 
+                       positions(ival).z = -70; 
+                       textpos = [-3 0 6];
+                   end   
+                   text(positions(ival).x+textpos(1),positions(ival).y+textpos(2),positions(ival).z+textpos(3), ...
+                        num2str(chnvals(ival)),'Color',[0 0 0],'FontSize',10); 
+             end
+             [sizes,~,~]=ChannelPlot.ScatterSizes(chnvals,rangeZ);  
+             scatter3([positions.x],[positions.y],[positions.z],sizes,'k');
+              
         end
         
         function obj = hybejPlot3D(obj,~,eventDat)
@@ -412,9 +473,11 @@ classdef ChannelPlot < matlab.mixin.Copyable
                   case {'subtract' , 'hyphen'}    %decrease the font size of channel labels
                     obj.plotCh3D.fontsize = obj.plotCh3D.fontsize - 1; 
                     obj.ChannelPlot3D();  
-                  case 'v' %toggle color code of 3D scatter
+                  case 'v' %toggle color code of 3D scatter                    
+                    iCluster = obj.CH.GetCluster(obj.plotCh3D.popis);
+                    colorusemax = iff(iCluster,4,3); %when there are the clusters computed, show them when plotCh3D.coloruse = 4
                     obj.plotCh3D.coloruse = obj.plotCh3D.coloruse + 1;
-                    if obj.plotCh3D.coloruse >= 3, obj.plotCh3D.coloruse=0; end %values only 0 1 or 2%                   
+                    if obj.plotCh3D.coloruse >= colorusemax, obj.plotCh3D.coloruse=0; end %values only 0 1 or 2%                   
                     obj.ChannelPlot3D(); 
                   case 'm' %toggle markertypes to use for scatter 3D
                    markertypes = {'o','s','d','p'};
@@ -422,6 +485,12 @@ classdef ChannelPlot < matlab.mixin.Copyable
                    if im > numel(markertypes), im = 1; end
                    obj.plotCh3D.markertype = markertypes{im}; 
                    obj.ChannelPlot3D(); 
+                  case {'divide','slash'} %slash on numerical keyboard - automatic range of colorbar
+                    obj.plotCh3D.rangeZ = [min(obj.plotCh3D.chnvals) max(obj.plotCh3D.chnvals)]; 
+                    obj.ChannelPlot3D(); %plot the figure again
+                  case 'q' %show / hides the clusters
+                    obj.plotCh3D.showclusters = 1 - obj.plotCh3D.showclusters;
+                    obj.ChannelPlot3D(); %plot the figure again   
               end
         end
 
@@ -462,7 +531,23 @@ classdef ChannelPlot < matlab.mixin.Copyable
             if isfield(obj.plotCh3D,'fh') && ~isempty(obj.plotCh3D.fh) && ishandle(obj.plotCh3D.fh) 
                 close(obj.plotCh3D.fh); 
             end
+        end        
+    end
+     %% staticke metody
+    methods (Static,Access = private)
+        function [sizes,reverse,chnvalsN]=ScatterSizes(chnvals,rangeZ)
+            reverse = 0; %if to reverse to color map and size of the points in scatter3D 
+            if isempty(rangeZ)
+                rangeZ = [min(chnvals) max(chnvals)];                 
+            elseif rangeZ(1) > rangeZ(2) %pokud dam minmax v obrazenem poradi, barvy i velikosti taky v obracenem poradi
+                reverse = 1;
+                rangeZ = flip(rangeZ);                            
+            end
+            chnvalsN = chnvals - rangeZ(1); %substract minimum
+            chnvalsN = chnvalsN/diff(rangeZ); % normalization  - divide by maximum => values are [0;1]          
+            chnvalsN(isnan(chnvalsN)) = 0; % in case of all zeros, feplace nan to 0
+            chnvalsN(chnvalsN<0) = 0; chnvalsN(chnvalsN>1) = 1; %limit the range to [0;1];    
+            sizes = 20+200*iff(reverse,1-chnvalsN,chnvalsN); %velikosti kulicek 
         end
-        
     end
 end

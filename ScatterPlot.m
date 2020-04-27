@@ -43,7 +43,7 @@ classdef ScatterPlot < handle
         valFraction@double;    % podil z maximalni hodnoty pro trigger tfrac
         intFraction@double;    % podil z maximalni hodnoty pro trigger tint
         
-        categories %seznam cisel kategorii od nejdulezitejsi (podle poradi ve statistice)
+        categories; %seznam cisel kategorii od nejdulezitejsi (podle poradi ve statistice)
         categoryNames %jmena kategorii odpovidajici obj.categories
         categoriesSelectionIndex %aktualne zobrazene kategorie, na zacatku 1:numel(obj.categories)
 
@@ -61,7 +61,8 @@ classdef ScatterPlot < handle
             %   parametry axis* urcuji typ dat zobrazeny na osach
             obj.ieegdata = ieegdata;
             obj.header = copy(obj.ieegdata.CH); %vytvorim nezavislou kopii kvuli PlotBrain, aby ne kolize z AUCPlotM grafem
-            obj.header.channelPlot = copy(obj.ieegdata.CH.channelplot); % explicitly create copy of the channelplot Object
+            obj.header.channelPlot =  ChannelPlot(obj.header); % create new ChannelPlot object with a link to the current header
+            obj.header.channelPlot.ChannelPlotInit(obj.ieegdata.CH.channelPlot.plotCh3D); %copy the setup from the CH.CH.channelPlot object
             obj.selCh = ieegdata.plotRCh.selCh; %vyber kanalu fghjkl * pocet kanalu
             obj.selChNames = ieegdata.plotRCh.selChNames; %vyber kanalu fghjkl * pocet kanalu
             obj.dispSelChName = [];
@@ -152,11 +153,29 @@ classdef ScatterPlot < handle
             ylim(obj.ax,yrange);
         end
         
-        function CopyChannelPlot3DROI(obj)
-            %copies ROI from ChannelPlot3D figure from ScatterPlot object to original CHilbertMulti object
+        function CopyHeaderParams(obj)
+            %copies variosu header properties of CHHeader from ScatterPlot object to original CHilbertMulti object            
             %to be saved with the CM object and not deleted with the SP object
-            obj.ieegdata.CH.plotCh3D.roi = obj.header.plotCh3D.roi ;
-            disp( [num2str(size(obj.header.plotCh3D.roi,1)) ' ROIs copied']);
+            % currently obj.header.plotCh3D.roi and obj.header.clusters
+%             if isfield(obj.header.plotCh3D,'roi') && ~isempty(obj.header.plotCh3D.roi)
+%                 obj.ieegdata.CH.plotCh3D.roi = obj.header.plotCh3D.roi ;            
+%                 disp( [num2str(size(obj.header.plotCh3D.roi,1)) ' ROIs copied']);
+%             end
+            if ~isempty(obj.header.clusters)
+                obj.ieegdata.CH.clusters = obj.header.clusters;
+                disp( [num2str(numel(obj.header.clusters)) ' Cluster sets copied']);
+            end
+            fields = fieldnames(obj.header.channelPlot.plotCh3D);
+            copied = 0;
+            for f = fields'
+                ff = cell2mat(f);
+                fv = obj.header.channelPlot.plotCh3D.(ff);
+                if ~isempty(fv) && ~isobject(fv(1)) && (~isgraphics(fv(1)) || isequal(fv,0)) %isgraphics is true for 0
+                    obj.ieegdata.CH.channelPlot.plotCh3D.(ff) = obj.header.channelPlot.plotCh3D.(ff);
+                    copied = copied + 1;
+                end
+            end
+            disp( [num2str(copied) ' plotCh3D fields copied']);
         end
 
     end
@@ -499,7 +518,10 @@ classdef ScatterPlot < handle
                     end
                     obj.dispSelChName = [];
                     obj.updatePlot();
-                case {'f','g','h','j','k','l'}
+                case {'f','g','h','j','k','l'} %show only channels with this marking
+                    if ~isempty(eventDat.Modifier) && strcmp(eventDat.Modifier{:},'shift') %shift means to show only this marking
+                          obj.dispSelChN = [0 0 0 0 0 0]; %show no channels
+                    end
                     obj.dispSelChN = xor('fghjkl'==eventDat.Key,obj.dispSelChN);
                     obj.dispSelCh = find(any(obj.selCh(:,obj.dispSelChN),2)');
                     obj.dispSelChName = cell2str(obj.selChNames(obj.dispSelChN)); %string from all cell fields
