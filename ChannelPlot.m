@@ -25,6 +25,7 @@ classdef ChannelPlot < matlab.mixin.Copyable
                 if ~isfield(obj.plotCh3D,'coloruse'), obj.plotCh3D.coloruse = 0; end   %which color to use 0=according to value size, 1=according to channel marks as in 2D plot, 2=according to brain labels
                 if ~isfield(obj.plotCh3D,'markertype'), obj.plotCh3D.markertype = 'o'; end   %which markertype to use in scatter3 - default is ball
                 if ~isfield(obj.plotCh3D,'showclusters'), obj.plotCh3D.showclusters = 1; end   %if to show clusters of channels marked by X
+                if ~isfield(obj.plotCh3D,'outputstyle'), obj.plotCh3D.outputstyle = 0; end   %style for paper figures
             end
             if exist('plotCh3D','var') && isstruct(plotCh3D)
                 fields = fieldnames(plotCh3D);
@@ -167,7 +168,7 @@ classdef ChannelPlot < matlab.mixin.Copyable
                     scatter3(XYZ.X(selch),XYZ.Y(selch),XYZ.Z(selch),max(sizes),[0 0 0]);
                 end
                 
-                if ~isempty(roi) && numel(roi)>=4 %[x y z edge]
+                if ~isempty(roi) && numel(roi)>=4 && ~obj.plotCh3D.outputstyle %[x y z edge]
                     for r = 1:size(roi,1)                    
                         plotcube([roi(r,4) roi(r,4) roi(r,4)], roi(r,1:3),0,[0 0 0]); %ROI jako kostka
                         text(roi(r,1)+roi(r,4)/2,  roi(r,2)+roi(r,4)/2 , roi(r,3)+roi(r,4)/2, num2str(r),'FontSize', 10, 'Color',[1 0 0]);
@@ -185,10 +186,12 @@ classdef ChannelPlot < matlab.mixin.Copyable
                 else 
                     axis([ min([XYZ.X]) max([XYZ.X]) min([XYZ.Y]) max([XYZ.Y]) min([XYZ.Z]) max([XYZ.Z]) ] );
                 end
-                text(-70,0,0,'LEFT');        
-                text(70,0,0,'RIGHT');   
-                text(0,65,0,'FRONT');        
-                text(0,-115,0,'BACK');                                 
+                if ~obj.plotCh3D.outputstyle
+                    text(-70,0,0,'LEFT');
+                    text(70,0,0,'RIGHT');   
+                    text(0,65,0,'FRONT');        
+                    text(0,-115,0,'BACK');                                 
+                end
        
                 if ~isfield(obj.plotCh3D,'boundary') || obj.plotCh3D.boundary
                     obj.Plot3DBoundary();
@@ -198,7 +201,7 @@ classdef ChannelPlot < matlab.mixin.Copyable
                 end
                 
                 if(max(chnvals)>0)
-                    colorbar;
+                    if ~obj.plotCh3D.outputstyle, colorbar; end
                     if (reverse && ~obj.plotCh3D.isColormapReversed) || (~reverse && obj.plotCh3D.isColormapReversed)
                         oldcmap = colormap;
                         colormap( flipud(oldcmap) ); %prevratim colomapu, jinak se zobrazuje defaultni poradi, bez ohledu na moje prehozeni                  
@@ -208,13 +211,13 @@ classdef ChannelPlot < matlab.mixin.Copyable
                 end %barevna skala, jen pokud jsou ruzne hodnoty kanalu
                 obj.PlotSizeLegend([0.5 1.5 2.5],rangeZ); %plots three balls with this size as a scale for sizes of scatter3
                 if obj.plotCh3D.zoom < 2, axis equal;  end %maximalni zoom je bez stejnych os
-                title(popis);
+                if ~obj.plotCh3D.outputstyle, title(popis); end
                 if isfield(obj.plotCh3D,'background') && obj.plotCh3D.background==0
                     set(gca,'color','none'); %zadne bile pozadi, pak ani v corelu
                 end
                 
                 obj.PlotColorNames(); %plot naming of the colors used for individual channels
-                obj.PlotClusters(); %plot channel clusters if any exist            
+                obj.PlotClusters(clrs); %plot channel clusters if any exist            
                 obj.plotCh3D.dispChannels = chnsel; % ulozim vyber zobrazenych kanalu (je potreba pro klikani)
                 obj.highlightChannel(); %if there is any channel to be highligted, do it
                 %rozhybani obrazku            
@@ -225,14 +228,15 @@ classdef ChannelPlot < matlab.mixin.Copyable
         end
     end
     methods  (Access = private)
-        function PlotClusters(obj)
+        function PlotClusters(obj,clrs)
             %PlotClusters - plots the previosly computer clusters if any exist, according to the current popis   
             %TODO - plot cluster for even only the part of the channels in a cluster set            
             iCluster = obj.CH.GetCluster(obj.plotCh3D.popis);
+            clustercolor = iff(obj.plotCh3D.outputstyle,clrs(1,:)/2,[0 0 0]);
             if iCluster && obj.plotCh3D.showclusters
                 C = obj.CH.clusters(iCluster).C;
                 nClusters = size(C,1);
-                plot3(C(:,1),C(:,2),C(:,3),'kx','MarkerSize',20,'LineWidth',3); %clusters on right side
+                plot3(C(:,1),C(:,2),C(:,3),'x','MarkerSize',20,'LineWidth',3  ,'Color', clustercolor ); %clusters on right side, 
                 if isfield(obj.CH.clusters,'names') && ~isempty(obj.CH.clusters(iCluster).names)
                     clusternames = cellstr(horzcat( char(obj.CH.clusters(iCluster).names) )); %, repmat('(',nClusters,1), num2str((1:nClusters)'), repmat(')',nClusters,1)
                 else
@@ -240,7 +244,7 @@ classdef ChannelPlot < matlab.mixin.Copyable
                 end
                 text(C(:,1)+5,C(:,2)+5,C(:,3)+5, clusternames,'FontSize',11,'FontWeight','bold');
                 hold on
-                plot3(-C(:,1),C(:,2),C(:,3),'kx','MarkerSize',20,'LineWidth',3); %clusters on left side
+                plot3(-C(:,1),C(:,2),C(:,3),'kx','MarkerSize',20,'LineWidth',3,'Color', clustercolor ); %clusters on left side
                 text(-C(:,1)+5,C(:,2)+5,C(:,3)+5, clusternames,'FontSize',11,'FontWeight','bold');
             end           
             
@@ -334,9 +338,20 @@ classdef ChannelPlot < matlab.mixin.Copyable
             %vykresli obrys mozku ve vsech rozmerech do 3d grafu
             %pokud boundary neni vypocitana, spocita ji a ulozi do obj.plotCh3D.BrainBoundaryXYZ
             %netvori graf, kresli do existujiciho a aktivniho ChannelPlot, a predpoklada hold on;
-            dimenze = [2 3; 1 3; 2 1]; %xy, xz a yz 
+            dimenze = [2 3; 1 3; 2 1]; %xy, xz a yz ,  
             load('GMSurfaceMesh.mat');             %#ok<LOAD>
-            for d = 1:3
+            if ~obj.plotCh3D.outputstyle
+                dd = 1:3;
+            else
+                if isequal(obj.plotCh3D.view,[0 90]) || isequal(obj.plotCh3D.view,[180 -90])%'h'  
+                  dd = 3;
+                elseif isequal(obj.plotCh3D.view,[0 0]) || isequal(obj.plotCh3D.view,[180 0]) %'c'
+                  dd = 2;
+                else 
+                  dd=1;  
+                end
+            end
+            for d = dd %d=1 saginal plane, d=2 coronal plane, d=3 horizontal plane
                 stred = min(GMSurfaceMesh.node(:,d)) + range(GMSurfaceMesh.node(:,d))/2;                
                 if ~isfield(obj.plotCh3D,'BrainBoundaryXYZ') || numel(obj.plotCh3D.BrainBoundaryXYZ) < 3
                     obj.plotCh3D.BrainBoundaryXYZ = cell(3,1);
