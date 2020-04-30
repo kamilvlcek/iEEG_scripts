@@ -1184,8 +1184,10 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 end
             end
         end
-        function PlotClusters(obj)
+        function PlotClusters(obj,plotviewchar,onlyclusters)
             %PlotClusters - plots the previosly computer clusters if any exist, according to the current popis            
+            if ~exist('onlyclusters','var'), onlyclusters = 0; end            
+            
             barvy = 'gbrmcyk';            
             if isfield(obj.plotClusters,'fh') && ishandle(obj.plotClusters.fh)
                 figure(obj.plotClusters.fh); %pouziju uz vytvoreny figure
@@ -1199,9 +1201,13 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 nClusters = size(C,1);
                 plot3(C(:,1),C(:,2),C(:,3),[barvy(iCluster) 'x'],'MarkerSize',20,'LineWidth',3); %clusters on right side
                 if isfield(obj.clusters(iCluster),'names') && ~isempty(obj.clusters(iCluster).names)
-                    clusternames = cellstr(horzcat( ...
-                        char(obj.clusters(iCluster).names), repmat('(',nClusters,1), num2str((1:nClusters)'), repmat(')',nClusters,1))  ...
-                    ); %                    
+                    if  onlyclusters
+                        clusternames = cellstr(char(obj.clusters(iCluster).names)); %
+                    else
+                        clusternames = cellstr(horzcat( ...
+                            char(obj.clusters(iCluster).names), repmat('(',nClusters,1), num2str((1:nClusters)'), repmat(')',nClusters,1))  ...
+                        ); %
+                    end
                 else
                     clusternames = cellstr(horzcat( num2str((1:nClusters)')));
                 end
@@ -1216,19 +1222,34 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                             D = sqrt(sum((obj.clusters(iCluster0).C - C(iC,:)).^2, 2)); %distances of the current cluster to all points in preceding cluster set
                             [~,I]=min(D); %index of the smallest distance
                             C0 = obj.clusters(iCluster0).C(I,:);
-                            plot3([C(iC,1) C0(1)],[C(iC,2) C0(2)],[C(iC,3) C0(3)],barvy(iCluster)); %line between the closest centroids
-                            plot3([-C(iC,1) -C0(1)],[C(iC,2) C0(2)],[C(iC,3) C0(3)],barvy(iCluster)); %left side of brain
+                            if ~onlyclusters
+                                plot3([C(iC,1) C0(1)],[C(iC,2) C0(2)],[C(iC,3) C0(3)],barvy(iCluster)); %line between the closest centroids
+                                plot3([-C(iC,1) -C0(1)],[C(iC,2) C0(2)],[C(iC,3) C0(3)],barvy(iCluster)); %left side of brain
+                            end
                         end
                     end
                 end
                 mni = mni0(obj.clusters(iCluster).channels,:); %the mni of channels in this cluster
-                plot3(mni(:,1),mni(:,2),mni(:,3),'.','MarkerSize',12,'MarkerEdgeColor',barvy(iCluster)); %points in this cluster
+                if ~onlyclusters
+                    plot3(mni(:,1),mni(:,2),mni(:,3),'.','MarkerSize',12,'MarkerEdgeColor',barvy(iCluster)); %points in this cluster
+                end
             end
-            obj.channelPlot.Plot3DBoundary;                
-            view([108 13]); %saggital [90 0], [0 90]=axial horizontal view
+            
+            if ~exist('plotviewchar','var')
+                plotview = [108 13];  %saggital [90 0], [0 90]=axial horizontal view               
+            elseif plotviewchar == 's'   %sagital view                                                             
+                plotview = [90 0]; 
+            elseif plotviewchar == 'c' || plotviewchar == 'f' %coronal = predozadni, frontal                                                              
+                plotview = [0 0]; 
+            elseif plotviewchar == 'h' || plotviewchar == 'a' %horizontal = hornodolni nebo axial                                              
+                plotview = [0 90];
+            end  
+            view(plotview);
+            obj.channelPlot.Plot3DBoundary(plotview);      
             xlabel('MNI X'); %levoprava souradnice
             ylabel('MNI Y'); %predozadni souradnice
             zlabel('MNI Z'); %hornodolni
+            axis([-75 75 -120 80 -75 85]); %zhruba velikost mozku
             axis equal;
             %rozhybani obrazku            
             set(obj.plotClusters.fh,'KeyPressFcn',@obj.hybejPlotClusters);
