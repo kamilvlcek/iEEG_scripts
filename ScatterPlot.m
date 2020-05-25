@@ -113,7 +113,7 @@ classdef ScatterPlot < handle
                 disp('no original CiEEGData data loaded');
                 return; 
             end
-            fname = saveFileName(obj.ciEEGData.filename, 'ScatterPlot');
+            fname = obj.filenameM(obj.ciEEGData.filename);
 
             selCh = obj.selCh; %#ok<PROP,NASGU>
             selChNames = obj.selChNames; %#ok<PROP,NASGU>
@@ -147,7 +147,7 @@ classdef ScatterPlot < handle
                 disp('no original CiEEGData data loaded');
                 return; 
             end
-            fname = saveFileName(obj.ciEEGData.filename, 'ScatterPlot');
+            fname = obj.filenameM(obj.ciEEGData.filename);
             if exist(fname,'file')
                 V = load(fname);
                 obj.selCh = V.selCh;
@@ -745,6 +745,15 @@ classdef ScatterPlot < handle
         end      
         
     end
-    
+    methods (Static,Access = private)
+        function filename2 = filenameM(filename)
+            %vraci jmeno souboru s daty tridy CRefOrigVals
+           filename=strrep(filename,'_CHilb',''); %odstranim pripony vytvorene pri save
+           filename=strrep(filename,'_CiEEG','');
+           filename=strrep(filename,'_CHMult','');
+           [pathstr,fname,ext] = CiEEGData.matextension(filename);         
+           filename2 = fullfile(pathstr,[fname '_ScatterPlot' ext]);
+        end
+    end
 end
 

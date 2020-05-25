@@ -165,7 +165,7 @@ classdef CRefOrigVals < matlab.mixin.Copyable
                 disp('no original CiEEGData data loaded');
                 return; 
             end
-            fname = saveFileName(obj.Eh.filename, 'CRefOrig');
+            fname = obj.filenameM(obj.Eh.filename);
             ValMax = obj.ValMax; %#ok<PROP,NASGU>
             TMax = obj.TMax; %#ok<PROP,NASGU>
             kats = obj.kats; %#ok<PROP,NASGU>
@@ -182,7 +182,7 @@ classdef CRefOrigVals < matlab.mixin.Copyable
                 disp('no original CiEEGData data loaded');
                 return; 
             end
-            fname = saveFileName(obj.Eh.filename, 'CRefOrig');
+            fname = obj.filenameM(obj.Eh.filename);
             if exist(fname,'file')
                 V = load(fname);
                 obj.ValMax = V.ValMax;  
@@ -328,6 +328,14 @@ classdef CRefOrigVals < matlab.mixin.Copyable
                       chn2 = n(pos(2)+1:end);
                   end
               end
+        end
+        function filename2 = filenameM(filename)
+            %vraci jmeno souboru s daty tridy CRefOrigVals
+           filename=strrep(filename,'_CHilb',''); %odstranim pripony vytvorene pri save
+           filename=strrep(filename,'_CiEEG','');
+           filename=strrep(filename,'_CHMult','');
+           [pathstr,fname,ext] = CiEEGData.matextension(filename);         
+           filename2 = fullfile(pathstr,[fname '_CRefOrig' ext]);
         end
     end
     
