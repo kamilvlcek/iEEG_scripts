@@ -8,6 +8,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
         NAMES; %souhrnna jmena elektrod pres vsechny pacienty - cell(intervaly x kategorie)
         NLabels; %jmena neurologyLabels z Headeru
         EpiInfo; %info o epilepsii z Headeru
+        PVALS; %summary p values from statistics across all patients - cell(intervaly x kategorie)
         intervals; % intervaly z funkce IntervalyResp
         katstr; %jmena kategorii
         brainsurface; %ulozeny isosurface z main_brainPlot
@@ -37,8 +38,8 @@ classdef CBrainPlot < matlab.mixin.Copyable
             %contrast - cislo statistiky, kterou chci pouzit
             %signum = jestli chci jen kat1>kat2 (1), nebo obracene (-1), nebo vsechny (0)
             
-            if ~exist('contrast','var'), contrast = 1; end; %defaultni je prvni kontrast            
-            if ~exist('signum','var'), signum = 0; end; %defaultne chci oba smery rozdilu mezi kategoriemi
+            if ~exist('contrast','var'), contrast = 1; end %defaultni je prvni kontrast            
+            if ~exist('signum','var'), signum = 0; end %defaultne chci oba smery rozdilu mezi kategoriemi
             if strcmp(testname,'aedist')
                 pacienti = pacienti_aedist(); %nactu celou strukturu pacientu    
             elseif strcmp(testname,'ppa')
@@ -69,10 +70,10 @@ classdef CBrainPlot < matlab.mixin.Copyable
                         continue;
                     end
                     E.SetStatActive(contrast); %nastavi jeden z ulozenych statistickych kontrastu
-                    [prumery, MNI,names,~,katstr,neurologyLabels] = E.IntervalyResp( intervals,[],signum,0);   %#ok<PROPLC> %no figure, funkce z CiEEGData                           
+                    [prumery, MNI,names,~,katstr,neurologyLabels,pvalues] = E.IntervalyResp( intervals,[],signum,0);   %#ok<PROPLC> %no figure, funkce z CiEEGData                           
                     epiInfo = E.CH.GetChEpiInfo(); %uses all channels of E
                     obj.pacients{p} = pacienti(p).folder;
-                    obj.GetPAC(prumery,E.CH.H,pacienti(p).folder);
+                    obj.GetPAC(prumery,E.CH.H,pacienti(p).folder); %gets and stores PAC structure for all intervals and categories to obj.PAC
                     obj.reference = E.reference;
                     if isprop(E,'Hf')
                         obj.Hf = E.Hf;
@@ -88,6 +89,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
                         N = cell([numel(pacienti),size(prumery,2),size(prumery,3)+1]); % souhrnne names pro vsechny pacienty
                         NL = cell([numel(pacienti),size(prumery,2),size(prumery,3)+1]); % souhrnne neurologyLabels
                         EPI = cell([numel(pacienti),size(prumery,2),size(prumery,3)+1]); % souhrnne neurologyLabels
+                        PV = cell([numel(pacienti),size(prumery,2),size(prumery,3)+1]); % souhrnne p values pro vsechny pacienty: pacient*interval*kategorie
                             %+1 je pro obrazek vsech elektrod i tech bez odpovedi
                     end
                     obj.katstr_pacients(p,:) = katstr; %#ok<PROPLC> %jsou kategorie u vsech pacientu ve stejnem poradi?
@@ -100,6 +102,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
                                 N{p,interval,kat} = strcat(cellstr(repmat([pacienti(p).folder(1:4) '_'],sum(ip),1)),names(ip)); %#ok<AGROW>
                                 NL{p,interval,kat}= strcat(cellstr(repmat([pacienti(p).folder(1:4) '_'],sum(ip),1)),neurologyLabels(ip)); 
                                 EPI{p,interval,kat}= epiInfo(ip); 
+                                PV{p,interval,kat}=pvalues(:,interval, kat); %hannels x intervaly x kategorie - pvalues from all channels
                                 elcount(interval,kat) = elcount(interval,kat) + sum(ip); %#ok<AGROW>
                                 obj.numelP(p,interval,kat)=sum(ip);
                             else %kategorie jakoby navic pro vykresleni jen pozice elekrod
@@ -109,6 +112,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
                                 N{p,interval,kat} = strcat(cellstr(repmat([pacienti(p).folder(1:4) '_'],channels,1)),names); %#ok<AGROW>
                                 NL{p,interval,kat}= strcat(cellstr(repmat([pacienti(p).folder(1:4) '_'],channels,1)),neurologyLabels); 
                                 EPI{p,interval,kat}= epiInfo; 
+                                PV{p,interval,kat}=ones(channels,1); %1 like nothing significant
                                 elcount(interval,kat) = elcount(interval,kat) + channels; %#ok<AGROW>                                
                                 obj.numelP(p,interval,kat)=channels;
                             end
@@ -122,6 +126,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
             obj.NAMES = cell(size(elcount)); 
             obj.NLabels = cell(size(elcount)); 
             obj.EpiInfo = cell(size(elcount)); 
+            obj.PVALS = cell(size(elcount)); %souhrnne p values - interval * kategorie
             obj.selCh = cell(size(elcount));  %prazdny vyber elektrod           
             if sum([pacienti.todo])>0 
                 for interval = 1:size(prumery,2) 
@@ -131,24 +136,30 @@ classdef CBrainPlot < matlab.mixin.Copyable
                           obj.NAMES{interval,kat}   = cell(elcount(interval,kat),1);
                           obj.NLabels{interval,kat} = cell(elcount(interval,kat),1);
                           obj.EpiInfo{interval,kat} = zeros(elcount(interval,kat),1);
-                          iVALS = 1;
+                          obj.PVALS{interval,kat} = ones(elcount(interval,kat),1);
+                          iVALS = 1; %index in VALS - only significant channels
+                          iVALSall = 1; %index i PVALS - all channels
                           for p = 1:numel(pacienti) 
                               if pacienti(p).todo
                                   n = numel(P{p,interval,kat});
+                                  n_all = numel(PV{p,interval,kat}); %PV contains all pvalues for all channels
                                   obj.VALS{interval,kat} (iVALS:iVALS+n-1)=P{p,interval,kat};
                                   obj.MNI{interval,kat}  (iVALS:iVALS+n-1)=M{p,interval,kat};
                                   obj.NAMES{interval,kat}(iVALS:iVALS+n-1)  =N{p,interval,kat};
                                   obj.NLabels{interval,kat}(iVALS:iVALS+n-1)=NL{p,interval,kat};
                                   obj.EpiInfo{interval,kat}(iVALS:iVALS+n-1)=EPI{p,interval,kat};
+                                  obj.PVALS{interval,kat} (iVALSall:iVALSall+n_all-1)=PV{p,interval,kat};
                                   iVALS = iVALS + n;
+                                  iVALSall = iVALSall + n_all; 
                               end
                           end
                     end
                 end             
-                disp(''); %prazdna radka
-                %disp(['vytvoreny ' num2str(numel(obj.katstr)) ' kategorie: ' cell2str(obj.katstr)]);
+                fprintf('\n'); %2 empty lines
+                                
                 %jeste vypisu pocty elektrod pro kazdou kategorii
-                fprintf('\npocty elektrod v %i kategoriich (pro vsechny pacienty):\n',numel(obj.katstr));
+                disp(['pacients processed: ' num2str(sum(~cellfun(@isempty,obj.pacients))) ]);
+                fprintf('number of channels in %i categories (across all patients):\n',numel(obj.katstr));
                 for kat = 1:numel(obj.katstr)
                     fprintf('%s:\t', obj.katstr{kat});
                     for int = 1:size(intervals,1)
