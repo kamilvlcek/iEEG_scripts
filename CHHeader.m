@@ -476,7 +476,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         end
         function [epiInfo]=GetChEpiInfo(obj,channels)
             %vrati info epilepsii v kanalech - 1vs0vsNaN - seizureOnset a interictalOften dohromady
-            if ~exist('channels','var'), channels = 1:size(obj.H.channels,2); end
+            if ~exist('channels','var'), channels = 1:size(obj.H.channels,2); end %H.channels have dimensions 1x N channels
             if isfield(obj.H.channels,'seizureOnset')
                 epiInfo = double([obj.H.channels(channels).seizureOnset]' |  [obj.H.channels(channels).interictalOften]'); %vrati 1 pokud je jedno nebo druhe 1
             else
