@@ -4,7 +4,7 @@ basedir = strrep(setup.basedir,'\','/');
 if ~isfield(cfg,'suffix'), cfg.suffix = ['Ep' datestr(now,'YYYY-mm')]; end %defaultne automaticka pripona rok-mesic
 if ~isfield(cfg,'podilcasuodpovedi'), cfg.podilcasuodpovedi = 0; end  %jestli se maji epochy resamplovat na podil casu mezi podnetem a odpovedi
 if ~isfield(cfg,'freqepochs'), cfg.freqepochs = 0; end %jestli se maji uklada frekvencni data od vsech epoch - velka data!
-if ~isfield(cfg,'statmethod'), cfg.statmethod = []; end %jestli se maji uklada frekvencni data od vsech epoch - velka data!
+if ~isfield(cfg,'statmethod'), cfg.statmethod = []; end 
 
 txt = [ 'Setupinfo:\n' 'basedir ' basedir '\n' 'epochtime ' num2str(setup.epochtime) '\n' 'baseline ' num2str(setup.baseline) '\n' ...
        'suffix ' cfg.suffix '\n' 'prefix ' setup.prefix '\n' 'stat_kats ' cell2str(setup.stat_kats) '\n' ...

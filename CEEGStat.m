@@ -46,28 +46,27 @@ classdef CEEGStat
         end
     end
     methods (Static,Access = public)
-        function [WpKat,WpKatBaseline]=WilcoxCat(kats,responsekat,baselinekat,rjepchkat,itimewindow,method,Pbaseline)
-            %spocita statistiky pro ruzne kategorie - vuci sobe navzajem a vuci baseline  
-            %Pbaseline urcuje jestli se ma pocitat stat pro kazdy kanal zvlast (Pbaseline=neco) nebo dohromady (Pbaseline=[])
-            
+        function [WpKat,WpKatBaseline]=WilcoxCat(kats,responsekat,baselinekat,rjepchkat,itimewindow,method)
+            %spocita statistiky pro ruzne kategorie - vuci sobe navzajem a vuci baseline              
+            %method struct urcuje parametry statistiky, test = wilcox/permut, chn=1 (over one channel)/2 (fdr over all channels), fdr=1 (less strict) /2 (more strict)
             %rozdily kategorii vuci baseline - 28.3.2017
             WpKatBaseline = cell(numel(kats),1);  %rozdily kategorii vuci baseline   
             for k =  1: numel(kats)                
                  baselineall = baselinekat{k};
                  baselineA = mean(baselineall(1:floor(size(baselineall,1)/2)      ,:,:));
                  baselineB = mean(baselineall(  floor(size(baselineall,1)/2)+1:end,:,:));
-                 if exist('Pbaseline','var') && ~isempty(Pbaseline) %nova verze, statistika pro kazdy kanal zvlast, tam kde je odpoved vuci baseline
+                 if method.chn == 1 %nova verze, statistika pro kazdy kanal zvlast, tam kde je odpoved vuci baseline
                      WpKatBaseline{k,1} = ones(size(responsekat{k},1), size(responsekat{k},2)); %time x channels
                      fprintf('kat %i vs baseline Channels Wilcox2D: 1 ... ',k);
                      for ch = 1:size(responsekat{k},2) %musim baseline signif taky pocitat pro kazdy kanal zvast protoze ji pak zohlednuju mezi kategoriemi
-                        WpBA = CStat.Wilcox2D(responsekat{k}(:,ch,:),baselineA(:,ch,:),0,[],['kat ' num2str(k) ' vs baseline A'],rjepchkat{k}(ch,:),rjepchkat{k}(ch,:));
-                        WpBB = CStat.Wilcox2D(responsekat{k}(:,ch,:),baselineB(:,ch,:),0,[],['kat ' num2str(k) ' vs baseline B'],rjepchkat{k}(ch,:),rjepchkat{k}(ch,:));
+                        WpBA = CStat.Wilcox2D(responsekat{k}(:,ch,:),baselineA(:,ch,:),0,method.fdr,['kat ' num2str(k) ' vs baseline A'],rjepchkat{k}(ch,:),rjepchkat{k}(ch,:));
+                        WpBB = CStat.Wilcox2D(responsekat{k}(:,ch,:),baselineB(:,ch,:),0,method.fdr,['kat ' num2str(k) ' vs baseline B'],rjepchkat{k}(ch,:),rjepchkat{k}(ch,:));
                         WpKatBaseline{k,1}(:,ch) = max (WpBA,WpBB);
                      end
                      fprintf('... %i \n',ch);
                  else %puvodni verze, statistika pro vsechny kanaly najednou  
-                     WpBA = CStat.Wilcox2D(responsekat{k},baselineA,1,[],['kat ' num2str(k) ' vs baseline A'],rjepchkat{k},rjepchkat{k});
-                     WpBB = CStat.Wilcox2D(responsekat{k},baselineB,1,[],['kat ' num2str(k) ' vs baseline B'],rjepchkat{k},rjepchkat{k});
+                     WpBA = CStat.Wilcox2D(responsekat{k},baselineA,1,method.fdr,['kat ' num2str(k) ' vs baseline A'],rjepchkat{k},rjepchkat{k});
+                     WpBB = CStat.Wilcox2D(responsekat{k},baselineB,1,method.fdr,['kat ' num2str(k) ' vs baseline B'],rjepchkat{k},rjepchkat{k});
                      WpKatBaseline{k,1} = max (WpBA,WpBB);
                  end
             end
@@ -78,21 +77,21 @@ classdef CEEGStat
             WpKat = cell(numel(kats)); %rozdily mezi kategorieme
             for k = 1:numel(kats) %budu statisticky porovnavat kazdou kat s kazdou, bez ohledu na poradi
                 for j = k+1:numel(kats)
-                    if strcmp(method,'wilcox')
-                        if exist('Pbaseline','var') && ~isempty(Pbaseline) %nova verze, statistika pro kazdy kanal zvlast, tam kde je odpoved vuci baseline
+                    if strcmp(method.test,'wilcox')
+                        if method.chn == 1 %nova verze, statistika pro kazdy kanal zvlast, tam kde je odpoved vuci baseline
                             Wr = ones(size(WpKatBaseline{1})); %vysoke pravdepodobnosti
                             fprintf('kat %i vs %i Channels Wilcox2D %s: 1 ... ',k,j,pairedstr);
                             for ch = 1:size(Wr,2)                                
                                 if min(WpKatBaseline{k}(:,ch))<.05 || min(WpKatBaseline{j}(:,ch))<.05
-                                    Wr(:,ch) = CStat.Wilcox2D(responsekat{k}(:,ch,:), responsekat{j}(:,ch,:),0,[],['kat ' num2str(k) ' vs ' num2str(j)],rjepchkat{k}(ch,:),rjepchkat{j}(ch,:),paired); % -------- WILCOX kazda kat s kazdou                                     
+                                    Wr(:,ch) = CStat.Wilcox2D(responsekat{k}(:,ch,:), responsekat{j}(:,ch,:),0,method.fdr,['kat ' num2str(k) ' vs ' num2str(j)],rjepchkat{k}(ch,:),rjepchkat{j}(ch,:),paired); % -------- WILCOX kazda kat s kazdou                                     
                                     %fprintf('%i,',ch);
                                 end                                
                             end
                             fprintf('... %i \n',ch);
                         else  %puvodni verze, statistika pro vsechny kanaly najednou  
-                            Wr = CStat.Wilcox2D(responsekat{k}, responsekat{j},1,[],['kat ' num2str(k) ' vs ' num2str(j)],rjepchkat{k},rjepchkat{j}, paired); % -------- WILCOX kazda kat s kazdou 
+                            Wr = CStat.Wilcox2D(responsekat{k}, responsekat{j},1,method.fdr,['kat ' num2str(k) ' vs ' num2str(j)],rjepchkat{k},rjepchkat{j}, paired); % -------- WILCOX kazda kat s kazdou 
                         end
-                    elseif strcmp(method,'permut')
+                    elseif strcmp(method.test,'permut')
                         Wr = CStat.PermStat(responsekat{k}, responsekat{j},1,['kat ' num2str(k) ' vs ' num2str(j)],rjepchkat{k},rjepchkat{j}); % -------- Permutacni test kazda kat s kazdou 
                     else
                         disp('neznama metoda statistiky');

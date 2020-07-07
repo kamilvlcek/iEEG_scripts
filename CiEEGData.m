@@ -484,15 +484,21 @@ classdef CiEEGData < matlab.mixin.Copyable
             % -- pokud jedna hodnota, je to sirka klouzaveho okna - maximalni p z teto delky
             %TODO - moznost spojit kategorie 
             assert(obj.epochs > 1,'only for epoched data');                       
-            if ~exist('method','var') || isempty(method), method = {'wilcox'}; end  %defaultni metoda statistiky je wilcox test
-            if ~iscell(method), method = {method,'chn1'}; end %predelam retezec na cell
-            if numel(method) < 2, method{2} = 'chn1'; end %druha polozka bude urcovat, jestli se ma vyhodnocovat vsechny kanaly (chnall), nebo kazdy kanal zvlast (chn1)
+            if ~exist('method','var') || isempty(method)  %parameters of statistic in EEGStat.WilcoxCat, explained there and below
+                method = struct('test','wilcox','chn','1','fdr','1'); %default values                         
+            elseif isstruct(method)
+                if ~isfield(method,'test'), method.test = 'wilcox'; end %defaultni metoda statistiky je wilcox test, the only other possible is permut
+                if ~isfield(method,'chn'), method.chn = 1; end %defaultni je pocitat fdr z jednoho kanalu (pres cas), any other value means over all channels
+                if ~isfield(method,'fdr'), method.fdr = 1; end %defaultni je fdr pdep - min striktni, 2=more strict dep
+            else
+                error('argument method needs to be struct');
+            end                         
             
             iEpCh = obj.GetEpochsExclude(); %ziska seznam Chs x Epochs k vyhodnoceni, neni v tom RjEpochCh
             iEp = true(obj.epochs,1); %musim predat nejaky parametr, ale uz ho ted nepotrebuju, kvuli iEpCh - 8.6.2018
             EEGStat = CEEGStat(obj.d,obj.fs);
             WpA = obj.WpActive; %jen zkratka
-            %CELKOVA SIGNIFIKANCE VUCI BASELINE - bez ohledu na kategorie
+            %CELKOVA SIGNIFIKANCE VUCI BASELINE - BEZ OHLEDU NA KATEGORIE
             baseline = EEGStat.Baseline(obj.epochtime,obj.baseline); %time of the baseline for statistics - from epochtime(1)
             [Pbaseline,ibaseline,iepochtime,itimewindow] = EEGStat.WilcoxBaseline(obj.epochtime,baseline,timewindow,iEp,obj.RjEpochCh | ~iEpCh);   %puvodni baseline uz v epose nemam        
                 %11.12.2017 - pocitam signifikanci hned po konci baseline
@@ -518,7 +524,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             else
                 KATNUM = []; %hodnotim rozdily mezi kategorimi, 
             end
-            %STATISTIKA PRO JEDNOTLIVE KATEGORIE
+            %STATISTIKA PRO JEDNOTLIVE KATEGORIE - VUCI BASELINE I VUCI SOBE NAVZAJEM
             if exist('kats','var') && numel(kats)>1  && numel(timewindow)<= 1 
                 %vygeneruju EEG data na statistiku pro kazdou kategorii zvlast
                 responsekat = cell(numel(kats),1); %eeg response zvlast pro kazdou kategorii 
@@ -534,9 +540,8 @@ classdef CiEEGData < matlab.mixin.Copyable
                     baselinekat{k,1} = katdata( ibaseline(1) - iepochtime(1)+1 : ibaseline(2) - iepochtime(1),:,:); %jen cas po podnetu : cas x channel x epochs; 
                     rjepchkat{k,1} = RjEpCh;
                 end
-                %provedu statisticke testy
-                if strcmp(method{2},'chnall'), Pbaseline = []; end %pokud chci delat statistiku pres vsechny kanaly, P vuci baseline smazu
-                [obj.Wp(WpA).WpKat,obj.Wp(WpA).WpKatBaseline] = EEGStat.WilcoxCat(kats,responsekat,baselinekat,rjepchkat,itimewindow,method{1},Pbaseline);                
+                %provedu statisticke testy  - vuci baseline i mezi kat navzajem                
+                [obj.Wp(WpA).WpKat,obj.Wp(WpA).WpKatBaseline] = EEGStat.WilcoxCat(kats,responsekat,baselinekat,rjepchkat,itimewindow,method);                
                 %ulozim parametry
                 if ~isempty(KATNUM) %pokud vyhodnocuju opakovani
                     obj.Wp(WpA).kats = KATNUM;    %puvodni kategorie
@@ -545,17 +550,19 @@ classdef CiEEGData < matlab.mixin.Copyable
                     obj.Wp(WpA).kats = kats; %ulozim si cisla kategorii kvuli grafu PlotResponseCh
                     obj.Wp(WpA).opakovani = {}; %opakovani nedelam
                 end  
+                obj.Wp(WpA).method = method;
             else
                 obj.Wp(WpA).kats = kats;
                 obj.Wp(WpA).WpKat = cell(0);
                 obj.Wp(WpA).opakovani = {};
+                obj.Wp(WpA).method = struct;
             end
             obj.DatumCas.ResponseSearch = datestr(now);
         end
         function obj = ResponseSearchMulti(obj,timewindow,stat_kats,opakovani,method)
             %vola ResponseSearch pro kazdy kontrast, nastavi vsechny statistiky
             if ~exist('opakovani','var'), opakovani = []; end
-            if ~exist('method','var'), method = []; end
+            if ~exist('method','var'), method = []; end %use default values
             %TODO - nefunguje pro statistiku {[2 3 1],[1 3 2],[1 2 3]};
             if iscell(stat_kats) && numel(stat_kats)>1 && iscelldeep(stat_kats) %pokud mam nekolik ruznych statistik na spocitani
                 %vsechny prvnky maji dalsich nekolik prvku

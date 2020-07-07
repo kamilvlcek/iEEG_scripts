@@ -26,7 +26,9 @@ classdef CBrainPlot < matlab.mixin.Copyable
         label; %label importovan z BPD dat
         signum; %kopie signum z IntervalyResp
     end
-    
+    properties (Constant)
+        plevel = 0.05; % used significance level
+    end
     methods (Access = public)        
         function [obj] = IntervalyResp(obj,testname,intervals,filename,contrast,signum)
             %IntervalyResp(testname,intervals,filename,contrast)
@@ -170,6 +172,44 @@ classdef CBrainPlot < matlab.mixin.Copyable
             else
                 disp('zadny soubor nenalezen');
             end
+        end
+        function [obj] = FdrVALS(obj,fdr)
+            %performs fdr correction on obj.PVALS and corrects the channels in obj.VALS according to results
+            if ~exist('fdr','var'), fdr = 1; end %default is less strict
+            if fdr == 2, method = 'dep'; else method = 'pdep'; end %#ok<SEPEX>
+            chremoved = zeros(size(obj.PVALS));
+            for interval = 1:size(obj.PVALS,1) %over intervals
+                for kat = 1:size(obj.PVALS,2) %over categories     
+                    ich0 = obj.PVALS{interval,kat}<obj.plevel; %index of originally significant channels
+                    [~, ~, adj_p]=fdr_bh(obj.PVALS{interval,kat},obj.plevel,method,'no'); %dep je striktnejsi nez pdep                    
+                    if sum(adj_p)<numel(adj_p) %if some numbers smaller than one
+                        obj.PVALS{interval,kat} = adj_p; %replace original pvalues with corrected ones - to correspond to obj.VALS etc                    
+                        adj_p = adj_p(ich0); %leave only those originally significant
+                        ich1 = adj_p<obj.plevel; %index of now significant from the original ones                    
+                        %filter out original values according to fdr corretion
+                        obj.VALS{interval,kat} = obj.VALS{interval,kat}(ich1);
+                        obj.MNI{interval,kat}  = obj.MNI{interval,kat}(ich1);
+                        obj.NAMES{interval,kat} = obj.NAMES{interval,kat}(ich1);
+                        obj.NLabels{interval,kat} = obj.NLabels{interval,kat}(ich1);
+                        obj.EpiInfo{interval,kat} = obj.EpiInfo{interval,kat}(ich1);
+                        obj.PAC{interval,kat} = obj.PAC{interval,kat}(ich1); %PAC table
+                        obj.iPAC(interval,kat) = numel(obj.PAC{interval,kat});
+                        chremoved(interval,kat) = sum(adj_p>=obj.plevel); 
+                    else
+                        %for kat AllEl with all channels and all pvalues = 1
+                        %do not filter out any channels
+                        chremoved(interval,kat) = 0; 
+                    end
+                end
+            end
+            fprintf('number of removed/left channels in %i categories (across all patients):\n',numel(obj.katstr));
+            for kat = 1:numel(obj.katstr)
+                fprintf('%s:\t', obj.katstr{kat});
+                for interval = 1:size(obj.PVALS,1)
+                    fprintf(' %i/%i,', chremoved(interval,kat), numel(obj.VALS{interval,kat}));
+                end
+            fprintf('\n');
+            end  
         end
         function label = CMLabel(obj,intv,kat)
             %vrati standardni label pro CM.ExtractData, ve tvaru katstr_(intervalstring)_sigX, format podle BatchExtracts
