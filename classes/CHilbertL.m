@@ -88,10 +88,13 @@ classdef CHilbertL < CHilbert
         %   you want category 1, you need to pass 0. default []
         % time: time in seconds to extract
         % reject: logical defining if the rejected epochs should be
-        %   excluded. You can only reject epochs if you are selecting a
-        %   single category or a single channel, as epochs are rejected per
-        %   channel x category and trying to return multiple would result
-        %   in an uneven matrix. Defaults to false.
+        %   excluded. You can ONLY reject epochs if you are selecting a
+        %   single category , as epochs are rejected per channel x category 
+        %   and trying to return multiple would result in an uneven matrix. 
+        %   If multiple channels are selected in the channels parameter,
+        %   then can only return if all have the same number of final
+        %   epochs. Otherwise errors out.
+        %   Defaults to false.
         % RETURN: 4D matrix [time x channel x frequency x epoch]
         % EXAMPLES: 
         %   hilbert.getenvelopes('channels', [1 3])
@@ -109,28 +112,28 @@ classdef CHilbertL < CHilbert
             frequencies = obj.getfrequencyindices(p.Results.frequencies);
             iCategories = obj.getcategoryindices(p.Results.categories);
             iTime = obj.gettimewindowindices(p.Results.time);
-            % NOT FULLY WORKING because I am not sure how to implement it
+ 
+            if p.Results.reject
+            % NOT WORKING because I am not sure how to implement it
             % This only works if there are no per channel specific epoch
             % rejections - e.g. all channels have the same epoch removed.
             % Otherwise the returned matrix would be uneven - e.g. 51
             % epochs in 4th dimention for channel 1 but only 50 for channel
             % 2. This could be solved by inserting NaNs but if feels as odd
             % behaviour
-            if p.Results.reject
                 if numel(p.Results.categories) ~= 1
-                    warning('Can only reject epochs for a single category');
+                    error(['Can only reject epochs for a single category' ...
+                        ' and a single channel']);
+                end
+                category = obj.categorytonum(p.Results.categories);
+                [~, ~, ~, iEpochs] = obj.CategoryData(category(1));
+                % we are only interested in the subset of channels
+                iEpochs = iEpochs(:, p.Results.channels); 
+                if ~all(sum(iEpochs) == sum(iEpochs(:, 1)))
+                    error(['Not all channels have the same number of' ...
+                        ' epochs rejected, cannot return.']);
                 else
-                    category = obj.categorytonum(p.Results.categories);
-                    [~, ~, ~, iEpochs] = obj.CategoryData(category(1));
-                    % we are only interested in the subset of channels
-                    iEpochs = iEpochs(:,p.Results.channels); 
-                    if ~all(sum(iEpochs) == sum(iEpochs(:,1)))
-                        warning(['Not all channels have the same number of',...
-                            ' epochs rejected, cannot return.']);
-                        return
-                    else
-                        iCategories = iEpochs(:,1);
-                    end
+                    iCategories = iEpochs(:,1);
                 end
             end
             envelopes = obj.HFreqEpochs(iTime(1):iTime(2),p.Results.channels,...
