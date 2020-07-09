@@ -617,7 +617,8 @@ classdef CHilbertL < CHilbert
             if isfield(obj.plotFrequency, 'fh') && ishandle(obj.plotFrequency.fh)
                 figure(obj.plotFrequency.fh);
             else
-                obj.plotFrequency.fh = figure('Name', 'ResponseFreq', 'Position', [20, 500, 1200, 300]);
+                obj.plotFrequency.fh = figure('Name', 'ResponseFreq',...
+                    'Position', [20, 500, 400*numel(categories), 300]);
                 colormap jet;
             end
         end
