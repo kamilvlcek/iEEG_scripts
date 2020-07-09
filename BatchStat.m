@@ -6,7 +6,7 @@ cfg=struct;
 cfg.srovnejresp = 0;
 cfg.hybernovat = 0;
 %cfg.statmethod = 'permut'; 
-cfg.statmethod = 'wilcox';
+cfg.statmethod = struct('test','wilcox','chn',1,'fdr',1);
 
 if ~isfield(cfg,'hybernovat'), cfg.hybernovat = 0; end %jestli chci po konci skriptu pocitac uspat - ma prednost
 if ~isfield(cfg,'vypnout'), cfg.vypnout = 0; end %jestli chci po konci skriptu pocitac vypnout (a nechci ho hybernovat) 
