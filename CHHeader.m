@@ -648,6 +648,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             if ~exist('notchnlabels','var') || (iscell(notchnlabels) && isempty(notchnlabels))
                 notchnlabels = []; %empty cell array causes error in struct command obj.plotCh2D.filterargs
             end
+            if ~exist('selCh','var'), selCh = []; end 
                 
             filtered = false; 
             chshow = 1:numel(obj.H.channels); %show all channels by default

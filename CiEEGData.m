@@ -171,6 +171,27 @@ classdef CiEEGData < matlab.mixin.Copyable
             if ~exist('noprint','var') || isempty(noprint)                
                 disp(['rejected ' msg num2str(numel(obj.RjCh)) ' channels']); 
             end
+        end   
+        function obj = RejectChannelsImport(obj,filename)
+            %imports rejected channels from another file, identifies them by channel name
+            %filename is the name of the original file, *_CiEEG.mat
+            assert(exist(filename,'file')==2,'filename does not exist');
+            vars = whos('-file',filename) ;
+            assert(ismember('RjCh', {vars.name}), 'file does not contain var RjCh');             
+            assert(ismember('CH_H', {vars.name}), 'file does not contain var CH_H');  
+            CH = load(filename,'CH_H','RjCh'); %nactu do struktury
+            names = {CH.CH_H.channels.name}; %original rejected channels names
+            toReject = []; %pocet nactenych kanalu
+            for ch = 1:numel(obj.CH.H.channels) %over channels in current file
+                idx = find(ismember(names,obj.CH.H.channels(ch).name)); %find the current channel name in original channels
+                if ~isempty(idx) && ~isempty(find(CH.RjCh==idx, 1)) %the channel was found and is originally rejected
+                    toReject = [toReject ch]; %#ok<AGROW> %obsahuje realna cisla kanalu                    
+                end 
+            end
+            newRj = setdiff(toReject,obj.RjCh);
+            obj.RjCh = union(obj.RjCh,toReject);
+            obj.CH.RejectChannels(obj.RjCh); %save to header
+            disp(['channels rejected (new): ' num2str(numel(toReject)) '(' num2str(numel(newRj)) ')']); 
         end
         function obj = RejectEpochs(obj,RjEpoch,RjEpochCh)
             %ulozi cisla vyrazenych epoch - kvuli prevodu mezi touto tridou a CHilbert
@@ -508,8 +529,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             else
                 obj.Wp(WpA).D1 = Pbaseline; %pole 1D signifikanci - jedna hodnota pro kazdy kanal            
             end
-            obj.Wp(WpA).Dparams = timewindow; %hodnoty pro zpetnou kontrolu
-            obj.Wp(WpA).Dfdr = 1;
+            obj.Wp(WpA).Dparams = timewindow; %hodnoty pro zpetnou kontrolu            
             obj.Wp(WpA).DiEp = iEp; %index zpracovanych epoch 
             obj.Wp(WpA).DiEpCh = iEpCh & ~obj.RjEpochCh; %index zpracovanych epochCh, pro ruzne kanaly budou ruzna data je u tridy CHilbertMulti 
             obj.Wp(WpA).epochtime = obj.epochtime;
@@ -1324,7 +1344,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             else
                 obj.plotRCh.pvalue = pvalue;
             end
-            if ~exist('ch','var')
+            if ~exist('ch','var') || isempty(ch)
                 if isempty(obj.CH.sortorder) %it can be empty it all channels were filtered out
                    ch = 1; 
                    obj.plotRCh.ch = 1; 
@@ -1344,11 +1364,11 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
             WpA = obj.WpActive; %jen zkratka
             if ~exist('kategories','var') || isempty(kategories) 
-                if ~isempty(obj.Wp) && isfield(obj.Wp(WpA), 'kats')
-                    kategories = obj.Wp(WpA).kats; %pokud jsou kategorie v parametru, prvni volba je pouzit je ze statistiky
-                elseif isfield(obj.plotRCh,'kategories')
+                if isfield(obj.plotRCh,'kategories') 
                     kategories = obj.plotRCh.kategories; %hodnoty drive pouzite v grafu, ty maji prednost pred statistikou
-                elseif ~isempty(obj.Wp) && isfield(obj.Wp(WpA),'kats')
+                elseif ~isempty(obj.Wp(WpA)) && isfield(obj.Wp(WpA), 'kats')
+                    kategories = obj.Wp(WpA).kats; %pokud nejsou kategorie v parametru, prvni volba je pouzit je ze statistiky                
+                elseif ~isempty(obj.Wp(WpA)) && isfield(obj.Wp(WpA),'kats')
                     kategories = obj.Wp(WpA).kats; %hodnoty pouzite ve statistice, 0-n, odpovida cislum v oobj.PsyData.P.strings.podminka
                 else
                    if numel(obj.PsyData.Categories())<=4 %uz muzu pouzivat 4 kategorie, kvuli Menrot
@@ -1358,7 +1378,9 @@ classdef CiEEGData < matlab.mixin.Copyable
                 end                
             else                
                 assert(numel(kategories)<=3,'kategorie mohou byt maximalne tri');
-                if ~isempty(obj.Wp) && ~isempty(obj.Wp(WpA).WpKat) && (isempty(obj.Wp(WpA).kats) || ~isequal(obj.Wp(WpA).kats, kategories))
+                if kategories(1)==-1 && ~isempty(obj.Wp(WpA)) && isfield(obj.Wp(WpA), 'kats')
+                    kategories = obj.Wp(WpA).kats; %pokud zadame kategorie=-1, pouzijou se kategorie ze statistiky, bez ohledu na ulozene kategorie
+                elseif ~isempty(obj.Wp) && ~isempty(obj.Wp(WpA).WpKat) && (isempty(obj.Wp(WpA).kats) || ~isequal(obj.Wp(WpA).kats, kategories))
                     disp('Statistika spocitana bez kategorii nebo pro jine kategorie')
                 end
                 obj.plotRCh.kategories = kategories;    %hodnoty zadane parametrem, ty maji absolutni prednost
@@ -1487,8 +1509,8 @@ classdef CiEEGData < matlab.mixin.Copyable
                        %h_kat(k,2) = errorbar(T,M,E,'.','color',colorskat{2,k}); %nejdriv vykreslim errorbars aby byly vzadu[.8 .8 .8]
                        %h_kat(k,2) = plotband(T, M, E, colorskat{2,k}); %nejlepsi, je pruhledny, ale nejde kopirovat do corelu
                        h_kat(k,2) = ciplot(M+E, M-E, T, colorkatk(2,:)); %funguje dobre pri kopii do corelu, ulozim handle na barevny pas                       
-                       obj.plotRCh.range = [ min(obj.plotRCh.range(1),min(M)-max(E)) max(obj.plotRCh.range(2),max(M)+max(E))]; %pouziju to pak pri stlaceni / z obrazku                    
-                    end                    
+                       obj.plotRCh.range = [ min(obj.plotRCh.range(1),min(M)-max(E)) max(obj.plotRCh.range(2),max(M)+max(E))]; %pouziju to pak pri stlaceni / z obrazku                                           
+                    end                   
                     
                     xlim(obj.epochtime(1:2)); 
                     hold on;
@@ -1544,7 +1566,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                             plot(Tr(iWpB),ones(1,sum(iWpB))*y, '.','Color',colorkatk(1,:),'MarkerSize',5); % 
                             iWpB = obj.Wp(WpA).WpKatBaseline{k,1}(:,ch)  <= 0.01; % vyssi signifikance
                             %y = ymin + (ymax-ymin)*(0.28 - (k+2)*0.05)  ;
-                            plot(Tr(iWpB),ones(1,sum(iWpB))*y, 'p','Color',colorkatk(1,:),'MarkerSize',5); % 
+                            plot(Tr(iWpB),ones(1,sum(iWpB))*y, 'p','Color',colorkatk(1,:),'MarkerSize',5); %                             
                             if exist('opakovani','var') && ~isempty(opakovani)
                                 kat2name =  obj.PsyData.OpakovaniName(kategories{k}); %pokud vyhodnocuju opakovani
                             elseif iscell(kategories)
@@ -1556,7 +1578,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                             line([Tr(1) Tr(end)],[y y]+(ymax-ymin)*0.03 ,'Color',[0.5 0.5 0.5]); 
                                 %kazde jmeno kategorie jinou barvou
                             if pvalue %pokud chci zobrazovat hodnotu p value jako krivku
-                               plot(Tr,obj.Wp(WpA).WpKatBaseline{k,1}(:,ch), '-.','Color',obj.colorskat{kk+1}); %teckovana cara oznacuje signifikanci kategorie vuci baseline
+                               plot(Tr,obj.Wp(WpA).WpKatBaseline{k,1}(:,ch), '-.','Color',colorkatk(1,:)); %teckovana cara oznacuje signifikanci kategorie vuci baseline
                             end
                     end
                     %cara reakcnich casu pro tuhle kategorii
@@ -2157,7 +2179,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             %pokud neni specifikovan parametr 'fraction', zobrazi se dialogove okno pro zadani procent z maxima            
             if nargin < 2
                 prompt = {'Value trigger percentage:', 'Integral trigger percentage:'};
-                default = {'50', '50'};
+                default = {'90', '50'};
                 percent = inputdlg(prompt, 'XLS Export', [1 30], default);
                 if isempty(percent)
                     disp('XLS export cancelled');
@@ -2289,6 +2311,40 @@ classdef CiEEGData < matlab.mixin.Copyable
             else
                 if noprint==0, disp(['no change of selected marking set no.' num2str(obj.plotRCh.selChN)]); end
             end
+        end
+        function CompareChannels(obj,filename,label,marks)
+            %compares the channels with channels in another file by names
+            %saves differences in current channelmarkings f=same, g=only here
+            if ~exist('label','var') || isempty(label), label =  'cmp'; end 
+            if ~exist('marks','var') || isempty(marks) || ~isnumeric(marks) || numel(marks)<2
+                marks =  [1 2]; 
+            end 
+            if marks(1) <1 || marks(1)>6, marks(1) = 1; end
+            if marks(2) <1 || marks(2)>6, marks(2) = 2; end
+            assert(exist(filename,'file')==2,'filename does not exist');
+            vars = whos('-file',filename) ;
+            assert(ismember('CH_H', {vars.name}), 'file does not contain var H');             
+            CH = load(filename,'CH_H');  %load to structure
+            names = {CH.CH_H.channels.name}; 
+            chdif = zeros(numel(obj.CH.H.channels),1); %here to store the comparison result
+            for ch = 1:numel(obj.CH.H.channels)
+                idx = find(ismember(names,obj.CH.H.channels(ch).name), 1);
+                if ~isempty(idx)
+                    chdif(ch)=1; %the channel is in both files
+                end 
+            end 
+            obj.plotRCh.selCh(:,marks(1)) = 0; %reset marking
+            obj.plotRCh.selCh(chdif == 1,marks(1)) = 1; %first mark for same channels
+            obj.plotRCh.selChNames{marks(1)}=[label 'Same'];
+                            
+            obj.plotRCh.selCh(:,marks(2)) = 0; %reset marking
+            obj.plotRCh.selCh(chdif == 0,marks(2)) = 1; %second mark for different channels
+            obj.plotRCh.selChNames{marks(2)}=[label 'Diff'];
+            obj.plotRCh.selChSignum = 0;
+            obj.CH.SetSelCh(obj.plotRCh.selCh,obj.plotRCh.selChNames);
+            
+            klavesy ='fghjkl';
+            disp(['channels same(' klavesy(marks(1)) '): ' num2str(sum(chdif == 1)) ', different(' klavesy(marks(2)) '): ' num2str(sum(chdif == 0)) ]);
         end
     end
     %% staticke metody

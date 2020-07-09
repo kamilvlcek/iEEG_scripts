@@ -173,15 +173,34 @@ classdef CBrainPlot < matlab.mixin.Copyable
                 disp('zadny soubor nenalezen');
             end
         end
-        function [obj] = FdrVALS(obj,fdr)
+        function [obj] = FdrVALS(obj,fdr,label)
             %performs fdr correction on obj.PVALS and corrects the channels in obj.VALS according to results
-            if ~exist('fdr','var'), fdr = 1; end %default is less strict
-            if fdr == 2, method = 'dep'; else method = 'pdep'; end %#ok<SEPEX>
+            if ~exist('fdr','var') || isempty(fdr), fdr = 1; end %default is less strict
+            if ~exist('label','var'), label = ''; end %label of the output xls file
+            if fdr == 2, method = 'dep'; else method = 'pdep'; end %#ok<SEPEX> %dep je striktnejsi nez pdep
             chremoved = zeros(size(obj.PVALS));
-            for interval = 1:size(obj.PVALS,1) %over intervals
-                for kat = 1:size(obj.PVALS,2) %over categories     
+            %data for output xls table
+            out = zeros(numel(obj.PVALS{1,1}),size(obj.PVALS,1) * numel(obj.iPAC) * 2 + 1); %channels x (kats * intervals * 2)
+            out(:,1) = 1:numel(obj.PVALS{1,1}); %channel numbers
+            outnames = cell(numel(obj.PVALS{1,1}),size(obj.PVALS,1) * numel(obj.iPAC)); %names of significant channels
+            colnames = cell(1,size(out,2)+size(outnames,2)); %column names
+            colnames{1} = 'ch';
+            
+            for interval = 1:size(obj.PVALS,1) %over time intervals
+                for kat = 1:size(obj.PVALS,2) %over categories                          
                     ich0 = obj.PVALS{interval,kat}<obj.plevel; %index of originally significant channels
-                    [~, ~, adj_p]=fdr_bh(obj.PVALS{interval,kat},obj.plevel,method,'no'); %dep je striktnejsi nez pdep                    
+                    [~, ~, adj_p]=fdr_bh(obj.PVALS{interval,kat},obj.plevel,method,'no'); 
+                    if kat <= numel(obj.iPAC) %not for last category with all channels
+                        coln = ((interval-1)*size(obj.PVALS,2) + (kat-1))*2+2;   %column index in out      2 columns per interval and kat + 1 first                                  
+                        out(:,coln)=obj.PVALS{interval,kat};
+                        out(:,coln+1)=adj_p;                                                
+                        coln = (interval-1)*size(obj.PVALS,2) + kat; %column index in outnames             1 column per interval and kat
+                        outnames(ich0,coln) = obj.NAMES{interval,kat};
+                        coln = ((interval-1)*size(obj.PVALS,2) + (kat-1))*3+2;  %column index in colnames - 3 columns per interval and kat + 1 first
+                        colnames{coln} = ['int' num2str(interval) '_' obj.katstr{kat} '_name'];
+                        colnames{coln+1} = ['int' num2str(interval) '_' obj.katstr{kat} '_p'];
+                        colnames{coln+2} = ['int' num2str(interval) '_' obj.katstr{kat} '_padj'];                        
+                    end
                     if sum(adj_p)<numel(adj_p) %if some numbers smaller than one
                         obj.PVALS{interval,kat} = adj_p; %replace original pvalues with corrected ones - to correspond to obj.VALS etc                    
                         adj_p = adj_p(ich0); %leave only those originally significant
@@ -202,6 +221,14 @@ classdef CBrainPlot < matlab.mixin.Copyable
                     end
                 end
             end
+            xlsfilename = ['logs\FdrVALS_' label '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') '.xls'];
+            outcell = num2cell(out);
+            for c = 1:size(outnames,2)
+                ic = (c-1)*3+2;
+                outcell = [outcell(:,1:(ic-1)),outnames(:,c),outcell(:,ic:end)]; %insert  column with channel names                
+            end            
+            xlswrite(xlsfilename,vertcat(colnames,outcell)); %zapisu do xls tabulky
+            disp(['p values orig + fdr corrected written to ' xlsfilename]);
             fprintf('number of removed/left channels in %i categories (across all patients):\n',numel(obj.katstr));
             for kat = 1:numel(obj.katstr)
                 fprintf('%s:\t', obj.katstr{kat});
