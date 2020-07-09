@@ -656,30 +656,24 @@ classdef CHilbertL < CHilbert
             obj.plotFrequency.ylim = [miny maxy];
         end
         
-        %Adds labels to the plotfrequency plot
-        function obj = plotlabels(obj, ch, categories)
-            [miny, maxy] = obj.getplotylimit();
+        % Adds labels to the plotfrequency plot
+        % ch: absolute channel numbers
+        function obj = plotlabels(obj, channels, categories)
+            [miny, maxy] = obj.getplotylimit;
             for k = 1:numel(categories)
                 subplot(1, numel(categories), k);
                 caxis([miny, maxy]);
-                %TODO - make this a function, this can change in the future
-                %or error out
                 title(obj.PsyData.CategoryName(cellval(categories, k)));
                 if k == 1
-                    chstr = iff(isempty(obj.CH.sortedby), num2str(ch), ...
-                        [num2str(ch) '(' obj.CH.sortedby  num2str(obj.plotFrequency.ch) ')']);
-                    ylabel(['channel ' chstr ' - freq [Hz]']);
-                    % TODO - Temporary fix for the multiple channel
-                    % selection original:`any(obj.plotRCh.selCh(ch, :), 2) == 1`
-                    % QUESTION - not sure what the plotRch.selCh does
-                    if isprop(obj, 'plotRCh') && isfield(obj.plotRCh, 'selCh') && ...
-                            any(any(obj.plotRCh.selCh(ch, :)))
-                        klavesy = 'fghjkl';
-                        text(0, obj.Hf(1), ['*' klavesy(logical(obj.plotRCh.selCh(ch, :)))], ...
-                            'FontSize', 15, 'Color', 'red');
-                    end
+                    channelStrings = iff(isempty(obj.CH.sortedby), ...
+                        num2str(channels), ... % if empty obj.CH.sortedby
+                        [num2str(channels), '(', obj.CH.sortedby, ...
+                        num2str(obj.plotFrequency.ch), ')']);
+                    ylabel(['channel ' channelStrings ' - freq [Hz]']);
                 end
-                if k == numel(categories), colorbar('Position', [0.92 0.1 0.02 0.82]); end
+                if k == numel(categories)
+                    colorbar('Position', [0.92 0.1 0.02 0.82]);
+                end
             end
         end
           
