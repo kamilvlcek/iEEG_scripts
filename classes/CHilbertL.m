@@ -1,6 +1,6 @@
 classdef CHilbertL < CHilbert
     % HILBERT.CLASS extension for CHilbert class
-    % Original author: Lukï¿½ Hejtmï¿½nek
+    % Original author: Lukáš Hejtmánek
     
     properties (Access = public)
         % HFreq; % hilberova obalka pro kazde frekvenci pasmo - time x channel x freq (x kategorie)
@@ -16,7 +16,7 @@ classdef CHilbertL < CHilbert
         plotFrequency; % replaces plotF so both can be called seaprately
     end
     
-    % -------------- public instance methods -------------------------
+    %% -------------- public instance methods -------------------------
     methods (Access = public)
         %% Constructor description??
         % Just calls CHilbert class constructor
@@ -43,15 +43,15 @@ classdef CHilbertL < CHilbert
         %   obj.plotresponsefrequency([1:5], 2)
             if ~exist('channels', 'var'), channels = []; end
             if ~exist('categories', 'var'), categories = []; end
-           
+            
             obj.prepareplotcategoriespowertime(channels, categories);
             % Shouldn't the Ch be obj.plotF.ch? The CHHeader has it as a 
             % field not a function and thus it is very difficult to unravel
             % The original function has the ch in plotF.ch, but uses the
             % obj.CH.sortorder(ch) to plot things - don't fully understand
             % if that is correct
-            obj.plotcategoriespowertime(obj.CH.sortorder(channels), obj.plotFrequency.kategories);
-            obj.plotlabels(obj.CH.sortorder(channels), obj.plotFrequency.kategories);
+            obj.plotcategoriespowertime(obj.plotFrequency.ch, obj.plotFrequency.kategories);
+            obj.plotlabels(obj.plotFrequency.ch, obj.plotFrequency.kategories);
             set(obj.plotFrequency.fh, 'KeyPressFcn', @obj.frequencyplothandle);
         end
         
@@ -598,15 +598,27 @@ classdef CHilbertL < CHilbert
         function n = ncategories(obj)
             n = size(obj.PsyData.Categories(false), 2);
         end
+        
+        function n = nsortedchannels(obj)
+            n = numel(obj.CH.sortorder);
+        end
     end
     
     %% Visualisations
     methods  (Access = private)
-        % Buffering of the plot, loading settings from saved ï¿½n the 
+        % Buffering of the plot, loading settings from saved ïn the 
         % obj.plotFrequency. Returns existing plot if it exists
         function obj = prepareplotcategoriespowertime(obj, ch, categories)
-            if ~numel(ch) == 0 && ~isfield(obj.plotFrequency, 'ch'), obj.plotFrequency.ch = 1;
-            else, obj.plotFrequency.ch = ch; end
+            if numel(ch) == 0 && ~isfield(obj.plotFrequency, 'ch')
+                obj.plotFrequency.ch = obj.CH.sortorder(1);
+            else
+                obj.plotFrequency.ch = ch;
+            end
+            
+            if numel(obj.plotFrequency.ch) == 1
+                obj.plotFrequency.iCurrentChannel = find(...
+                    obj.CH.sortorder==obj.plotFrequency.ch, 1, 'first');
+            end
             
             % Only rewrites categorties if not already set
             if numel(categories) > 0, obj.plotFrequency.kategories = categories;
@@ -630,7 +642,7 @@ classdef CHilbertL < CHilbert
         % Actual plotting function. Takes channels and categories and
         % creates imagesc based on averaged data (averaged across channels
         % and categories passed)
-        function obj = plotcategoriespowertime(obj, ch, categories)
+        function obj = plotcategoriespowertime(obj, channels, categories)
              [miny, maxy] = obj.getplotylimit();
              for k = 1:numel(categories)
                 % QUESTION - If I pass it a cell I'd expect the
@@ -642,13 +654,15 @@ classdef CHilbertL < CHilbert
                 if iscell(categories(k))                  
                     dd = zeros(size(obj.HFreq, 1), obj.nfrequencies, numel(categories{k}));
                     for ikat = 1:numel(categories{k})
-                        dd(:, :, ikat) = obj.getaverageenvelopes('channels', ch, ...
+                        dd(:, :, ikat) = obj.getaverageenvelopes(...
+                            'channels', channels, ...
                             'categories', categories{k}(ikat));
                     end
                     % QUESTION - WHY IS THIS AVERAGING?
                     D = mean(dd, 3);
                 else
-                    D = obj.getaverageenvelopes('channels', ch, 'categories', categories(k));
+                    D = obj.getaverageenvelopes('channels', channels, ...
+                        'categories', categories(k));
                 end
                 subplot(1, numel(categories), k);
                 T = obj.epochtime(1):0.1:obj.epochtime(2);
@@ -696,18 +710,23 @@ classdef CHilbertL < CHilbert
             if numel(obj.plotFrequency.ch) == 1
                 switch eventDat.Key
                    case 'rightarrow'
-                       obj.plotresponsefrequency(min([obj.plotFrequency.ch + 1 , obj.channels]));
+                       obj.plotFrequency.iCurrentChannel = min(...
+                           [obj.plotFrequency.iCurrentChannel + 1, obj.nsortedchannels]);
                    case 'pagedown'
-                       obj.plotresponsefrequency(min([obj.plotFrequency.ch + 10 , obj.channels]));
+                       obj.plotFrequency.iCurrentChannel = min([...
+                           obj.plotFrequency.iCurrentChannel + 10, obj.nsortedchannels]);
                    case 'leftarrow'
-                       obj.plotresponsefrequency(max([obj.plotFrequency.ch - 1 , 1]));
+                       obj.plotFrequency.iCurrentChannel = max([...
+                           obj.plotFrequency.iCurrentChannel - 1, 1]);
                    case 'pageup'
-                       obj.plotresponsefrequency(max([obj.plotFrequency.ch - 10 , 1]));
+                       obj.plotFrequency.iCurrentChannel = max([...
+                           obj.plotFrequency.iCurrentChannel - 10, 1]);
                    case 'space' % zobrazi i prumerne krivky
                        obj.PlotResponseCh(obj.plotFrequency.ch);
                        obj.PlotEpochs(obj.plotRCh.ch, obj.Wp(obj.WpActive).kats);
                        figure(obj.plotFrequency.fh);
                 end
+                obj.plotresponsefrequency(obj.CH.sortorder(obj.plotFrequency.iCurrentChannel));
             end
             switch eventDat.Key
                 case {'multiply', '8'} % dialog na vlozeni minima a maxima osy y
