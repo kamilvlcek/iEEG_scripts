@@ -1,6 +1,6 @@
 classdef CHilbertL < CHilbert
     % HILBERT.CLASS extension for CHilbert class
-    % Original author: Lukáš Hejtmánek
+    % Original author: Lukï¿½ Hejtmï¿½nek
     
     properties (Access = public)
         % HFreq; % hilberova obalka pro kazde frekvenci pasmo - time x channel x freq (x kategorie)
@@ -602,7 +602,7 @@ classdef CHilbertL < CHilbert
     
     %% Visualisations
     methods  (Access = private)
-        % Buffering of the plot, loading settings from saved ïn the 
+        % Buffering of the plot, loading settings from saved ï¿½n the 
         % obj.plotFrequency. Returns existing plot if it exists
         function obj = prepareplotcategoriespowertime(obj, ch, categories)
             if ~numel(ch) == 0 && ~isfield(obj.plotFrequency, 'ch'), obj.plotFrequency.ch = 1;
@@ -621,7 +621,7 @@ classdef CHilbertL < CHilbert
                 figure(obj.plotFrequency.fh);
             else
                 obj.plotFrequency.fh = figure('Name', 'ResponseFreq',...
-                    'Position', [20, 500, 400*numel(categories), 300]);
+                    'Position', [20, 500, 400*numel(obj.plotFrequency.kategories), 300]);
                 colormap jet;
             end
         end
