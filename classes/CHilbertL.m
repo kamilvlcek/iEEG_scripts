@@ -43,16 +43,9 @@ classdef CHilbertL < CHilbert
         %   obj.plotresponsefrequency([1:5], 2)
             if ~exist('channels', 'var'), channels = []; end
             if ~exist('categories', 'var'), categories = []; end
-            
+            obj.plotFrequency = struct;
             obj.prepareplotcategoriespowertime(channels, categories);
-            % Shouldn't the Ch be obj.plotF.ch? The CHHeader has it as a 
-            % field not a function and thus it is very difficult to unravel
-            % The original function has the ch in plotF.ch, but uses the
-            % obj.CH.sortorder(ch) to plot things - don't fully understand
-            % if that is correct
-            obj.plotcategoriespowertime(obj.plotFrequency.ch, obj.plotFrequency.kategories);
-            obj.plotlabels(obj.plotFrequency.ch, obj.plotFrequency.kategories);
-            set(obj.plotFrequency.fh, 'KeyPressFcn', @obj.frequencyplothandle);
+            obj.updateplotcategoriespowertime;
         end
         
         function obj = PlotResponseFreqMean(obj, ch, categories)
@@ -602,6 +595,10 @@ classdef CHilbertL < CHilbert
         function n = nsortedchannels(obj)
             n = numel(obj.CH.sortorder);
         end
+        % returns channel order in the obj.CH.sortorder
+        function i = sortedchannelorder(obj, channel)
+            i = find(obj.CH.sortorder == channel, 1, 'first');
+        end
     end
     
     %% Visualisations
@@ -616,8 +613,8 @@ classdef CHilbertL < CHilbert
             end
             
             if numel(obj.plotFrequency.ch) == 1
-                obj.plotFrequency.iCurrentChannel = find(...
-                    obj.CH.sortorder==obj.plotFrequency.ch, 1, 'first');
+                obj.plotFrequency.iCurrentChannel = ...
+                    obj.sortedchannelorder(obj.plotFrequency.ch);
             end
             
             % Only rewrites categorties if not already set
@@ -634,8 +631,14 @@ classdef CHilbertL < CHilbert
             else
                 obj.plotFrequency.fh = figure('Name', 'ResponseFreq',...
                     'Position', [20, 500, 400*numel(obj.plotFrequency.kategories), 300]);
+                set(obj.plotFrequency.fh, 'KeyPressFcn', @obj.frequencyplothandle);
                 colormap jet;
             end
+        end
+        
+        function obj = updateplotcategoriespowertime(obj)
+            obj.plotcategoriespowertime(obj.plotFrequency.ch, obj.plotFrequency.kategories);
+            obj.plotlabels(obj.plotFrequency.ch, obj.plotFrequency.kategories);
         end
         
         % TODO - deprecate option to pass cells into categories
@@ -708,25 +711,24 @@ classdef CHilbertL < CHilbert
         % and CHilbertL
         function obj = frequencyplothandle(obj, ~, eventDat)
             if numel(obj.plotFrequency.ch) == 1
+                iCurrentCh = obj.plotFrequency.iCurrentChannel;
                 switch eventDat.Key
                    case 'rightarrow'
-                       obj.plotFrequency.iCurrentChannel = min(...
-                           [obj.plotFrequency.iCurrentChannel + 1, obj.nsortedchannels]);
+                       iCurrentCh = min([iCurrentCh + 1, obj.nsortedchannels]);
                    case 'pagedown'
-                       obj.plotFrequency.iCurrentChannel = min([...
-                           obj.plotFrequency.iCurrentChannel + 10, obj.nsortedchannels]);
+                       iCurrentCh = min([iCurrentCh + 10, obj.nsortedchannels]);
                    case 'leftarrow'
-                       obj.plotFrequency.iCurrentChannel = max([...
-                           obj.plotFrequency.iCurrentChannel - 1, 1]);
+                       iCurrentCh = max([iCurrentCh - 1, 1]);
                    case 'pageup'
-                       obj.plotFrequency.iCurrentChannel = max([...
-                           obj.plotFrequency.iCurrentChannel - 10, 1]);
+                       iCurrentCh = max([iCurrentCh - 10, 1]);
                    case 'space' % zobrazi i prumerne krivky
                        obj.PlotResponseCh(obj.plotFrequency.ch);
                        obj.PlotEpochs(obj.plotRCh.ch, obj.Wp(obj.WpActive).kats);
                        figure(obj.plotFrequency.fh);
                 end
-                obj.plotresponsefrequency(obj.CH.sortorder(obj.plotFrequency.iCurrentChannel));
+                obj.plotFrequency.iCurrentChannel = iCurrentCh;
+                obj.plotFrequency.ch = obj.CH.sortorder(iCurrentCh);
+                obj.updateplotcategoriespowertime;
             end
             switch eventDat.Key
                 case {'multiply', '8'} % dialog na vlozeni minima a maxima osy y
@@ -739,22 +741,29 @@ classdef CHilbertL < CHilbert
                         data = str2num(answ{:}); %#ok<ST2NM>
                         if numel(data) >= 2, obj.plotFrequency.ylim = [data(1) data(2)]; end
                     end
-                    obj.plotresponsefrequency(obj.plotFrequency.ch);
+                    obj.updateplotcategoriespowertime;
                 case {'divide', 'slash'} % automaticke meritko na ose z - power
                     obj.plotFrequency.ylim = [];
-                    obj.plotresponsefrequency(obj.plotFrequency.ch);
-                case {'add', 'equal','s'} % + oznaceni kanalu
+                    obj.updateplotcategoriespowertime;
+                case {'add', 'equal', 's'} % + oznaceni kanalu
                     obj.SelChannel(obj.plotFrequency.ch);
-                    obj.plotresponsefrequency(obj.plotFrequency.ch);
+                    obj.updateplotcategoriespowertime;
+                % NOT SURE WHAT THIS DOES
                 case {'numpad6', 'd'} % + oznaceni kanalu
+                    warning('NOT IMPLEMENTED');
                     ch2 = obj.plotRCh.selCh(find(obj.plotRCh.selCh > obj.plotFrequency.ch, 1));
                     ch = iff(isempty(ch2), obj.plotFrequency.ch, ch2);
-                    obj.plotresponsefrequency(ch);
-               % QUESTION - this keeps returning 0
+                    obj.plotFrequency.ch = ch;
+                    obj.plotFrequency.iCurrentChannel = obj.sortedchannelorder(ch);
+                    obj.updateplotcategoriespowertime;
+               % NOT SURE WHAT THIS DOES
                case {'numpad4', 'a'} % + oznaceni kanalu
+                    warning('NOT IMPLEMENTED');
                     ch2 = obj.plotRCh.selCh(find(obj.plotRCh.selCh < obj.plotFrequency.ch, 1, 'last'));
                     ch = iff(isempty(ch2), obj.plotFrequency.ch, ch2);
-                    obj.plotresponsefrequency(ch);
+                    obj.plotFrequency.ch = ch;
+                    obj.plotFrequency.iCurrentChannel = obj.sortedchannelorder(ch);
+                    obj.updateplotcategoriespowertime;
             end
         end       
      end

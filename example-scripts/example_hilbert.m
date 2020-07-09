@@ -7,9 +7,9 @@ hilbert = CHilbertL(patient_file);
 
 %% 
 % Existing plot response for a single channel and multiple categories
-hilbert.PlotResponseFreq(20);
+hilbert.PlotResponseFreq(5);
 % Doesn't work with the cells because I don't understand how the categories are being passed
-hilbert.plotresponsefrequency(20);
+hilbert.plotresponsefrequency(5);
 hilbert.plotresponsefrequency(1:5, 0:3);
 
 % Newly added plot response which shoudl "average" given channels
