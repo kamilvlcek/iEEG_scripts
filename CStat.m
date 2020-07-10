@@ -523,7 +523,7 @@ classdef CStat < handle
             if ~exist('paired','var'), paired = 0; end %pokud se ma pouzit parovy neparametricky test, defaulte ne
             W = zeros(size(A,1),size(A,2));
            
-            if print, fprintf(['Wilcox Test 2D - ' msg ': ']); end
+            if print, fprintf(['Wilcox Test 2D - ' msg ' (' num2str(size(A)) '): ']); end
             for j = 1:size(A,1) % napr cas
                 if print && mod(j,50)==0, fprintf('%d ', j); end %tisknu jen cele padesatky
                 for k = 1:size(A,2) %napr kanaly   
@@ -548,8 +548,16 @@ classdef CStat < handle
                 end
             end
             if fdr
-                if fdr == 2, method = 'dep'; else method = 'pdep'; end
-                [~, ~, adj_p]=fdr_bh(W,0.05,method,'no'); %dep je striktnejsi nez pdep
+                if fdr == 2, method = 'dep'; else method = 'pdep'; end %#ok<SEPEX>
+                [~, ~, adj_p]=fdr_bh(W,0.05,method,'no'); %dep je striktnejsi nez pdep 
+                %optionally log the uncorredted and corectec values
+%                 logcell = cell(size(W,1)*2+2,size(W,2)+5);
+%                 logcell{1,1}=method;  logcell{1,2}=msg; logcell{1,5}=datestr(now, 'yyyy-mm-dd_HH-MM-SS'); 
+%                 logcell(2:size(W,1)+1,1:size(W,2)) = num2cell(W);
+%                 logcell(size(W,1)+2,1) = {'adj_p'};
+%                 logcell(size(W,1)+3:end,1:size(W,2)) = num2cell(adj_p);
+%                 if(size(logcell,2)>256), logcell = logcell(:,1:256); end %xls can export more columns
+%                 xlswrite(['logs\Wilcox2D_' msg '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') '.xls'],logcell); %zapisu do xls tabulky
                 W = adj_p; %prepisu puvodni hodnoty korigovanymi podle FDR
             end
             if print, fprintf('%d .. done\n',j); end

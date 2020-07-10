@@ -57,10 +57,10 @@ classdef CEEGStat
                  baselineB = mean(baselineall(  floor(size(baselineall,1)/2)+1:end,:,:));
                  if method.chn == 1 %nova verze, statistika pro kazdy kanal zvlast, tam kde je odpoved vuci baseline
                      WpKatBaseline{k,1} = ones(size(responsekat{k},1), size(responsekat{k},2)); %time x channels
-                     fprintf('kat %i vs baseline Channels Wilcox2D: 1 ... ',k);
+                     fprintf('kat %i vs baseline - Channels Individually - Wilcox2D: 1 ... ',k);
                      for ch = 1:size(responsekat{k},2) %musim baseline signif taky pocitat pro kazdy kanal zvast protoze ji pak zohlednuju mezi kategoriemi
-                        WpBA = CStat.Wilcox2D(responsekat{k}(:,ch,:),baselineA(:,ch,:),0,method.fdr,['kat ' num2str(k) ' vs baseline A'],rjepchkat{k}(ch,:),rjepchkat{k}(ch,:));
-                        WpBB = CStat.Wilcox2D(responsekat{k}(:,ch,:),baselineB(:,ch,:),0,method.fdr,['kat ' num2str(k) ' vs baseline B'],rjepchkat{k}(ch,:),rjepchkat{k}(ch,:));
+                        WpBA = CStat.Wilcox2D(responsekat{k}(:,ch,:),baselineA(:,ch,:),0,method.fdr,['chn' num2str(ch) ' kat ' num2str(k) ' vs baseline A'],rjepchkat{k}(ch,:),rjepchkat{k}(ch,:));
+                        WpBB = CStat.Wilcox2D(responsekat{k}(:,ch,:),baselineB(:,ch,:),0,method.fdr,['chn' num2str(ch) ' kat ' num2str(k) ' vs baseline B'],rjepchkat{k}(ch,:),rjepchkat{k}(ch,:));
                         WpKatBaseline{k,1}(:,ch) = max (WpBA,WpBB);
                      end
                      fprintf('... %i \n',ch);
@@ -80,7 +80,7 @@ classdef CEEGStat
                     if strcmp(method.test,'wilcox')
                         if method.chn == 1 %nova verze, statistika pro kazdy kanal zvlast, tam kde je odpoved vuci baseline
                             Wr = ones(size(WpKatBaseline{1})); %vysoke pravdepodobnosti
-                            fprintf('kat %i vs %i Channels Wilcox2D %s: 1 ... ',k,j,pairedstr);
+                            fprintf('kat %i vs %i - Channels Individually - Wilcox2D %s: 1 ... ',k,j,pairedstr);
                             for ch = 1:size(Wr,2)                                
                                 if min(WpKatBaseline{k}(:,ch))<.05 || min(WpKatBaseline{j}(:,ch))<.05
                                     Wr(:,ch) = CStat.Wilcox2D(responsekat{k}(:,ch,:), responsekat{j}(:,ch,:),0,method.fdr,['kat ' num2str(k) ' vs ' num2str(j)],rjepchkat{k}(ch,:),rjepchkat{j}(ch,:),paired); % -------- WILCOX kazda kat s kazdou                                     

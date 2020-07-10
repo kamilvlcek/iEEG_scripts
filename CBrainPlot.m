@@ -201,7 +201,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
                         colnames{coln+1} = ['int' num2str(interval) '_' obj.katstr{kat} '_p'];
                         colnames{coln+2} = ['int' num2str(interval) '_' obj.katstr{kat} '_padj'];                        
                     end
-                    if sum(adj_p)<numel(adj_p) %if some numbers smaller than one
+                    if sum(adj_p<1)>0 %if some numbers smaller than one
                         obj.PVALS{interval,kat} = adj_p; %replace original pvalues with corrected ones - to correspond to obj.VALS etc                    
                         adj_p = adj_p(ich0); %leave only those originally significant
                         ich1 = adj_p<obj.plevel; %index of now significant from the original ones                    
