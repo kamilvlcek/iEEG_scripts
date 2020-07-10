@@ -166,7 +166,7 @@ classdef ChannelPlot < matlab.mixin.Copyable
                
                 if ~isempty(selch) && selch>0
                     scatter3(XYZ.X(selch),XYZ.Y(selch),XYZ.Z(selch),max(sizes),[0 0 0]);
-                    obj.highlightChannel(obj.plotCh3D.dispChannels(selch));
+                    obj.highlightChannel(obj.plotCh3D.chnsel(selch));
                 end
                 
                 if ~isempty(roi) && numel(roi)>=4 && ~obj.plotCh3D.outputstyle %[x y z edge]
@@ -219,7 +219,6 @@ classdef ChannelPlot < matlab.mixin.Copyable
                 
                 obj.PlotColorNames(); %plot naming of the colors used for individual channels
                 obj.PlotClusters(clrs); %plot channel clusters if any exist            
-                obj.plotCh3D.dispChannels = chnsel; % ulozim vyber zobrazenych kanalu (je potreba pro klikani)
                 obj.highlightChannel(); %if there is any channel to be highligted, do it
                 %rozhybani obrazku            
                 set(obj.plotCh3D.fh,'KeyPressFcn',@obj.hybejPlot3D);

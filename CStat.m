@@ -842,7 +842,7 @@ classdef CStat < handle
           coordinates = [displayedChannels.MNI_x; displayedChannels.MNI_y; displayedChannels.MNI_z];    % souradnice zobrazenych kanalu
           closestChannel = findClosestPoint(p1, p2, coordinates, 2);    % najdu kanal nejblize mistu kliknuti
           if closestChannel  % pokud jsem nejaky nasel:
-             ch = obj.plotAUC.Eh.CH.channelPlot.plotCh3D.dispChannels(closestChannel);
+             ch = obj.plotAUC.Eh.CH.channelPlot.plotCh3D.chnsel(closestChannel);
              if isfield(obj.plotAUC.Eh.CH.channelPlot.plotCh3D, 'fh') && isvalid(obj.plotAUC.Eh.CH.channelPlot.plotCh3D.fh)
                 obj.plotAUC.Eh.CH.channelPlot.highlightChannel(ch);
              end
