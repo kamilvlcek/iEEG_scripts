@@ -63,6 +63,7 @@ classdef CEEGStat
                         WpBB = CStat.Wilcox2D(responsekat{k}(:,ch,:),baselineB(:,ch,:),0,method.fdr,['chn' num2str(ch) ' kat ' num2str(k) ' vs baseline B'],rjepchkat{k}(ch,:),rjepchkat{k}(ch,:));
                         WpKatBaseline{k,1}(:,ch) = max (WpBA,WpBB);
                      end
+                     if method.fdr == 0, fprintf('no fdr ...'); end
                      fprintf('... %i \n',ch);
                  else %puvodni verze, statistika pro vsechny kanaly najednou  
                      WpBA = CStat.Wilcox2D(responsekat{k},baselineA,1,method.fdr,['kat ' num2str(k) ' vs baseline A'],rjepchkat{k},rjepchkat{k});
@@ -87,6 +88,7 @@ classdef CEEGStat
                                     %fprintf('%i,',ch);
                                 end                                
                             end
+                            if method.fdr == 0, fprintf('no fdr ...'); end
                             fprintf('... %i \n',ch);
                         else  %puvodni verze, statistika pro vsechny kanaly najednou  
                             Wr = CStat.Wilcox2D(responsekat{k}, responsekat{j},1,method.fdr,['kat ' num2str(k) ' vs ' num2str(j)],rjepchkat{k},rjepchkat{j}, paired); % -------- WILCOX kazda kat s kazdou 

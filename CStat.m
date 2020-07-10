@@ -513,7 +513,7 @@ classdef CStat < handle
             %srovna dve 3D matice proti sobe, ohledne hodnot v poslednim rozmeru
             %A musi mit oba prvni rozmery > rozmery B, 
             %B muze mit jeden nebo oba prvni rozmer = 1 - pak se porovnava se vsemi hodnotami v A
-            %pokud fdr=1 nebo prazne, provadi fdr korekci
+            %pokud fdr=1,2 nebo prazne, provadi fdr korekci
             %pokud print = 0 nebo prazne, netiskne nic
             if ~exist('print','var'), print = 0; end
             if ~exist('fdr','var') || isempty(fdr), fdr = 1; end %min striktni je default           
@@ -547,7 +547,7 @@ classdef CStat < handle
                    end
                 end
             end
-            if fdr
+            if fdr > 0
                 if fdr == 2, method = 'dep'; else method = 'pdep'; end %#ok<SEPEX>
                 [~, ~, adj_p]=fdr_bh(W,0.05,method,'no'); %dep je striktnejsi nez pdep 
                 %optionally log the uncorredted and corectec values
@@ -559,6 +559,8 @@ classdef CStat < handle
 %                 if(size(logcell,2)>256), logcell = logcell(:,1:256); end %xls can export more columns
 %                 xlswrite(['logs\Wilcox2D_' msg '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') '.xls'],logcell); %zapisu do xls tabulky
                 W = adj_p; %prepisu puvodni hodnoty korigovanymi podle FDR
+            else
+                if print, fprintf('no fdr ...'); end
             end
             if print, fprintf('%d .. done\n',j); end
         end

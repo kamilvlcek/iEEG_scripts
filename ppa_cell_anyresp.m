@@ -25,7 +25,7 @@ CMlabel = ['PPA_AnyResp07_50-150Hz']; %choose label for CHilbertMulti file
 CM.ImportExtract(filenames,CMlabel);
 %% compute statistics
 setup = setup_ppa();
-CM.ResponseSearchMulti(0.1,setup.stat_kats,[],struct('chn',1)); 
+CM.ResponseSearchMulti(0.1,setup.stat_kats,[],struct('chn',2, 'fdr',1)); 
 CM.PlotResponseCh;
 %% store statistics it to markings
 CM.SetStatActive(1); 
