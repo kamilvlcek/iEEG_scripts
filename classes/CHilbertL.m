@@ -1,6 +1,6 @@
 classdef CHilbertL < CHilbert
     % HILBERT.CLASS extension for CHilbert class
-    % Original author: Lukáš Hejtmánek
+    % Original author: Lukï¿½ Hejtmï¿½nek
     
     properties (Access = public)
         % HFreq; % hilberova obalka pro kazde frekvenci pasmo - time x channel x freq (x kategorie)
@@ -565,7 +565,10 @@ classdef CHilbertL < CHilbert
         end
         
         function parser = addcategoriesparameter(obj, parser)
-            addParameter(parser, 'categories', obj.PsyData.Categories(false),...
+            if isfield(obj.Wp(obj.WpActive), 'kats'), categories = obj.Wp(obj.WpActive).kats;
+            else, categories = obj.PsyData.Categories(false); end
+            addParameter(parser, 'categories',...
+                categories,...
                 @(x)(numel(x) > 0));
         end
         
@@ -603,7 +606,7 @@ classdef CHilbertL < CHilbert
     
     %% Visualisations
     methods  (Access = private)
-        % Buffering of the plot, loading settings from saved ïn the 
+        % Buffering of the plot, loading settings from saved ï¿½n the 
         % obj.plotFrequency. Returns existing plot if it exists
         function obj = prepareplotcategoriespowertime(obj, ch, categories)
             if numel(ch) == 0 && ~isfield(obj.plotFrequency, 'ch')
