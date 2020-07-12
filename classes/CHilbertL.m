@@ -26,25 +26,29 @@ classdef CHilbertL < CHilbert
         
         %% Plot Response Frequency
         
-        function obj = plotresponsefrequency(obj, channels, categories)
+        function obj = plotresponsefrequency(obj, channels, varargin)
         % Restructured PlotResponseFreq function which allows plotting of
         % either single or multiple channels averaged together.
         %
         % channels: numeric array definich which channels to plot. If more than
         %   one channel is passed, data are averaged across all given
         %   channels. e.g. 
+        % varargin
         % categories: which category to plot - if not defined, plots all.
         %   Takes array of category indices beginning with 0. e.g. [0,3]. 
         %   See getenvelopes for better explanation
         %
         % Example:
         %   obj.plotresponsefrequency(1, [0:2])
-        %   obj.plotresponsefrequency([1, 2:5, 8], [0:2])
-        %   obj.plotresponsefrequency([1:5], 2)
+        %   obj.plotresponsefrequency([1, 2:5, 8], 'categories', [0:2])
+        %   obj.plotresponsefrequency([1:5], 'categories', 2)
+            p = inputParser;
+            p = obj.addcategoriesparameter(p);
+            parse(p, varargin{:});
+            
             if ~exist('channels', 'var'), channels = []; end
-            if ~exist('categories', 'var'), categories = []; end
             obj.plotFrequency = struct;
-            obj.prepareplotcategoriespowertime(channels, categories);
+            obj.prepareplotcategoriespowertime(channels, p.Results.categories);
             obj.updateplotcategoriespowertime;
         end
         
@@ -62,7 +66,7 @@ classdef CHilbertL < CHilbert
         %   obj.PlotResponseFreqMean(1, [0:2])
         %   obj.PlotResponseFreqMean([1, 2:5, 8], [0:2])
         %   obj.PlotResponseFreqMean([1:5], 2)
-            obj.plotresponsefrequency(ch, categories);
+            obj.plotresponsefrequency(ch, 'categories', categories);
         end
         
         %% Getters
@@ -77,8 +81,8 @@ classdef CHilbertL < CHilbert
         %   passed, then it is assumed its frequnecies. If integers are
         %   passed, then it evaluates as indices
         % categories: array of categories. eg. [1,3]. If empty, returns all
-        % categories. Adds +1 to category number because of reasons - so if
-        %   you want category 1, you need to pass 0. default []
+        %   categories. Adds +1 to category number because of reasons - so 
+        %   if you want category 1, you need to pass 0. default []
         % time: time in seconds to extract
         % reject: logical defining if the rejected epochs should be
         %   excluded. You can ONLY reject epochs if you are selecting a

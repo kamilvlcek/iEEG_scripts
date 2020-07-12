@@ -10,11 +10,11 @@ hilbert = CHilbertL(patient_file);
 hilbert.PlotResponseFreq(5);
 % Doesn't work with the cells because I don't understand how the categories are being passed
 hilbert.plotresponsefrequency(5);
-hilbert.plotresponsefrequency(1:5, 0:3);
+hilbert.plotresponsefrequency(1:5, 'categories', 0:3);
 
 % Newly added plot response which shoudl "average" given channels
 hilbert.PlotResponseFreqMean(1:4, 0:3);
-hilbert.plotresponsefrequency(1:4, 0:3);
+hilbert.plotresponsefrequency(1:4, 'categories', 0);
 
 %% Wilcox 
 %against a baseline for all frequencies
