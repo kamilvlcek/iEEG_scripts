@@ -1,6 +1,6 @@
 classdef CHilbertL < CHilbert
     % HILBERT.CLASS extension for CHilbert class
-    % Original author: Lukï¿½ Hejtmï¿½nek
+    % Original author: Lukáš Hejtmánek
     
     properties (Access = public)
         % HFreq; % hilberova obalka pro kazde frekvenci pasmo - time x channel x freq (x kategorie)
@@ -44,11 +44,14 @@ classdef CHilbertL < CHilbert
         %   obj.plotresponsefrequency([1:5], 'categories', 2)
             p = inputParser;
             p = obj.addcategoriesparameter(p);
+            addParameter(p, 'ylim', obj.getplotylimit, ...
+                @(x)(numel(x) == 2 && isnumeric(x)));
             parse(p, varargin{:});
             
             if ~exist('channels', 'var'), channels = []; end
             obj.plotFrequency = struct;
             obj.prepareplotcategoriespowertime(channels, p.Results.categories);
+            obj.plotFrequency.ylim = p.Results.ylim;
             obj.updateplotcategoriespowertime;
         end
         
@@ -588,29 +591,34 @@ classdef CHilbertL < CHilbert
         end
         %% getters
         function n = nchannels(obj)
+         % returns number of channels in the obj.HFreq
             n = size(obj.HFreq, 2);
         end
         
         function n = nfrequencies(obj)
+         % returns number of frequencies in the obj.HFreq
             n = size(obj.HFreq, 3);
         end
         
         function n = ncategories(obj)
+        % RETURNS total number of categories, not necessarily active onse
             n = size(obj.PsyData.Categories(false), 2);
         end
         
         function n = nsortedchannels(obj)
+        % returns number of channels in the obj.CH.sortorder
             n = numel(obj.CH.sortorder);
         end
-        % returns channel order in the obj.CH.sortorder
+        
         function i = sortedchannelorder(obj, channel)
+        % returns channel order in the obj.CH.sortorder
             i = find(obj.CH.sortorder == channel, 1, 'first');
         end
     end
     
     %% Visualisations
     methods  (Access = private)
-        % Buffering of the plot, loading settings from saved ï¿½n the 
+        % Buffering of the plot, loading settings from saved ïn the 
         % obj.plotFrequency. Returns existing plot if it exists
         function obj = prepareplotcategoriespowertime(obj, ch, categories)
             if numel(ch) == 0 && ~isfield(obj.plotFrequency, 'ch')
@@ -680,6 +688,9 @@ classdef CHilbertL < CHilbert
                 imagesc(T, obj.Hfmean, D');
                 axis xy; xlabel('time [s]');
                 % Buffers the x and y limits to use in future plots
+                % THIS can "RESET" the ylimits if the values overshoot the
+                % given ones. Kinda "troublesome" in case of scrolling, as
+                % each drawn plot redoes the z-axis
                 maxy = max([maxy max(D(:))]); miny = min([miny min(D(:))]);
             end
             obj.plotFrequency.ylim = [miny maxy];

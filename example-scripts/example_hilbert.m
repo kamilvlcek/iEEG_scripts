@@ -16,6 +16,11 @@ hilbert.plotresponsefrequency(1:5, 'categories', 0:3);
 hilbert.PlotResponseFreqMean(1:4, 0:3);
 hilbert.plotresponsefrequency(1:4, 'categories', 0);
 
+% Ylim
+% You cna set the ylim while plottin g
+hilbert.plotresponsefrequency(5, 'ylim', [-2 2]);
+hilbert.plotresponsefrequency(5:10, 'ylim', [-2 1]);
+
 %% Wilcox 
 %against a baseline for all frequencies
 % Wilcox agains baseline returs a 4D matrix with
