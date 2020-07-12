@@ -567,10 +567,20 @@ classdef CStat < handle
                    end
                 end
             end
-            if fdr
-                if fdr == 2, method = 'dep'; else method = 'pdep'; end
-                [~, ~, adj_p]=fdr_bh(W,0.05,method,'no'); %dep je striktnejsi nez pdep
+            if fdr > 0
+                if fdr == 2, method = 'dep'; else method = 'pdep'; end %#ok<SEPEX>
+                [~, ~, adj_p]=fdr_bh(W,0.05,method,'no'); %dep je striktnejsi nez pdep 
+                %optionally log the uncorredted and corectec values
+%                 logcell = cell(size(W,1)*2+2,size(W,2)+5);
+%                 logcell{1,1}=method;  logcell{1,2}=msg; logcell{1,5}=datestr(now, 'yyyy-mm-dd_HH-MM-SS'); 
+%                 logcell(2:size(W,1)+1,1:size(W,2)) = num2cell(W);
+%                 logcell(size(W,1)+2,1) = {'adj_p'};
+%                 logcell(size(W,1)+3:end,1:size(W,2)) = num2cell(adj_p);
+%                 if(size(logcell,2)>256), logcell = logcell(:,1:256); end %xls can export more columns
+%                 xlswrite(['logs\Wilcox2D_' msg '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') '.xls'],logcell); %zapisu do xls tabulky
                 W = adj_p; %prepisu puvodni hodnoty korigovanymi podle FDR
+            else
+                if print, fprintf('no fdr ...'); end
             end
             if print, fprintf('%d .. done\n',j); end
         end

@@ -740,7 +740,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                disp(['neni vypocitana statistika']);
            end
         end
-        function [prumery, MNI,names,intervaly,katsnames,neurologyLabels,pvals] = IntervalyResp(obj, intervaly,channels,signum, dofig)
+        function [prumery, MNI,names,intervaly,katsnames,neurologyLabels,pvals] = IntervalyResp(obj, intervaly,channels,signum, dofig,pvals_time)
             %vypocita hodnoty v jednotlivych intervalech casu pro jednotlive kategorie i pro celkovy prumer       
             %vykresli graf pro kazdy interval do spolecneho plotu
             %vraci prumery [channels x intervaly x kategorie] a MNI(channels)    
@@ -751,11 +751,20 @@ classdef CiEEGData < matlab.mixin.Copyable
             if ~exist('channels','var') || isempty(channels) , channels = 1:obj.channels; end %all channels bys default, so its redundant to return channel numbers. its not set any where else
             if ~exist('signum','var') || isempty(signum) , signum = 0; end %defaultne vraci hodnoty vetsi i mensi v prvni kat
             if ~exist('dofig','var'), dofig = 1; end %defaultne delam obrazek
+            if ~exist('pvals_time','var'), pvals_time = 1; end %defaultne sbiram vsechny hodnoty ze vsech kanalu i casu 
             [katsnames,kombinace,kats] = obj.GetKatsNames();    %kombinace maji v kazdem radku vyssi cislo kategorie driv
 
-            %spocitam dynamicky permutace vsech kategorii, pro ktere mam spocitanou statistiku                       
-            prumery = zeros(numel(channels),size(intervaly,1),numel(kats)+size(kombinace,1));   % channels x intervaly x kategorie - celkova data a jednotlive kategorie            
-            pvals = ones(size(prumery)); %we need to return also pvalues to be able to do fdr correction afterwards. The same size as prumery = the minimal p value for each channel, default=1
+            iintervalyData = obj.Wp(obj.WpActive).iepochtime(2,:); %16.1.2019 - indexy statistiky ulozene v ResponseSearch 
+            iintervalyStat = [1 diff(iintervalyData)+1];                
+            
+            %spocitam dynamicky permutace vsech kategorii, pro ktere mam spocitanou statistiku     
+            sizekats = numel(kats)+size(kombinace,1);            
+            prumery = zeros(numel(channels),size(intervaly,1),sizekats);   % channels x intervaly x kategorie - celkova data a jednotlive kategorie            
+            if pvals_time == 1  %we need to return also pvalues to be able to do fdr correction afterwards. 
+                pvals = ones(size(intervaly,1),sizekats,numel(channels),diff(iintervalyStat)+1); %intervaly x categories x channels x time - all values for each channel
+            else
+                pvals = ones(size(intervaly,1),sizekats,numel(channels));  % intervaly x categories x channels - the minimal p value for each channel, default=1
+            end
             
             if dofig, figure('Name','IntervalyResp'); end
             ploth = zeros(1,max(numel(kats),size(kombinace,1))); %handles na jednotlive ploty, kvuli legende
@@ -764,9 +773,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 if dofig, subplot(min(2,size(intervaly,1)),ceil(size(intervaly,1) /2),int);  end %pro kazdy interval jiny subplot
                 %spocitam prumery celkove i za kazdou kategorii v kazdem casovem intervalu
                 % dve cisla v kazdem sloupci - od do ve vterinach                   
-                iintervalyData = obj.Wp(obj.WpActive).iepochtime(2,:); %16.1.2019 - indexy statistiky ulozene v ResponseSearch 
-                iintervalyStat = [1 diff(iintervalyData)+1];                
-                
+                                
                 colorkombinace = {0,1,2,4;0 0 3 5;0 0 0 6};
                 iChKats = false(2,numel(channels));  %dva radky pro rozdily vuci baselina a kategorii vuci sobe                                                                          
                 
@@ -785,7 +792,11 @@ classdef CiEEGData < matlab.mixin.Copyable
                     fiCh = find(iCh); %absolute channel numbers
                     for ch = 1:sum(iCh) %store the p value for only these channels
                         iWpB = idataK(:,fiCh(ch)); %index of time samples for this channel where kat1>0 (for signum=1)
-                        pvals(fiCh(ch),int,kat) = min(WpB(iWpB,fiCh(ch))); % 1 x channels- minimum of pvalues for each channel - only those with idataK true 
+                        if pvals_time == 1
+                            pvals(int,kat,fiCh(ch),iWpB) = WpB(iWpB,fiCh(ch)); % time x 1 - all of pvalues for this channel - only those with idataK true ; Others stay 1
+                        else
+                            pvals(int,kat,fiCh(ch)) = min(WpB(iWpB,fiCh(ch))); % 1 value -  minimum of pvalues for this channel - only those with idataK true 
+                        end
                     end                   
                     iCh = any(all(WpAll,3),1); %1xchannels - redefinition - obe dve podminky, alespon v jednom case  
                     fiCh = find(iCh); %absolutni cisla kanalu
@@ -834,7 +845,12 @@ classdef CiEEGData < matlab.mixin.Copyable
                     fiCh = find(iCh); %absolute channel numbers
                     for ch = 1:sum(iCh) %store the p value for only these channels
                         iWpK = all(WpAll(:,fiCh(ch),[2 3]),3); %index of time samples for this channel wherekat1 > kat2 (for signum=1) and kat1>baseline
-                        pvals(fiCh(ch),int,kat+numel(kats)) = min(WpK(iWpK,fiCh(ch))); % 1 x channels- minimum of pvalues for each channel - only those with idataK true                     
+                        if pvals_time == 1
+                            pvals(int,kat+numel(kats),fiCh(ch),iWpK) = WpK(iWpK,fiCh(ch)); % time x 1 - all of pvalues for this channel - only those with idataK true ; Others stay 1                    
+                        else
+                            pvals(int,kat+numel(kats),fiCh(ch)) = min(WpK(iWpK,fiCh(ch))); % % 1 value -  minimum of pvalues for this channel - only those with idataK true                      
+                        end    
+                           
                     end
                     iCh = any(all(WpAll,3),1); %1xchannels - redefinition - vsechny tri podminky, alespon v jednom case                                        
                     fiCh = find(iCh); %absolutni cisla kanalu

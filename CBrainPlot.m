@@ -30,7 +30,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
         plevel = 0.05; % used significance level
     end
     methods (Access = public)        
-        function [obj] = IntervalyResp(obj,testname,intervals,filename,contrast,signum)
+        function [obj] = IntervalyResp(obj,testname,intervals,filename,contrast,signum,pvals_time)
             %IntervalyResp(testname,intervals,filename,contrast)
             %vola postupne pro vsechny pacienty E.IntervalyResp a uklada vysledky
             %vyradi vsechny kontakty bez odpovedi nebo se zapornou odpovedi
@@ -42,6 +42,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
             
             if ~exist('contrast','var'), contrast = 1; end %defaultni je prvni kontrast            
             if ~exist('signum','var'), signum = 0; end %defaultne chci oba smery rozdilu mezi kategoriemi
+            if ~exist('pvals_time','var'), pvals_time = 1; end %defaultne sbiram vsechny hodnoty ze vsech kanalu i casu 
             if strcmp(testname,'aedist')
                 pacienti = pacienti_aedist(); %nactu celou strukturu pacientu    
             elseif strcmp(testname,'ppa')
@@ -72,7 +73,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
                         continue;
                     end
                     E.SetStatActive(contrast); %nastavi jeden z ulozenych statistickych kontrastu
-                    [prumery, MNI,names,~,katstr,neurologyLabels,pvalues] = E.IntervalyResp( intervals,[],signum,0);   %#ok<PROPLC> %no figure, funkce z CiEEGData                           
+                    [prumery, MNI,names,~,katstr,neurologyLabels,pvalues] = E.IntervalyResp( intervals,[],signum,0,pvals_time);   %#ok<PROPLC> %no figure, funkce z CiEEGData                           
                     epiInfo = E.CH.GetChEpiInfo(); %uses all channels of E
                     obj.pacients{p} = pacienti(p).folder;
                     obj.GetPAC(prumery,E.CH.H,pacienti(p).folder); %gets and stores PAC structure for all intervals and categories to obj.PAC
@@ -104,7 +105,8 @@ classdef CBrainPlot < matlab.mixin.Copyable
                                 N{p,interval,kat} = strcat(cellstr(repmat([pacienti(p).folder(1:4) '_'],sum(ip),1)),names(ip)); %#ok<AGROW>
                                 NL{p,interval,kat}= strcat(cellstr(repmat([pacienti(p).folder(1:4) '_'],sum(ip),1)),neurologyLabels(ip)); 
                                 EPI{p,interval,kat}= epiInfo(ip); 
-                                PV{p,interval,kat}=pvalues(:,interval, kat); %hannels x intervaly x kategorie - pvalues from all channels
+                                PV{p,interval,kat}=squeeze(pvalues(interval, kat,:,:)); %ntervaly x kategorie x channels (x time) - pvalues from all channels
+                                PVtime = size(pvalues,4); %n time samples , same for all patietns, to use later
                                 elcount(interval,kat) = elcount(interval,kat) + sum(ip); %#ok<AGROW>
                                 obj.numelP(p,interval,kat)=sum(ip);
                             else %kategorie jakoby navic pro vykresleni jen pozice elekrod
@@ -114,7 +116,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
                                 N{p,interval,kat} = strcat(cellstr(repmat([pacienti(p).folder(1:4) '_'],channels,1)),names); %#ok<AGROW>
                                 NL{p,interval,kat}= strcat(cellstr(repmat([pacienti(p).folder(1:4) '_'],channels,1)),neurologyLabels); 
                                 EPI{p,interval,kat}= epiInfo; 
-                                PV{p,interval,kat}=ones(channels,1); %1 like nothing significant
+                                PV{p,interval,kat}=iff(pvals_time==1,ones(channels,PVtime),ones(channels,1)); %1 like nothing significant
                                 elcount(interval,kat) = elcount(interval,kat) + channels; %#ok<AGROW>                                
                                 obj.numelP(p,interval,kat)=channels;
                             end
@@ -138,19 +140,19 @@ classdef CBrainPlot < matlab.mixin.Copyable
                           obj.NAMES{interval,kat}   = cell(elcount(interval,kat),1);
                           obj.NLabels{interval,kat} = cell(elcount(interval,kat),1);
                           obj.EpiInfo{interval,kat} = zeros(elcount(interval,kat),1);
-                          obj.PVALS{interval,kat} = ones(elcount(interval,kat),1);
+                          obj.PVALS{interval,kat} = ones(elcount(interval,end),PVtime); %all channels in the last category x time (assuming the same for all patients
                           iVALS = 1; %index in VALS - only significant channels
                           iVALSall = 1; %index i PVALS - all channels
                           for p = 1:numel(pacienti) 
                               if pacienti(p).todo
                                   n = numel(P{p,interval,kat});
-                                  n_all = numel(PV{p,interval,kat}); %PV contains all pvalues for all channels
+                                  n_all = size(PV{p,interval,kat},1); %PV contains all pvalues for all channels, channels x time
                                   obj.VALS{interval,kat} (iVALS:iVALS+n-1)=P{p,interval,kat};
                                   obj.MNI{interval,kat}  (iVALS:iVALS+n-1)=M{p,interval,kat};
                                   obj.NAMES{interval,kat}(iVALS:iVALS+n-1)  =N{p,interval,kat};
                                   obj.NLabels{interval,kat}(iVALS:iVALS+n-1)=NL{p,interval,kat};
                                   obj.EpiInfo{interval,kat}(iVALS:iVALS+n-1)=EPI{p,interval,kat};
-                                  obj.PVALS{interval,kat} (iVALSall:iVALSall+n_all-1)=PV{p,interval,kat};
+                                  obj.PVALS{interval,kat} (iVALSall:iVALSall+n_all-1,:)=PV{p,interval,kat};
                                   iVALS = iVALS + n;
                                   iVALSall = iVALSall + n_all; 
                               end
@@ -177,23 +179,23 @@ classdef CBrainPlot < matlab.mixin.Copyable
             %performs fdr correction on obj.PVALS and corrects the channels in obj.VALS according to results
             if ~exist('fdr','var') || isempty(fdr), fdr = 1; end %default is less strict
             if ~exist('label','var'), label = ''; end %label of the output xls file
-            if fdr == 2, method = 'dep'; else method = 'pdep'; end %#ok<SEPEX> %dep je striktnejsi nez pdep
+            if fdr == 2, fdrmethod = 'dep'; else fdrmethod = 'pdep'; end %#ok<SEPEX> %dep je striktnejsi nez pdep
             chremoved = zeros(size(obj.PVALS));
             %data for output xls table
-            out = zeros(numel(obj.PVALS{1,1}),size(obj.PVALS,1) * numel(obj.iPAC) * 2 + 1); %channels x (kats * intervals * 2)
-            out(:,1) = 1:numel(obj.PVALS{1,1}); %channel numbers
-            outnames = cell(numel(obj.PVALS{1,1}),size(obj.PVALS,1) * numel(obj.iPAC)); %names of significant channels
+            out = zeros(size(obj.PVALS{1,1},1),size(obj.PVALS,1) * numel(obj.iPAC) * 2 + 1); %channels x (kats * intervals * 2)
+            out(:,1) = 1:size(obj.PVALS{1,1},1); %channel numbers
+            outnames = cell(size(obj.PVALS{1,1},1),size(obj.PVALS,1) * numel(obj.iPAC)); %names of significant channels
             colnames = cell(1,size(out,2)+size(outnames,2)); %column names
             colnames{1} = 'ch';
             
             for interval = 1:size(obj.PVALS,1) %over time intervals
                 for kat = 1:size(obj.PVALS,2) %over categories                          
-                    ich0 = obj.PVALS{interval,kat}<obj.plevel; %index of originally significant channels
-                    [~, ~, adj_p]=fdr_bh(obj.PVALS{interval,kat},obj.plevel,method,'no'); 
+                    ich0 = min(obj.PVALS{interval,kat},[],2)<obj.plevel; %index of originally significant channels
+                    [~, ~, adj_p]=fdr_bh(obj.PVALS{interval,kat},obj.plevel,fdrmethod,'no'); 
                     if kat <= numel(obj.iPAC) %not for last category with all channels
                         coln = ((interval-1)*size(obj.PVALS,2) + (kat-1))*2+2;   %column index in out      2 columns per interval and kat + 1 first                                  
-                        out(:,coln)=obj.PVALS{interval,kat};
-                        out(:,coln+1)=adj_p;                                                
+                        out(:,coln)=min(obj.PVALS{interval,kat},[],2); %minimum from each row, which is time
+                        out(:,coln+1)=min(adj_p,[],2);  %minimum from each row, which is time                                              
                         coln = (interval-1)*size(obj.PVALS,2) + kat; %column index in outnames             1 column per interval and kat
                         outnames(ich0,coln) = obj.NAMES{interval,kat};
                         coln = ((interval-1)*size(obj.PVALS,2) + (kat-1))*3+2;  %column index in colnames - 3 columns per interval and kat + 1 first
@@ -201,10 +203,10 @@ classdef CBrainPlot < matlab.mixin.Copyable
                         colnames{coln+1} = ['int' num2str(interval) '_' obj.katstr{kat} '_p'];
                         colnames{coln+2} = ['int' num2str(interval) '_' obj.katstr{kat} '_padj'];                        
                     end
-                    if sum(adj_p)<numel(adj_p) %if some numbers smaller than one
+                    if sum(sum(adj_p<1))>0 %if some numbers smaller than one
                         obj.PVALS{interval,kat} = adj_p; %replace original pvalues with corrected ones - to correspond to obj.VALS etc                    
-                        adj_p = adj_p(ich0); %leave only those originally significant
-                        ich1 = adj_p<obj.plevel; %index of now significant from the original ones                    
+                        adj_p = adj_p(ich0,:); %leave only those originally significant
+                        ich1 = min(adj_p,[],2)<obj.plevel; %index of now significant from the original ones                    
                         %filter out original values according to fdr corretion
                         obj.VALS{interval,kat} = obj.VALS{interval,kat}(ich1);
                         obj.MNI{interval,kat}  = obj.MNI{interval,kat}(ich1);
@@ -213,7 +215,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
                         obj.EpiInfo{interval,kat} = obj.EpiInfo{interval,kat}(ich1);
                         obj.PAC{interval,kat} = obj.PAC{interval,kat}(ich1); %PAC table
                         obj.iPAC(interval,kat) = numel(obj.PAC{interval,kat});
-                        chremoved(interval,kat) = sum(adj_p>=obj.plevel); 
+                        chremoved(interval,kat) = sum(min(adj_p,[],2)>=obj.plevel); 
                     else
                         %for kat AllEl with all channels and all pvalues = 1
                         %do not filter out any channels
