@@ -62,7 +62,7 @@ classdef CHilbertL < CHilbert
         %   obj.PlotResponseFreqMean(1, [0:2])
         %   obj.PlotResponseFreqMean([1, 2:5, 8], [0:2])
         %   obj.PlotResponseFreqMean([1:5], 2)
-            obj.plotresponsefrequency(ch, categories)
+            obj.plotresponsefrequency(ch, categories);
         end
         
         %% Getters
@@ -655,7 +655,8 @@ classdef CHilbertL < CHilbert
                 % Neither here, nor in PlotLabels. They are merely taken in
                 % their order - this should be DEPRECATED
                 if iscell(categories(k))                  
-                    dd = zeros(size(obj.HFreq, 1), obj.nfrequencies, numel(categories{k}));
+                    dd = zeros(size(obj.HFreq, 1), obj.nfrequencies, ...
+                        numel(categories{k}));
                     for ikat = 1:numel(categories{k})
                         dd(:, :, ikat) = obj.getaverageenvelopes(...
                             'channels', channels, ...
@@ -686,11 +687,14 @@ classdef CHilbertL < CHilbert
                 caxis([miny, maxy]);
                 title(obj.PsyData.CategoryName(cellval(categories, k)));
                 if k == 1
-                    channelStrings = iff(isempty(obj.CH.sortedby), ...
-                        num2str(channels), ... % if empty obj.CH.sortedby
-                        [num2str(channels), '(', obj.CH.sortedby, ...
-                        num2str(obj.plotFrequency.ch), ')']);
-                    ylabel(['channel ' channelStrings ' - freq [Hz]']);
+                    channelStrings = iff(numel(channels) > 5,...
+                        [num2str(numel(channels)) ' channels'],...
+                        ['channels ' num2str(channels)]);
+                    ylabChannels = iff(isempty(obj.CH.sortedby), ...
+                        channelStrings, ... % if empty obj.CH.sortedby
+                        [channelStrings, '(', obj.CH.sortedby, ...
+                            num2str(obj.plotFrequency.ch), ')']);
+                    ylabel([ylabChannels ' - freq [Hz]']);
                 end
                 if k == numel(categories)
                     colorbar('Position', [0.92 0.1 0.02 0.82]);
