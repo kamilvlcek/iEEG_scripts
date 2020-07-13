@@ -569,18 +569,26 @@ classdef CHilbert < CiEEGData
         end
         function obj = RemoveChannels(obj,channels)       
             %smaze se souboru vybrane kanaly. Kvuli redukci velikost aj
-            keepch = setdiff(1:obj.channels,channels); %channels to keep
+            assert(obj.channels > numel(channels),['the number of existing channels (' num2str(obj.channels) ') is not higher than channels to remove (' num2str(numel(channels)) ')']);           
+            keepch = setdiff(1:obj.channels,channels); %channels to keep            
             obj.channels = obj.channels - numel(channels);
             obj.d = obj.d(:,keepch,:);
-            if isprop(obj,'mults'), obj.mults = obj.mults(:,keepch); end
+            if isprop(obj,'mults') && ~isempty(obj.mults), obj.mults = obj.mults(:,keepch); end
             obj.HFreq = obj.HFreq(:,keepch,:,:);
-            if isprop(obj,'HFreqEpochs'), obj.HFreqEpochs = obj.HFreqEpochs(:,keepch,:,:); end
-            if isprop(obj,'fphaseEpochs'), obj.fphaseEpochs = obj.fphaseEpochs(:,keepch,:,:); end
-            if isprop(obj,'frealEpochs'), obj.frealEpochs = obj.frealEpochs(:,keepch,:,:); end            
-            if isprop(obj,'plotRCh') && isfield(obj.plotRCh,'selCh')
-               obj.plotRCh.selCh = obj.plotRCh.selCh(keepch,:); 
-            end
-            if isprop(obj,'RjEpochCh'), obj.RjEpochCh = obj.RjEpochCh(keepch,:); end
+            if isprop(obj,'HFreqEpochs') && ~isempty(obj.HFreqEpochs), obj.HFreqEpochs = obj.HFreqEpochs(:,keepch,:,:); end
+            if isprop(obj,'fphaseEpochs') && ~isempty(obj.fphaseEpochs), obj.fphaseEpochs = obj.fphaseEpochs(:,keepch,:,:); end
+            if isprop(obj,'frealEpochs') && ~isempty(obj.frealEpochs), obj.frealEpochs = obj.frealEpochs(:,keepch,:,:); end            
+            if isprop(obj,'plotRCh') 
+                if isfield(obj.plotRCh,'selCh')  && ~isempty(obj.plotRCh.selCh)
+                    obj.plotRCh.selCh = obj.plotRCh.selCh(keepch,:);                         
+                end
+                if isfield(obj.plotRCh,'selChSave') && ~isempty(obj.plotRCh.selChSave)
+                    for j = 1:numel(obj.plotRCh.selChSave)
+                        obj.plotRCh.selChSave(j).selCh = obj.plotRCh.selChSave(j).selCh(keepch,:);
+                    end
+                end
+            end            
+            if isprop(obj,'RjEpochCh') && ~isempty(obj.RjEpochCh), obj.RjEpochCh = obj.RjEpochCh(keepch,:); end
             obj.CH.RemoveChannels(channels);
             obj.els = obj.CH.els; %ty uz se redukuji v CHHeader
             obj.RjCh = obj.CH.RjCh;      
@@ -599,6 +607,7 @@ classdef CHilbert < CiEEGData
                     end
                 end
             end
+            disp([ num2str(numel(channels)) ' channels removed']);
         end
         
     end 

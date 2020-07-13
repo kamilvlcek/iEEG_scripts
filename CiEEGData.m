@@ -1396,7 +1396,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 assert(numel(kategories)<=3,'kategorie mohou byt maximalne tri');
                 if kategories(1)==-1 && ~isempty(obj.Wp(WpA)) && isfield(obj.Wp(WpA), 'kats')
                     kategories = obj.Wp(WpA).kats; %pokud zadame kategorie=-1, pouzijou se kategorie ze statistiky, bez ohledu na ulozene kategorie
-                elseif ~isempty(obj.Wp) && ~isempty(obj.Wp(WpA).WpKat) && (isempty(obj.Wp(WpA).kats) || ~isequal(obj.Wp(WpA).kats, kategories))
+                elseif ~isempty(obj.Wp) && ~isempty(obj.Wp(WpA).WpKat) && (isempty(obj.Wp(WpA).kats) || ~isequal(obj.Wp(WpA).kats, kategories))                    
                     disp('Statistika spocitana bez kategorii nebo pro jine kategorie')
                 end
                 obj.plotRCh.kategories = kategories;    %hodnoty zadane parametrem, ty maji absolutni prednost
@@ -1493,9 +1493,12 @@ classdef CiEEGData < matlab.mixin.Copyable
                 for k = 1 : numel(kategories) %index 1-3 (nebo 4)
                     if ~isempty(obj.Wp)
                         if iscell(kategories), kk = kategories{k}(1);  else,   kk = kategories(k);    end % aby barvy odpovidaly kategoriim podnetum spis nez kategoriim podle statistiky
+                        kstat = find(obj.Wp(WpA).kats == kk); %index of category in statistical results
                     else                        
-                        kk = k-1;
+                        kk = k-1; %kk is real number of category, while k is index in kategories
+                        kstat = k; % index of category in Stat
                     end
+                    
                     %to se hodi zvlast, kdyz se delaji jen dve kategorie vuci sobe ane vsechny, nebo dve vuci jedne nebo dve vuci dvema
                     colorkatk = [obj.colorskat{kk+1} ; colorsErrorBars{kk+1}]; %dve barvy, na caru a stderr plochu kolem
                     if exist('opakovani','var') && ~isempty(opakovani)
@@ -1535,24 +1538,31 @@ classdef CiEEGData < matlab.mixin.Copyable
                     if ~isempty(obj.Wp) && isfield(obj.Wp(WpA),'WpKat') %signifikance mezi kategoriemi
                         Tr = linspace(obj.Wp(WpA).baseline(2),obj.Wp(WpA).epochtime(2),size(obj.Wp(WpA).D2,1)); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
                         for l = k+1:numel(kategories) %katnum jde od nuly 
+                            ll = kategories(l); %real number of category
+                            lstat = find(obj.Wp(WpA).kats == ll); % index of category in Stat
                             if iscell(kategories), colorkatl = kategories{l}(1)+1; else, colorkatl = kategories(l)+1; end
                             
-                            y = ymin + (ymax-ymin)*(ybottom - (yposkat(l-1,k))*0.05)  ; %pozice na ose y
-                            if k==1, color=obj.colorskat{colorkatl}; else, color = obj.colorskat{1}; end %green a red jsou proti kategorii 0, cerna je kat 1 vs kat 2
+                            y = ymin + (ymax-ymin)*(ybottom - (yposkat(lstat-1,kstat))*0.05)  ; %pozice na ose y
+                            if kstat==1, color=obj.colorskat{colorkatl}; else, color = obj.colorskat{1}; end %green a red jsou proti kategorii 0, cerna je kat 1 vs kat 2
+                            if ~isempty(obj.Wp(WpA).WpKat{kstat,lstat})
+                                WpKat = obj.Wp(WpA).WpKat{kstat,lstat};
+                            else
+                                WpKat = obj.Wp(WpA).WpKat{lstat,kstat};
+                            end
                             if pvalue %pokud chci zobrazovat hodnotu p value jako krivku                                
-                                plot(Tr,obj.Wp(WpA).WpKat{k,l}(:,ch), ':','Color',color); %carkovana cara oznacuje signifikanci kategorie vuci jine kategorii
+                                plot(Tr,WpKat(:,ch), ':','Color',color); %carkovana cara oznacuje signifikanci kategorie vuci jine kategorii
                             end
                             %nejdriv p < 0.05                            
-                            iWp = obj.Wp(WpA).WpKat{k,l}(:,ch)  <= 0.05; 
+                            iWp = WpKat(:,ch)  <= 0.05; 
                             plot(Tr(iWp),ones(1,sum(iWp))*y, '*','Color',color); %                        
                             iWpfirst = find(iWp,1,'first');                        
                             if(numel(iWpfirst)>0)                                
                                 text(-0.025+Tr(1),y,[ num2str(round(Tr(iWpfirst)*1000)) 'ms']);  %cas zacatku signifikance 
-                                text(-0.16+Tr(1),y,[ 'p=' num2str(CStat.round(min(obj.Wp(WpA).WpKat{k,l}(:,ch)),3))]);  %cas zacatku signifikance 
+                                text(-0.16+Tr(1),y,[ 'p=' num2str(CStat.round(min(WpKat(:,ch)),3))]);  %cas zacatku signifikance 
                                 line([Tr(iWpfirst) Tr(iWpfirst)],obj.plotRCh.ylim,'Color',color); %modra svisla cara u zacatku signifikance                                
                             end                            
                             %potom jeste p < 0.01
-                            iWp = obj.Wp(WpA).WpKat{k,l}(:,ch)  <= 0.01;                          
+                            iWp = WpKat(:,ch)  <= 0.01;                          
                             plot(Tr(iWp),ones(1,sum(iWp))*y,  '*','Color',color); %
                             % jmena kategorii vypisuju vzdy
                             if exist('opakovani','var') && ~isempty(opakovani)   %pokud vyhodnocuju opakovani
@@ -1577,10 +1587,10 @@ classdef CiEEGData < matlab.mixin.Copyable
                    
                     
                     if ~isempty(obj.Wp) && isfield(obj.Wp(WpA),'WpKatBaseline') %signifikance vuci baseline
-                            iWpB = obj.Wp(WpA).WpKatBaseline{k,1}(:,ch)  <= 0.05; %nizsi signifikance
-                            y = ymin + (ymax-ymin)*(0.28 - (k+2)*0.05)  ;
+                            iWpB = obj.Wp(WpA).WpKatBaseline{kstat,1}(:,ch)  <= 0.05; %nizsi signifikance
+                            y = ymin + (ymax-ymin)*(0.28 - (kstat+2)*0.05)  ;
                             plot(Tr(iWpB),ones(1,sum(iWpB))*y, '.','Color',colorkatk(1,:),'MarkerSize',5); % 
-                            iWpB = obj.Wp(WpA).WpKatBaseline{k,1}(:,ch)  <= 0.01; % vyssi signifikance
+                            iWpB = obj.Wp(WpA).WpKatBaseline{kstat,1}(:,ch)  <= 0.01; % vyssi signifikance
                             %y = ymin + (ymax-ymin)*(0.28 - (k+2)*0.05)  ;
                             plot(Tr(iWpB),ones(1,sum(iWpB))*y, 'p','Color',colorkatk(1,:),'MarkerSize',5); %                             
                             if exist('opakovani','var') && ~isempty(opakovani)
@@ -1594,11 +1604,11 @@ classdef CiEEGData < matlab.mixin.Copyable
                             line([Tr(1) Tr(end)],[y y]+(ymax-ymin)*0.03 ,'Color',[0.5 0.5 0.5]); 
                                 %kazde jmeno kategorie jinou barvou
                             if pvalue %pokud chci zobrazovat hodnotu p value jako krivku
-                               plot(Tr,obj.Wp(WpA).WpKatBaseline{k,1}(:,ch), '-.','Color',colorkatk(1,:)); %teckovana cara oznacuje signifikanci kategorie vuci baseline
+                               plot(Tr,obj.Wp(WpA).WpKatBaseline{kstat,1}(:,ch), '-.','Color',colorkatk(1,:)); %teckovana cara oznacuje signifikanci kategorie vuci baseline
                             end
                     end
                     %cara reakcnich casu pro tuhle kategorii
-                    y=ymax-(ymax-ymin)*0.07*k;
+                    y=ymax-(ymax-ymin)*0.07*kstat;
                     rtkatnum = reshape(rt(:,katnum+1),[],1); %chci vsechny hodnoty z obou kategorii dohromady
                     line([quantile(rtkatnum,0.25) quantile(rtkatnum,0.75)],[y y],'Color',colorkatk(1,:)); %cara kvantilu 
                     plot(median(rtkatnum),y,'o','Color',colorkatk(1,:)); %median

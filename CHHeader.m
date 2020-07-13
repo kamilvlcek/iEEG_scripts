@@ -829,7 +829,8 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             obj.brainlabels = BL;
         end
         function obj = RemoveChannels(obj,channels)  
-            %smaze se souboru vybrane kanaly. Kvuli redukci velikost aj                        
+            %smaze se souboru vybrane kanaly. Kvuli redukci velikost aj
+            
             keepch = setdiff(1:numel(obj.H.channels),channels); %channels to keep            
             channelmap = zeros(1,numel(obj.H.channels));
             channelmap(keepch) = 1:numel(keepch); %prevod ze starych cisel kanalu na nove
@@ -841,25 +842,34 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             obj.H.selCh_H = channelmap(setdiff(obj.H.selCh_H,channels,'stable')); %keep the order             
             %kanaly musim precislovat, napriklad z 11 se ma stat 4 atd            
             obj.sortorder = channelmap(setdiff(obj.sortorder,channels,'stable')); %cisla 1:n v poradi puvodniho sortorder   
-            if isprop(obj,'plotCh2D') && isfield(obj.plotCh2D,'chshow')
-                obj.plotCh2D.chshow = channelmap(setdiff(obj.plotCh2D.chshow,channels,'stable')); 
-                obj.plotCh2D.ch_displayed = channelmap(setdiff(obj.plotCh2D.ch_displayed,channels,'stable')); 
+            if isprop(obj,'plotCh2D') 
+                if isfield(obj.plotCh2D,'chshow')
+                    obj.plotCh2D.chshow = channelmap(setdiff(obj.plotCh2D.chshow,channels,'stable')); 
+                    obj.plotCh2D.ch_displayed = channelmap(setdiff(obj.plotCh2D.ch_displayed,channels,'stable')); 
+                end                
+                if isfield(obj.plotCh2D,'selCh')  && ~isempty(obj.plotCh2D.selCh)
+                    obj.plotCh2D.selCh = obj.plotCh2D.selCh(keepch,:);                         
+                end
             end
             
-            %TODO - vyradit i radky z obj.brainlabels
-            obj.filterMatrix = obj.filterMatrix(:,keepch'); 
+            if ~isempty(obj.filterMatrix)
+                obj.filterMatrix = obj.filterMatrix(:,keepch'); 
+            end
+            if ~isempty(obj.brainlabels)
+                obj.brainlabels(channels) = [];
+            end
             for j = 1:numel(obj.els)
                 if j == 1
-                    n = sum(channels<=obj.els(j));
+                    n = sum(channels<=obj.els(j)); %number of channels in the first electrode to be removed
                 else
-                    n = sum(channels > obj.els(j-1) & channels < obj.els(j));
+                    n = sum(channels <= obj.els(j)); %number of channels in the current and previous electrodes %channels > obj.els(j-1) & 
                 end
                 if n > 0
-                    obj.els(j:end) = obj.els(j:end) - n; %potrebuju snizit i vsechny nasledujici
+                    obj.els(j) = obj.els(j) - n; %decrease only this electrode as we search ALL previous electrodes
                 else
-                    obj.els(j) = [];
+                    obj.els(j) = []; % only at the beginning
                 end
-            end
+            end            
             for j = 1:numel(obj.chgroups)
                 obj.chgroups{j} = channelmap(setdiff( obj.chgroups{j},channels,'stable'));
             end
