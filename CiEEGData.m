@@ -22,6 +22,7 @@ classdef CiEEGData < matlab.mixin.Copyable
         plotH;  % handle to plot
         plotRCh = struct; %stavove udaje o grafu PlotResponseCh
         plotEp = struct; %stavove udaje o grafu PlotEpochs
+        plotTimeInt = struct; %stavove udaje o grafu TimeIntervals
         RjCh; %seznam cisel rejectovanych kanalu
         RjEpoch; %seznam vyrazenych epoch - pouzivam spolecne s RjEpochCh - pro vyrazeni celych epoch
         RjEpochCh; %seznam vyrazenych epoch x kanal - v kazdem kanalu zvlast
@@ -1669,9 +1670,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 text(-0.1,ymax*.78,strrep(obj.label,'_','\_'), 'FontSize', 10,'Color','blue'); 
             end            
             if isfield(obj.CH.plotCh2D,'chshow') && isfield(obj.CH.plotCh2D,'chshowstr') && ~isempty(obj.CH.plotCh2D.chshow) && ~isempty(obj.CH.plotCh2D.chshowstr) %% plot chshow
-                chnshow = mat2str(obj.CH.plotCh2D.chshow(1:(min(20,numel(obj.CH.plotCh2D.chshow)))));
-                if numel(obj.CH.plotCh2D.chshow) > 20, chnshow = [chnshow ' ...']; end
-                text(-0.1,ymax*.72, ['ChShow:  ' obj.CH.plotCh2D.chshowstr '=' chnshow], 'FontSize', 10);
+                text(-0.1,ymax*.72, ['ChShow:  ' obj.CH.plotCh2D.chshowstr], 'FontSize', 10);
             end
             if isfield(obj.plotRCh,'selChN') && ~isempty(obj.plotRCh.selChN)  %cislo zobrazeneho vyberu kanalu, viz E.SetSelChActive
                 text(-0.1,ymax*0.64,['SetSelChActive: ' num2str(obj.plotRCh.selChN)], 'FontSize', 10);
@@ -1774,22 +1773,54 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
             
         end  
-        function TimeIntervals(obj,vch,intervals,nofile) % Sofiia 2020
+        function TimeIntervals(obj,vch,intervals,ylimits, nofile) % Sofiia 2020
             %  average time intervals for one channel or for a vector of channels (e.g. across a particular structure)
             %  numbers of channels can be obtained, for example, after applying CM.CH.FilterChannels({'lobe','precun'})
             %  or if it's empty it will use numbers of channels after current filtering (from CM.CH.sortoder)
             %  default intervals = [0 0.2; 0.2 0.4; 0.4 0.6; 0.6 0.8];
             %  nofile - if 1, do not save any xls file, only plot figure
             
-            if ~exist('intervals','var') || isempty(intervals), intervals = [0 0.2; 0.2 0.4; 0.4 0.6; 0.6 0.8]; end % default intervals
+            %process arguments
             if ~exist('vch','var') || isempty(vch)
-                vch = obj.CH.sortorder; 
+                vch = obj.CH.sortorder; % will use numbers of channels after current filtering
                 chshowstr = obj.CH.plotCh2D.chshowstr; %description of the selected channels - name from CM.CH.FilterChannels();
             else
                 chshowstr = [ num2str(length(vch)) 'channels'];
-            end % will use numbers of channels after current filtering
-            if ~exist('nofile','var'), nofile = 0; end %save the file by default
-            kats = obj.Wp(obj.WpActive).kats; % define categories
+            end 
+            if ~exist('intervals','var') || isempty(intervals) 
+                if ~isfield(obj.plotTimeInt,'intervals')                               
+                    obj.plotTimeInt.intervals = [0 0.2; 0.2 0.4; 0.4 0.6; 0.6 0.8]; %store the default intervals
+                end
+                intervals = obj.plotTimeInt.intervals;
+            elseif any(intervals == -1) %-1 to reset default values
+                obj.plotTimeInt.intervals = [0 0.2; 0.2 0.4; 0.4 0.6; 0.6 0.8]; %store the default intervals
+                intervals = obj.plotTimeInt.intervals;
+            else
+                obj.plotTimeInt.intervals = intervals; %store the limits given in function call
+            end
+            
+            if ~exist('ylimits','var') || isempty(ylimits)  %limits for the y axis
+                if ~isfield(obj.plotTimeInt,'ylimits')
+                    obj.plotTimeInt.ylimits = []; %store the empty limits - the default value
+                end            
+            elseif any(ylimits == -1) %-1 to reset default values
+                obj.plotTimeInt.ylimits = []; %store the empty limits - the default value
+            else
+                obj.plotTimeInt.ylimits = ylimits; %store the limits given in function call
+            end 
+            if ~exist('nofile','var') || isempty(nofile)
+                if ~isfield(obj.plotTimeInt,'nofile') %save the file by default
+                     obj.plotTimeInt.nofile = 0; %the default value - save the file
+                end
+            else
+                 obj.plotTimeInt.nofile = nofile; %store the limits given in function call
+            end 
+        
+            if isfield(obj.plotRCh,'kategories') && ~isempty(obj.plotRCh.kategories)
+                kats = obj.plotRCh.kategories;
+            else
+                kats = obj.Wp(obj.WpActive).kats; % define categories
+            end
             
             % initialize matrix for all channels
             chanMeans = zeros (length(vch), numel(kats)*size(intervals,1)); % for statistica - all time intervals and category in columns
@@ -1797,7 +1828,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             %get data from obj.CategoryData for all channels at onces - to make the whole function faster
             categorydata = cell(numel(kats),2); %store precomputed category data here 
             for k = 1:numel(kats)
-                [d,~,RjEpCh,~]= obj.CategoryData(kats(k),[],[],vch); % get data for all channels
+                [d,~,RjEpCh,~]= obj.CategoryData(kats(k),[],[],vch); % d:time x channels x epochs - get data for all channels
                 categorydata(k,:) = {d(:,vch,:),RjEpCh}; % save d (time x channels x epochs) and RjEpCh (channels x epochs)
             end
             
@@ -1811,7 +1842,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 
                 for k = 1:numel(kats) % for each category%                   
                     RjEpCh = categorydata{k,2}(ch,:); %previously stored RjEpCh
-                    d = squeeze(categorydata{k,1}(:,ch,~RjEpCh));  %previously stored d value                  
+                    d = squeeze(categorydata{k,1}(:,ch,~RjEpCh));  %time x epochs, previously stored d value                  
                     categories(nInd:(nInd+size(d,2)-1)) = kats(k); % to establish the number of category for all epochs for an individual channel - for xls table
                     nInd = size(d,2)+nInd;
                     
@@ -1836,12 +1867,15 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
             
             % plotting
-            figure('Name','PlotResponseCh_for_average_time_intervals')
-            hue = 0.8;
-            colorskat = {[0 0 0],[0 1 0],[1 0 0],[0 0 1]; [hue hue hue],[hue 1 hue],[1 hue hue],[hue hue 1]}; % prvni radka - prumery, druha radka errorbars = svetlejsi
-            [katsnames,~,~] = obj.GetKatsNames(); % to get names of categories for a legend
+            if isfield(obj.plotTimeInt,'fh') && ishandle(obj.plotTimeInt.fh)
+                figure(obj.plotTimeInt.fh); %pouziju uz vytvoreny graf
+                clf(obj.plotTimeInt.fh); %graf vycistim
+            else
+                obj.plotTimeInt.fh = figure('Name','TimeIntervals');                 
+            end                          
+      
             ploth = zeros(1,numel(kats)); % handles of plots for legend
-            legendStr = cell(1,numel(kats)); % strings for legend
+            legendStr = cell(1,numel(kats)); % strings for legend and xls table
             
             % plot mean and std across epochs for one channel
             if length(vch)==1
@@ -1875,20 +1909,26 @@ classdef CiEEGData < matlab.mixin.Copyable
                         
             for k=1:numel(kats)
                 hold on
-                errorbar(intervals(:, 2),M(:,k),E(:,k),'.','Color', colorskat{1,k}); % plot errors
+                errorbar(intervals(:, 2),M(:,k),E(:,k),'.','Color', obj.colorskat{kats(k)+1}); % plot errors
                 hold on;
-                h_mean = plot(intervals(:, 2), M(:,k),'LineWidth',2,'Color',colorskat{1,k}); % plot means
+                h_mean = plot(intervals(:, 2), M(:,k),'LineWidth',2,'Color',obj.colorskat{kats(k)+1}); % plot means
                 ploth(k) = h_mean; % plot handle
-                legendStr{k} = katsnames{1,k}; % array of names of categories for a legend
+                legendStr{k} = obj.PsyData.CategoryName(kats(k)); % array of names of categories for a legend
             end
+
             legend(ploth,legendStr);
+            xlim([intervals(1,2)-.05, max(max(intervals))+.05]);
             xticks([intervals(1, 1) (intervals( : , 2))'])
-            txtinterv = num2str(intervals);
-            xticklabels({'0', txtinterv(1:end, :)})
+            txtinterv = num2str(intervals,'%.1f-%.1f');
+            xticklabels({'0', txtinterv(1:end, :)})            
             xlabel('time intervals, s');
+            if ~isempty(obj.plotTimeInt.ylimits), ylim(obj.plotTimeInt.ylimits); end
+            if ~isfield(obj.plotTimeInt,'filterListener') || isempty(obj.plotTimeInt.filterListener) %function to be calle when event CHHeader.FilterChanged happens
+                obj.plotTimeInt.filterListener = addlistener(obj.CH, 'FilterChanged', @obj.filterChangedCallbackTimeIntervals);
+            end
             
             % export data in xls table
-            if nofile==0
+            if obj.plotTimeInt.nofile==0
                 if length(vch)==1
                     % export data for one channel in xls table
                     categories(isnan(categories))=[];  % remove all NaN
@@ -1914,7 +1954,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                     p=1;
                     for k=1:numel(kats)
                         for int = 1:size(intervals,1)
-                            Str = {katsnames{1,k},intervStr{int}};
+                            Str = {legendStr{k},intervStr{int}};
                             names4col(:,p) = join(Str, ': ');
                             p=p+1;
                         end
@@ -2743,6 +2783,17 @@ classdef CiEEGData < matlab.mixin.Copyable
                    chsignif = sort(unique([chsignif find(min(obj.Wp(obj.WpActive).WpKat{kat1,kat2},[],1)<0.05) ]));                                 
                end               
            end
+        end
+        function filterChangedCallbackTimeIntervals(obj,src,~)   %update chart if the filter is changed                                
+            %src is the source object of CHHeader
+            if isfield(obj.plotTimeInt,'fh') && ishandle(obj.plotTimeInt.fh)
+                %only if the TimeIntervals plot is shown
+                if ~isfield(obj.plotTimeInt,'chshowstr') || ~isequal(obj.plotTimeInt.chshowstr, src.plotCh2D.chshowstr)
+                    %if the filter stored is different from the new filter
+                    obj.TimeIntervals();
+                    obj.plotTimeInt.chshowstr = src.plotCh2D.chshowstr;
+                end
+            end
         end
     end
     methods  (Access = protected)

@@ -709,6 +709,8 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 end
                 chshow = intersect(chshow,find(iL)'); %reduce list of channels to show                                               
                 filtered = true;
+            else
+                chlabels = {};
             end
             if exist('selCh','var') && ~isempty(selCh)
                 klavesy = 'fghjkl';
@@ -718,7 +720,13 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                         warning('No selCh in CH object, first run the ChannelPlot2D');
                     else                        
                         chshow = intersect(chshow,find(obj.plotCh2D.selCh(:,ismember(klavesy,selCh)))'); %indexy kanalu se znackou f-l                    
-                        chshowstr = horzcat(chshowstr, {klavesy(ismember(klavesy,selCh))}); 
+                        iklavesy = ismember(klavesy,selCh);
+                        if sum(iklavesy) == 1 %if only one selectin was made - normal situation
+                            chshowstr = horzcat(chshowstr, obj.plotCh2D.selChNames(iklavesy));  %use the description of this marking
+                        else
+                            chshowstr = horzcat(chshowstr, {klavesy(iklavesy)});  %use the fghjkl characters
+                        end
+                        
                         filtered = true;  
                     end
                 end
