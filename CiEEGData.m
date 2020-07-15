@@ -1358,7 +1358,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             assert(obj.epochs > 1,'only for epoched data');
             if ~exist('pvalue','var') || isempty(pvalue) || numel(pvalue)>1 %0 neni isempty
                 if isfield(obj.plotRCh,'pvalue'), pvalue = obj.plotRCh.pvalue;
-                else pvalue = 0; obj.plotRCh.pvalue = pvalue; end %defaulne se NEzobrazuje krivka p value, ale je mozne ji zobrazit
+                else, pvalue = 0; obj.plotRCh.pvalue = pvalue; end %defaulne se NEzobrazuje krivka p value, ale je mozne ji zobrazit
             else
                 obj.plotRCh.pvalue = pvalue;
             end
@@ -1773,7 +1773,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
             
         end  
-        function TimeIntervals(obj,vch,intervals,ylimits, nofile) % Sofiia 2020
+        function TimeIntervals(obj,vch,intervals,ylimits, nofile,nametostore) % Sofiia 2020
             %  average time intervals for one channel or for a vector of channels (e.g. across a particular structure)
             %  numbers of channels can be obtained, for example, after applying CM.CH.FilterChannels({'lobe','precun'})
             %  or if it's empty it will use numbers of channels after current filtering (from CM.CH.sortoder)
@@ -1823,13 +1823,15 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
             
             % initialize matrix for all channels
-            chanMeans = zeros (length(vch), numel(kats)*size(intervals,1)); % for statistica - all time intervals and category in columns
+            chanMeans = zeros (size(intervals,1), numel(kats), length(vch)); % intervals x kats x channels  -  for statistica - all time intervals and category in columns
             
             %get data from obj.CategoryData for all channels at onces - to make the whole function faster
             categorydata = cell(numel(kats),2); %store precomputed category data here 
+            legendStr = cell(1,numel(kats)); % strings for legend and xls table
             for k = 1:numel(kats)
                 [d,~,RjEpCh,~]= obj.CategoryData(kats(k),[],[],vch); % d:time x channels x epochs - get data for all channels
                 categorydata(k,:) = {d(:,vch,:),RjEpCh}; % save d (time x channels x epochs) and RjEpCh (channels x epochs)
+                legendStr{k} = obj.PsyData.CategoryName(kats(k)); % array of names of categories for a legend
             end
             
             for ch = 1:size(vch,2) % for each channel                
@@ -1838,7 +1840,6 @@ classdef CiEEGData < matlab.mixin.Copyable
                 categories = NaN(size(obj.d,3), 1); % vector to define categories for all epochs for an individual channel - for xls table
                 T = (0 : 1/obj.fs : (size(obj.d,1)-1)/obj.fs)' + obj.epochtime(1); % time in sec
                 nInd = 1; % initialize index for variable categories
-                ichanMeans = 1; % initialize index for chanMeans
                 
                 for k = 1:numel(kats) % for each category%                   
                     RjEpCh = categorydata{k,2}(ch,:); %previously stored RjEpCh
@@ -1861,10 +1862,42 @@ classdef CiEEGData < matlab.mixin.Copyable
                     catmeans = cell2mat(allmeans(:,k)); % time invervals x epochs
                     MOverEpoch(:,k) = mean(catmeans,2); % mean over epochs
                     EOverEp(:,k) = std(catmeans,[],2)/sqrt(size(catmeans,2)); % std err of mean over epochs
-                    chanMeans(ch, ichanMeans:(k*size(intervals,1))) = MOverEpoch(:,k)'; % to put means over epochs for each category and channel - for xls table
-                    ichanMeans = ichanMeans+size(intervals,1);
+                    chanMeans(:,k,ch) = MOverEpoch(:,k)'; % to put means over epochs for each category and channel - for xls table
                 end
             end
+                  
+            %store or retrieve the plotted data
+            if exist('nametostore','var') && ~isempty(nametostore)
+                if ischar(nametostore)
+                    if ~isfield(obj.plotTimeInt,'data'), obj.plotTimeInt.data = struct(); end
+                    names = {obj.plotTimeInt.data.name};
+                    n = find(contains(names,nametostore),1);
+                    if isempty(n)
+                        n = numel(obj.plotTimeInt.data)+1;
+                    end
+                    obj.plotTimeInt.data(n).name = nametostore;
+                    obj.plotTimeInt.data(n).chanMeans = chanMeans; % intervals x kats x channels
+                    obj.plotTimeInt.data(n).chshowstr = chshowstr; %current filter label
+                    obj.plotTimeInt.data(n).legendStr = legendStr; %current filter label
+                    obj.plotTimeInt.data(n).chnum = size(chanMeans,3); %number of channels
+                    disp(['data stored as "' nametostore '"']);
+                elseif isnumeric(nametostore) && nametostore >0 && nametostore <= size(obj.plotTimeInt.data(1).chanMeans,2)
+                    %number of category to plot
+                    katorig = nametostore;
+                    vch = 1:max([obj.plotTimeInt.data.chnum]); %mimic the channels
+                    chanMeans = nan(size(obj.plotTimeInt.data(1).chanMeans,1), numel(obj.plotTimeInt.data) , max(vch));
+                    legendStr = cell(1,numel(obj.plotTimeInt.data)); 
+                    kats = 1:numel(obj.plotTimeInt.data); %mimic names as categories
+                    for k = kats
+                        chanMeans(:,k,1:obj.plotTimeInt.data(k).chnum) = obj.plotTimeInt.data(k).chanMeans(:,katorig,:);
+                        legendStr{k} = obj.plotTimeInt.data(k).name;
+                    end
+                    chshowstr = [obj.plotTimeInt.data(1).legendStr{katorig} ': ' obj.plotTimeInt.data(1).chshowstr ]; %assumes same category accross data fields                   
+                end
+            else
+                nametostore = [];
+            end
+            
             
             % plotting
             if isfield(obj.plotTimeInt,'fh') && ishandle(obj.plotTimeInt.fh)
@@ -1874,11 +1907,9 @@ classdef CiEEGData < matlab.mixin.Copyable
                 obj.plotTimeInt.fh = figure('Name','TimeIntervals');                 
             end                          
       
-            ploth = zeros(1,numel(kats)); % handles of plots for legend
-            legendStr = cell(1,numel(kats)); % strings for legend and xls table
-            
+         
             % plot mean and std across epochs for one channel
-            if length(vch)==1
+            if length(vch)==1 && isempty(nametostore)
                 M=MOverEpoch; %set variable to be plotted - means
                 E=EOverEp;    %set variable to be plotted - errorbars
                 % the number of the channel in the title of plot
@@ -1894,28 +1925,35 @@ classdef CiEEGData < matlab.mixin.Copyable
             else
                 
                 % plot mean and std across channels
-                ichanMeans = 1;
                 MOverChan = zeros(size(intervals,1),numel(kats)); % all means over channels - for plot
                 EOverChan = zeros(size(intervals,1),numel(kats)); % all std err over channels - for plot
                 for k = 1:numel(kats) % for each category
-                    MOverChan(:,k) = mean(chanMeans(:,ichanMeans:(k*size(intervals,1))),1); % mean over channels
-                    EOverChan(:,k) = std(chanMeans(:,ichanMeans:(k*size(intervals,1))),[],1)/sqrt(size(chanMeans,1)); % std err of mean over channels
-                    ichanMeans = ichanMeans+size(intervals,1);
+                    MOverChan(:,k) = nanmean(squeeze(chanMeans(:,k,:)),2); % mean over channels
+                    EOverChan(:,k) = nanstd(squeeze(chanMeans(:,k,:)),[],2)/sqrt(size(chanMeans,3)); % std err of mean over channels
                 end
                 M=MOverChan; %set variable to be plotted - means
                 E=EOverChan; %set variable to be plotted - errorbars
                 title([num2str(length(vch)) ' channels: ' chshowstr ]); %title for multiple channels
             end
-                        
+            
+            
+            
+            ploth = zeros(1,numel(kats)); % handles of plots for legend                        
             for k=1:numel(kats)
                 hold on
                 errorbar(intervals(:, 2),M(:,k),E(:,k),'.','Color', obj.colorskat{kats(k)+1}); % plot errors
                 hold on;
                 h_mean = plot(intervals(:, 2), M(:,k),'LineWidth',2,'Color',obj.colorskat{kats(k)+1}); % plot means
-                ploth(k) = h_mean; % plot handle
-                legendStr{k} = obj.PsyData.CategoryName(kats(k)); % array of names of categories for a legend
+                ploth(k) = h_mean; % plot handle                
             end
-
+            if numel(kats)==2
+                paired = 1; %paired
+                fdrlevel= 1;
+                y = obj.plotTimeInt.ylimits(1)*0.8;
+                Wp = CStat.Wilcox2D(chanMeans(:,1,:), chanMeans(:,2,:),0,fdrlevel,'kat 1 vs 2',[],[],paired); %more strict dep method
+                iWp = Wp <= 0.05;
+                plot(intervals(iWp, 2),ones(1,sum(iWp))*y, '*','Color','red'); %stars
+            end
             legend(ploth,legendStr);
             xlim([intervals(1,2)-.05, max(max(intervals))+.05]);
             xticks([intervals(1, 1) (intervals( : , 2))'])
@@ -1926,10 +1964,10 @@ classdef CiEEGData < matlab.mixin.Copyable
             if ~isfield(obj.plotTimeInt,'filterListener') || isempty(obj.plotTimeInt.filterListener) %function to be calle when event CHHeader.FilterChanged happens
                 obj.plotTimeInt.filterListener = addlistener(obj.CH, 'FilterChanged', @obj.filterChangedCallbackTimeIntervals);
             end
-            
+                        
             % export data in xls table
             if obj.plotTimeInt.nofile==0
-                if length(vch)==1
+                if length(vch)==1 && isempty(nametostore)
                     % export data for one channel in xls table
                     categories(isnan(categories))=[];  % remove all NaN
                     tableX = num2cell([categories, (cell2mat(allmeans))']); % table for export, epochs over all categories x (kategory num, intervals)
@@ -1940,7 +1978,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 else
                     % export data for all channels (means over epochs and time intervals) in xls table
                     labels = cell(length(vch),3); % cell array for brain labels
-                    if ~isempty(obj.CH.brainlabels) % if CM.CH.brainlabels contains names for brain labels, they will be put in a final table according to the number of channel
+                    if ~isempty(obj.CH.brainlabels) && isempty(nametostore) % if CM.CH.brainlabels contains names for brain labels, they will be put in a final table according to the number of channel
                         for chan = 1:size(vch,2)
                             labels{chan,1} = obj.CH.brainlabels(vch(chan)).class; % to establish a brain class for which the channel belongs - for xls table
                             labels{chan,2} = obj.CH.brainlabels(vch(chan)).label; % to establish a brain label for which the channel belongs - for xls table
@@ -1960,6 +1998,8 @@ classdef CiEEGData < matlab.mixin.Copyable
                         end
                     end
                     titles4table = ['number of channel', names4col, 'class','label','lobe']; % column names
+                    chanMeans = permute(chanMeans,[3 1 2]); %make channels the first dim
+                    chanMeans = reshape(chanMeans,size(chanMeans,1), size(chanMeans,2)*size(chanMeans,3)); %concat the 2. and 3. dim
                     tableX = [titles4table; num2cell(vch'), num2cell(chanMeans), labels]; % final table
                     strch = ['channels-' regexprep(chshowstr,{'{','}','[',']',' ','&'},{'','','','','-',''})]; % to distinguish in filename more than one channel
                 end

@@ -721,7 +721,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     else                        
                         chshow = intersect(chshow,find(obj.plotCh2D.selCh(:,ismember(klavesy,selCh)))'); %indexy kanalu se znackou f-l                    
                         iklavesy = ismember(klavesy,selCh);
-                        if sum(iklavesy) == 1 %if only one selectin was made - normal situation
+                        if sum(iklavesy) == 1 && ~isempty(obj.plotCh2D.selChNames{iklavesy}) %if only one selectin was made - normal situation
                             chshowstr = horzcat(chshowstr, obj.plotCh2D.selChNames(iklavesy));  %use the description of this marking
                         else
                             chshowstr = horzcat(chshowstr, {klavesy(iklavesy)});  %use the fghjkl characters
