@@ -190,6 +190,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
             newRj = setdiff(toReject,obj.RjCh);
             obj.RjCh = union(obj.RjCh,toReject);
+            if iscolumn(obj.RjCh), obj.RjCh = obj.RjCh'; end %we need a row of channels
             obj.CH.RejectChannels(obj.RjCh); %save to header
             disp(['channels rejected (new): ' num2str(numel(toReject)) '(' num2str(numel(newRj)) ')']); 
         end
@@ -2224,7 +2225,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 kategories = flip(obj.Wp(obj.WpActive).kats); %dalsi volba je pouzit cisla kategorii z jiz vypocitane aktivni statistiky
                 % ve statistice jsou ty nejdulezitejsi kategorie na konci, tady je chci na zacatku                
             elseif isfield(obj.plotRCh,'kategories') 
-                kategories = obj.plotRCh.kategories; %hodnoty drive pouzite v grafu, ty maji prednost pred statistikou
+                kategories = obj.plotRCh.kategories; %hodnoty drive pouzite v grafu, ty jsou druhe v poradi po statistice
             else    
                 kategories = obj.PsyData.Categories();
             end
@@ -2250,7 +2251,12 @@ classdef CiEEGData < matlab.mixin.Copyable
                channelHeader = channels(ch);
                RjCh = double(any(obj.RjCh==obj.CH.sortorder(ch))); %vyrazeni kanalu v CiEEGData               
                if exportBrainlabels    
-                   if ch <= size(obj.CH.brainlabels,1), bl=struct2cell(obj.CH.brainlabels(ch))'; else, bl = {'-','-','-'}; end                   
+                   if ch <= size(obj.CH.brainlabels,1)
+                       bl=struct2cell(obj.CH.brainlabels(ch))'; 
+                       bl=bl(1:3); %we want only three field, the fourth is channel name
+                   else
+                       bl = {'-','-','-'}; 
+                   end
                else
                    bl = cell(0,0); 
                end

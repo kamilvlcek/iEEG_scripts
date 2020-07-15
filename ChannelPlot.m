@@ -102,7 +102,7 @@ classdef ChannelPlot < matlab.mixin.Copyable
                     if obj.plotCh3D.allpoints, plot3(X,Y,Z,linestyle,'LineWidth',2); end
                     if chg==1, hold on; end  
                     chnnames = {};
-                    if ~obj.plotCh3D.labesXnames
+                    if ~obj.plotCh3D.labesXnames || isempty(obj.CH.brainlabels)
                         switch obj.plotCh3D.names %which channel names to show as labels for points
                             case 1 %channel numbers
                                 chnnames = num2cell(chGroup);
