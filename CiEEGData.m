@@ -113,9 +113,14 @@ classdef CiEEGData < matlab.mixin.Copyable
                 disp('no Wilcox stats');
             end
             end %(nargin ~= 0)
-            %tyhle objekty potrebuju inicializovat i pokud je objekt prazdny - CHilbertMulti
-            obj.PL = CPlots(obj); %prazdny objekt na grafy
-            if ~isprop(obj,'CS') || ~isa(obj.CS,'CStat') , obj.CS = CStat(); end %prazdy objekt na statistiku, ale mozna uz byl nacteny pomoci load             
+            
+            %tyhle objekty potrebuju inicializovat i pokud je objekt prazdny - CHilbertMulti            
+            if ~isprop(obj,'PL') || ~isa(obj.PL,'CPlots')
+                obj.PL = CPlots(obj); %prazdny objekt na grafy, ale mozna uz byl nacteny pomoci load     
+            end         
+            if ~isprop(obj,'CS') || ~isa(obj.CS,'CStat')
+                obj.CS = CStat(); %prazdy objekt na statistiku, ale mozna uz byl nacteny pomoci load  
+            end            
             obj.OR=CRefOrigVals(obj); %try to load OrigRegVals if exist
         end      
         function delete(obj) %destructor of a handle class
@@ -1813,7 +1818,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             epochtime = obj.epochtime;      %#ok<PROP,NASGU>
             baseline = obj.baseline;        %#ok<PROP,NASGU>
             CH_H=obj.CH.H;                  %#ok<NASGU>                                                                      
-            [CH_plots,CS_plots,RCh_plots] = obj.SaveRemoveFh(obj.plotRCh);  %#ok<ASGLU> %smazu vsechny handely na obrazky             
+            [CH_plots,CS_plots,RCh_plots,PL_Plots] = obj.SaveRemoveFh(obj.plotRCh);  %#ok<ASGLU> %smazu vsechny handely na obrazky             
             CH_filterMatrix = obj.CH.filterMatrix; %#ok<NASGU>  
             CH_brainlabels = obj.CH.brainlabels; %#ok<NASGU>
             CH_clusters = obj.CH.clusters;   %#ok<NASGU> %5.3.2020 TODO - Header data save by CHHeader object
@@ -1834,10 +1839,10 @@ classdef CiEEGData < matlab.mixin.Copyable
             filename2 = fullfile(pathstr,[fname ext]);
             save(filename2,'d','tabs','tabs_orig','fs','header','sce','PsyDataP','PsyData','testname','epochtime','baseline','CH_H','CH_plots','CH_brainlabels','CH_clusters','CS_plots','els',...
                     'plotES','RCh_plots','RjCh','RjEpoch','RjEpochCh','epochTags','epochLast','reference','epochData','Wp','DE','DatumCas', 'label', ...
-                    'CH_filterMatrix','-v7.3');  
+                    'CH_filterMatrix','PL_Plots','-v7.3');  
             disp(['saved to ' filename2]); 
         end
-        function [CH_plots,CS_plots,RCh_plots, obj] = SaveRemoveFh(obj,RCh_plots)  %smazu vsechny handely na obrazky 
+        function [CH_plots,CS_plots,RCh_plots, PL_Plots,obj] = SaveRemoveFh(obj,RCh_plots)  %smazu vsechny handely na obrazky 
             %SaveRemoveFh - removes figure handles saved plot parameters
             CS_plots = {obj.CS.plotAUC obj.CS.plotAUC_m}; % ulozeni parametru plotu AUC krivek  
             CH_plots = cell(1,2);
@@ -1857,6 +1862,9 @@ classdef CiEEGData < matlab.mixin.Copyable
             
             %CM.plotRCh
             if isfield(RCh_plots, 'fh' ), RCh_plots = rmfield(RCh_plots,  {'fh'}); end %potrebuju odstranit figure handly a jine tridy           
+            
+            PL_Plots = {obj.PL.plotTimeInt}; % ulozeni parametru TimeInterval Plotu
+            if isfield(PL_Plots{1}, 'fh' ), PL_Plots{1} = rmfield(PL_Plots{1}, {'fh','filterListener'}); end  
         end
         function obj = Load(obj,filename,~,~)
             % nacte veskere promenne tridy ze souboru
@@ -1989,8 +1997,13 @@ classdef CiEEGData < matlab.mixin.Copyable
             if ismember('CS_plots', {vars.name}) %nastaveni obou grafu AUC v CStat
                 load(filename,'CS_plots'); 
                 obj.CS = CStat();
-                obj.CS.plotAUC = CS_plots{1};   %#ok<USENS>
+                obj.CS.plotAUC = CS_plots{1};   %#ok<IDISVAR,USENS>
                 obj.CS.plotAUC_m = CS_plots{2}; 
+            end
+            if ismember('PL_Plots', {vars.name}) %nastaveni obou grafu AUC v CStat
+                load(filename,'PL_Plots'); 
+                obj.PL = CPlots(obj);
+                obj.PL.plotTimeInt = PL_Plots{1};  %#ok<IDISVAR,USENS>
             end
             
         end

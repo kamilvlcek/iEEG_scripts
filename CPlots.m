@@ -93,7 +93,7 @@ classdef CPlots < matlab.mixin.Copyable
             ylabel('BGA power change');
             obj.PlotRChMean.filterListener = addlistener(obj.Eh.CH, 'FilterChanged', @obj.filterChangedCallbackPlotResponseChMean);
         end
-        function TimeIntervals(obj,vch,intervals,ylimits, nofile,nametostore) % Sofiia 2020
+        function TimeIntervals(obj,vch,intervals,ylimits, nofile,store) % Sofiia 2020
             %  average time intervals for one channel or for a vector of channels (e.g. across a particular structure)
             %  numbers of channels can be obtained, for example, after applying CM.CH.FilterChannels({'lobe','precun'})
             %  or if it's empty it will use numbers of channels after current filtering (from CM.CH.sortoder)
@@ -101,7 +101,7 @@ classdef CPlots < matlab.mixin.Copyable
             %  nofile - if 1, do not save any xls file, only plot figure
             
             %process arguments
-            if ~exist('vch','var') || isempty(vch)
+            if ~exist('vch','var') || isempty(vch) %vector of channels
                 vch = obj.Eh.CH.sortorder; % will use numbers of channels after current filtering
                 chshowstr = obj.Eh.CH.plotCh2D.chshowstr; %description of the selected channels - name from CM.CH.FilterChannels();
             else
@@ -128,6 +128,7 @@ classdef CPlots < matlab.mixin.Copyable
             else
                 obj.plotTimeInt.ylimits = ylimits; %store the limits given in function call
             end 
+            ylimits = obj.plotTimeInt.ylimits;
             if ~exist('nofile','var') || isempty(nofile)
                 if ~isfield(obj.plotTimeInt,'nofile') %save the file by default
                      obj.plotTimeInt.nofile = 0; %the default value - save the file
@@ -187,35 +188,80 @@ classdef CPlots < matlab.mixin.Copyable
             end
                   
             %store or retrieve the plotted data
-            if exist('nametostore','var') && ~isempty(nametostore)
-                if ischar(nametostore)
-                    if ~isfield(obj.plotTimeInt,'data'), obj.plotTimeInt.data = struct(); end
-                    names = {obj.plotTimeInt.data.name};
-                    n = find(contains(names,nametostore),1);
-                    if isempty(n)
-                        n = numel(obj.plotTimeInt.data)+1;
-                    end
-                    obj.plotTimeInt.data(n).name = nametostore;
-                    obj.plotTimeInt.data(n).chanMeans = chanMeans; % intervals x kats x channels
-                    obj.plotTimeInt.data(n).chshowstr = chshowstr; %current filter label
-                    obj.plotTimeInt.data(n).legendStr = legendStr; %current filter label
-                    obj.plotTimeInt.data(n).chnum = size(chanMeans,3); %number of channels
-                    disp(['data stored as "' nametostore '"']);
-                elseif isnumeric(nametostore) && nametostore >0 && nametostore <= size(obj.plotTimeInt.data(1).chanMeans,2)
+            if exist('store','var') && ~isempty(store) && isstruct(store)
+                if isfield(store,'store') && store.store==1
+                        if ~isfield(obj.plotTimeInt,'data'), obj.plotTimeInt.data = struct(); end
+                        if ~isfield(store,'label') || isempty(store.label) %any label, e.g. brainlabel
+                            store.label = 'NaN';
+                        end
+                        if isfield(obj.plotTimeInt.data,'label')                        
+                            labels = {obj.plotTimeInt.data.label}; %labels stored until now
+                            nlabel = find(contains(labels,store.label));
+                            if isempty(nlabel)
+                                nlabel = numel(obj.plotTimeInt.data)+1;
+                            end
+                        else                                
+                            nlabel = 1;
+                        end
+                            
+                        if ~isfield(store,'mark') || isempty(store.mark)  %any mark, e.g. name of the current marking (fghjkl)
+                            store.mark = 'NaN';                            
+                        end
+                        if isfield(obj.plotTimeInt.data,'mark')                        
+                            marks = {obj.plotTimeInt.data.mark}; %labels stored until now
+                            nmark = find(contains(marks,store.mark));
+                            if isempty(nmark)
+                                nmark = numel(obj.plotTimeInt.data)+1;
+                            end
+                        else                                
+                            nmark = 1;
+                        end
+                            
+                        n = intersect(nmark,nlabel);
+                        if isempty(n), n = numel(obj.plotTimeInt.data)+1; end
+                        obj.plotTimeInt.data(n).label = store.label;
+                        obj.plotTimeInt.data(n).mark = store.mark;
+                        obj.plotTimeInt.data(n).chanMeans = chanMeans; % intervals x kats x channels
+                        obj.plotTimeInt.data(n).chshowstr = chshowstr; %current filter label
+                        obj.plotTimeInt.data(n).legendStr = legendStr; %current filter label
+                        obj.plotTimeInt.data(n).chnum = numel(vch); %number of channels
+                        obj.plotTimeInt.data(n).channels = vch; %channel numbers
+                        obj.plotTimeInt.data(n).intervals = intervals; %number of channels
+                        disp(['data stored as "' store.label ' & ' store.mark '"']);
+                   
+                elseif isfield(store,'kat') && store.kat >0 && store.kat <= size(obj.plotTimeInt.data(1).chanMeans,2)
                     %number of category to plot
-                    katorig = nametostore;
-                    vch = 1:max([obj.plotTimeInt.data.chnum]); %mimic the channels
-                    chanMeans = nan(size(obj.plotTimeInt.data(1).chanMeans,1), numel(obj.plotTimeInt.data) , max(vch));
-                    legendStr = cell(1,numel(obj.plotTimeInt.data)); 
-                    kats = 1:numel(obj.plotTimeInt.data); %mimic names as categories
-                    for k = kats
-                        chanMeans(:,k,1:obj.plotTimeInt.data(k).chnum) = obj.plotTimeInt.data(k).chanMeans(:,katorig,:);
-                        legendStr{k} = obj.plotTimeInt.data(k).name;
+                    if isfield(store,'mark')
+                        marks = {obj.plotTimeInt.data.mark};
+                        idata = contains(marks,store.mark); %logical index
+                        idata1 = find(idata,1);
+                    else
+                        store.mark = 'NaN';
+                        idata = true(numel(obj.plotTimeInt.data),1);
+                        idata1 = 1;
                     end
-                    chshowstr = [obj.plotTimeInt.data(1).legendStr{katorig} ': ' obj.plotTimeInt.data(1).chshowstr ]; %assumes same category accross data fields                   
+                    if ~isfield(store,'normalize') %normalize each label interval values to it maximal interval mean - to be able to compare the speed of response
+                        store.normalize = 0;
+                    elseif store.normalize == 1
+                        ylimits = [-.1 1.1]; %the values will be [0 1], temporary change 
+                    end
+                    vch = 1:max([obj.plotTimeInt.data(idata).chnum]); %use the stored channels as channels
+                    chanMeans = nan(size(obj.plotTimeInt.data(idata1).chanMeans,1), numel(obj.plotTimeInt.data(idata)) , max(vch)); %intervals x labels x channels
+                    legendStr = cell(1,numel(obj.plotTimeInt.data(idata))); 
+                    kats = 1:numel(obj.plotTimeInt.data(idata)); %mimic different stored labels as categories
+                    datan = find(idata); %rows if plotTimeInt.data
+                    for k = kats %rows of plotTimeInt.data
+                        chanMeans(:,k,1:obj.plotTimeInt.data(datan(k)).chnum) = obj.plotTimeInt.data(datan(k)).chanMeans(:,store.kat,:);
+                        if store.normalize
+                            katmax = max(mean(chanMeans(:,k,1:obj.plotTimeInt.data(datan(k)).chnum),3));
+                            chanMeans(:,k,1:obj.plotTimeInt.data(datan(k)).chnum) = chanMeans(:,k,1:obj.plotTimeInt.data(datan(k)).chnum)./katmax;
+                        end
+                        legendStr{k} = [ obj.plotTimeInt.data(datan(k)).label ' x' num2str(obj.plotTimeInt.data(datan(k)).chnum)];
+                    end
+                    chshowstr = [obj.plotTimeInt.data(idata1).legendStr{store.kat} ': mark=' store.mark  ]; %assumes same category accross data fields                   
                 end
             else
-                nametostore = [];
+                store = [];
             end
             
             
@@ -229,7 +275,7 @@ classdef CPlots < matlab.mixin.Copyable
       
          
             % plot mean and std across epochs for one channel
-            if length(vch)==1 && isempty(nametostore)
+            if length(vch)==1 && isempty(store)
                 M=MOverEpoch; %set variable to be plotted - means
                 E=EOverEp;    %set variable to be plotted - errorbars
                 % the number of the channel in the title of plot
@@ -269,8 +315,8 @@ classdef CPlots < matlab.mixin.Copyable
             if numel(kats)==2
                 paired = 1; %paired
                 fdrlevel= 1;
-                if ~isempty(obj.plotTimeInt.ylimits) 
-                    y = obj.plotTimeInt.ylimits(1)*0.8;
+                if ~isempty(ylimits) 
+                    y = ylimits(1)*0.8;
                 else
                     y = 0;
                 end
@@ -284,14 +330,48 @@ classdef CPlots < matlab.mixin.Copyable
             txtinterv = num2str(intervals,'%.1f-%.1f');
             xticklabels({'0', txtinterv(1:end, :)})            
             xlabel('time intervals, s');
-            if ~isempty(obj.plotTimeInt.ylimits), ylim(obj.plotTimeInt.ylimits); end
+            if ~isempty(ylimits), ylim(ylimits); end
             if ~isfield(obj.plotTimeInt,'filterListener') || isempty(obj.plotTimeInt.filterListener) %function to be calle when event CHHeader.FilterChanged happens
                 obj.plotTimeInt.filterListener = addlistener(obj.Eh.CH, 'FilterChanged', @obj.filterChangedCallbackTimeIntervals);
             end
                         
             % export data in xls table
-            if obj.plotTimeInt.nofile==0
-                if length(vch)==1 && isempty(nametostore)
+            if obj.plotTimeInt.nofile==0 && isempty(store) 
+                obj.TimeIntervals2XLS(vch,kats , legendStr, intervals, chanMeans,chshowstr, categories, allmeans);
+            end
+        end
+        function TimeIntervalsColect(obj,labels,marks)
+            %collects data using TimeIntervals from multiple filter settings
+            %labels is cell array of brain labels, filtered by label = ''
+            %marks is cell array of 1. marking sets 2. markings in two columns 
+            %the intervals and ylimis needs to be set before
+            for l = 1:numel(labels)
+                for m = 1:size(marks,1)
+                    obj.Eh.SetSelChActive(marks{m,1});
+                    klavesy = 'fghjkl';                 
+                    iklavesy = ismember(klavesy,marks{m,2});
+                    if sum(iklavesy)==1
+                        markname = obj.Eh.plotRCh.selChNames{iklavesy};
+                    else
+                        markname = [];
+                    end
+                    obj.Eh.CH.FilterChannels({'label',labels{l}},{},[marks{m,2} 'n']);
+                    obj.TimeIntervals([],[],[],[],struct('store',1,'label',labels{l},'mark',markname));
+                end
+            end            
+        end
+        function TimeIntervals2XLS(obj,varargin)
+            if nargin > 2 %when called directly from TimeIntervals()
+               %vch,kats , legendStr, intervals, chanMeans,chshowstr, categories, allmeans
+               vch = varargin{1}; 
+               kats = varargin{2}; 
+               legendStr = varargin{3};
+               intervals = varargin{4};
+               chanMeans = varargin{5};
+               chshowstr = varargin{6};
+               categories = varargin{7};
+               allmeans = varargin{8};
+               if length(vch)==1
                     % export data for one channel in xls table
                     categories(isnan(categories))=[];  % remove all NaN
                     tableX = num2cell([categories, (cell2mat(allmeans))']); % table for export, epochs over all categories x (kategory num, intervals)
@@ -299,38 +379,75 @@ classdef CPlots < matlab.mixin.Copyable
                     titles4table = ['category', intervStr']; % column names
                     tableX = [titles4table; tableX]; % final table
                     strch = ['channel-' num2str(vch)];  % to distinguish in filename more just one channel
+               else
+                   strch = ['channels-' regexprep(chshowstr,{'{','}','[',']',' ','&'},{'','','','','-',''})]; % to distinguish in filename more than one channel
+                   [tableX,titles4table] = obj.TimeIntervals2XLSTable(vch,chanMeans,kats,legendStr,intervals);
+               end
+            else
+                if nargin == 2
+                    normalize = varargin{1}; %if to normalize the values
                 else
-                    % export data for all channels (means over epochs and time intervals) in xls table
-                    labels = cell(length(vch),3); % cell array for brain labels
-                    if ~isempty(obj.Eh.CH.brainlabels) && isempty(nametostore) % if CM.CH.brainlabels contains names for brain labels, they will be put in a final table according to the number of channel
-                        for chan = 1:size(vch,2)
-                            labels{chan,1} = obj.Eh.CH.brainlabels(vch(chan)).class; % to establish a brain class for which the channel belongs - for xls table
-                            labels{chan,2} = obj.Eh.CH.brainlabels(vch(chan)).label; % to establish a brain label for which the channel belongs - for xls table
-                            labels{chan,3} = obj.Eh.CH.brainlabels(vch(chan)).lobe; % to establish a brain lobe for which the channel belongs - for xls table
-                        end
-                    end    % otherwise labels will be just empty cell array
-
-                    % long names for columns in STATISTICA (category + time interval)
-                    intervStr = cellstr(num2str(intervals,'%.1f-%.1f'));
-                    names4col = cell(1,numel(kats)*size(intervals,1));
-                    p=1;
-                    for k=1:numel(kats)
-                        for int = 1:size(intervals,1)
-                            Str = {legendStr{k},intervStr{int}};
-                            names4col(:,p) = join(Str, ': ');
-                            p=p+1;
-                        end
-                    end
-                    titles4table = ['number of channel', names4col, 'class','label','lobe']; % column names
-                    chanMeans = permute(chanMeans,[3 1 2]); %make channels the first dim
-                    chanMeans = reshape(chanMeans,size(chanMeans,1), size(chanMeans,2)*size(chanMeans,3)); %concat the 2. and 3. dim
-                    tableX = [titles4table; num2cell(vch'), num2cell(chanMeans), labels]; % final table
-                    strch = ['channels-' regexprep(chshowstr,{'{','}','[',']',' ','&'},{'','','','','-',''})]; % to distinguish in filename more than one channel
+                    normalize = 0; %default value
                 end
-
-                xlsfilename = ['logs\average_time_intervals_for ' strch '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') '.xls'];
-                xlswrite(xlsfilename,tableX);
-                disp([ 'xls tables saved: ' xlsfilename]);
+                row = 1;
+                for n = 1:numel(obj.plotTimeInt.data)
+                    vch = obj.plotTimeInt.data(n).channels;
+                    chanMeans = obj.plotTimeInt.data(n).chanMeans; %intervals x kats x channels
+                    if normalize
+                       katmax = max(mean(chanMeans(:,:,1:obj.plotTimeInt.data(n).chnum),3),[],1);  %mean over channel, max over intervals
+                       chanMeans = chanMeans ./ katmax;
+                    end
+                    if n == 1
+                        kats = 1:numel(obj.plotTimeInt.data(n).legendStr);
+                        legendStr = (obj.plotTimeInt.data(n).legendStr);
+                        intervals = (obj.plotTimeInt.data(n).intervals);
+                        [tbl,titles4table]= obj.TimeIntervals2XLSTable(vch, chanMeans,kats,legendStr,intervals);
+                        titles4table = [{'n','label','mark'},titles4table]; %#ok<AGROW>
+                        tableX = cell(sum([obj.plotTimeInt.data.chnum]),numel(titles4table));  %empty table for all channels                      
+                    else
+                        [tbl]= obj.TimeIntervals2XLSTable(vch, chanMeans);         
+                    end
+                    tableX(row:row+numel(vch)-1,:) = [num2cell(row:row+numel(vch)-1)', ...
+                            repmat({obj.plotTimeInt.data(n).label},size(tbl,1),1), ...
+                            repmat({obj.plotTimeInt.data(n).mark},size(tbl,1),1), ...
+                            tbl ...
+                            ];
+                    row = row + numel(vch);
+                end
+                strch = ['TimeIntData' iff(normalize,'Norm','')];
+            end
+    
+            xlsfilename = ['logs\TimeIntervals_' strch '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') '.xls'];
+            xlswrite(xlsfilename,[titles4table; tableX]);
+            disp([ 'xls tables saved: ' xlsfilename]);
+           
+        end
+        function [tableX,titles4table]= TimeIntervals2XLSTable(obj,vch, chanMeans,kats , legendStr, intervals)                   
+            % export data for all channels (means over epochs and time intervals) in xls table   
+            if ~isempty(obj.Eh.CH.brainlabels) % if CM.CH.brainlabels contains names for brain labels, they will be put in a final table according to the number of channel
+                labels = horzcat({obj.Eh.CH.brainlabels(vch).class}',{obj.Eh.CH.brainlabels(vch).label}', {obj.Eh.CH.brainlabels(vch).lobe}');
+            else
+                labels = cell(length(vch),3);% otherwise labels will be just empty cell array
+            end
+            names = {obj.Eh.CH.H.channels(vch).name}'; %channel names
+            pacients = obj.Eh.CH.PacientTag(vch); %pacient tags
+            chanMeans = permute(chanMeans,[3 1 2]); %make channels the first dim
+            chanMeans = reshape(chanMeans,size(chanMeans,1), size(chanMeans,2)*size(chanMeans,3)); %concat the 2. and 3. dim
+            tableX = [num2cell(vch'), names, pacients, labels, num2cell(chanMeans)]; % final table
+            
+            if exist('kats','var')  %if to return also table header
+                % long names for columns in STATISTICA (category + time interval)
+                intervStr = cellstr(num2str(intervals,'%.1f-%.1f'));
+                names4col = cell(1,numel(kats)*size(intervals,1));
+                col=1;
+                for k=1:numel(kats)
+                    for int = 1:size(intervals,1)
+                        Str = {legendStr{k},intervStr{int}};
+                        names4col(:,col) = join(Str, ': ');
+                        col=col+1;
+                    end
+                end
+                titles4table = ['channel','channelname', 'pacient', 'class','label','lobe',names4col]; % column names 
             end
         end
         function filterChangedCallbackPlotResponseChMean(obj,~,~)   %update chart if the filter is changed         
