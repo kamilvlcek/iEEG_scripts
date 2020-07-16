@@ -21,8 +21,7 @@ classdef CiEEGData < matlab.mixin.Copyable
         plotES; % current electrode, second of plot/epoch, range of y values, time range, allels, rangey all els
         plotH;  % handle to plot
         plotRCh = struct; %stavove udaje o grafu PlotResponseCh
-        plotEp = struct; %stavove udaje o grafu PlotEpochs
-        plotTimeInt = struct; %stavove udaje o grafu TimeIntervals
+        plotEp = struct; %stavove udaje o grafu PlotEpochs        
         RjCh; %seznam cisel rejectovanych kanalu
         RjEpoch; %seznam vyrazenych epoch - pouzivam spolecne s RjEpochCh - pro vyrazeni celych epoch
         RjEpochCh; %seznam vyrazenych epoch x kanal - v kazdem kanalu zvlast
@@ -1773,241 +1772,13 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
             
         end  
-        function TimeIntervals(obj,vch,intervals,ylimits, nofile,nametostore) % Sofiia 2020
+        function TimeIntervals(obj,varargin) % Sofiia 2020
             %  average time intervals for one channel or for a vector of channels (e.g. across a particular structure)
             %  numbers of channels can be obtained, for example, after applying CM.CH.FilterChannels({'lobe','precun'})
             %  or if it's empty it will use numbers of channels after current filtering (from CM.CH.sortoder)
             %  default intervals = [0 0.2; 0.2 0.4; 0.4 0.6; 0.6 0.8];
             %  nofile - if 1, do not save any xls file, only plot figure
-            
-            %process arguments
-            if ~exist('vch','var') || isempty(vch)
-                vch = obj.CH.sortorder; % will use numbers of channels after current filtering
-                chshowstr = obj.CH.plotCh2D.chshowstr; %description of the selected channels - name from CM.CH.FilterChannels();
-            else
-                chshowstr = [ num2str(length(vch)) 'channels'];
-            end 
-            if ~exist('intervals','var') || isempty(intervals) 
-                if ~isfield(obj.plotTimeInt,'intervals')                               
-                    obj.plotTimeInt.intervals = [0 0.2; 0.2 0.4; 0.4 0.6; 0.6 0.8]; %store the default intervals
-                end
-                intervals = obj.plotTimeInt.intervals;
-            elseif any(intervals == -1) %-1 to reset default values
-                obj.plotTimeInt.intervals = [0 0.2; 0.2 0.4; 0.4 0.6; 0.6 0.8]; %store the default intervals
-                intervals = obj.plotTimeInt.intervals;
-            else
-                obj.plotTimeInt.intervals = intervals; %store the limits given in function call
-            end
-            
-            if ~exist('ylimits','var') || isempty(ylimits)  %limits for the y axis
-                if ~isfield(obj.plotTimeInt,'ylimits')
-                    obj.plotTimeInt.ylimits = []; %store the empty limits - the default value
-                end            
-            elseif any(ylimits == -1) %-1 to reset default values
-                obj.plotTimeInt.ylimits = []; %store the empty limits - the default value
-            else
-                obj.plotTimeInt.ylimits = ylimits; %store the limits given in function call
-            end 
-            if ~exist('nofile','var') || isempty(nofile)
-                if ~isfield(obj.plotTimeInt,'nofile') %save the file by default
-                     obj.plotTimeInt.nofile = 0; %the default value - save the file
-                end
-            else
-                 obj.plotTimeInt.nofile = nofile; %store the limits given in function call
-            end 
-        
-            if isfield(obj.plotRCh,'kategories') && ~isempty(obj.plotRCh.kategories)
-                kats = obj.plotRCh.kategories;
-            else
-                kats = obj.Wp(obj.WpActive).kats; % define categories
-            end
-            
-            % initialize matrix for all channels
-            chanMeans = zeros (size(intervals,1), numel(kats), length(vch)); % intervals x kats x channels  -  for statistica - all time intervals and category in columns
-            
-            %get data from obj.CategoryData for all channels at onces - to make the whole function faster
-            categorydata = cell(numel(kats),2); %store precomputed category data here 
-            legendStr = cell(1,numel(kats)); % strings for legend and xls table
-            for k = 1:numel(kats)
-                [d,~,RjEpCh,~]= obj.CategoryData(kats(k),[],[],vch); % d:time x channels x epochs - get data for all channels
-                categorydata(k,:) = {d(:,vch,:),RjEpCh}; % save d (time x channels x epochs) and RjEpCh (channels x epochs)
-                legendStr{k} = obj.PsyData.CategoryName(kats(k)); % array of names of categories for a legend
-            end
-            
-            for ch = 1:size(vch,2) % for each channel                
-                % initialize matrix for an individual channel
-                allmeans = cell(size(intervals,1),numel(kats)); %  time intervals x kategories (x epochs)
-                categories = NaN(size(obj.d,3), 1); % vector to define categories for all epochs for an individual channel - for xls table
-                T = (0 : 1/obj.fs : (size(obj.d,1)-1)/obj.fs)' + obj.epochtime(1); % time in sec
-                nInd = 1; % initialize index for variable categories
-                
-                for k = 1:numel(kats) % for each category%                   
-                    RjEpCh = categorydata{k,2}(ch,:); %previously stored RjEpCh
-                    d = squeeze(categorydata{k,1}(:,ch,~RjEpCh));  %time x epochs, previously stored d value                  
-                    categories(nInd:(nInd+size(d,2)-1)) = kats(k); % to establish the number of category for all epochs for an individual channel - for xls table
-                    nInd = size(d,2)+nInd;
-                    
-                    for int = 1:size(intervals,1)  % for each interval
-                        index = T>intervals(int,1) & T <=intervals(int,2);
-                        meanOverT = mean(d(index, :),1); % mean across time  according to time intervals - for each epoch
-                        allmeans{int,k} = meanOverT; % put in a cell array; time intervals x epochs
-                    end
-                    
-                end
-                
-                % means and std err over epochs
-                MOverEpoch = zeros(size(intervals,1),numel(kats)); % all means over epochs in one channel - for plot
-                EOverEp = zeros(size(intervals,1),numel(kats)); % all std err over epochs in one channel - for plot
-                for k = 1:numel(kats) % for each category
-                    catmeans = cell2mat(allmeans(:,k)); % time invervals x epochs
-                    MOverEpoch(:,k) = mean(catmeans,2); % mean over epochs
-                    EOverEp(:,k) = std(catmeans,[],2)/sqrt(size(catmeans,2)); % std err of mean over epochs
-                    chanMeans(:,k,ch) = MOverEpoch(:,k)'; % to put means over epochs for each category and channel - for xls table
-                end
-            end
-                  
-            %store or retrieve the plotted data
-            if exist('nametostore','var') && ~isempty(nametostore)
-                if ischar(nametostore)
-                    if ~isfield(obj.plotTimeInt,'data'), obj.plotTimeInt.data = struct(); end
-                    names = {obj.plotTimeInt.data.name};
-                    n = find(contains(names,nametostore),1);
-                    if isempty(n)
-                        n = numel(obj.plotTimeInt.data)+1;
-                    end
-                    obj.plotTimeInt.data(n).name = nametostore;
-                    obj.plotTimeInt.data(n).chanMeans = chanMeans; % intervals x kats x channels
-                    obj.plotTimeInt.data(n).chshowstr = chshowstr; %current filter label
-                    obj.plotTimeInt.data(n).legendStr = legendStr; %current filter label
-                    obj.plotTimeInt.data(n).chnum = size(chanMeans,3); %number of channels
-                    disp(['data stored as "' nametostore '"']);
-                elseif isnumeric(nametostore) && nametostore >0 && nametostore <= size(obj.plotTimeInt.data(1).chanMeans,2)
-                    %number of category to plot
-                    katorig = nametostore;
-                    vch = 1:max([obj.plotTimeInt.data.chnum]); %mimic the channels
-                    chanMeans = nan(size(obj.plotTimeInt.data(1).chanMeans,1), numel(obj.plotTimeInt.data) , max(vch));
-                    legendStr = cell(1,numel(obj.plotTimeInt.data)); 
-                    kats = 1:numel(obj.plotTimeInt.data); %mimic names as categories
-                    for k = kats
-                        chanMeans(:,k,1:obj.plotTimeInt.data(k).chnum) = obj.plotTimeInt.data(k).chanMeans(:,katorig,:);
-                        legendStr{k} = obj.plotTimeInt.data(k).name;
-                    end
-                    chshowstr = [obj.plotTimeInt.data(1).legendStr{katorig} ': ' obj.plotTimeInt.data(1).chshowstr ]; %assumes same category accross data fields                   
-                end
-            else
-                nametostore = [];
-            end
-            
-            
-            % plotting
-            if isfield(obj.plotTimeInt,'fh') && ishandle(obj.plotTimeInt.fh)
-                figure(obj.plotTimeInt.fh); %pouziju uz vytvoreny graf
-                clf(obj.plotTimeInt.fh); %graf vycistim
-            else
-                obj.plotTimeInt.fh = figure('Name','TimeIntervals');                 
-            end                          
-      
-         
-            % plot mean and std across epochs for one channel
-            if length(vch)==1 && isempty(nametostore)
-                M=MOverEpoch; %set variable to be plotted - means
-                E=EOverEp;    %set variable to be plotted - errorbars
-                % the number of the channel in the title of plot
-                if ~isempty(obj.CH.sortedby) %pokud jsou kanaly serazene jinak nez podle cisla kanalu
-                    chstr = [ num2str(vch(ch)) '(' obj.CH.sortedby  num2str(obj.plotRCh.ch) ')' ];
-                elseif numel(obj.CH.sortorder) < obj.channels %pokud jsou kanaly nejak vyfiltrovane pomoci obj.CH.FilterChannels();
-                    chstr = [ num2str(vch(ch)) '(' num2str(obj.plotRCh.ch) '/'  num2str(numel(obj.CH.sortorder)) ')' ];
-                else
-                    chstr = num2str(vch(ch));
-                end
-                title(['channel ' chstr '/' num2str(obj.channels) ' - ' obj.PacientID()], 'Interpreter', 'none'); % v titulu obrazku bude i pacientID napriklad p132-VT18
-                
-            else
-                
-                % plot mean and std across channels
-                MOverChan = zeros(size(intervals,1),numel(kats)); % all means over channels - for plot
-                EOverChan = zeros(size(intervals,1),numel(kats)); % all std err over channels - for plot
-                for k = 1:numel(kats) % for each category
-                    MOverChan(:,k) = nanmean(squeeze(chanMeans(:,k,:)),2); % mean over channels
-                    EOverChan(:,k) = nanstd(squeeze(chanMeans(:,k,:)),[],2)/sqrt(size(chanMeans,3)); % std err of mean over channels
-                end
-                M=MOverChan; %set variable to be plotted - means
-                E=EOverChan; %set variable to be plotted - errorbars
-                title([num2str(length(vch)) ' channels: ' chshowstr ]); %title for multiple channels
-            end
-            
-            
-            
-            ploth = zeros(1,numel(kats)); % handles of plots for legend                        
-            for k=1:numel(kats)
-                hold on
-                errorbar(intervals(:, 2),M(:,k),E(:,k),'.','Color', obj.colorskat{kats(k)+1}); % plot errors
-                hold on;
-                h_mean = plot(intervals(:, 2), M(:,k),'LineWidth',2,'Color',obj.colorskat{kats(k)+1}); % plot means
-                ploth(k) = h_mean; % plot handle                
-            end
-            if numel(kats)==2
-                paired = 1; %paired
-                fdrlevel= 1;
-                y = obj.plotTimeInt.ylimits(1)*0.8;
-                Wp = CStat.Wilcox2D(chanMeans(:,1,:), chanMeans(:,2,:),0,fdrlevel,'kat 1 vs 2',[],[],paired); %more strict dep method
-                iWp = Wp <= 0.05;
-                plot(intervals(iWp, 2),ones(1,sum(iWp))*y, '*','Color','red'); %stars
-            end
-            legend(ploth,legendStr);
-            xlim([intervals(1,2)-.05, max(max(intervals))+.05]);
-            xticks([intervals(1, 1) (intervals( : , 2))'])
-            txtinterv = num2str(intervals,'%.1f-%.1f');
-            xticklabels({'0', txtinterv(1:end, :)})            
-            xlabel('time intervals, s');
-            if ~isempty(obj.plotTimeInt.ylimits), ylim(obj.plotTimeInt.ylimits); end
-            if ~isfield(obj.plotTimeInt,'filterListener') || isempty(obj.plotTimeInt.filterListener) %function to be calle when event CHHeader.FilterChanged happens
-                obj.plotTimeInt.filterListener = addlistener(obj.CH, 'FilterChanged', @obj.filterChangedCallbackTimeIntervals);
-            end
-                        
-            % export data in xls table
-            if obj.plotTimeInt.nofile==0
-                if length(vch)==1 && isempty(nametostore)
-                    % export data for one channel in xls table
-                    categories(isnan(categories))=[];  % remove all NaN
-                    tableX = num2cell([categories, (cell2mat(allmeans))']); % table for export, epochs over all categories x (kategory num, intervals)
-                    intervStr = cellstr(num2str(intervals,'%.1f-%.1f'));
-                    titles4table = ['category', intervStr']; % column names
-                    tableX = [titles4table; tableX]; % final table
-                    strch = ['channel-' num2str(vch)];  % to distinguish in filename more just one channel
-                else
-                    % export data for all channels (means over epochs and time intervals) in xls table
-                    labels = cell(length(vch),3); % cell array for brain labels
-                    if ~isempty(obj.CH.brainlabels) && isempty(nametostore) % if CM.CH.brainlabels contains names for brain labels, they will be put in a final table according to the number of channel
-                        for chan = 1:size(vch,2)
-                            labels{chan,1} = obj.CH.brainlabels(vch(chan)).class; % to establish a brain class for which the channel belongs - for xls table
-                            labels{chan,2} = obj.CH.brainlabels(vch(chan)).label; % to establish a brain label for which the channel belongs - for xls table
-                            labels{chan,3} = obj.CH.brainlabels(vch(chan)).lobe; % to establish a brain lobe for which the channel belongs - for xls table
-                        end
-                    end    % otherwise labels will be just empty cell array
-
-                    % long names for columns in STATISTICA (category + time interval)
-                    intervStr = cellstr(num2str(intervals,'%.1f-%.1f'));
-                    names4col = cell(1,numel(kats)*size(intervals,1));
-                    p=1;
-                    for k=1:numel(kats)
-                        for int = 1:size(intervals,1)
-                            Str = {legendStr{k},intervStr{int}};
-                            names4col(:,p) = join(Str, ': ');
-                            p=p+1;
-                        end
-                    end
-                    titles4table = ['number of channel', names4col, 'class','label','lobe']; % column names
-                    chanMeans = permute(chanMeans,[3 1 2]); %make channels the first dim
-                    chanMeans = reshape(chanMeans,size(chanMeans,1), size(chanMeans,2)*size(chanMeans,3)); %concat the 2. and 3. dim
-                    tableX = [titles4table; num2cell(vch'), num2cell(chanMeans), labels]; % final table
-                    strch = ['channels-' regexprep(chshowstr,{'{','}','[',']',' ','&'},{'','','','','-',''})]; % to distinguish in filename more than one channel
-                end
-
-                xlsfilename = ['logs\average_time_intervals_for ' strch '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') '.xls'];
-                xlswrite(xlsfilename,tableX);
-                disp([ 'xls tables saved: ' xlsfilename]);
-            end
+            obj.PL.TimeIntervals(varargin{:});  %the function moved to CPlots, this is a shortcut to call the moved function          
         end
         
     %% SAVE AND LOAD FILE    
@@ -2824,17 +2595,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                end               
            end
         end
-        function filterChangedCallbackTimeIntervals(obj,src,~)   %update chart if the filter is changed                                
-            %src is the source object of CHHeader
-            if isfield(obj.plotTimeInt,'fh') && ishandle(obj.plotTimeInt.fh)
-                %only if the TimeIntervals plot is shown
-                if ~isfield(obj.plotTimeInt,'chshowstr') || ~isequal(obj.plotTimeInt.chshowstr, src.plotCh2D.chshowstr)
-                    %if the filter stored is different from the new filter
-                    obj.TimeIntervals();
-                    obj.plotTimeInt.chshowstr = src.plotCh2D.chshowstr;
-                end
-            end
-        end
+        
     end
     methods  (Access = protected)
         function obj = SelChannel(obj,ch,markno)
