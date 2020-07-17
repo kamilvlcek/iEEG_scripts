@@ -117,7 +117,7 @@ classdef CStat < handle
                     legenda{obj.plotAUC.setup.legendkomb(k,l)} = [ obj.plotAUC.katnames{obj.plotAUC.setup.legendkomb(k,l)}  ' ' sig];                
 
                     AUC = AUCall{k,l};
-                    MP = AVGall{k,l};                
+                    MP = AVGall{k,l};  %samples x 1 (epochs mean)              
                     MN = AVGall{l,k};
 
                     %kod podle PlotResponseCh, aby stejne barvy pro PPA test
@@ -143,7 +143,7 @@ classdef CStat < handle
                     
                     %do DRUHEHO plotu vykreslim rozdil power obou kategorii
                     subplot(2,1,2); 
-                    title('power');
+                    title('power difference');
                     hold on;
 
                     %prvni a druha kategorie - jejich rozdil                
@@ -183,7 +183,7 @@ classdef CStat < handle
             for ch = channels %jde po sloupcich
                 fprintf('%u,',ch);
                 %musim vyradit spatne epochy            
-                if isempty(obj.plotAUC.aucdata(ch).AUC)  %are there any computed AUC values for this channel?
+                if ~isfield(obj.plotAUC.aucdata,'AUC') || isempty(obj.plotAUC.aucdata)  || isempty(obj.plotAUC.aucdata(ch).AUC)  %are there any computed AUC values for this channel?
                     AUCall = cell(numel(kategories)); %tam bud davat AUC data pro vsechny kombinace kategorii
                     AVGall = cell(numel(kategories)); %tam budou prumery rozdilu mezi kategoriemi
                 else
@@ -199,14 +199,14 @@ classdef CStat < handle
                     [~,~,~,iEpN] = E.CategoryData(cellval(kategories,k),[],[],ch); %.... chci mit tu nejdulezitejsi kategorii (l=vyssi cislo) jako prvni, aby se od ni odecitaly ostatni                                                        
 
                     %prvni a druha kategorie - prumer power
-                    if(numel(sample)>1)
+                    if(numel(sample)>1) %from time=sample range - normal case
                         dataP = squeeze(E.d(sample(1):sample(2),ch,iEpP));
                         dataN = squeeze(E.d(sample(1):sample(2),ch,iEpN));
                     else %chci mit zachovanou moznot vyplotit ROC krivku pro jeden sample
                         dataP = squeeze(E.d(sample(1),ch,iEpP));
                         dataN = squeeze(E.d(sample(1),ch,iEpN));
                     end
-                    MP = mean(dataP,2); %prumer pres epochy - zustavaji samples jako rozmer
+                    MP = mean(dataP,2); %prumer pres epochy - zustavaji samples jako prvni rozmer
                     MN = mean(dataN,2);                   
 
                     if numel(sample) == 1 %chci udela ROC krivku jen pro jeden bod v case
@@ -223,7 +223,7 @@ classdef CStat < handle
                         end                                                           
                         AUCall{k,l} = AUC; %samples x [auc, dolni ci, horni ci]                   
                         obj.plotAUC.sig(ch,obj.plotAUC.setup.legendkomb(k,l)) = any( all(AUC(:,2:3)>0.5,2) | all(AUC(:,2:3)<0.5,2) ); %krivka AUC je signifikancni, pokud oba CI prekroci 0.5 jednom nebo druhym smerem                    
-                        AVGall{k,l} = MP; % pozitivni data - prvni vyssi kategorie - l
+                        AVGall{k,l} = MP; % pozitivni data - samples x 1 (epochs mean) - prvni vyssi kategorie - l
                         AVGall{l,k} = MN; % negativni data - druha nizsi kategorie - k
                     end                    
                 end
@@ -753,11 +753,13 @@ classdef CStat < handle
             ci = [auc - se*zcrit , auc + se*zcrit];
         end
         
-        function [timeB,timeK]=StatDiffStart(channels,Wp,kategories,plevel)  
+        function [timeB,timeK]=StatDiffStart(channels,Wp,kategories,plevel,maintain)  
             %vraci casy zacatku signifikantnich rozdilu vuci baseline a kategorii vuci sobe
             %nezohlednuje smer rozdilu, signum, jako ktere se pouziva treba v CiEEGData.SelChannelStat
             if ~exist('kategories','var'), kategories = Wp.kats; end
             if ~exist('plevel','var'), plevel = 0.05; end
+            if ~exist('maintain','var'), maintain = 8; end %for how many samples should the significance stay to be detected
+            sigvector = true(1,maintain);
             timeB = NaN(numel(channels),numel(Wp.kats)); % %casy rozdilu vuci baseline
             timeK = NaN(numel(channels),numel(Wp.kats),numel(Wp.kats)); % casy rozdilu mezi kat
             Tr = linspace(Wp.baseline(2),Wp.epochtime(2),size(Wp.D2,1)); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
@@ -765,9 +767,9 @@ classdef CStat < handle
                 ik = find(Wp.kats==kategories(k)); %index kde je cislo kategorie v seznamu kategorii pro tuto statistiku
                 iWp = Wp.WpKatBaseline{ik,1}(:,channels)  <= plevel; 
                 for ch = 1:numel(channels)
-                    iWpfirst = find(iWp(:,ch),1,'first'); %index zacatku signifikance
+                    iWpfirst = strfind(iWp(:,ch)',sigvector); %index of occurences of sigvector - 8 significant differences in sequence
                     if ~isempty(iWpfirst)
-                        timeB(ch,k) = Tr(iWpfirst); %cas zacatku signifikance
+                        timeB(ch,k) = Tr(iWpfirst(1)); %time of start of significance
                     end
                 end
                 for l = k+1:numel(kategories)
@@ -779,9 +781,9 @@ classdef CStat < handle
                     end
                     iWp = WpKat(:,channels)  <= plevel;  
                     for ch = 1:numel(channels)
-                        iWpfirst = find(iWp(:,ch),1,'first'); %index zacatku signifikance
+                        iWpfirst = strfind(iWp(:,ch)',sigvector); %index of occurences of sigvector - 8 significant differences in sequence
                         if ~isempty(iWpfirst)
-                            timeK(ch,k,l) = Tr(iWpfirst); %cas zacatku signifikance
+                            timeK(ch,k,l) = Tr(iWpfirst(1)); %time of start of significance
                         end
                     end
                     

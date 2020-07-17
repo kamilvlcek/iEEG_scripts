@@ -401,6 +401,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             %vraci eegdata epoch ve kterych podnet byl kategorie/podminky=katnum + reakcni casy - s uz globalne vyrazenymi epochami
             %Pokud rt>0, vraci epochy serazene podle reakcniho casu 
             %pokud opak>0, vraci jen jedno opakovani obrazku - hlavne kvuli PPA test 
+            %iEpochy je seznam validnich epoch pro tento kanal - bez vyrazenych  
             %RjEpCh (Channels x Epochs) - vraci i epochy k vyrazeni pro kazdy kanal (uz s globalne vyrazenymi epochami)
             %  vyradit rovnou je nemuzu, protoze pocet epoch v d pro kazdy kanal musi by stejny
             %  ch ovlivujen jen RjEpCh (v radcich jsou jen kanaly v ch) , d obsahuje vzdy vsechny kanaly, samply a prislusne epochy
@@ -783,7 +784,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 colorkombinace = {0,1,2,4;0 0 3 5;0 0 0 6};
                 iChKats = false(2,numel(channels));  %dva radky pro rozdily vuci baselina a kategorii vuci sobe                                                                          
                 
-                %nejdriv samotne kategorie against baseline
+                %1. first individual categories against baseline
                 Pmax = zeros(numel(kats),1); %sbiram maxima kategorii kvuli tomu kde posadit kontrasty mezi kat
                 for kat = 1: numel(kats) % cyklus pres kategorie - rozdil vuci baseline
                     [katdata,~,RjEpCh] = obj.CategoryData(cellval(kats,kat)); %time x channels x epochs
@@ -834,16 +835,16 @@ classdef CiEEGData < matlab.mixin.Copyable
                     iChKats(1,:) = iChKats(1,:) | iCh; %pridam dalsi kanaly, kde je signif odpoved                                        
                     legendstr{kat}=katsnames{kat}; %pridam jmeno kategorie na zacatek [legendstr{k}]
                 end                
-                
+                %2. then kategory pairs against each other
                 yKombinace = ceil(max(Pmax)+0.5);
                 for kat = 1:size(kombinace,1) %cyklus pres vsechny kombinace kategorii
                     [katdata1, ~, RjEpCh1] = obj.CategoryData(cellval(kats,kombinace(kat,1))); %time x channels x epochs - prvni hlavni kategorie s vyssim cislem (diky poradi v kombinace)
                     [katdata2, ~, RjEpCh2] = obj.CategoryData(cellval(kats,kombinace(kat,2))); %druha vyssi kategorie, ktera se bude odecitat od te prvni
                     WpK = obj.Wp(obj.WpActive).WpKat{kombinace(kat,2),kombinace(kat,1)}(iintervalyStat(1):iintervalyStat(2),:); %time x channels - p values kat1 <> kat2
                     WpB = obj.Wp(obj.WpActive).WpKatBaseline{kombinace(kat,1),1}(iintervalyStat(1):iintervalyStat(2),:); %time x channels - p values kat1>baseline 
-                    dataK = zeros(diff(iintervalyData)+1,obj.channels); %tam budu davat rozdil mezi dvema kategoriemi
+                    dataK = zeros(diff(iintervalyData)+1,obj.channels); %time x channels, tam budu davat rozdil mezi dvema kategoriemi
                     for ch = 1:obj.channels
-                        dataK(:,ch) = mean(katdata1(iintervalyData(1):iintervalyData(2),ch,~RjEpCh1(ch,:)),3) - mean(katdata2(iintervalyData(1):iintervalyData(2),ch,~RjEpCh2(ch,:)),3); %time x channels
+                        dataK(:,ch) = mean(katdata1(iintervalyData(1):iintervalyData(2),ch,~RjEpCh1(ch,:)),3) - mean(katdata2(iintervalyData(1):iintervalyData(2),ch,~RjEpCh2(ch,:)),3); %time x channels, mean over not excluded epochs
                     end
                     idataK = iff(signum>0, dataK > 0, iff(signum < 0, dataK < 0, true(size(dataK)) ));  % jestli chci vetsi, mensi nebo jakekoliv, time x channels
                     WpAll = cat(3, WpK<0.05 , WpB<0.05 , idataK); %time x channels x tyhle tri podminky, rozdil vuci baseline, rozdil kategorii a kat1 > kat2 (pro signum = 1)
@@ -2018,25 +2019,42 @@ classdef CiEEGData < matlab.mixin.Copyable
             if iscell(katnum)   % katnum muze byt cell array, ale obj.CategoryData chce integer (nebo pole integeru)
                 katnum = cell2mat(katnum);
             end
-            [katdata,~,RjEpCh] = obj.CategoryData(katnum); %eegdata - epochy jedne kategorie
-            katdata = katdata(:,channels,:); %time x channels x epochs- vyberu jen kanaly podle channels
-            RjEpCh = RjEpCh(channels,:); % channels x epochs - vyberu jen kanaly podle channels
             iintervalyData = obj.Wp(obj.WpActive).iepochtime(2,:); %16.1.2019 - indexy statistiky ulozene v ResponseSearch 
-            dataM = zeros(diff(iintervalyData)+1,size(katdata,2)); %time x channels
-            for ch = 1:size(katdata,2) %mam pocit, ze to nejde udelat bez cyklu, protoze pro kazdy kanal potrebuju vyradit jiny pocet epoch
-                dataM(:,ch) = mean(katdata(iintervalyData(1):iintervalyData(2), ch, ~RjEpCh(ch,:)), 3); 
-            end
+            if numel(katnum) == 1
+                [katdata,~,RjEpCh] = obj.CategoryData(katnum); %eegdata time x channels x epochs - epochy jedne kategorie
+                katdata = katdata(:,channels,:); %time x channels x epochs- vyberu jen kanaly podle channels
+                RjEpCh = RjEpCh(channels,:); % channels x epochs - vyberu jen kanaly podle channels
                 
+                dataM = zeros(diff(iintervalyData)+1,size(katdata,2)); %time x channels
+                for ch = 1:size(katdata,2) %mam pocit, ze to nejde udelat bez cyklu, protoze pro kazdy kanal potrebuju vyradit jiny pocet epoch
+                    dataM(:,ch) = mean(katdata(iintervalyData(1):iintervalyData(2), ch, ~RjEpCh(ch,:)), 3); 
+                end
+            else    
+                [katdata1,~,RjEpCh1] = obj.CategoryData(katnum(1)); %eegdata time x channels x epochs - epochy jedne kategorie
+                katdata1 = katdata1(:,channels,:); %time x channels x epochs- vyberu jen kanaly podle channels
+                RjEpCh1 = RjEpCh1(channels,:); % channels x epochs - vyberu jen kanaly podle channels
+                
+                [katdata2,~,RjEpCh2] = obj.CategoryData(katnum(2)); %eegdata time x channels x epochs - epochy jedne kategorie
+                katdata2 = katdata2(:,channels,:); %time x channels x epochs- vyberu jen kanaly podle channels
+                RjEpCh2 = RjEpCh2(channels,:); % channels x epochs - vyberu jen kanaly podle channels
+                dataM = zeros(diff(iintervalyData)+1,size(katdata1,2)); %time x channels
+                for ch = 1:size(katdata1,2)
+                    dataM(:,ch) =  mean(katdata2(iintervalyData(1):iintervalyData(2), ch, ~RjEpCh2(ch,:)), 3) ... %druha kategorie od prvni
+                            -      mean(katdata1(iintervalyData(1):iintervalyData(2), ch, ~RjEpCh1(ch,:)), 3);    %means over epochs
+                    %not possible to substract for each epoch independently, as too low (or none) epochs are valid for both kats
+                end  
+                [~,kombinace,~] = obj.GetKatsNames(); %we need the categories combinations
+            end
             nChannels = numel(channels);            
-            tint = zeros(1, nChannels);
-            tmax = zeros(1, nChannels);
-            tfrac = zeros(1, nChannels);
-            valmax = zeros(1, nChannels);
+            tint = zeros(1, nChannels); %time of fraction of area under curve
+            tmax = zeros(1, nChannels); %time of maximal value
+            tfrac = zeros(1, nChannels); %cas poloviny maxima, nebo jineho podilu 
+            valmax = zeros(1, nChannels); %maximal value
             
             %kamil - potrebuju zjistit, kdy je kazdy kanal signifikantni, podle kodu z IntervalyResp            
             intervalData = iintervalyData/obj.fs + obj.epochtime(1); %casy ve vterinach
-            T = linspace(intervalData(1),intervalData(2),diff(iintervalyData)+1); 
-            iintervalyStat = [1 diff(iintervalyData)+1];
+            T = linspace(intervalData(1),intervalData(2),diff(iintervalyData)+1); %time in sec - interval of the computed stat
+            iintervalyStat = [1 diff(iintervalyData)+1]; % min max of obj.Wp.WpKatBaseline
             if ~exist('signum','var') || isempty(signum)
                 %muzu zadat signum v poslednim parametru, v tom pripade pouziju to
                 if isfield(obj.plotRCh,'selChSignum') %pokud mam nastavene signum z SelChannelStat, pouziju to, jinak chci odchylky od 0 v obou smerech
@@ -2045,16 +2063,25 @@ classdef CiEEGData < matlab.mixin.Copyable
                     signum = 0;
                 end 
             end
+            idataM = iff(signum>0, dataM > 0, iff(signum < 0, dataM < 0, true(size(dataM)) ));  % time x channel - jestli chci vetsi, mensi nebo jakekoliv, time x channels                                
+            
             if iscell(obj.Wp(obj.WpActive).kats)
                 ikatnum = ismember(cell2mat(obj.Wp(obj.WpActive).kats'), katnum);
-                ikatnum = all(ikatnum');
+                ikatnum = find(all(ikatnum'));
             else
-                ikatnum = obj.Wp(obj.WpActive).kats == katnum; %WpKatBaseline jsou indexovane ne podle cisel kategorii ale podle indexu v kats
+                ikatnum = find(ismember(obj.Wp(obj.WpActive).kats,katnum)); %index of kat in WpKatBaseline - jsou indexovane ne podle cisel kategorii ale podle indexu v kats
             end
-            WpB = obj.Wp(obj.WpActive).WpKatBaseline{ikatnum,1}(iintervalyStat(1):iintervalyStat(2),channels); %time x channels - statistika vuci baseline
-            idataM = iff(signum>0, dataM > 0, iff(signum < 0, dataM < 0, true(size(dataM)) ));  % time x channel - jestli chci vetsi, mensi nebo jakekoliv, time x channels                                
+            if numel(ikatnum)==1
+                WpB = obj.Wp(obj.WpActive).WpKatBaseline{ikatnum,1}(iintervalyStat(1):iintervalyStat(2),channels); %time x channels - statistika vuci baseline
+                WpK = zeros(diff(iintervalyStat)+1,numel(channels)); %time x channels, just fake significant to be used below
+            else
+                ikombinace = all(ismember(kombinace,ikatnum),2) | all(ismember(kombinace,flip(ikatnum)),2); %independent of categories order                
+                WpK = obj.Wp(obj.WpActive).WpKat{kombinace(ikombinace,2),kombinace(ikombinace,1)}(iintervalyStat(1):iintervalyStat(2),channels); %time x channels - p values kat1 <> kat2
+                WpB = obj.Wp(obj.WpActive).WpKatBaseline{kombinace(ikombinace,1),1}(iintervalyStat(1):iintervalyStat(2),channels); %time x channels - p values kat1>baseline
+            end
+            
             for ch = 1:nChannels
-                WpAllCh = [  WpB(:,ch)<0.05 , idataM(:,ch)]; %boolean: time x WpB+idataK = dve podminky - rozdil vuci baseline a hodnota podle signum
+                WpAllCh = [  WpB(:,ch)<0.05 , idataM(:,ch), WpK(:,ch)<0.05 ]; %boolean: time x WpB+idataK = dve podminky - rozdil vuci baseline a hodnota podle signum
                 iTimeCh = all(WpAllCh,2); %casy, kde jsou obe podminky spolene  
                 if ~any(iTimeCh) && signum ~= 0 %when there are no time points where both condition are true
                     iTimeCh = idataM(:,ch); %we select time points only using the signum 
@@ -2100,15 +2127,21 @@ classdef CiEEGData < matlab.mixin.Copyable
            else
                exportBrainlabels = 0;               
            end
-           cellout = cell(numel(channels), 14 + exportBrainlabels*3+ length(obj.plotRCh.selChNames) + 5*numel(kategories) + size(comb,1));
+           cellout = cell(numel(channels), 14 + exportBrainlabels*3+ length(obj.plotRCh.selChNames) + 5*numel(kategories) + 5*size(comb,1));           
            
            RespVALS = struct; %struct array, kam si predpocitam hodnoty z ResponseTriggerTime
-           [SigTimeBaseline,SigTimeKat]=obj.CS.StatDiffStart(obj.CH.sortorder,obj.Wp(obj.WpActive),kategories,0.05); %casy zacatku signifikanci 
-           for k = 1:numel(kategories)
+           RespDiffs = struct; %struct array to store values from ResponseTriggerTime for pairs of categories
+           [SigTimeBaseline,SigTimeKat]=obj.CS.StatDiffStart(obj.CH.sortorder,obj.Wp(obj.WpActive),kategories,0.05); %casy zacatku signifikanci %channels x kats, 
+             %SigTimeKat channels x kats x kats - pro kazdy ch vyplneno jen 12 13 a 23, ostatni nan
+           for k = 1:numel(kategories) %oposite order to prealocate the structure
                katnum = cellval(kategories,k); %funkce cellval funguje at je to cell array nebo neni
                [RespVALS(k).valmax, RespVALS(k).tmax,  RespVALS(k).tfrac, RespVALS(k).tint] = obj.ResponseTriggerTime(val_fraction, int_fraction, katnum, obj.CH.sortorder);                  
+               for l = k+1 : numel(kategories) %difference between categories
+                   katnum2 = cellval(kategories,l);
+                   [RespDiffs(k,l).valmax, RespDiffs(k,l).tmax,  RespDiffs(k,l).tfrac, RespDiffs(k,l).tint] = obj.ResponseTriggerTime(val_fraction, int_fraction, [katnum2 katnum], obj.CH.sortorder);                  
+               end
            end
-           
+                      
            BrainNames = obj.CH.GetBrainNames();
            %pres vsechny kanaly plnim tabulku
            for ch=1:numel(channels)              
@@ -2124,12 +2157,14 @@ classdef CiEEGData < matlab.mixin.Copyable
                else
                    bl = cell(0,0); 
                end
-               blnames = iff(exportBrainlabels,{'mybrainclass','mybrainlabel','mylobe'},cell(0,0)); %uzivatelska jmena struktur ve trech sloupcich             
+               blnames = iff(exportBrainlabels,{'mybrainclass','mybrainlabel','mylobe'},cell(0,0)); %uzivatelska jmena struktur ve trech sloupcich                            
+               
                lineIn = [{ obj.CH.sortorder(ch), channelHeader.name, obj.CH.PacientTag(ch), channelHeader.neurologyLabel, BrainNames{ch,4}, BrainNames{ch,5}, BrainNames{ch,6} } , ...
                         bl, ...
                         {channelHeader.MNI_x, channelHeader.MNI_y, channelHeader.MNI_z, channelHeader.seizureOnset, channelHeader.interictalOften, ...
                         mat2str(channelHeader.rejected), RjCh} , ...
                         num2cell(selChFiltered(ch, :))];  %vybery kanalu fghjkl               
+         
                selChNames = obj.plotRCh.selChNames;
                iV = find(cellfun(@isempty,selChNames)); %bunky nesmi byt prazdne, to se pak neda pouzit jako VariableNames
                for n = iV
@@ -2142,15 +2177,16 @@ classdef CiEEGData < matlab.mixin.Copyable
                %chci mit kategorie v tabulce vedle sebe, protoze patri k jednomu kanalu. Treba kvuli 2way ANOVA
                for k = 1 : numel(kategories) 
                     katname = obj.PsyData.CategoryName(cellval(kategories,k));
-                    lineIn = [lineIn,{RespVALS(k).tmax(ch), RespVALS(k).valmax(ch),  RespVALS(k).tfrac(ch), RespVALS(k).tint(ch), SigTimeBaseline(ch,k)}]; %#ok<AGROW>
+                    lineIn = [lineIn,{RespVALS(k).valmax(ch), RespVALS(k).tmax(ch), RespVALS(k).tfrac(ch), RespVALS(k).tint(ch), SigTimeBaseline(ch,k)}]; %#ok<AGROW>
                     for l= k+1:numel(kategories)
-                        lineIn = [lineIn,{SigTimeKat(ch,k,l)}];  %#ok<AGROW>
+                        lineIn = [lineIn,{RespDiffs(k,l).valmax(ch), RespDiffs(k,l).tmax(ch),RespDiffs(k,l).tfrac(ch),RespDiffs(k,l).tint(ch),SigTimeKat(ch,k,l)}];  %#ok<AGROW>
                     end
                     if ch==1
-                        variableNames = [ variableNames, {[katname '_tmax'],[katname '_valmax'],[katname '_t' percent{1}],[katname '_tint' percent{2}], [katname '_tsig']}]; %#ok<AGROW>
+                        variableNames = [ variableNames, {[katname '_valmax'],[katname '_tmax'],[katname '_t' percent{1}],[katname '_tint' percent{2}], [katname '_tsig']}]; %#ok<AGROW>
                         for l= k+1:numel(kategories) %casy zacatku rozdilu mezi kategoriemi
                             katname2 = obj.PsyData.CategoryName(cellval(kategories,l));
-                            variableNames = [ variableNames, {[katname 'X' katname2 '_tsig']}]; %#ok<AGROW>
+                            variableNames = [ variableNames, ...
+                                {[katname  'X' katname2 '_valmax'],[katname 'X' katname2 '_tmax'],[katname 'X' katname2 '_t' percent{1}],[katname 'X' katname2 '_tint' percent{2}], [katname 'X' katname2 '_tsig']}]; %#ok<AGROW>
                         end
                     end                    
                end
@@ -2161,7 +2197,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             assert(~isempty(obj.hfilename),'the object is not saved, please save the object first');
             [~,mfilename,~] = fileparts(obj.hfilename); %hfilename se naplni az pri ulozeni objektu
             mfilename = strrep(mfilename, ' ', '_');
-            logfilename = ['ChannelResponse_' mfilename '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') ];  
+            logfilename = ['Response2XLS_' mfilename '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') ];  
             xlsfilename = fullfile('logs', [logfilename '.xls']);                   
             xlswrite(xlsfilename ,vertcat(variableNames,cellout)); %write to xls file
                 %22.1.2020 changes to xlswrite, as it does not have limitations on the charactes in variable names
