@@ -240,6 +240,7 @@ classdef CPlots < matlab.mixin.Copyable
                         idata = true(numel(obj.plotTimeInt.data),1);
                         idata1 = 1;
                     end
+                    assert(sum(idata)>0, 'no data to plot');
                     if ~isfield(store,'normalize') %normalize each label interval values to it maximal interval mean - to be able to compare the speed of response
                         store.normalize = 0;
                     elseif store.normalize == 1
@@ -275,7 +276,7 @@ classdef CPlots < matlab.mixin.Copyable
       
          
             % plot mean and std across epochs for one channel
-            if length(vch)==1 && isempty(store)
+            if length(vch)==1 && isempty(store) && (~isfield(obj.plotTimeInt,'nosinglechannel') || obj.plotTimeInt.nosinglechannel == 0)
                 M=MOverEpoch; %set variable to be plotted - means
                 E=EOverEp;    %set variable to be plotted - errorbars
                 % the number of the channel in the title of plot
@@ -286,8 +287,7 @@ classdef CPlots < matlab.mixin.Copyable
                 else
                     chstr = num2str(vch(ch));
                 end
-                title(['channel ' chstr '/' num2str(obj.Eh.channels) ' - ' obj.Eh.PacientID()], 'Interpreter', 'none'); % v titulu obrazku bude i pacientID napriklad p132-VT18
-                
+                title(['channel ' chstr '/' num2str(obj.Eh.channels) ' - ' obj.Eh.PacientID()], 'Interpreter', 'none'); % v titulu obrazku bude i pacientID napriklad p132-VT18                
             else
                 
                 % plot mean and std across channels
@@ -300,16 +300,19 @@ classdef CPlots < matlab.mixin.Copyable
                 M=MOverChan; %set variable to be plotted - means
                 E=EOverChan; %set variable to be plotted - errorbars
                 title([num2str(length(vch)) ' channels: ' chshowstr ]); %title for multiple channels
-            end
-            
-            
+            end            
             
             ploth = zeros(1,numel(kats)); % handles of plots for legend                        
+            if numel(kats)>3
+                barvy = distinguishable_colors(numel(kats));
+            else
+                barvy = cell2mat(obj.Eh.colorskat(2:end)');
+            end
             for k=1:numel(kats)
                 hold on
-                errorbar(intervals(:, 2),M(:,k),E(:,k),'.','Color', obj.Eh.colorskat{kats(k)+1}); % plot errors
+                errorbar(intervals(:, 2),M(:,k),E(:,k),'.','Color', barvy(k,:)); % plot errors
                 hold on;
-                h_mean = plot(intervals(:, 2), M(:,k),'LineWidth',2,'Color',obj.Eh.colorskat{kats(k)+1}); % plot means
+                h_mean = plot(intervals(:, 2), M(:,k),'LineWidth',2,'Color',barvy(k,:)); % plot means
                 ploth(k) = h_mean; % plot handle                
             end
             if numel(kats)==2
@@ -324,7 +327,7 @@ classdef CPlots < matlab.mixin.Copyable
                 iWp = Wp <= 0.05;
                 plot(intervals(iWp, 2),ones(1,sum(iWp))*y, '*','Color','red'); %stars
             end
-            legend(ploth,legendStr);
+            legend(ploth,legendStr,'Location','best');
             xlim([intervals(1,2)-.05, max(max(intervals))+.05]);
             xticks([intervals(1, 1) (intervals( : , 2))'])
             txtinterv = num2str(intervals,'%.1f-%.1f');
@@ -345,20 +348,28 @@ classdef CPlots < matlab.mixin.Copyable
             %labels is cell array of brain labels, filtered by label = ''
             %marks is cell array of 1. marking sets 2. markings in two columns 
             %the intervals and ylimis needs to be set before
-            for l = 1:numel(labels)
-                for m = 1:size(marks,1)
-                    obj.Eh.SetSelChActive(marks{m,1});
-                    klavesy = 'fghjkl';                 
-                    iklavesy = ismember(klavesy,marks{m,2});
-                    if sum(iklavesy)==1
-                        markname = obj.Eh.plotRCh.selChNames{iklavesy};
-                    else
-                        markname = [];
+            if ischar(labels) && strcmp('labels','clear')==0
+                obj.plotTimeInt.data = struct; %clear all stored data
+                disp('all TimeIntervals data cleared');
+                return;
+            end
+            if exist('marks','var')
+                obj.plotTimeInt.nosinglechannel = 1; %to not use the special code for single channel plot
+                for l = 1:numel(labels)
+                    for m = 1:size(marks,1)
+                        obj.Eh.SetSelChActive(marks{m,1});
+                        klavesy = 'fghjkl';                 
+                        iklavesy = ismember(klavesy,marks{m,2});
+                        if sum(iklavesy)==1
+                            markname = obj.Eh.plotRCh.selChNames{iklavesy};
+                        else
+                            markname = [];
+                        end
+                        obj.Eh.CH.FilterChannels({'label',labels{l}},{},[marks{m,2} 'n']);
+                        obj.TimeIntervals([],[],[],1,struct('store',1,'label',labels{l},'mark',markname));
                     end
-                    obj.Eh.CH.FilterChannels({'label',labels{l}},{},[marks{m,2} 'n']);
-                    obj.TimeIntervals([],[],[],[],struct('store',1,'label',labels{l},'mark',markname));
-                end
-            end            
+                end            
+            end
         end
         function TimeIntervals2XLS(obj,varargin)
             if nargin > 2 %when called directly from TimeIntervals()
@@ -371,7 +382,7 @@ classdef CPlots < matlab.mixin.Copyable
                chshowstr = varargin{6};
                categories = varargin{7};
                allmeans = varargin{8};
-               if length(vch)==1
+               if length(vch)==1  && (~isfield(obj.plotTimeInt,'nosinglechannel') || obj.plotTimeInt.nosinglechannel == 0)
                     % export data for one channel in xls table
                     categories(isnan(categories))=[];  % remove all NaN
                     tableX = num2cell([categories, (cell2mat(allmeans))']); % table for export, epochs over all categories x (kategory num, intervals)
@@ -414,7 +425,7 @@ classdef CPlots < matlab.mixin.Copyable
                             ];
                     row = row + numel(vch);
                 end
-                strch = ['TimeIntData' iff(normalize,'Norm','')];
+                strch = ['Data' iff(normalize,'Norm','Orig')];
             end
     
             xlsfilename = ['logs\TimeIntervals_' strch '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') '.xls'];
