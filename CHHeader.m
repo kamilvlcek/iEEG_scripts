@@ -783,8 +783,8 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         end
         function obj = BrainLabelsImport(obj,brainlbs,filename)
             %naimportuje cell array do struct array. Hlavne kvuli tomu, ze v cell array nemusi byt vsechny kanaly
-            %predpoklada ctyri cloupce - cislo kanalu, brainclass	brainlabel	lobe
-            %filename - jmeno CHilbertMulti _CiEEG.mat souboru, ze ktereho se maji brainlabels najit podle jmen kanalu
+            %brainlbs should have four columns -   brainclass	brainlabel	lobe channelname. If empty, filename is used
+            %filename - full name of CHilbertMulti _CiEEG.mat file, from which the labels should be imported according to channel name
             
             if isempty(brainlbs) && exist('filename','var')
                  assert(exist(filename,'file')==2,'soubor filename neexistuje');
@@ -805,40 +805,46 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                      obj.brainlabels(ch).name = obj.H.channels(ch).name;
                  end                 
             else
-                %BL = struct('class',{},'label',{},'lobe',{}); %empty struct with 3 fields
-                %nechci mazat ty existujici, to muzu kdyz tak udelat rucne
+                %BL = struct('class',{},'label',{},'lobe',{},'name',{}); %empty struct with 3 fields
+                %imports only selected channel, leaves all other intact
                 loaded = 0; %pocet nactenych kanalu
+                names = {obj.H.channels.name};
                 for j = 1:size(brainlbs,1)
-                    obj.brainlabels(brainlbs{j,1}).class = brainlbs{j,2};
-                    obj.brainlabels(brainlbs{j,1}).label = brainlbs{j,3};
-                    obj.brainlabels(brainlbs{j,1}).lobe = brainlbs{j,4};
-                    obj.brainlabels(brainlbs{j,1}).name = ' ';
-                    loaded = loaded + 1;
+                    ich = contains(names,brainlbs{j,4});   
+                    if sum(ich)==1
+                        obj.brainlabels(ich).class = brainlbs{j,1};
+                        obj.brainlabels(ich).label = brainlbs{j,2};
+                        obj.brainlabels(ich).lobe = brainlbs{j,3};                    
+                        loaded = loaded + 1;
+                    end
                 end    
-                %obj.brainlabels = BL;
             end
-            disp(['loaded brainlabels of ' num2str(loaded) ' channels']);
-            %chci mit vsude string, zadne prazdne, kvuli exportu. Takze prazdna nahradim mezerou
+            disp(['imported brainlabels of ' num2str(loaded) '/' num2str(size(brainlbs,1))  ' channels']);
+            %we want to have everywhere string, no empty, because of export. So all empty replace with space characted
             BL = obj.brainlabels';
-            emptyIndex = find(arrayfun(@(BL) isempty(BL.class),BL)); %nasel jsem https://www.mathworks.com/matlabcentral/answers/328326-check-if-any-field-in-a-given-structure-is-empty
-            if ~isempty(emptyIndex)
-                for j = emptyIndex'
-                    BL(j).class = ' '; %nejaky znak asi musim vlozit
+            fields = {'class','label','lobe','name'};
+            for f = 1:numel(fields)
+                emptyIndex = find(arrayfun(@(BL) isempty(BL.(fields{f})),BL)); %nasel jsem https://www.mathworks.com/matlabcentral/answers/328326-check-if-any-field-in-a-given-structure-is-empty
+                if ~isempty(emptyIndex)
+                    for j = emptyIndex'
+                        BL(j).(fields{f}) = ' '; %nejaky znak asi musim vlozit
+                    end
                 end
+            end           
+            obj.brainlabels = BL';
+        end
+        function obj = NeurologyLabelsImport(obj,labels)
+            %imports neurology labels from cell array - first column is channel name, second col is label
+            names = {obj.H.channels.name};
+            n = 0;
+            for j = 1:size(labels,1)
+                ich = contains(names,labels{j,1});               
+                if sum(ich)==1
+                    obj.H.channels(ich).neurologyLabel = labels{j,2};
+                    n = n+1;
+                end                
             end
-            emptyIndex = find(arrayfun(@(BL) isempty(BL.label),BL)); %nasel jsem https://www.mathworks.com/matlabcentral/answers/328326-check-if-any-field-in-a-given-structure-is-empty
-            if ~isempty(emptyIndex)
-                for j = emptyIndex'
-                    BL(j).label = ' ';
-                end
-            end
-            emptyIndex = find(arrayfun(@(BL) isempty(BL.lobe),BL)); %nasel jsem https://www.mathworks.com/matlabcentral/answers/328326-check-if-any-field-in-a-given-structure-is-empty
-            if ~isempty(emptyIndex)
-                for j = emptyIndex'
-                    BL(j).lobe = ' ';
-                end  
-            end
-            obj.brainlabels = BL;
+            disp([num2str(n) '/' num2str(size(labels,1)) ' labels imported']);
         end
         function obj = RemoveChannels(obj,channels)  
             %smaze se souboru vybrane kanaly. Kvuli redukci velikost aj
@@ -909,7 +915,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 selChNamesLR{m} = [obj.plotCh2D.selChNames{m} 'Right']; %name for this count of pacients
             end
             varnames = [ ... %two lines of column headers
-                horzcat({'','all','','','','channels'},repmat({''},1,noMarks-1),'pacients',repmat({''},1,noMarks-1),'rightside',repmat({''},1,noMarks-1)); ... %line 1
+                horzcat({'','all','','','','markings'},repmat({''},1,noMarks-1),'pacients',repmat({''},1,noMarks-1),'rightside',repmat({''},1,noMarks-1)); ... %line 1
                 horzcat({'brainlabel','count','patients','rejected','epichannels'},obj.plotCh2D.selChNames(1:noMarks),selChNamesPac,selChNamesLR) ... %line 2
                 ];
             output = cell(numel(ulabels),size(varnames,2)); %columns label,noChannels, noPacients,noRejected, noChInMarks fghjkl 1-6, noPacInMarks

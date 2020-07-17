@@ -183,7 +183,7 @@ classdef CStat < handle
             for ch = channels %jde po sloupcich
                 fprintf('%u,',ch);
                 %musim vyradit spatne epochy            
-                if ~isfield(obj.plotAUC.aucdata,'AUC') || isempty(obj.plotAUC.aucdata)  || isempty(obj.plotAUC.aucdata(ch).AUC)  %are there any computed AUC values for this channel?
+                if ~isfield(obj.plotAUC.aucdata,'AUC') || isempty(obj.plotAUC.aucdata)  || length(obj.plotAUC.aucdata) < ch || isempty(obj.plotAUC.aucdata(ch).AUC)  %are there any computed AUC values for this channel?
                     AUCall = cell(numel(kategories)); %tam bud davat AUC data pro vsechny kombinace kategorii
                     AVGall = cell(numel(kategories)); %tam budou prumery rozdilu mezi kategoriemi
                 else
@@ -872,7 +872,7 @@ classdef CStat < handle
             for ch = 1:numel(channels) %ch is just index in channels, no real channel number
                 kk = 1; ll = 2;
                 if obj.plotAUC.reversekats, [l, k] = deal(kk,ll); else,  [k, l] = deal(kk,ll); end %swap both variables content
-                if isempty(obj.plotAUC.aucdata(channels(ch)).AUC) || isempty(obj.plotAUC.aucdata(channels(ch)).AUC{k,l})
+                if length(obj.plotAUC.aucdata)<channels(ch) || isempty(obj.plotAUC.aucdata(channels(ch)).AUC) || isempty(obj.plotAUC.aucdata(channels(ch)).AUC{k,l})
                     chtodo(ch) = true; 
                 end              
             end

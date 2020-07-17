@@ -2148,7 +2148,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                channelHeader = channels(ch);
                RjCh = double(any(obj.RjCh==obj.CH.sortorder(ch))); %vyrazeni kanalu v CiEEGData               
                if exportBrainlabels    
-                   if ch <= size(obj.CH.brainlabels,1)
+                   if ch <= length(obj.CH.brainlabels)
                        bl=struct2cell(obj.CH.brainlabels(ch))'; 
                        bl=bl(1:3); %we want only three field, the fourth is channel name
                    else
