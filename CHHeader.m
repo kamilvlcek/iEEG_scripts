@@ -783,7 +783,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         end
         function obj = BrainLabelsImport(obj,brainlbs,filename)
             %naimportuje cell array do struct array. Hlavne kvuli tomu, ze v cell array nemusi byt vsechny kanaly
-            %brainlbs should have four columns -   brainclass	brainlabel	lobe channelname. If empty, filename is used
+            %brainlbs should have four columns -   brainclass, brainlabel, lobe, channelname. If empty, filename is used
             %filename - full name of CHilbertMulti _CiEEG.mat file, from which the labels should be imported according to channel name
             
             if isempty(brainlbs) && exist('filename','var')

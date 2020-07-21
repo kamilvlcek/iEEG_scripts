@@ -11,16 +11,17 @@ classdef CPlots < matlab.mixin.Copyable
         function obj = CPlots(E) %constructor
             obj.Eh = E; %save handle to main object
         end 
-        function PlotResponseChMean(obj,kategories,ylimits, channels,fdrlevel)
-            if ~exist('kategories','var') || isempty(kategories)                 
-                WpA = obj.Eh.WpActive; %jen zkratka                
-                if ~isempty(obj.Eh.Wp) && isfield(obj.Eh.Wp(WpA), 'kats')
-                    kategories = obj.Eh.Wp(WpA).kats; %pokud jsou kategorie v parametru, prvni volba je pouzit je ze statistiky
+        function PlotResponseChMean(obj,kategories,ylimits, labels, channels,fdrlevel)
+            if ~exist('kategories','var') || isempty(kategories)     %stimulus categories to plot            
+                if isfield(obj.Eh.plotRCh,'kategories') && ~isempty(obj.Eh.plotRCh.kategories) %by default use the categories selected in PlotResponseCh
+                    kategories = obj.Eh.plotRCh.kategories;                           
+                elseif ~isempty(obj.Eh.Wp) && isfield(obj.Eh.Wp(obj.Eh.WpActive), 'kats') %second is to use the categories from stat
+                    kategories = obj.Eh.Wp(obj.Eh.WpActive).kats; 
                 else
-                    kategories = obj.Eh.PsyData.Categories();
+                    kategories = obj.Eh.PsyData.Categories(); %or all categoires
                 end
             end
-            if ~exist('ylimits','var')                  
+            if ~exist('ylimits','var')             %limits of the y axis     
                 if isfield(obj.PlotRChMean,'ylimits')
                     ylimits = obj.PlotRChMean.ylimits;
                 else
@@ -28,11 +29,21 @@ classdef CPlots < matlab.mixin.Copyable
                 end
             end
             
-            if ~exist('channels','var') || isempty(channels) 
+            if ~exist('channels','var') || isempty(channels)  %selection of channels to plot
                 channels = obj.Eh.CH.plotCh2D.chshow;                
                 figuretitle = [obj.Eh.CH.plotCh2D.chshowstr ' chns: ' num2str(numel(channels))];                
             else
                 figuretitle = ['channels: ' num2str(numel(channels))];                
+            end
+            
+            if ~exist('labels','var') || isempty(labels) % to distinguish the brain labels in the plot - only for one category to be plotted
+                if ~isfield(obj.PlotRChMean,'labels') || isempty(obj.PlotRChMean.labels)
+                   labels = {'no'}; %default value, meaning to plot all labels together
+                else
+                   labels = obj.PlotRChMean.labels;               
+                end
+            elseif isnumeric(labels) && labels == -1
+                labels = {'no'}; %default value, meaning to plot all labels together
             end
             if ~exist('fdrlevel','var') || isempty(fdrlevel) 
                 fdrlevel = 1;  %less strict fdr correction, 2 is more strict                      
@@ -41,12 +52,26 @@ classdef CPlots < matlab.mixin.Copyable
             obj.PlotRChMean.channels = channels;
             obj.PlotRChMean.kategories = kategories;
             obj.PlotRChMean.ylimits = ylimits;
+            obj.PlotRChMean.labels = labels;
+            if ~isfield(obj.PlotRChMean,'plotband'), obj.PlotRChMean.plotband = 0; end %default ciplot possible to copy to CorelDraw
+            assert(numel(kategories)==1 || numel(labels)==1,'cannot plot multiple labels for multiple categories');
             
-            chnshow = mat2str(channels(1:(min(20,numel(channels)))));
-            if numel(channels) > 20, chnshow = [chnshow ' ...']; end
+%             chnshow = mat2str(channels(1:(min(20,numel(channels)))));
+%             if numel(channels) > 20, chnshow = [chnshow ' ...']; end
                         
-            hue = 0.8;
-            colorsErrorBars = cellfun(@(a) min(a+hue, 1), obj.Eh.colorskat, 'UniformOutput', false);
+            
+            if strcmp(labels{1},'nrj') %plot the labels saved in CM.CH.channelPlot.plotCh3D.brainlabelColors
+                [labels,barvy]=obj.GetBrainlabelsSaved();
+            elseif ~strcmp(labels{1},'no') %plotting individual labels
+                barvy = distinguishable_colors(numel(labels));               
+                figuretitle = [figuretitle ' - ' obj.Eh.PsyData.CategoryName(kategories(1))];
+            else %plotting cateogies
+                barvy = cell2mat(obj.Eh.colorskat(1:end)'); %from cell array of rgb to matrix
+            end
+            HSV = rgb2hsv(barvy);
+            HSV(:,2) = 0.15; %decrease saturation for error bands
+            colorsErrorBars = hsv2rgb(HSV); % barvycellfun(@(a) min(a+hue, 1), barvy, 'UniformOutput', false);
+
             katlinewidth = 2;
             if isfield(obj.PlotRChMean,'fh') && (verLessThan('matlab','9.0') || isvalid(obj.PlotRChMean.fh)) %isvalid je od verze 2016
                 figure(obj.PlotRChMean.fh); %pouziju uz vytvoreny graf
@@ -57,41 +82,66 @@ classdef CPlots < matlab.mixin.Copyable
                         
             T = linspace(obj.Eh.epochtime(1),obj.Eh.epochtime(2),size(obj.Eh.d,1)); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
             ymax = 0;
-            CHM = zeros(size(obj.Eh.d,1),numel(kategories),numel(channels)); %time x channels x kategories
+            CHM = nan(size(obj.Eh.d,1),numel(kategories),numel(channels)); %time x kategories x channels. For multiple labels, each has different number of channels. So only part is filled
+            if ~isempty(ylimits)
+                ymin = ylimits(1);
+            else
+                ymin = -0.1;
+            end
+            ploth = zeros(1,max(numel(kategories),numel(labels))); % handles of plots for legend, we expect 1 category or 1 label.
+            legendStr = cell(size(ploth)); 
             for k = 1 : numel(kategories) %index 1-3 (nebo 4)
-                katnum = kategories(k);
-                colorkatk = [obj.Eh.colorskat{katnum+1} ; colorsErrorBars{katnum+1}]; %dve barvy, na caru a stderr plochu kolem                
-                [katdata,~,RjEpCh] = obj.Eh.CategoryData(katnum,[],[],channels);%katdata now time x x channels epochs                                
-                for ich = 1:numel(channels)
-                    CHM(:,k,ich) = mean(katdata(:,channels(ich),~RjEpCh(ich,:)),3);
+                katnum = kategories(k);               
+                for l = 1:numel(labels)
+                    if strcmp(labels{l},'no') % all brainlabels, plotting categories
+                        chsel = channels; %all channels
+                        colorkatk = [barvy(katnum+1,:) ; colorsErrorBars(katnum+1,:)]; %dve barvy, na caru a stderr plochu kolem                            
+                        legendStr{k} = obj.Eh.PsyData.CategoryName(katnum); % array of names of categories for a legend
+                    else % plotting individual brainlabels for one stimulus category
+                        brailabels = lower({obj.Eh.CH.brainlabels.label});
+                        chsel = intersect(find(contains(brailabels,labels{l})),channels);
+                        colorkatk = [barvy(l,:) ; colorsErrorBars(l,:)]; %dve barvy, na caru a stderr plochu kolem  
+                        legendStr{l} = [labels{l} ' x' num2str(numel(chsel))];
+                    end
+                    [katdata,~,RjEpCh] = obj.Eh.CategoryData(katnum,[],[],chsel);%katdata now time x channels x epochs                                
+                    for ich = 1:numel(chsel)
+                        CHM(:,k,ich) = mean(katdata(:,chsel(ich),~RjEpCh(ich,:)),3); %mean over valid epochs from katdata
+                    end
+                    M = mean(CHM(:,k,1:numel(chsel)),3);  %mean over channels, 
+                    E = std(CHM(:,k,1:numel(chsel)),[],3)/sqrt(numel(chsel)); %std err of mean over channels          
+                    ymax = max(ymax,max(M+E));
+                    if obj.PlotRChMean.plotband
+                        plotband(T, M, E, colorkatk(2,:)); % transparent but copying to CorelDraw does not work (its all black)
+                    else
+                        ciplot(M+E, M-E, T, colorkatk(2,:)); % not transparent 
+                    end
+                    hold on;
+                    ploth(max(k,l)) = plot(T,M,'LineWidth',katlinewidth,'Color',colorkatk(1,:));  %store handle to use in legend                                          
                 end
-                M = mean(CHM(:,k,:),3);  %mean over channels 
-                E = std(CHM(:,k,:),[],3)/sqrt(size(CHM(:,k,:),3)); %std err of mean over channels          
-                ymax = max(ymax,max(M+E));
-                ciplot(M+E, M-E, T, colorkatk(2,:)); %funguje dobre pri kopii do corelu, ulozim handle na barevny pas 
-                hold on;
-                plot(T,M,'LineWidth',katlinewidth,'Color',colorkatk(1,:));  %prumerna odpoved,  ulozim si handle na krivku                      
             end 
             if numel(kategories) == 2         
                 paired = 1; %paired
                 Wp = CStat.Wilcox2D(CHM(:,1,:), CHM(:,2,:),0,fdrlevel,'kat 1 vs 2',[],[],paired); %more strict dep method
                 iWp = Wp <= 0.05;      % Wilcoxon signed rank         
-                y = ylimits(1)*0.95;
+                y = ymin*0.95;
                 WpLims = [find(iWp,1) find(iWp,1,'last')];
                 if ~isempty(WpLims)
                     plot([T(WpLims(1)) T(WpLims(2))],[y y],'LineWidth',5,'Color',[255 99 71]./255); %full line between start and end of significance
                     if mean(iWp(WpLims(1) : WpLims(2)))<1 %if there are non signifant parts 
-                        y = ylimits(1)*0.9;
+                        y = ymin*0.85;
                         plot(T(iWp),ones(1,sum(iWp))*y, '*','Color','red'); %stars
                     end
                 end
             end
             xlim(obj.Eh.epochtime(1:2)); 
             if ~isempty(ylimits), ylim(ylimits); end
+            legend(ploth,legendStr,'Location','best');
             title(figuretitle);          
             xlabel('time [s]');
             ylabel('BGA power change');
-            obj.PlotRChMean.filterListener = addlistener(obj.Eh.CH, 'FilterChanged', @obj.filterChangedCallbackPlotResponseChMean);
+            if ~isfield(obj.PlotRChMean,'filterListener') || isempty(obj.PlotRChMean.filterListener) %function to be calle when event CHHeader.FilterChanged happens
+                obj.PlotRChMean.filterListener = addlistener(obj.Eh.CH, 'FilterChanged', @obj.filterChangedCallbackPlotResponseChMean);
+            end
         end
         function TimeIntervals(obj,vch,intervals,ylimits, nofile,store) % Sofiia 2020
             %  average time intervals for one channel or for a vector of channels (e.g. across a particular structure)
@@ -271,7 +321,7 @@ classdef CPlots < matlab.mixin.Copyable
                 figure(obj.plotTimeInt.fh); %pouziju uz vytvoreny graf
                 clf(obj.plotTimeInt.fh); %graf vycistim
             else
-                obj.plotTimeInt.fh = figure('Name','TimeIntervals');                 
+                obj.plotTimeInt.fh = figure('Name','TimeIntervals','CloseRequestFcn', @obj.tearDownFigCallbackTimeIntervals);                 
             end                          
       
          
@@ -310,9 +360,9 @@ classdef CPlots < matlab.mixin.Copyable
             end
             for k=1:numel(kats)
                 hold on
-                errorbar(intervals(:, 2),M(:,k),E(:,k),'.','Color', barvy(k,:)); % plot errors
+                errorbar(intervals(:, 2),M(:,k),E(:,k),'.','Color', barvy(kats(k),:)); % plot errors
                 hold on;
-                h_mean = plot(intervals(:, 2), M(:,k),'LineWidth',2,'Color',barvy(k,:)); % plot means
+                h_mean = plot(intervals(:, 2), M(:,k),'LineWidth',2,'Color',barvy(kats(k),:)); % plot means
                 ploth(k) = h_mean; % plot handle                
             end
             if numel(kats)==2
@@ -433,6 +483,8 @@ classdef CPlots < matlab.mixin.Copyable
             disp([ 'xls tables saved: ' xlsfilename]);
            
         end
+    end
+    methods  (Access = private)
         function [tableX,titles4table]= TimeIntervals2XLSTable(obj,vch, chanMeans,kats , legendStr, intervals)                   
             % export data for all channels (means over epochs and time intervals) in xls table   
             if ~isempty(obj.Eh.CH.brainlabels) % if CM.CH.brainlabels contains names for brain labels, they will be put in a final table according to the number of channel
@@ -461,9 +513,19 @@ classdef CPlots < matlab.mixin.Copyable
                 titles4table = ['channel','channelname', 'pacient', 'class','label','lobe',names4col]; % column names 
             end
         end
+        function [labels,barvy]=GetBrainlabelsSaved(obj)
+            order = [obj.Eh.CH.channelPlot.plotCh3D.brainlabelColors.n];
+            [~,idx] = sort(order);
+            labels = {obj.Eh.CH.channelPlot.plotCh3D.brainlabelColors(idx).label}; %in the correct order
+            barvy = vertcat(obj.Eh.CH.channelPlot.plotCh3D.brainlabelColors(idx).color);
+        end
+        
         function filterChangedCallbackPlotResponseChMean(obj,~,~)   %update chart if the filter is changed         
-            if ~isequal(obj.Eh.CH.plotCh2D.chshow, obj.PlotRChMean.channels) %jinak se to z nejakeho duvodu po zmene filtru vola porad dokolecka
-                obj.PlotResponseChMean(obj.PlotRChMean.kategories);
+            if isfield(obj.PlotRChMean,'fh') && ishandle(obj.PlotRChMean.fh)
+                %only if the PlotRChMean plot is shown
+                if ~isequal(obj.Eh.CH.plotCh2D.chshow, obj.PlotRChMean.channels) %jinak se to z nejakeho duvodu po zmene filtru vola porad dokolecka
+                    obj.PlotResponseChMean(obj.PlotRChMean.kategories);
+                end
             end
         end
         function filterChangedCallbackTimeIntervals(obj,src,~)   %update chart if the filter is changed                                
@@ -481,6 +543,10 @@ classdef CPlots < matlab.mixin.Copyable
             delete(obj.PlotRChMean.filterListener);
             delete(src);
         end  
+        function tearDownFigCallbackTimeIntervals(obj,src,~)
+            delete(obj.plotTimeInt.filterListener);
+            delete(src);
+        end 
     end
     methods (Static,Access = public)       
         function PlotElectrodeEpiEvents(els,RjCh,DE,objtabs,tabs_orig,epochs,samples,epochtime,timeax,timeaxy,sec,time_n,elmaxmax,shift,iD)
