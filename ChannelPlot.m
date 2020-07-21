@@ -321,19 +321,17 @@ classdef ChannelPlot < matlab.mixin.Copyable
         function PlotColorNames(obj)
             %plot naming of the colors used for individual channels
             %currently only BrainLabels
-            if obj.plotCh3D.coloruse == 2 && ~isempty(obj.CH.brainlabels) && length(obj.CH.brainlabels)==numel(obj.CH.H.channels)
-                labels = lower({obj.CH.brainlabels.label});
-                ulabels = unique(labels); %cell array of unique brainlabels
-                barvy = distinguishable_colors(numel(ulabels));
-                for ilabel = 1:numel(ulabels)
+            if obj.plotCh3D.coloruse == 2 && ~isempty(obj.CH.brainlabels) && length(obj.CH.brainlabels)==numel(obj.CH.H.channels)                                             
+                for j = 1:numel(obj.plotCh3D.brainlabelColors)
+                   ilabel = find([obj.plotCh3D.brainlabelColors.n]==j);
                    if isequal( [90 0],obj.plotCh3D.view) || isequal([-90 0],obj.plotCh3D.view) %sagital
-                       x = 0; y = -110; z = 80-5*ilabel;
+                       x = 0; y = -110; z = 80-5*j;
                    elseif isequal( [0 90 ],obj.plotCh3D.view) || isequal([[ 180 -90]],obj.plotCh3D.view) %axial
-                       x = -70; y = 80-5*ilabel; z = 0;
+                       x = -70; y = 80-5*j; z = 0;
                    else
-                       x = -70; y = 0; z = 80-5*ilabel;
+                       x = -70; y = 0; z = 80-5*j;
                    end
-                   text(x,y,z,ulabels{ilabel},'Color',barvy(ilabel,:),'FontSize',11,'FontWeight','bold');                       
+                   text(x,y,z, obj.plotCh3D.brainlabelColors(ilabel).name,'Color',obj.plotCh3D.brainlabelColors(ilabel).color ,'FontSize',11,'FontWeight','bold');                       
                 end
             end
         end
@@ -342,7 +340,11 @@ classdef ChannelPlot < matlab.mixin.Copyable
             cmap = parula(nblocks+1); %+1 as the values will be rounded up or down            
             [sizes,reverse,chnvalsN]=ChannelPlot.ScatterSizes(chnvals,rangeZ);            
             if reverse, cmap = flip(cmap,1); end %if to reverse to color map and size of the points in scatter3D 
-            
+            ch_selection = intersect(1:numel(obj.CH.H.channels),obj.CH.RjCh); %selection of all non rejected channels - this is the set including all channels normally used                        
+            if numel(intersect(ch_selection,chnsel)) < numel(chnsel) %this intersect shoud normally be the same as chnsel
+                ch_selection = chnsel; %but if it is smaller, than chsel contains some rejected channels
+            end
+                        
             switch obj.plotCh3D.coloruse
                 case 0 %colors based on channel vals
                     clrs = cmap(round(nblocks*chnvalsN)+1, :); % rgb color values for each channel (chns x 3), prevedu na rozsah 1-nblocks a priradim barvy
@@ -364,19 +366,31 @@ classdef ChannelPlot < matlab.mixin.Copyable
                     end
                 case 2 %colors based on brainlabels
                     clrs = repmat([.5 .5 .5],numel(chnvals),1); %default grey color for each channel                                
-                    if ~isempty(obj.CH.brainlabels) && length(obj.CH.brainlabels)==numel(obj.CH.H.channels) %if brainlabels exist, otherwise channels will be all grey
-                        labels = lower({obj.CH.brainlabels.label});
-                        ulabels = unique(labels); %cell array of unique brainlabels
-                        barvy = distinguishable_colors(numel(ulabels));
-                        for j = 1:numel(ulabels) %cycle over all brainlabels
-                            if j<= size(barvy,1)
-                                ch = find(contains(labels,ulabels{j}));  %channels with this brainlabel
-                                ch = intersect(ch,chnsel); %reduced for only the selected channels
-                                if numel(ch) > 0
-                                   ichannel = ismember(chnsel,ch); %index of channels in chnsel and chnvals
-                                   clrs(ichannel,:)=repmat(barvy(j,:),length(ch),1); %previous color is overwriten
-                                end
+                    if ~isempty(obj.CH.brainlabels) && length(obj.CH.brainlabels)==numel(obj.CH.H.channels) %if brainlabels exist, otherwise channels will be all grey                        
+                        labels = lower({obj.CH.brainlabels(ch_selection).label}); %labels only in the selected channels                        
+                        %20.7.2020 - somehow the rejected channels do not get here, even if they are in the scatterplot
+                        if ~isfield(obj.plotCh3D,'brainlabelColors') %set the brainlabels colors, if not yet set                            
+                            ulabels = unique(labels); %cell array of unique brainlabels
+                            barvy = distinguishable_colors(numel(ulabels));                             
+                            obj.plotCh3D.brainlabelColors = struct('n',{},'label',{},'color',{}); %empty struct
+                            for j = 1:numel(ulabels)
+                                obj.plotCh3D.brainlabelColors(j).n = j;
+                                obj.plotCh3D.brainlabelColors(j).label = ulabels{j};
+                                obj.plotCh3D.brainlabelColors(j).color = barvy(j,:);
+                                obj.plotCh3D.brainlabelColors(j).name = ulabels{j};
                             end
+                        end
+                        
+                        for j = 1:numel(obj.plotCh3D.brainlabelColors) %cycle over all brainlabels                                                         
+%                             if j<= size(barvy,1)
+                                ch = find(contains(labels,obj.plotCh3D.brainlabelColors(j).label));  %channels with this brainlabel
+                                %ch = intersect(ch,chnsel); %reduced for only the selected channels
+                                if numel(ch) > 0
+                                   ch_abs = ch_selection(ch); %get absolute channel number from indexes inside chnsel (in ch)
+                                   ichannel = ismember(chnsel,ch_abs); %index of channels in chnsel and chnvals
+                                   clrs(ichannel,:)=repmat(obj.plotCh3D.brainlabelColors(j).color,length(ch),1); %previous color is overwriten
+                                end
+%                             end
                         end
                     end
                 case 3 %colors according to clusters                   
