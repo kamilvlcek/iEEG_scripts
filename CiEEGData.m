@@ -2057,10 +2057,10 @@ classdef CiEEGData < matlab.mixin.Copyable
             iintervalyStat = [1 diff(iintervalyData)+1]; % min max of obj.Wp.WpKatBaseline
             if ~exist('signum','var') || isempty(signum)
                 %muzu zadat signum v poslednim parametru, v tom pripade pouziju to
-                if isfield(obj.plotRCh,'selChSignum') %pokud mam nastavene signum z SelChannelStat, pouziju to, jinak chci odchylky od 0 v obou smerech
+                if isfield(obj.plotRCh,'selChSignum') &&  numel(katnum)==1 %pokud mam nastavene signum z SelChannelStat, pouziju to, jinak chci odchylky od 0 v obou smerech
                     signum = obj.plotRCh.selChSignum;
                 else
-                    signum = 0;
+                    signum = 0; %signum 0 we want also for pairs of categories 
                 end 
             end
             idataM = iff(signum>0, dataM > 0, iff(signum < 0, dataM < 0, true(size(dataM)) ));  % time x channel - jestli chci vetsi, mensi nebo jakekoliv, time x channels                                
@@ -2074,16 +2074,17 @@ classdef CiEEGData < matlab.mixin.Copyable
             if numel(ikatnum)==1
                 WpB = obj.Wp(obj.WpActive).WpKatBaseline{ikatnum,1}(iintervalyStat(1):iintervalyStat(2),channels); %time x channels - statistika vuci baseline
                 WpK = zeros(diff(iintervalyStat)+1,numel(channels)); %time x channels, just fake significant to be used below
+                WpAllCh = cat(3,WpB<0.05, idataM, WpK<0.05); %boolean: time x channels x WpK+WpB+idataK = three conditions - difference between cats, relative to baseline and signum
             else
                 ikombinace = all(ismember(kombinace,ikatnum),2) | all(ismember(kombinace,flip(ikatnum)),2); %independent of categories order                
                 WpK = obj.Wp(obj.WpActive).WpKat{kombinace(ikombinace,2),kombinace(ikombinace,1)}(iintervalyStat(1):iintervalyStat(2),channels); %time x channels - p values kat1 <> kat2
-                WpB = obj.Wp(obj.WpActive).WpKatBaseline{kombinace(ikombinace,1),1}(iintervalyStat(1):iintervalyStat(2),channels); %time x channels - p values kat1>baseline
+                %WpB = obj.Wp(obj.WpActive).WpKatBaseline{kombinace(ikombinace,1),1}(iintervalyStat(1):iintervalyStat(2),channels); %time x channels - p values kat1>baseline
+                WpAllCh = WpK<0.05; %boolean: time x channels = one condition - just the difference between categories
             end
             
-            for ch = 1:nChannels
-                WpAllCh = [  WpB(:,ch)<0.05 , idataM(:,ch), WpK(:,ch)<0.05 ]; %boolean: time x WpB+idataK = dve podminky - rozdil vuci baseline a hodnota podle signum
-                iTimeCh = all(WpAllCh,2); %casy, kde jsou obe podminky spolene  
-                if ~any(iTimeCh) && signum ~= 0 %when there are no time points where both condition are true
+            for ch = 1:nChannels                                
+                iTimeCh = all(squeeze(WpAllCh(:,ch,:)),2); %time where all conditions are true  
+                if ~any(iTimeCh) && signum ~= 0 %when there are no time points where all condition are true
                     iTimeCh = idataM(:,ch); %we select time points only using the signum 
                 end
                 [valmax(ch), idx, idxFrac] = cMax(dataM(:,ch), val_fraction, 0,iTimeCh); %Nalezne maximum / minimum krivky curve, i jeho podilu (napr poloviny) a jeho parametry
@@ -2095,6 +2096,8 @@ classdef CiEEGData < matlab.mixin.Copyable
         
         function Response2XLS(obj, val_fraction, int_fraction)
             %pokud neni specifikovan parametr 'fraction', zobrazi se dialogove okno pro zadani procent z maxima            
+            %val_fraction = percents of maximal value
+            %int_fraction = percents of the area under curve
             if nargin < 2
                 prompt = {'Value trigger percentage:', 'Integral trigger percentage:'};
                 default = {'90', '50'};
@@ -2131,7 +2134,7 @@ classdef CiEEGData < matlab.mixin.Copyable
            
            RespVALS = struct; %struct array, kam si predpocitam hodnoty z ResponseTriggerTime
            RespDiffs = struct; %struct array to store values from ResponseTriggerTime for pairs of categories
-           [SigTimeBaseline,SigTimeKat]=obj.CS.StatDiffStart(obj.CH.sortorder,obj.Wp(obj.WpActive),kategories,0.05); %casy zacatku signifikanci %channels x kats, 
+           [SigTimeBaseline,SigTimeKat]=obj.CS.StatDiffStart(obj.CH.sortorder,obj.Wp(obj.WpActive),kategories,0.05); %casy zacatku signifikanci %channels x kats (x kats), 
              %SigTimeKat channels x kats x kats - pro kazdy ch vyplneno jen 12 13 a 23, ostatni nan
            for k = 1:numel(kategories) %oposite order to prealocate the structure
                katnum = cellval(kategories,k); %funkce cellval funguje at je to cell array nebo neni

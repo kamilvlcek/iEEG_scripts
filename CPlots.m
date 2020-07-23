@@ -62,10 +62,11 @@ classdef CPlots < matlab.mixin.Copyable
             
             if strcmp(labels{1},'nrj') %plot the labels saved in CM.CH.channelPlot.plotCh3D.brainlabelColors
                 [labels,barvy]=obj.GetBrainlabelsSaved();
+                figuretitle = [figuretitle ' - ' obj.Eh.PsyData.CategoryName(kategories(1))];
             elseif ~strcmp(labels{1},'no') %plotting individual labels
                 barvy = distinguishable_colors(numel(labels));               
                 figuretitle = [figuretitle ' - ' obj.Eh.PsyData.CategoryName(kategories(1))];
-            else %plotting cateogies
+            else %plotting categories
                 barvy = cell2mat(obj.Eh.colorskat(1:end)'); %from cell array of rgb to matrix
             end
             HSV = rgb2hsv(barvy);
@@ -300,6 +301,10 @@ classdef CPlots < matlab.mixin.Copyable
                     chanMeans = nan(size(obj.plotTimeInt.data(idata1).chanMeans,1), numel(obj.plotTimeInt.data(idata)) , max(vch)); %intervals x labels x channels
                     legendStr = cell(1,numel(obj.plotTimeInt.data(idata))); 
                     kats = 1:numel(obj.plotTimeInt.data(idata)); %mimic different stored labels as categories
+                    if strcmp(store.colors, 'nrj') %if to use colors from CM.CH.channelPlot.plotCh3D.brainlabelColors 
+                        [brainlabels,labels_barvy] = obj.GetBrainlabelsSaved();
+                        barvy = zeros(numel(kats),3);
+                    end                    
                     datan = find(idata); %rows if plotTimeInt.data
                     for k = kats %rows of plotTimeInt.data
                         chanMeans(:,k,1:obj.plotTimeInt.data(datan(k)).chnum) = obj.plotTimeInt.data(datan(k)).chanMeans(:,store.kat,:);
@@ -308,8 +313,13 @@ classdef CPlots < matlab.mixin.Copyable
                             chanMeans(:,k,1:obj.plotTimeInt.data(datan(k)).chnum) = chanMeans(:,k,1:obj.plotTimeInt.data(datan(k)).chnum)./katmax;
                         end
                         legendStr{k} = [ obj.plotTimeInt.data(datan(k)).label ' x' num2str(obj.plotTimeInt.data(datan(k)).chnum)];
+                        if strcmp(store.colors, 'nrj')
+                            ilabel = contains(brainlabels,obj.plotTimeInt.data(datan(k)).label);
+                            barvy(k,:) = labels_barvy(ilabel,:);
+                        end
                     end
                     chshowstr = [obj.plotTimeInt.data(idata1).legendStr{store.kat} ': mark=' store.mark  ]; %assumes same category accross data fields                   
+                    
                 end
             else
                 store = [];
@@ -353,8 +363,10 @@ classdef CPlots < matlab.mixin.Copyable
             end            
             
             ploth = zeros(1,numel(kats)); % handles of plots for legend                        
-            if numel(kats)>3
-                barvy = distinguishable_colors(numel(kats));
+            if numel(kats)>3                 
+                if ~exist('barvy','var')                
+                    barvy = distinguishable_colors(numel(kats));                
+                end
             else
                 barvy = cell2mat(obj.Eh.colorskat(2:end)');
             end
@@ -393,12 +405,14 @@ classdef CPlots < matlab.mixin.Copyable
                 obj.TimeIntervals2XLS(vch,kats , legendStr, intervals, chanMeans,chshowstr, categories, allmeans);
             end
         end
-        function TimeIntervalsColect(obj,labels,marks)
+        function TimeIntervalsColect(obj,marks,labels)
             %collects data using TimeIntervals from multiple filter settings
             %labels is cell array of brain labels, filtered by label = ''
             %marks is cell array of 1. marking sets 2. markings in two columns 
             %the intervals and ylimis needs to be set before
-            if ischar(labels) && strcmp('labels','clear')==0
+            if ~exist('labels','var') || isempty(labels) 
+                labels = {obj.Eh.CH.channelPlot.plotCh3D.brainlabelColors.label};
+            elseif ischar(labels) && strcmp(labels,'clear')
                 obj.plotTimeInt.data = struct; %clear all stored data
                 disp('all TimeIntervals data cleared');
                 return;

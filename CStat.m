@@ -758,7 +758,8 @@ classdef CStat < handle
             %nezohlednuje smer rozdilu, signum, jako ktere se pouziva treba v CiEEGData.SelChannelStat
             if ~exist('kategories','var'), kategories = Wp.kats; end
             if ~exist('plevel','var'), plevel = 0.05; end
-            if ~exist('maintain','var'), maintain = 8; end %for how many samples should the significance stay to be detected
+            if ~exist('maintain','var'), maintain = 1; end %for how many samples should the significance stay to be detected. 1=1/fs
+                %Bastin 2013jneurosci used maintain=8. But we use already the sliding window in CiEEGStat.WilcoxCat. 
             sigvector = true(1,maintain);
             timeB = NaN(numel(channels),numel(Wp.kats)); % %casy rozdilu vuci baseline
             timeK = NaN(numel(channels),numel(Wp.kats),numel(Wp.kats)); % casy rozdilu mezi kat
@@ -784,6 +785,7 @@ classdef CStat < handle
                         iWpfirst = strfind(iWp(:,ch)',sigvector); %index of occurences of sigvector - 8 significant differences in sequence
                         if ~isempty(iWpfirst)
                             timeK(ch,k,l) = Tr(iWpfirst(1)); %time of start of significance
+                            timeK(ch,l,k) = Tr(iWpfirst(1)); %time of start of significance - currently WpKat is not directional
                         end
                     end
                     

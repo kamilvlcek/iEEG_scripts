@@ -83,14 +83,15 @@ classdef CEEGStat
                             Wr = ones(size(WpKatBaseline{1})); %vysoke pravdepodobnosti
                             fprintf('kat %i vs %i - Channels Individually - Wilcox2D %s: 1 ... ',k,j,pairedstr);
                             for ch = 1:size(Wr,2)                                
-                                if min(WpKatBaseline{k}(:,ch))<.05 || min(WpKatBaseline{j}(:,ch))<.05
+                                if min(WpKatBaseline{k}(:,ch))<.05 || min(WpKatBaseline{j}(:,ch))<.05 %if at least one kat is significant from baseline
                                     Wr(:,ch) = CStat.Wilcox2D(responsekat{k}(:,ch,:), responsekat{j}(:,ch,:),0,method.fdr,['kat ' num2str(k) ' vs ' num2str(j)],rjepchkat{k}(ch,:),rjepchkat{j}(ch,:),paired); % -------- WILCOX kazda kat s kazdou                                     
                                     %fprintf('%i,',ch);
                                 end                                
                             end
                             if method.fdr == 0, fprintf('no fdr ...'); end
                             fprintf('... %i \n',ch);
-                        else  %puvodni verze, statistika pro vsechny kanaly najednou  
+                        else  %puvodni verze, statistika pro vsechny kanaly najednou 
+                            %TODO no difference to baseline is required. Is it OK? Inconsistent with the method.chn == 1
                             Wr = CStat.Wilcox2D(responsekat{k}, responsekat{j},1,method.fdr,['kat ' num2str(k) ' vs ' num2str(j)],rjepchkat{k},rjepchkat{j}, paired); % -------- WILCOX kazda kat s kazdou 
                         end
                     elseif strcmp(method.test,'permut')
