@@ -239,88 +239,8 @@ classdef CPlots < matlab.mixin.Copyable
             end
                   
             %store or retrieve the plotted data
-            if exist('store','var') && ~isempty(store) && isstruct(store)
-                if isfield(store,'store') && store.store==1
-                        if ~isfield(obj.plotTimeInt,'data'), obj.plotTimeInt.data = struct(); end
-                        if ~isfield(store,'label') || isempty(store.label) %any label, e.g. brainlabel
-                            store.label = 'NaN';
-                        end
-                        if isfield(obj.plotTimeInt.data,'label')                        
-                            labels = {obj.plotTimeInt.data.label}; %labels stored until now
-                            nlabel = find(contains(labels,store.label));
-                            if isempty(nlabel)
-                                nlabel = numel(obj.plotTimeInt.data)+1;
-                            end
-                        else                                
-                            nlabel = 1;
-                        end
-                            
-                        if ~isfield(store,'mark') || isempty(store.mark)  %any mark, e.g. name of the current marking (fghjkl)
-                            store.mark = 'NaN';                            
-                        end
-                        if isfield(obj.plotTimeInt.data,'mark')                        
-                            marks = {obj.plotTimeInt.data.mark}; %labels stored until now
-                            nmark = find(contains(marks,store.mark));
-                            if isempty(nmark)
-                                nmark = numel(obj.plotTimeInt.data)+1;
-                            end
-                        else                                
-                            nmark = 1;
-                        end
-                            
-                        n = intersect(nmark,nlabel);
-                        if isempty(n), n = numel(obj.plotTimeInt.data)+1; end
-                        obj.plotTimeInt.data(n).label = store.label;
-                        obj.plotTimeInt.data(n).mark = store.mark;
-                        obj.plotTimeInt.data(n).chanMeans = chanMeans; % intervals x kats x channels
-                        obj.plotTimeInt.data(n).chshowstr = chshowstr; %current filter label
-                        obj.plotTimeInt.data(n).legendStr = legendStr; %current filter label
-                        obj.plotTimeInt.data(n).chnum = numel(vch); %number of channels
-                        obj.plotTimeInt.data(n).channels = vch; %channel numbers
-                        obj.plotTimeInt.data(n).intervals = intervals; %number of channels
-                        disp(['data stored as "' store.label ' & ' store.mark '"']);
-                   
-                elseif isfield(store,'kat') && store.kat >0 && store.kat <= size(obj.plotTimeInt.data(1).chanMeans,2)
-                    %number of category to plot
-                    if isfield(store,'mark')
-                        marks = {obj.plotTimeInt.data.mark};
-                        idata = contains(marks,store.mark); %logical index
-                        idata1 = find(idata,1);
-                    else
-                        store.mark = 'NaN';
-                        idata = true(numel(obj.plotTimeInt.data),1);
-                        idata1 = 1;
-                    end
-                    assert(sum(idata)>0, 'no data to plot');
-                    if ~isfield(store,'normalize') %normalize each label interval values to it maximal interval mean - to be able to compare the speed of response
-                        store.normalize = 0;
-                    elseif store.normalize == 1
-                        ylimits = [-.1 1.1]; %the values will be [0 1], temporary change 
-                    end
-                    vch = 1:max([obj.plotTimeInt.data(idata).chnum]); %use the stored channels as channels
-                    chanMeans = nan(size(obj.plotTimeInt.data(idata1).chanMeans,1), numel(obj.plotTimeInt.data(idata)) , max(vch)); %intervals x labels x channels
-                    legendStr = cell(1,numel(obj.plotTimeInt.data(idata))); 
-                    kats = 1:numel(obj.plotTimeInt.data(idata)); %mimic different stored labels as categories
-                    if strcmp(store.colors, 'nrj') %if to use colors from CM.CH.channelPlot.plotCh3D.brainlabelColors 
-                        [brainlabels,labels_barvy] = obj.GetBrainlabelsSaved();
-                        barvy = zeros(numel(kats),3);
-                    end                    
-                    datan = find(idata); %rows if plotTimeInt.data
-                    for k = kats %rows of plotTimeInt.data
-                        chanMeans(:,k,1:obj.plotTimeInt.data(datan(k)).chnum) = obj.plotTimeInt.data(datan(k)).chanMeans(:,store.kat,:);
-                        if store.normalize
-                            katmax = max(mean(chanMeans(:,k,1:obj.plotTimeInt.data(datan(k)).chnum),3));
-                            chanMeans(:,k,1:obj.plotTimeInt.data(datan(k)).chnum) = chanMeans(:,k,1:obj.plotTimeInt.data(datan(k)).chnum)./katmax;
-                        end
-                        legendStr{k} = [ obj.plotTimeInt.data(datan(k)).label ' x' num2str(obj.plotTimeInt.data(datan(k)).chnum)];
-                        if strcmp(store.colors, 'nrj')
-                            ilabel = contains(brainlabels,obj.plotTimeInt.data(datan(k)).label);
-                            barvy(k,:) = labels_barvy(ilabel,:);
-                        end
-                    end
-                    chshowstr = [obj.plotTimeInt.data(idata1).legendStr{store.kat} ': mark=' store.mark  ]; %assumes same category accross data fields                   
-                    
-                end
+            if exist('store','var') && ~isempty(store) && isstruct(store)  %store or retrieve the to be plotted data  
+                [vch,kats,chanMeans,legendStr,chshowstr,ylimits,barvy]=obj.TimeIntervalsStore(store,vch,kats,chanMeans,legendStr,chshowstr,ylimits,intervals);
             else
                 store = [];
             end
@@ -364,7 +284,7 @@ classdef CPlots < matlab.mixin.Copyable
             
             ploth = zeros(1,numel(kats)); % handles of plots for legend                        
             if numel(kats)>3                 
-                if ~exist('barvy','var')                
+                if ~exist('barvy','var') %in not set inside TimeIntervalsStore            
                     barvy = distinguishable_colors(numel(kats));                
                 end
             else
@@ -407,8 +327,8 @@ classdef CPlots < matlab.mixin.Copyable
         end
         function TimeIntervalsColect(obj,marks,labels)
             %collects data using TimeIntervals from multiple filter settings
-            %labels is cell array of brain labels, filtered by label = ''
-            %marks is cell array of 1. marking sets 2. markings in two columns 
+            %marks is cell array with two columns: 1. no of marking sets 2. markings one of fghjkl. e.g. marks = {1,1,1,2,2,2;'','j','k','j','k','l'}';
+            %labels is cell array of brain labels, filtered by label = '' ; if empty, uses stored labels   in channelPlot.plotCh3D.brainlabelColors         
             %the intervals and ylimis needs to be set before
             if ~exist('labels','var') || isempty(labels) 
                 labels = {obj.Eh.CH.channelPlot.plotCh3D.brainlabelColors.label};
@@ -526,6 +446,117 @@ classdef CPlots < matlab.mixin.Copyable
                 end
                 titles4table = ['channel','channelname', 'pacient', 'class','label','lobe',names4col]; % column names 
             end
+        end
+        function [vch,kats,chanMeans,legendStr,chshowstr,ylimits,barvy]=TimeIntervalsStore(obj,store,vch,kats,chanMeans,legendStr,chshowstr,ylimits,intervals)    
+            %stores or retrieves the to be plotted data in obj.plotTimeInt.data
+            if isfield(store,'store') && store.store==1
+                    if ~isfield(obj.plotTimeInt,'data'), obj.plotTimeInt.data = struct(); end
+                    if ~isfield(store,'label') || isempty(store.label) %any label, e.g. brainlabel
+                        store.label = 'NaN';
+                    end
+                    if isfield(obj.plotTimeInt.data,'label')                        
+                        labels = {obj.plotTimeInt.data.label}; %labels stored until now
+                        nlabel = find(contains(labels,store.label));
+                        if isempty(nlabel)
+                            nlabel = numel(obj.plotTimeInt.data)+1;
+                        end
+                    else                                
+                        nlabel = 1;
+                    end
+
+                    if ~isfield(store,'mark') || isempty(store.mark)  %any mark, e.g. name of the current marking (fghjkl)
+                        store.mark = 'NaN';                            
+                    end
+                    if isfield(obj.plotTimeInt.data,'mark')                        
+                        marks = {obj.plotTimeInt.data.mark}; %labels stored until now
+                        nmark = find(contains(marks,store.mark));
+                        if isempty(nmark)
+                            nmark = numel(obj.plotTimeInt.data)+1;
+                        end
+                    else                                
+                        nmark = 1;
+                    end
+
+                    n = intersect(nmark,nlabel);
+                    if isempty(n), n = numel(obj.plotTimeInt.data)+1; end
+                    obj.plotTimeInt.data(n).label = store.label;
+                    obj.plotTimeInt.data(n).mark = store.mark;
+                    obj.plotTimeInt.data(n).chanMeans = chanMeans; % intervals x kats x channels
+                    obj.plotTimeInt.data(n).chshowstr = chshowstr; %current filter label
+                    obj.plotTimeInt.data(n).legendStr = legendStr; %current filter label
+                    obj.plotTimeInt.data(n).chnum = numel(vch); %number of channels
+                    obj.plotTimeInt.data(n).channels = vch; %channel numbers
+                    obj.plotTimeInt.data(n).intervals = intervals; %number of channels
+                    obj.plotTimeInt.data(n).kats = kats; %number of categories
+                    disp(['data stored as "' store.label ' & ' store.mark '"']);
+                    barvy = []; %only to return something
+            elseif isfield(store,'kat') 
+                
+                assert(min(store.kat) > 0 && max(store.kat) <= size(obj.plotTimeInt.data(1).chanMeans,2),['wrong kat numbers: ' num2str(store.kat) , ', should be 1 to ' num2str(size(obj.plotTimeInt.data(1).chanMeans,2))]);
+                %number of category to plot
+                if isfield(store,'mark')
+                    marks = {obj.plotTimeInt.data.mark};
+                    idata_m = contains(marks,store.mark)'; %logical index  n x 1                   
+                else
+                    store.mark = 'NaN';
+                    idata_m = true(numel(obj.plotTimeInt.data),1);                    
+                end
+                if isfield(store,'label')
+                    labels = {obj.plotTimeInt.data.label};
+                    idata_l = contains(labels,store.label)'; %logical index n x 1                
+                else
+                    store.label = 'NaN';
+                    idata_l = true(numel(obj.plotTimeInt.data),1);                    
+                end
+                idata = all([idata_m, idata_l],2); %n x 1, logical index of all rows of data to retrieve
+                assert(sum(idata)>0, 'no data to plot');
+                idata1 = find(idata,1); %index of first row                
+                datan = find(idata); %rows if plotTimeInt.data
+                
+                if ~isfield(store,'normalize') %normalize each label interval values to it maximal interval mean - to be able to compare the speed of response
+                    store.normalize = 0;
+                elseif store.normalize == 1
+                    ylimits = [-.1 1.1]; %the values will be [0 1], temporary change 
+                end
+                
+                if numel(datan) == 1
+                    kats = obj.plotTimeInt.data(idata1).kats(store.kat); %real number of categories as stored 
+                else
+                    kats = 1 : numel(store.kat) * numel(obj.plotTimeInt.data(idata)); %mimic different stored (labels and kats) as categories
+                end
+                
+                chanMeans = nan(size(obj.plotTimeInt.data(idata1).chanMeans,1), numel(kats) , max([obj.plotTimeInt.data(idata).chnum])); %intervals x (labels+kats) x channels
+                legendStr = cell(1,numel(kats)); 
+                
+                if isfield(store,'colors') && strcmp(store.colors, 'nrj') %if to use colors from CM.CH.channelPlot.plotCh3D.brainlabelColors 
+                    [brainlabels,labels_barvy] = obj.GetBrainlabelsSaved();
+                    barvy = zeros(numel(kats),3);
+                elseif numel(datan)==1
+                    barvy = cell2mat(obj.Eh.colorskat(2:end)');
+                else
+                    barvy = distinguishable_colors(numel(kats));
+                end
+                
+                vch = []; %list of all displayed channels
+                for d = 1:numel(datan) %rows of plotTimeInt.data 
+                     for ikat = 1:numel(store.kat) %all kats are in single row of obj.plotTimeInt.data, this cycle is using this single row
+                        k = (d-1)*numel(store.kat)+ikat; %index in chanMeans, 1:numel(kats)
+                        chanMeans(:,k,1:obj.plotTimeInt.data(datan(d)).chnum) = obj.plotTimeInt.data(datan(d)).chanMeans(:,store.kat(ikat),:);
+                        vch = union(vch,obj.plotTimeInt.data(datan(d)).channels);
+                        if store.normalize
+                            katmax = max(mean(chanMeans(:,k,1:obj.plotTimeInt.data(datan(d)).chnum),3));
+                            chanMeans(:,k,1:obj.plotTimeInt.data(datan(d)).chnum) = chanMeans(:,k,1:obj.plotTimeInt.data(datan(d)).chnum)./katmax;
+                        end
+                        legendStr{k} = [ obj.plotTimeInt.data(datan(d)).label ',' obj.plotTimeInt.data(idata1).legendStr{ikat} ' x' num2str(obj.plotTimeInt.data(datan(d)).chnum)];
+                        if isfield(store,'colors') && strcmp(store.colors, 'nrj')
+                            ilabel = contains(brainlabels,obj.plotTimeInt.data(datan(d)).label);
+                            barvy(d,:) = labels_barvy(ilabel,:);                        
+                        end
+                    end
+                end
+                chshowstr = [cell2str(obj.plotTimeInt.data(idata1).legendStr(store.kat)) ': mark=' store.mark  ]; %assumes same category accross data fields                   
+            end
+            
         end
         function [labels,barvy]=GetBrainlabelsSaved(obj)
             order = [obj.Eh.CH.channelPlot.plotCh3D.brainlabelColors.n];
