@@ -151,7 +151,12 @@ classdef CPlots < matlab.mixin.Copyable
             %  default intervals = [0 0.2; 0.2 0.4; 0.4 0.6; 0.6 0.8];
             %  nofile - if 1, do not save any xls file, only plot figure
             
+            
             %process arguments
+            if isstruct(vch) && ~exist('store','var')
+                store = vch; %ve can use first argument as store struct
+                vch = [];
+            end
             if ~exist('vch','var') || isempty(vch) %vector of channels
                 vch = obj.Eh.CH.sortorder; % will use numbers of channels after current filtering
                 chshowstr = obj.Eh.CH.plotCh2D.chshowstr; %description of the selected channels - name from CM.CH.FilterChannels();
@@ -279,7 +284,11 @@ classdef CPlots < matlab.mixin.Copyable
                 end
                 M=MOverChan; %set variable to be plotted - means
                 E=EOverChan; %set variable to be plotted - errorbars
-                title([num2str(length(vch)) ' channels: ' chshowstr ]); %title for multiple channels
+                if numel(chshowstr)==2
+                    title(vertcat( [num2str(length(vch)) ' channels: ' chshowstr{1}] , chshowstr(2) )); %title for multiple channels
+                else
+                    title( [num2str(length(vch)) ' channels: ' chshowstr] );
+                end
             end            
             
             ploth = zeros(1,numel(kats)); % handles of plots for legend                        
@@ -449,6 +458,7 @@ classdef CPlots < matlab.mixin.Copyable
         end
         function [vch,kats,chanMeans,legendStr,chshowstr,ylimits,barvy]=TimeIntervalsStore(obj,store,vch,kats,chanMeans,legendStr,chshowstr,ylimits,intervals)    
             %stores or retrieves the to be plotted data in obj.plotTimeInt.data
+            assert(numel(store) == 1,'store can be only of size 1');
             if isfield(store,'store') && store.store==1
                     if ~isfield(obj.plotTimeInt,'data'), obj.plotTimeInt.data = struct(); end
                     if ~isfield(store,'label') || isempty(store.label) %any label, e.g. brainlabel
@@ -491,7 +501,6 @@ classdef CPlots < matlab.mixin.Copyable
                     disp(['data stored as "' store.label ' & ' store.mark '"']);
                     barvy = []; %only to return something
             elseif isfield(store,'kat') 
-                
                 assert(min(store.kat) > 0 && max(store.kat) <= size(obj.plotTimeInt.data(1).chanMeans,2),['wrong kat numbers: ' num2str(store.kat) , ', should be 1 to ' num2str(size(obj.plotTimeInt.data(1).chanMeans,2))]);
                 %number of category to plot
                 if isfield(store,'mark')
@@ -511,7 +520,15 @@ classdef CPlots < matlab.mixin.Copyable
                 idata = all([idata_m, idata_l],2); %n x 1, logical index of all rows of data to retrieve
                 assert(sum(idata)>0, 'no data to plot');
                 idata1 = find(idata,1); %index of first row                
-                datan = find(idata); %rows if plotTimeInt.data
+                datan = find(idata); %rows in plotTimeInt.data
+                if isfield(store,'markstogether') && store.markstogether==1 
+                    L = unique({obj.plotTimeInt.data(idata).label}); %unique labels for this selection
+                    if numel(datan)==numel(L)*numel(store.mark)
+                        datan = reshape(datan,numel(store.mark),[])'; % make size numel(L) x numel(store.mark) 
+                    else
+                        datan = datan'; %treat all rows of obj.plotTimeInt.data together
+                    end
+                end
                 
                 if ~isfield(store,'normalize') %normalize each label interval values to it maximal interval mean - to be able to compare the speed of response
                     store.normalize = 0;
@@ -519,42 +536,58 @@ classdef CPlots < matlab.mixin.Copyable
                     ylimits = [-.1 1.1]; %the values will be [0 1], temporary change 
                 end
                 
-                if numel(datan) == 1
+                if size(datan,1) == 1 %if only one row of obj.plotTimeInt.data should be plotted
                     kats = obj.plotTimeInt.data(idata1).kats(store.kat); %real number of categories as stored 
                 else
-                    kats = 1 : numel(store.kat) * numel(obj.plotTimeInt.data(idata)); %mimic different stored (labels and kats) as categories
+                    kats = 1 : numel(store.kat) * size(datan,1); %mimic different stored (labels and kats) as categories
                 end
                 
-                chanMeans = nan(size(obj.plotTimeInt.data(idata1).chanMeans,1), numel(kats) , max([obj.plotTimeInt.data(idata).chnum])); %intervals x (labels+kats) x channels
+                if isfield(store,'markstogether') && store.markstogether==1 
+                    chanMeans = nan(size(obj.plotTimeInt.data(idata1).chanMeans,1), numel(kats) , sum([obj.plotTimeInt.data(idata).chnum])); %intervals x (labels+kats) x channels
+                else
+                    chanMeans = nan(size(obj.plotTimeInt.data(idata1).chanMeans,1), numel(kats) , max([obj.plotTimeInt.data(idata).chnum])); %intervals x (labels+kats) x channels
+                end
                 legendStr = cell(1,numel(kats)); 
                 
                 if isfield(store,'colors') && strcmp(store.colors, 'nrj') %if to use colors from CM.CH.channelPlot.plotCh3D.brainlabelColors 
                     [brainlabels,labels_barvy] = obj.GetBrainlabelsSaved();
                     barvy = zeros(numel(kats),3);
-                elseif numel(datan)==1
+                elseif size(datan,1)==1
                     barvy = cell2mat(obj.Eh.colorskat(2:end)');
                 else
                     barvy = distinguishable_colors(numel(kats));
                 end
                 
                 vch = []; %list of all displayed channels
-                for d = 1:numel(datan) %rows of plotTimeInt.data 
+                for d = 1:size(datan,1) %rows of plotTimeInt.data 
                      for ikat = 1:numel(store.kat) %all kats are in single row of obj.plotTimeInt.data, this cycle is using this single row
                         k = (d-1)*numel(store.kat)+ikat; %index in chanMeans, 1:numel(kats)
-                        chanMeans(:,k,1:obj.plotTimeInt.data(datan(d)).chnum) = obj.plotTimeInt.data(datan(d)).chanMeans(:,store.kat(ikat),:);
-                        vch = union(vch,obj.plotTimeInt.data(datan(d)).channels);
+%                         if numel(datan(d,:))>1
+                            ichanMeans = 1;
+                            for j = 1:numel(datan(d,:))
+                                chM =  obj.plotTimeInt.data(datan(d,j)).chanMeans(:,store.kat(ikat),:);
+                                chanMeans(:,k,ichanMeans:ichanMeans+size(chM,3)-1) = chM;
+                                ichanMeans = ichanMeans + size(chM,3);
+                                vch = union(vch,obj.plotTimeInt.data(datan(d,j)).channels);
+                            end
+                            ichanMeans = ichanMeans -1; %make it number of channels 
+%                         else
+%                             chanMeans(:,k,1:obj.plotTimeInt.data(datan(d)).chnum) = obj.plotTimeInt.data(datan(d)).chanMeans(:,store.kat(ikat),:);
+%                             vch = union(vch,obj.plotTimeInt.data(datan(d,:)).channels);
+%                         end
+                        
                         if store.normalize
-                            katmax = max(mean(chanMeans(:,k,1:obj.plotTimeInt.data(datan(d)).chnum),3));
-                            chanMeans(:,k,1:obj.plotTimeInt.data(datan(d)).chnum) = chanMeans(:,k,1:obj.plotTimeInt.data(datan(d)).chnum)./katmax;
+                            katmax = max(mean(chanMeans(:,k,1:ichanMeans),3));
+                            chanMeans(:,k,1:ichanMeans) = chanMeans(:,k,1:ichanMeans)./katmax;
                         end
-                        legendStr{k} = [ obj.plotTimeInt.data(datan(d)).label ',' obj.plotTimeInt.data(idata1).legendStr{ikat} ' x' num2str(obj.plotTimeInt.data(datan(d)).chnum)];
+                        legendStr{k} = [ obj.plotTimeInt.data(datan(d,1)).label ',' obj.plotTimeInt.data(idata1).legendStr{ikat} ' x' num2str(ichanMeans)];
                         if isfield(store,'colors') && strcmp(store.colors, 'nrj')
-                            ilabel = contains(brainlabels,obj.plotTimeInt.data(datan(d)).label);
+                            ilabel = contains(brainlabels,obj.plotTimeInt.data(datan(d,1)).label);
                             barvy(d,:) = labels_barvy(ilabel,:);                        
                         end
                     end
                 end
-                chshowstr = [cell2str(obj.plotTimeInt.data(idata1).legendStr(store.kat)) ': mark=' store.mark  ]; %assumes same category accross data fields                   
+                chshowstr = {cell2str(obj.plotTimeInt.data(idata1).legendStr(store.kat)) ['mark=' cell2str(store.mark) ] }; %assumes same category accross data fields                   
             end
             
         end

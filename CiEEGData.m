@@ -2010,8 +2010,7 @@ classdef CiEEGData < matlab.mixin.Copyable
         end
         function nlFilter = neurologyLabelsFilter(obj,neurologyLabels)
             nlFilter = ismember({obj.CH.H.channels.neurologyLabel}, neurologyLabels);
-        end
-        
+        end      
         function [valmax, tmax, tfrac, tint] = ResponseTriggerTime(obj, val_fraction, int_fraction, katnum, channels,signum)          
             if ~exist('channels', 'var') || isempty(channels)
                 channels = 1:obj.channels; %vsechny kanaly
@@ -2092,8 +2091,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 if ~isempty(idxFrac), tfrac(ch) = T(idxFrac); end %cas poloviny maxima, nebo jineho podilu                       
                 tint(ch)  = cIntegrate(T, dataM(:,ch), int_fraction, 2, 0,iTimeCh); % integrace s posunem minima krivky do nuly
             end
-        end
-        
+        end        
         function Response2XLS(obj, val_fraction, int_fraction)
             %pokud neni specifikovan parametr 'fraction', zobrazi se dialogove okno pro zadani procent z maxima            
             %val_fraction = percents of maximal value
