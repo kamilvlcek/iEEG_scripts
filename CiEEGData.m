@@ -2011,7 +2011,7 @@ classdef CiEEGData < matlab.mixin.Copyable
         function nlFilter = neurologyLabelsFilter(obj,neurologyLabels)
             nlFilter = ismember({obj.CH.H.channels.neurologyLabel}, neurologyLabels);
         end      
-        function [valmax, tmax, tfrac, tint] = ResponseTriggerTime(obj, val_fraction, int_fraction, katnum, channels,signum)          
+        function [valmax, tmax, tfrac, tint,len] = ResponseTriggerTime(obj, val_fraction, int_fraction, katnum, channels,signum)          
             if ~exist('channels', 'var') || isempty(channels)
                 channels = 1:obj.channels; %vsechny kanaly
             end
@@ -2046,6 +2046,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
             nChannels = numel(channels);            
             tint = zeros(1, nChannels); %time of fraction of area under curve
+            len = zeros(1, nChannels); %length of significance
             tmax = zeros(1, nChannels); %time of maximal value
             tfrac = zeros(1, nChannels); %cas poloviny maxima, nebo jineho podilu 
             valmax = zeros(1, nChannels); %maximal value
@@ -2070,11 +2071,11 @@ classdef CiEEGData < matlab.mixin.Copyable
             else
                 ikatnum = find(ismember(obj.Wp(obj.WpActive).kats,katnum)); %index of kat in WpKatBaseline - jsou indexovane ne podle cisel kategorii ale podle indexu v kats
             end
-            if numel(ikatnum)==1
+            if numel(ikatnum)==1 %difference relative to baseline
                 WpB = obj.Wp(obj.WpActive).WpKatBaseline{ikatnum,1}(iintervalyStat(1):iintervalyStat(2),channels); %time x channels - statistika vuci baseline
-                WpK = zeros(diff(iintervalyStat)+1,numel(channels)); %time x channels, just fake significant to be used below
-                WpAllCh = cat(3,WpB<0.05, idataM, WpK<0.05); %boolean: time x channels x WpK+WpB+idataK = three conditions - difference between cats, relative to baseline and signum
-            else
+                %WpK = zeros(diff(iintervalyStat)+1,numel(channels)); %time x channels, just fake significant to be used below
+                WpAllCh = cat(3,WpB<0.05, idataM); %boolean: time x channels x WpB+idataK = two conditions - difference relative to baseline and signum
+            else %difference between kats
                 ikombinace = all(ismember(kombinace,ikatnum),2) | all(ismember(kombinace,flip(ikatnum)),2); %independent of categories order                
                 WpK = obj.Wp(obj.WpActive).WpKat{kombinace(ikombinace,2),kombinace(ikombinace,1)}(iintervalyStat(1):iintervalyStat(2),channels); %time x channels - p values kat1 <> kat2
                 %WpB = obj.Wp(obj.WpActive).WpKatBaseline{kombinace(ikombinace,1),1}(iintervalyStat(1):iintervalyStat(2),channels); %time x channels - p values kat1>baseline
@@ -2083,6 +2084,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             
             for ch = 1:nChannels                                
                 iTimeCh = all(squeeze(WpAllCh(:,ch,:)),2); %time where all conditions are true  
+                len(ch) = (T(2)-T(1))*sum(iTimeCh); %the length of significance (and signum for diff to baseline)
                 if ~any(iTimeCh) && signum ~= 0 %when there are no time points where all condition are true
                     iTimeCh = idataM(:,ch); %we select time points only using the signum 
                 end
@@ -2128,7 +2130,7 @@ classdef CiEEGData < matlab.mixin.Copyable
            else
                exportBrainlabels = 0;               
            end
-           cellout = cell(numel(channels), 14 + exportBrainlabels*3+ length(obj.plotRCh.selChNames) + 5*numel(kategories) + 5*size(comb,1));           
+           cellout = cell(numel(channels), 14 + exportBrainlabels*3+ length(obj.plotRCh.selChNames) + 6*numel(kategories) + 6*size(comb,1));           
            
            RespVALS = struct; %struct array, kam si predpocitam hodnoty z ResponseTriggerTime
            RespDiffs = struct; %struct array to store values from ResponseTriggerTime for pairs of categories
@@ -2136,10 +2138,10 @@ classdef CiEEGData < matlab.mixin.Copyable
              %SigTimeKat channels x kats x kats - pro kazdy ch vyplneno jen 12 13 a 23, ostatni nan
            for k = 1:numel(kategories) %oposite order to prealocate the structure
                katnum = cellval(kategories,k); %funkce cellval funguje at je to cell array nebo neni
-               [RespVALS(k).valmax, RespVALS(k).tmax,  RespVALS(k).tfrac, RespVALS(k).tint] = obj.ResponseTriggerTime(val_fraction, int_fraction, katnum, obj.CH.sortorder);                  
+               [RespVALS(k).valmax, RespVALS(k).tmax,  RespVALS(k).tfrac, RespVALS(k).tint, RespVALS(k).len] = obj.ResponseTriggerTime(val_fraction, int_fraction, katnum, obj.CH.sortorder);                  
                for l = k+1 : numel(kategories) %difference between categories
                    katnum2 = cellval(kategories,l);
-                   [RespDiffs(k,l).valmax, RespDiffs(k,l).tmax,  RespDiffs(k,l).tfrac, RespDiffs(k,l).tint] = obj.ResponseTriggerTime(val_fraction, int_fraction, [katnum2 katnum], obj.CH.sortorder);                  
+                   [RespDiffs(k,l).valmax, RespDiffs(k,l).tmax,  RespDiffs(k,l).tfrac, RespDiffs(k,l).tint,RespDiffs(k,l).len] = obj.ResponseTriggerTime(val_fraction, int_fraction, [katnum2 katnum], obj.CH.sortorder);                  
                end
            end
                       
@@ -2178,16 +2180,18 @@ classdef CiEEGData < matlab.mixin.Copyable
                %chci mit kategorie v tabulce vedle sebe, protoze patri k jednomu kanalu. Treba kvuli 2way ANOVA
                for k = 1 : numel(kategories) 
                     katname = obj.PsyData.CategoryName(cellval(kategories,k));
-                    lineIn = [lineIn,{RespVALS(k).valmax(ch), RespVALS(k).tmax(ch), RespVALS(k).tfrac(ch), RespVALS(k).tint(ch), SigTimeBaseline(ch,k)}]; %#ok<AGROW>
+                    lineIn = [lineIn,{RespVALS(k).valmax(ch), RespVALS(k).tmax(ch), RespVALS(k).tfrac(ch), RespVALS(k).tint(ch), RespVALS(k).len(ch), SigTimeBaseline(ch,k)}]; %#ok<AGROW>
                     for l= k+1:numel(kategories)
-                        lineIn = [lineIn,{RespDiffs(k,l).valmax(ch), RespDiffs(k,l).tmax(ch),RespDiffs(k,l).tfrac(ch),RespDiffs(k,l).tint(ch),SigTimeKat(ch,k,l)}];  %#ok<AGROW>
+                        lineIn = [lineIn,{RespDiffs(k,l).valmax(ch), RespDiffs(k,l).tmax(ch),RespDiffs(k,l).tfrac(ch),RespDiffs(k,l).tint(ch),RespDiffs(k,l).len(ch),SigTimeKat(ch,k,l)}];  %#ok<AGROW>
                     end
                     if ch==1
-                        variableNames = [ variableNames, {[katname '_valmax'],[katname '_tmax'],[katname '_t' percent{1}],[katname '_tint' percent{2}], [katname '_tsig']}]; %#ok<AGROW>
+                        variableNames = [ variableNames, {[katname '_valmax'],[katname '_tmax'],[katname '_t' percent{1}],[katname '_tint' percent{2}], ...
+                            [katname '_len'], [katname '_tsig']}]; %#ok<AGROW>
                         for l= k+1:numel(kategories) %casy zacatku rozdilu mezi kategoriemi
                             katname2 = obj.PsyData.CategoryName(cellval(kategories,l));
                             variableNames = [ variableNames, ...
-                                {[katname  'X' katname2 '_valmax'],[katname 'X' katname2 '_tmax'],[katname 'X' katname2 '_t' percent{1}],[katname 'X' katname2 '_tint' percent{2}], [katname 'X' katname2 '_tsig']}]; %#ok<AGROW>
+                                {[katname  'X' katname2 '_valmax'],[katname 'X' katname2 '_tmax'],[katname 'X' katname2 '_t' percent{1}],[katname 'X' katname2 '_tint' percent{2}], ...
+                                [katname 'X' katname2 '_len' ],[katname 'X' katname2 '_tsig']}]; %#ok<AGROW> %len is the length of significance
                         end
                     end                    
                end

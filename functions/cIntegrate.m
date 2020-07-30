@@ -1,4 +1,4 @@
-function t = cIntegrate(time, curve, fraction, normMode, centering,iTime)
+function [t,aint] = cIntegrate(time, curve, fraction, normMode, centering,iTime)
     % Nalezne pozici idx, ve ktere je integral I(0,idx) = fraction*I(0,end)
     % Hleda se integral +curve, nebo -curve v zavislosti na tom, jestli
     % ma krivka vzdalenejsi maximum nebo minimum od hodnoty centering.
@@ -29,7 +29,7 @@ function t = cIntegrate(time, curve, fraction, normMode, centering,iTime)
         curve = curve - min(curve);
     end
     if sum(iTime)>1 %funkce cumtrapz musi mit alespon 2 prvni v array
-        cint = cumtrapz(time(iTime), curve(iTime));    
+        cint = cumtrapz(time(iTime), curve(iTime));   %area under significant parts of the curve 
         idx = find(cint < fraction*cint(end), 1, 'last');
         idx = fiTime(idx);  %z relativnich indexu v ramci iTime udelam absolutni v ramci curve
         if isempty(idx)
@@ -37,7 +37,9 @@ function t = cIntegrate(time, curve, fraction, normMode, centering,iTime)
         else
             t = time(idx);            
         end
+        aint = cint(end); %cint is cummulative vector
     else
+        aint = 0; %area is zero
         t = 0; %nic se nenaslo
     end
 

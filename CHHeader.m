@@ -429,10 +429,11 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
 %         function obj = SaveAUCPlotHandle(obj,fh) 
 %             obj.plotCh2D.plotAUCH = fh; %ulozim handle na CStat.AUCPlot funkci,abych ji mohl volat z grafu ChannelPlot2D
 %         end
-        function tag= PacientTag(obj,ch)
+        function tag= PacientTag(obj,ch,forcecell)
             %returns pacient tag, ie. p73
+            if ~exist('forcecell','var'), forcecell = 0; end %if to return cell array even if there is only one channel
             if strcmp(obj.classname,'CHilbertMulti') && exist('ch','var')
-                if numel(ch)>1  %if list of channels
+                if numel(ch)>1 || forcecell %if list of channels
                     tag = cell(numel(ch),1); %output will be cell array
                     for ich = 1:numel(ch)
                         tag{ich} = obj.PacientTag(ch(ich)); %recursion for one channel only
@@ -1224,7 +1225,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                         end
                         ChCl = obj.clusters(iClSet).idx == iCl; %index of channels in this cluster (from the current cluster set)
                         channelNumbers = obj.clusters(iClSet).channels(ChCl); %absolute channem numbers
-                        pTags = obj.PacientTag(channelNumbers); %pacient name for each channel for this label    
+                        pTags = obj.PacientTag(channelNumbers,1); %pacient name for each channel for this label    
                         mni = [obj.H.channels(channelNumbers).MNI_x;obj.H.channels(channelNumbers).MNI_y;obj.H.channels(channelNumbers).MNI_z]'; %mni coordinates of channels in this cluster
                         strmaxLabels = obj.getMaxLabelsCount(channelNumbers,'maxlabel');                        
                         output(iOutput,1:nVarN0)={ num2str(iClSet), num2str(iCl), clName, ... %'ClusterSet','clusterN','NameofCluster' - we have to convert number to char arrays
