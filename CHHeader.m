@@ -782,29 +782,49 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             obj.plotCh2D.filterargs = struct('chlabels',chlabels,'notchnlabels',notchnlabels,'selCh',selCh, 'chnum',chnum,'label',label); %saves copy of arguments - to be clear how the data were filtered
             notify(obj, 'FilterChanged');
         end
-        function obj = BrainLabelsImport(obj,brainlbs,filename)
+        function obj = BrainLabelsImport(obj,brainlbs,filename,fields)
             %naimportuje cell array do struct array. Hlavne kvuli tomu, ze v cell array nemusi byt vsechny kanaly
             %brainlbs should have four columns -   brainclass, brainlabel, lobe, channelname. If empty, filename is used
             %filename - full name of CHilbertMulti _CiEEG.mat file, from which the labels should be imported according to channel name
+            %field - option to import only specific fiels of source brainlabels, like maxlabel and/or maxNeurologyLabel
             
+            if ~exist('fields','var')
+                fields = []; 
+            else
+                assert(iscell(fields),'fields has to be cellarray with names of brainlabels field');                
+            end            
             if isempty(brainlbs) && exist('filename','var')
                  assert(exist(filename,'file')==2,'soubor filename neexistuje');
                  vars = whos('-file',filename) ;
                  assert(ismember('CH_H', {vars.name}), 'soubor neobsahuje promennou H'); 
                  assert(ismember('CH_brainlabels', {vars.name}), 'soubor neobsahuje promennou brainlabels'); 
                  CH = load(filename,'CH_H','CH_brainlabels'); %nactu do struktury
-                 names = {CH.CH_H.channels.name};
+                 names = {CH.CH_H.channels.name}; %channel names from header of the source file
+                 for f = 1:numel(fields)
+                    if ~isfield(CH.CH_brainlabels,fields{f})
+                        error(['the field does not exists in source brainlabels: ' fields{f}]);
+                    end
+                 end
                  loaded = 0; %pocet nactenych kanalu
                  for ch = 1:numel(obj.H.channels)
-                     idx = find(ismember(names,obj.H.channels(ch).name));
+                     idx = find(ismember(names,obj.H.channels(ch).name));  
                      if ~isempty(idx)
-                        obj.brainlabels(ch).class = CH.CH_brainlabels(idx).class;
-                        obj.brainlabels(ch).label = CH.CH_brainlabels(idx).label;
-                        obj.brainlabels(ch).lobe = CH.CH_brainlabels(idx).lobe;                        
+                        if isempty(fields)
+                            obj.brainlabels(ch).class = CH.CH_brainlabels(idx).class;
+                            obj.brainlabels(ch).label = CH.CH_brainlabels(idx).label;
+                            obj.brainlabels(ch).lobe = CH.CH_brainlabels(idx).lobe;                        
+                        else
+                            for f = 1:numel(fields)
+                                obj.brainlabels(ch).(fields{f}) = CH.CH_brainlabels(idx).(fields{f});
+                            end
+                        end
                         loaded = loaded + 1;                   
-                     end 
-                     obj.brainlabels(ch).name = obj.H.channels(ch).name;
+                     end
+                     if isempty(fields) 
+                        obj.brainlabels(ch).name = obj.H.channels(ch).name; %save channels names from header to brainlabels
+                     end
                  end                 
+                 disp(['imported brainlabels of ' num2str(loaded) '/' num2str(numel(obj.H.channels))  ' channels']);
             else
                 %BL = struct('class',{},'label',{},'lobe',{},'name',{}); %empty struct with 3 fields
                 %imports only selected channel, leaves all other intact
@@ -819,8 +839,9 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                         loaded = loaded + 1;
                     end
                 end    
+                disp(['imported brainlabels of ' num2str(loaded) '/' num2str(size(brainlbs,1))  ' channels']);
             end
-            disp(['imported brainlabels of ' num2str(loaded) '/' num2str(size(brainlbs,1))  ' channels']);
+            
             %we want to have everywhere string, no empty, because of export. So all empty replace with space characted
             BL = obj.brainlabels';
             fields = {'class','label','lobe','name'};
@@ -920,7 +941,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 horzcat({'brainlabel','count','patients','rejected','epichannels'},obj.plotCh2D.selChNames(1:noMarks),selChNamesPac,selChNamesLR) ... %line 2
                 ];
             output = cell(numel(ulabels),size(varnames,2)); %columns label,noChannels, noPacients,noRejected, noChInMarks fghjkl 1-6, noPacInMarks
-            for j = 1:numel(ulabels) %cycle over all brainlabels
+            for j = 1:numel(ulabels) %cycle over all unique brainlabels
                if j < numel(ulabels)
                   chIndex = find(contains(labels,ulabels{j})); %channels with this brain label
                else
@@ -1237,7 +1258,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             if ~isempty(obj.clusters)
                 %table of all channels in the file with info about clusters for each one
                 noMarks = sum(~cellfun(@isempty,obj.plotCh2D.selChNames)); %number of used marks fghjkl
-                varnames ={'ch','name','pacient','RjCh','EpiCh','neurologyLabel','class','label','lobe','MNI_x','MNI_y','MNI_z'};
+                varnames ={'ch','name','pacient','RjCh','EpiCh','neurologyLabel','class','label','lobe','maxNeurologyLabel','maxlabel','MNI_x','MNI_y','MNI_z'};
                 nVarN0 = numel(varnames); %number of varnames before clusters
                 for iClSet = 1:numel(obj.clusters) %for all cluster sets
                     popis = iff(iscell(obj.clusters(iClSet).popis),  obj.clusters(iClSet).popis(1) ,obj.clusters(iClSet).popis);
@@ -1249,15 +1270,18 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 output = cell(numel(obj.H.channels),numel(varnames));
                 clusterNum = obj.getClustersNum(); %numbers of clusters in each cluster set - array
                 clusterMainChannels = nan(sum(clusterNum),2); % channels closest to each cluster centroid, columns: channel number, distance to centroid
+                if ~isempty(obj.brainlabels)                        
+                    labels = {obj.brainlabels.class;obj.brainlabels.label;obj.brainlabels.lobe}';
+                    labels = horzcat(labels,iff(isfield(obj.brainlabels,'maxNeurologyLabel'),{obj.brainlabels.maxNeurologyLabel}' , repmat({''},numel(obj.H.channels,1))));
+                    labels = horzcat(labels,iff(isfield(obj.brainlabels,'maxlabel')         ,{obj.brainlabels.maxlabel}'          , repmat({''},numel(obj.H.channels,1))));
+                else
+                    labels = repmat({''},numel(obj.H.channels),5);
+                end
                 for ch = 1:numel(obj.H.channels)  %cycle over all channels in the file
                     epiCh = max(obj.H.channels(ch).interictalOften,obj.H.channels(ch).seizureOnset); %if the channel is classified as epileptic
                     output(ch,1:6) = {num2str(ch),obj.H.channels(ch).name,obj.PacientTag(ch),num2str(sum(obj.RjCh==ch)),epiCh,obj.H.channels(ch).neurologyLabel};
-                    if isempty(obj.brainlabels)                        
-                        output(ch,7:9) = {'','',''};
-                    else
-                        output(ch,7:9) = {obj.brainlabels(ch).class,obj.brainlabels(ch).label,obj.brainlabels(ch).lobe};
-                    end
-                    output(ch,10:12) = {obj.H.channels(ch).MNI_x,obj.H.channels(ch).MNI_y,obj.H.channels(ch).MNI_z};
+                    output(ch,7:11) = labels(ch,:);
+                    output(ch,12:14) = {obj.H.channels(ch).MNI_x,obj.H.channels(ch).MNI_y,obj.H.channels(ch).MNI_z};
                     for iClSet = 1:numel(obj.clusters) %for all cluster sets
                         ich = obj.clusters(iClSet).channels == ch; %index of this channel in this set of clusters - one number only
                         if sum(ich) > 0
