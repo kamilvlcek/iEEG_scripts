@@ -337,21 +337,61 @@ classdef CBrainPlot < matlab.mixin.Copyable
                 obj.plotBrain3Dcfg.Names = cfg.Names;
             else
                 obj.plotBrain3Dcfg.Names = 1; %defaultne se delaji obrazky s popisem elektrod            
-            end            
+            end   
+            if isstruct(cfg) && isfield(cfg,'colorScale')
+                obj.plotBrain3Dcfg.colorScale = cfg.colorScale;            
+            end   
            %barevna skala od Nadi
+           %default colors
+            redscale = [162 2 2; 246 203 203 ];  %dark red %light red
+            greenscale = [0 153 0;212 255 171];  %dark green %light green
+            bluescale = [0 0 153; 0 153 255]; %dark blue light blue
             obj.plotBrain3Dcfg.customColors.customColor = true; % custom colormap oddeli negativne a pozitivne hodnoty - 29.6.2018
             obj.plotBrain3Dcfg.customColors.flip = 0; %pokud chci prehodit barvy
-            obj.plotBrain3Dcfg.customColors.darkneg = [0 153 0]; %dark green
-            obj.plotBrain3Dcfg.customColors.lightneg = [212 255 171]; %light green
+            obj.plotBrain3Dcfg.customColors.darkneg = greenscale(1,:); %dark green
+            obj.plotBrain3Dcfg.customColors.lightneg = greenscale(2,:); %light green  
             
-            %obj.plotBrain3Dcfg.customColors.lightpos = [246 203 203]; %light red
-            %obj.plotBrain3Dcfg.customColors.darkpos = [162 2 2]; %dark red
+            %obj.plotBrain3Dcfg.customColors.lightpos = redscale(1,:); %dark red
+            %obj.plotBrain3Dcfg.customColors.darkpos = redscale(2,:); %light red  
             
-            obj.plotBrain3Dcfg.customColors.darkpos = [0 0 153]; %dark blue
-            obj.plotBrain3Dcfg.customColors.lightpos = [0 153 255]; %light red
+            obj.plotBrain3Dcfg.customColors.darkpos = bluescale(1,:); %dark blue
+            obj.plotBrain3Dcfg.customColors.lightpos = bluescale(2,:); %light red 
             obj.plotBrain3Dcfg.customColors.zeroclr = [0 0 0]; %the color of zero values 
-            
             obj.plotBrain3Dcfg.customColors.supermaxcolor = [192 192 192]; %the color of custom value
+            
+            %we can optionally overwrite the default values
+
+            if isstruct(cfg) && isfield(cfg,'Colors')
+                if isfield(cfg.Colors,'pos')
+                    switch cfg.Colors.pos
+                        case 'r'
+                            obj.plotBrain3Dcfg.customColors.darkpos = redscale(1,:); %dark red
+                            obj.plotBrain3Dcfg.customColors.lightpos = redscale(2,:); %light red 
+                        case 'g'
+                            obj.plotBrain3Dcfg.customColors.darkpos = greenscale(1,:); %dark green
+                            obj.plotBrain3Dcfg.customColors.lightpos = greenscale(2,:); %light green 
+                        case 'b'
+                            obj.plotBrain3Dcfg.customColors.darkpos = bluescale(1,:); %dark blue
+                            obj.plotBrain3Dcfg.customColors.lightpos = bluescale(2,:); %light red 
+                    end
+                end
+                if isfield(cfg.Colors,'neg')
+                    switch cfg.Colors.neg
+                        case 'r'
+                            obj.plotBrain3Dcfg.customColors.darkneg = redscale(1,:); %dark blue
+                            obj.plotBrain3Dcfg.customColors.lightneg = redscale(2,:); %light red 
+                        case 'g'
+                            obj.plotBrain3Dcfg.customColors.darkneg = greenscale(1,:); %dark blue
+                            obj.plotBrain3Dcfg.customColors.lightneg = greenscale(2,:); %light red 
+                        case 'b'
+                            obj.plotBrain3Dcfg.customColors.darkneg = bluescale(1,:); %dark blue
+                            obj.plotBrain3Dcfg.customColors.lightneg = bluescale(2,:); %light red 
+                    end
+                end 
+                if isfield(cfg.Colors,'zero')
+                    obj.plotBrain3Dcfg.customColors.zeroclr = cfg.Colors.zero; %the color of zero values 
+                end 
+            end
             
         end
         function PlotBrain3D(obj,kategorie)
@@ -377,7 +417,8 @@ classdef CBrainPlot < matlab.mixin.Copyable
             plotSetup.FontSize = 4; 
             plotSetup.myColorMap = iff(signum ~= 0,parula(128) ,jet(128));  %#ok<PROPLC>  %pokud jednostrane rozdily, chci parula
             
-            plotSetup.customColors = obj.plotBrain3Dcfg.customColors; %barevna skala od Nadi        
+            plotSetup.customColors = obj.plotBrain3Dcfg.customColors; %barevna skala od Nadi       
+            plotSetup.colorScale = obj.plotBrain3Dcfg.colorScale; %custom range to be plotted
             plotSetup.figureNamePrefix = [ obj.testname '_' num2str(obj.Hf([1 end]),'%i-%iHz') '_' obj.reference '_names']; %default name
             if strcmp(plotSetup.figureVisible,'off')
                 disp('figures invisible');
@@ -402,13 +443,14 @@ classdef CBrainPlot < matlab.mixin.Copyable
                     if VSum >0 %if anny channels to plot across all categories
                         
                         %1. fill the data for one JPG pictures
-                        VALS_channels = zeros(VSum,1);
+                        VALS_channels = zeros(VSum,1); %will containt all vals_channels together
                         MNI_channels = struct('MNI_x',{},'MNI_y',{},'MNI_z',{});
                         MNI_channels(VSum,1).MNI_x = 0; %inicializa the whole struct
                         
                         NAMES_channels = cell(VSum,1);
                         iVALS = 1;
                         katikat = cellval(kategorie,ikat); %index of internal category - plotted to the same figure
+                        if isnumeric(katikat), katikat = num2cell(katikat); end                        
                         for ikat2=1:numel(katikat) %cycle over categories plotted to the same jpg
                             kat = cellval(katikat,ikat2);                              
                             ValsNegative = false;                            
@@ -449,7 +491,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
                                     vals_channels = vals_channels*-1; 
                                 elseif plotSetup.customColors.SuperMax
                                     vals_channels = ones(size(vals_channels))*max(max(vals_channels),max(VALS_channels))*1.01; %1 percent larger value, % the string kat has to be the last one in kategorie
-                                    plotSetup.colorScale = [min(VALS_channels) max(VALS_channels)]; %range of values without this supermax value
+                                    plotSetup.colorScale = [min(VALS_channels) max(VALS_channels)]; %range of values without this supermax value - all values until now
                                 end 
                                 mni_channels = obj.MNI{interval,kat}(iV);                                                                                                 
                                 names_channels = iff(obj.plotBrain3Dcfg.NLabels, obj.NLabels{interval,kat}(iV), obj.NAMES{interval,kat}(iV));                        
@@ -474,8 +516,11 @@ classdef CBrainPlot < matlab.mixin.Copyable
                         
                         %2. plot the JPGs
                             %without channel description
-                            if isempty(plotSetup.colorScale) %force range of values to main_brainPlot
+                            if ~isfield(plotSetup,'colorScale') || isempty(plotSetup.colorScale) %force range of values to main_brainPlot
                                 plotSetup.colorScale = [min(VALS_channels) max(VALS_channels)];
+                            elseif ~plotSetup.customColors.SuperMax
+                                VALS_channels(VALS_channels < plotSetup.colorScale(1)) = plotSetup.colorScale(1);
+                                VALS_channels(VALS_channels > plotSetup.colorScale(2)) = plotSetup.colorScale(2);                                    
                             end
                             if obj.plotBrain3Dcfg.NoNames 
                                 if  isempty(dir([ plotSetup.outputDir '3D_model\' figureNameNoNames '*'])) || obj.plotBrain3Dcfg.overwrite==1 
@@ -808,7 +853,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
                         else
                             iV{ikat2} = true(size(obj.VALS{interval,kat})); %vsechny rozdily
                         end
-                        if ~strcmp(obj.katstr{kat},'AllEl') %nechci to pro kategorii vsech elektrod
+                        if ~strcmp(obj.katstr{kat},'AllEl') %nechci xls rows pro kategorii vsech elektrod
                             tablerows = tablerows +  sum(iV{ikat2});
                         end
                         VALS_rows(interval,ikat) = VALS_rows(interval,ikat) + sum(iV{ikat2});

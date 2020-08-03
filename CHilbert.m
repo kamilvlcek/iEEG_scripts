@@ -559,7 +559,8 @@ classdef CHilbert < CiEEGData
                     else
                         BPD.EPI{int,kat} = struct('seizureOnset',{nan(numel(ich),1)},'interictalOften',{nan(numel(ich),1)},'rejected',{nan(numel(ich),1)});
                     end
-                    if isprop(obj,'plotRCh')  && isfield(obj.plotRCh,'selCh') && sum(sum(obj.plotRCh.selCh))>0
+                    if isprop(obj,'plotRCh') && isfield(obj.plotRCh,'selCh') && sum(sum(obj.plotRCh.selCh))>0 ...
+                            && ~strcmp(katsnames{kat},'AllEl') %if it is not all channels category
                         BPD.selCh{int,kat} = obj.plotRCh.selCh(ich,:); %novy format z 22.8.2018 - kanaly x marks
                     else
                         BPD.selCh{int,kat} = true(sum(ich),6);
