@@ -61,17 +61,15 @@ classdef CPlots < matlab.mixin.Copyable
                         
             
             if strcmp(labels{1},'nrj') %plot the labels saved in CM.CH.channelPlot.plotCh3D.brainlabelColors
-                [labels,barvy]=obj.GetBrainlabelsSaved();
+                [labels,barvy]=obj.Eh.CH.channelPlot.GetBrainlabelsSaved();
                 figuretitle = [figuretitle ' - ' obj.Eh.PsyData.CategoryName(kategories(1))];
             elseif ~strcmp(labels{1},'no') %plotting individual labels
                 barvy = distinguishable_colors(numel(labels));               
                 figuretitle = [figuretitle ' - ' obj.Eh.PsyData.CategoryName(kategories(1))];
             else %plotting categories
                 barvy = cell2mat(obj.Eh.colorskat(1:end)'); %from cell array of rgb to matrix
-            end
-            HSV = rgb2hsv(barvy);
-            HSV(:,2) = 0.15; %decrease saturation for error bands
-            colorsErrorBars = hsv2rgb(HSV); % barvycellfun(@(a) min(a+hue, 1), barvy, 'UniformOutput', false);
+            end            
+            colorsErrorBars = GetColorsErrorBars(barvy); 
 
             katlinewidth = 2;
             if isfield(obj.PlotRChMean,'fh') && (verLessThan('matlab','9.0') || isvalid(obj.PlotRChMean.fh)) %isvalid je od verze 2016
@@ -550,7 +548,7 @@ classdef CPlots < matlab.mixin.Copyable
                 legendStr = cell(1,numel(kats)); 
                 
                 if isfield(store,'colors') && strcmp(store.colors, 'nrj') %if to use colors from CM.CH.channelPlot.plotCh3D.brainlabelColors 
-                    [brainlabels,labels_barvy] = obj.GetBrainlabelsSaved();
+                    [brainlabels,labels_barvy] = obj.Eh.CH.channelPlot.GetBrainlabelsSaved();
                     barvy = zeros(numel(kats),3);
                 elseif size(datan,1)==1
                     barvy = cell2mat(obj.Eh.colorskat(2:end)');
@@ -590,14 +588,7 @@ classdef CPlots < matlab.mixin.Copyable
                 chshowstr = {cell2str(obj.plotTimeInt.data(idata1).legendStr(store.kat)) ['mark=' cell2str(store.mark) ] }; %assumes same category accross data fields                   
             end
             
-        end
-        function [labels,barvy]=GetBrainlabelsSaved(obj)
-            order = [obj.Eh.CH.channelPlot.plotCh3D.brainlabelColors.n];
-            [~,idx] = sort(order);
-            labels = {obj.Eh.CH.channelPlot.plotCh3D.brainlabelColors(idx).label}; %in the correct order
-            barvy = vertcat(obj.Eh.CH.channelPlot.plotCh3D.brainlabelColors(idx).color);
-        end
-        
+        end        
         function filterChangedCallbackPlotResponseChMean(obj,~,~)   %update chart if the filter is changed         
             if isfield(obj.PlotRChMean,'fh') && ishandle(obj.PlotRChMean.fh)
                 %only if the PlotRChMean plot is shown
@@ -697,7 +688,11 @@ classdef CPlots < matlab.mixin.Copyable
             ylim([-2 2]);
             fprintf('Art: %f +- %f, Nat %f +- %f\n',amean,aerr,nmean,nerr);
         end
-
+        function colorsErrorBars = GetColorsErrorBars(barvy)
+            HSV = rgb2hsv(barvy);
+            HSV(:,2) = 0.15; %decrease saturation for error bands
+            colorsErrorBars = hsv2rgb(HSV); % barvycellfun(@(a) min(a+hue, 1), barvy, 'UniformOutput', false);
+        end
     end
     
 end

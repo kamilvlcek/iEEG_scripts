@@ -291,6 +291,18 @@ classdef ChannelPlot < matlab.mixin.Copyable
           end
            obj.plotCh3D.ch_highlighted = ch;
         end
+        function [labels,barvy]=GetBrainlabelsSaved(obj)
+            %return saved brainlabels ordering and colors, created in colors4ChannelPlot 
+            if isfield(obj.plotCh3D,'brainlabelColors') && ~isempty(obj.plotCh3D.brainlabelColors)
+                order = [obj.plotCh3D.brainlabelColors.n];
+                [~,idx] = sort(order);
+                labels = {obj.plotCh3D.brainlabelColors(idx).label}; %in the correct order
+                barvy = vertcat(obj.plotCh3D.brainlabelColors(idx).color);
+            else
+                labels = {};
+                barvy = [];
+            end
+        end
     end
     methods  (Access = private)
         function PlotClusters(obj,clrs)
