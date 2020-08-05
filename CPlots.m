@@ -245,7 +245,7 @@ classdef CPlots < matlab.mixin.Copyable
             if exist('store','var') && ~isempty(store) && isstruct(store)  %store or retrieve the to be plotted data  
                 [vch,kats,chanMeans,legendStr,chshowstr,ylimits,barvy]=obj.TimeIntervalsStore(store,vch,kats,chanMeans,legendStr,chshowstr,ylimits,intervals);
             else
-                store = [];
+                store = struct();
             end
             
             
@@ -291,22 +291,37 @@ classdef CPlots < matlab.mixin.Copyable
             
             ploth = zeros(1,numel(kats)); % handles of plots for legend                        
             if numel(kats)>3                 
-                if ~exist('barvy','var') %in not set inside TimeIntervalsStore            
+                if ~exist('barvy','var') %if not set inside TimeIntervalsStore            
                     barvy = distinguishable_colors(numel(kats));                
                 end
             else
                 barvy = cell2mat(obj.Eh.colorskat(2:end)');
             end
+            if isfield(store,'style') %possibility to set style of the line, including markers
+                %as a field inside the store variable. If store.kat and store.store is not set, the store.style can be the only function of store
+                if ~iscell(store.style)  %if only string is given
+                    store.style = {store.style};
+                end %if store.style is cell array, it should be entered with double brackets. e.g. 'style',{{'-d',':d'}}
+                if numel(store.style)<numel(kats)
+                    style = repmat(store.style,numel(kats),1); %repeat the style for each category
+                else
+                    style = store.style; 
+                end
+            else
+                style = repmat({'-'},numel(kats),1); %default style with just a line, no markers
+            end
+               
             for k=1:numel(kats)
                 hold on
                 errorbar(intervals(:, 2),M(:,k),E(:,k),'.','Color', barvy(kats(k),:)); % plot errors
                 hold on;
-                h_mean = plot(intervals(:, 2), M(:,k),'LineWidth',2,'Color',barvy(kats(k),:)); % plot means
+                h_mean = plot(intervals(:, 2), M(:,k),style{k},'LineWidth',2,'Color',barvy(kats(k),:),'MarkerSize',10,'MarkerFaceColor', barvy(kats(k),:)); % plot means %'none'
                 ploth(k) = h_mean; % plot handle                
             end
-            if numel(kats)==2
+            if numel(kats)==2 && (~isfield(store,'stat') || store.stat ~= 0) %for just two categoires, plot nonparametric paired fdr corrected statistics
+                %if store.stat ==0 , no stars for statistics are ploted
                 paired = 1; %paired
-                fdrlevel= 1;
+                fdrlevel= 1; %actually ANOVA would be better, with more standard results
                 if ~isempty(ylimits) 
                     y = ylimits(1)*0.8;
                 else

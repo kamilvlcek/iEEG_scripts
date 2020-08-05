@@ -311,7 +311,7 @@ classdef CStat < handle
                     ich = contains(labels,ulabels{j});
                     if sum(ich)>0
                         M = mean(AUCData(:,1,ich),3);
-                        E = std(AUCData(:,1,ich),[],3)/sqrt(sum(ich)); %std err of mean
+                        E = std(AUCData(:,1,ich),[],3)/sqrt(sum(ich)); %std err of mean                        
                         ciplot(M+E, M-E, T,colorsErrorBars(j,:) ); %colorkatk(2,:)
                         %plotband(T, M, E, colorsErrorBars(j,:)); %nejlepsi, je pruhledny, ale nejde kopirovat do corelu
                         hold on;
@@ -560,32 +560,39 @@ classdef CStat < handle
             if ~exist('print','var'), print = 0; end
             if ~exist('fdr','var') || isempty(fdr), fdr = 1; end %min striktni je default           
             if ~exist('msg','var') || isempty(msg), msg = ''; end
+            if size(A,3)==1 %if there are only two dimension of A
+                A = reshape(A,size(A,1),1,[]); %assume that samples are in the second dimension and make it the third dimesions
+            end            
             if ~exist('RjEpChA','var') || isempty(RjEpChA), RjEpChA = false(size(A,2),size(A,3)); end
             if ~exist('RjEpChB','var') || isempty(RjEpChB), RjEpChB = false(size(B,2),size(B,3)); end
-            if ~exist('paired','var'), paired = 0; end %pokud se ma pouzit parovy neparametricky test, defaulte ne
+            if ~exist('paired','var')
+                paired = iff(numel(B)==1,1,0);  %automatically paired, when B is single value
+            end %pokud se ma pouzit parovy neparametricky test, defaulte ne            
             W = zeros(size(A,1),size(A,2));
-           
+            
             if print, fprintf(['Wilcox Test 2D - ' msg ' (' num2str(size(A)) '): ']); end
             for j = 1:size(A,1) % napr cas
                 if print && mod(j,50)==0, fprintf('%d ', j); end %tisknu jen cele padesatky
                 for k = 1:size(A,2) %napr kanaly   
                    if paired %pri parovem testu musim porovnavat stejny kanal, takze musi vyradit epochy parove
                        RjEpChA_k = RjEpChA(k,:) | RjEpChB(k,:); %binarni OR
-                       RjEpChB_k = RjEpChA(k,:) | RjEpChB(k,:);
+                       RjEpChB_k = iff(numel(RjEpChB)>1,RjEpChA(k,:) | RjEpChB(k,:),0);
                    else
                        RjEpChA_k = RjEpChA(k,:);
                        RjEpChB_k = RjEpChB(k,:);
                    end    
                    aa = squeeze (A(j,k,~RjEpChA_k)); %jen nevyrazene epochy 
                    bb = squeeze (B( min(j,size(B,1)) , min(k,size(B,2)) , ~RjEpChB_k )); %jen nevyrazene epochy
-                   if numel(aa) >= 2 && numel(bb) >= 2 
-                      if paired
+                   if numel(aa) >= 2 
+                      if paired %the signed rank with a single value bb is one-sample test against this value
                         W(j,k) = signrank(aa,bb); %  Wilcoxon signed rank test  paired, two-sided , Statistics and Machine Learning Toolbox  
-                      else
+                      elseif numel(bb) >= 2  %randsum need two sample vectorss
                         W(j,k) = ranksum(aa,bb); % Wilcoxon rank sum test, non-paired, Statistics and Machine Learning Toolbox
+                      else
+                          W(j,k) = 1; %if only one bb for nonpaired,, no stats can be computed
                       end
                    else
-                      W(j,k) = 1; %pokud jen jedna hodnota, nelze delat statistika
+                      W(j,k) = 1; %if only one aa value, no stats can be computed
                    end
                 end
             end
@@ -656,7 +663,6 @@ classdef CStat < handle
                 end
             end
         end
-        
         function N = round(n,dig)
             %zakrouhuje na dany pocet desetinnych mist
             N = round(n * 10^dig) / 10 ^ dig;
@@ -692,7 +698,6 @@ classdef CStat < handle
             fft_d_abs = 10*log10(pxx);
             end
         end
-            
         function [filter_result] = FIR(freq,dd,fs,firtype)
             %[filter_result] = FIR(freq,dd,fs) 
             % provede FIR filter podle Cohen Ch 14.  
@@ -731,7 +736,6 @@ classdef CStat < handle
             filter_result = filtfilt(filterweights,1,dd);
             
         end
-        
         function [AUC,X,Y] = ROCKrivka(epochData,dd,katnames,kresli)
             %11/2018 - spocita a vykresli roc krivku
             %epochData - cellarray z CiEEGData
@@ -781,7 +785,6 @@ classdef CStat < handle
                 end
             end
         end
-        
         function ci = AUCconfI(auc,n,p)
             % http://www.real-statistics.com/descriptive-statistics/roc-curve-classification-table/auc-confidence-interval/
             %n jsou velikosti dvou vzorku
@@ -794,7 +797,6 @@ classdef CStat < handle
             zcrit = norminv(1-p/2); %two tailed z critical value from p value
             ci = [auc - se*zcrit , auc + se*zcrit];
         end
-        
         function [timeB,timeK]=StatDiffStart(channels,Wp,kategories,plevel,maintain)  
             %vraci casy zacatku signifikantnich rozdilu vuci baseline a kategorii vuci sobe
             %nezohlednuje smer rozdilu, signum, jako ktere se pouziva treba v CiEEGData.SelChannelStat
