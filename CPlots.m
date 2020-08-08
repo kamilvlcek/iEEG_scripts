@@ -69,7 +69,7 @@ classdef CPlots < matlab.mixin.Copyable
             else %plotting categories
                 barvy = cell2mat(obj.Eh.colorskat(1:end)'); %from cell array of rgb to matrix
             end            
-            colorsErrorBars = GetColorsErrorBars(barvy); 
+            colorsErrorBars = obj.GetColorsErrorBars(barvy); 
 
             katlinewidth = 2;
             if isfield(obj.PlotRChMean,'fh') && (verLessThan('matlab','9.0') || isvalid(obj.PlotRChMean.fh)) %isvalid je od verze 2016
@@ -196,7 +196,9 @@ classdef CPlots < matlab.mixin.Copyable
             else
                 kats = obj.Eh.Wp(obj.WpActive).kats; % define categories
             end
-            
+            if ~isfield(obj.plotTimeInt,'outputstyle')
+                obj.plotTimeInt.outputstyle = 0; %stores the default value, which can be than changed in var editor
+            end
             % initialize matrix for all channels
             chanMeans = zeros (size(intervals,1), numel(kats), length(vch)); % intervals x kats x channels  -  for statistica - all time intervals and category in columns
             
@@ -282,21 +284,30 @@ classdef CPlots < matlab.mixin.Copyable
                 end
                 M=MOverChan; %set variable to be plotted - means
                 E=EOverChan; %set variable to be plotted - errorbars
+                if obj.plotTimeInt.outputstyle
+                    M = M*100; %in percent
+                    E = E*100;
+                end
                 if numel(chshowstr)==2
-                    title(vertcat( [num2str(length(vch)) ' channels: ' chshowstr{1}] , chshowstr(2) )); %title for multiple channels
+                    if obj.plotTimeInt.outputstyle 
+                        title({' '}); %no title but empty lines
+                    else
+                        title(vertcat( [num2str(length(vch)) ' channels: ' chshowstr{1}] , chshowstr(2) )); %title for multiple channels
+                    end
                 else
                     title( [num2str(length(vch)) ' channels: ' chshowstr] );
                 end
             end            
             
             ploth = zeros(1,numel(kats)); % handles of plots for legend                        
-            if numel(kats)>3                 
-                if ~exist('barvy','var') %if not set inside TimeIntervalsStore            
+            if ~exist('barvy','var') %if not set inside TimeIntervalsStore  
+                if numel(kats)>3                                           
                     barvy = distinguishable_colors(numel(kats));                
+                else
+                    barvy = cell2mat(obj.Eh.colorskat(2:end)');
                 end
-            else
-                barvy = cell2mat(obj.Eh.colorskat(2:end)');
             end
+            
             if isfield(store,'style') %possibility to set style of the line, including markers
                 %as a field inside the store variable. If store.kat and store.store is not set, the store.style can be the only function of store
                 if ~iscell(store.style)  %if only string is given
@@ -313,7 +324,7 @@ classdef CPlots < matlab.mixin.Copyable
                
             for k=1:numel(kats)
                 hold on
-                errorbar(intervals(:, 2),M(:,k),E(:,k),'.','Color', barvy(kats(k),:)); % plot errors
+                errorbar(intervals(:, 2),M(:,k),E(:,k),'.','LineWidth',2,'Color', barvy(kats(k),:)); % plot errors
                 hold on;
                 h_mean = plot(intervals(:, 2), M(:,k),style{k},'LineWidth',2,'Color',barvy(kats(k),:),'MarkerSize',10,'MarkerFaceColor', barvy(kats(k),:)); % plot means %'none'
                 ploth(k) = h_mean; % plot handle                
@@ -331,13 +342,28 @@ classdef CPlots < matlab.mixin.Copyable
                 iWp = Wp <= 0.05;
                 plot(intervals(iWp, 2),ones(1,sum(iWp))*y, '*','Color','red'); %stars
             end
-            legend(ploth,legendStr,'Location','best');
+            if ~isempty(ylimits), ylim(ylimits); end
             xlim([intervals(1,2)-.05, max(max(intervals))+.05]);
             xticks([intervals(1, 1) (intervals( : , 2))'])
-            txtinterv = num2str(intervals,'%.1f-%.1f');
+            if obj.plotTimeInt.outputstyle %for output style very simple x tickmarks
+                txtinterv = num2str(intervals(:,2),'%0.1f'); %%.1f-%.1f %only higher parts of intervals
+                txtinterv = char(strrep(cellstr(txtinterv),'0.','.')); %delete zeros before dot
+                %txtinterv = horzcat(repmat(' ',size(txtinterv,1),15),txtinterv); %move ticklabels a bit right by preceding spaces
+                yticks(0 : 20 : ylimits(2)); %ticks only 
+            else
+                txtinterv = num2str(intervals,'%.1f-%.1f'); 
+            end
             xticklabels({'0', txtinterv(1:end, :)})            
-            xlabel('time intervals, s');
-            if ~isempty(ylimits), ylim(ylimits); end
+            
+            if ~obj.plotTimeInt.outputstyle %for output style no legend and no xlabel
+                xlabel('time intervals, s');
+                legend(ploth,legendStr,'Location','best'); 
+            else
+                set(obj.plotTimeInt.fh,'Name',['TimeIntevals - ',cell2str(legendStr)]) %change the figure window title 
+                set(gca,'linewidth',2)
+                set(gca,'FontSize',24)
+            end
+            
             if ~isfield(obj.plotTimeInt,'filterListener') || isempty(obj.plotTimeInt.filterListener) %function to be calle when event CHHeader.FilterChanged happens
                 obj.plotTimeInt.filterListener = addlistener(obj.Eh.CH, 'FilterChanged', @obj.filterChangedCallbackTimeIntervals);
             end
@@ -347,7 +373,7 @@ classdef CPlots < matlab.mixin.Copyable
                 obj.TimeIntervals2XLS(vch,kats , legendStr, intervals, chanMeans,chshowstr, categories, allmeans);
             end
         end
-        function TimeIntervalsColect(obj,marks,labels)
+        function TimeIntervalsColect(obj,marks,labels,labelsAreCluster)
             %collects data using TimeIntervals from multiple filter settings
             %marks is cell array with two columns: 1. no of marking sets 2. markings one of fghjkl. e.g. marks = {1,1,1,2,2,2;'','j','k','j','k','l'}';
             %labels is cell array of brain labels, filtered by label = '' ; if empty, uses stored labels   in channelPlot.plotCh3D.brainlabelColors         
@@ -358,6 +384,9 @@ classdef CPlots < matlab.mixin.Copyable
                 obj.plotTimeInt.data = struct; %clear all stored data
                 disp('all TimeIntervals data cleared');
                 return;
+            end
+            if ~exist('labelsAreCluster','var')
+                labelsAreCluster = 0; %if labelsAreCluster==1, the labels var contains names of clusters
             end
             if exist('marks','var')
                 obj.plotTimeInt.nosinglechannel = 1; %to not use the special code for single channel plot
@@ -371,7 +400,8 @@ classdef CPlots < matlab.mixin.Copyable
                         else
                             markname = [];
                         end
-                        obj.Eh.CH.FilterChannels({'label',labels{l}},{},[marks{m,2} 'n']);
+                        labelflag = iff(labelsAreCluster,'cluster','label'); %filter labels or clusters? even clusters names are stored under labels column in data
+                        obj.Eh.CH.FilterChannels({labelflag,labels{l}},{},[marks{m,2} 'n']);
                         obj.TimeIntervals([],[],[],1,struct('store',1,'label',labels{l},'mark',markname));
                     end
                 end            
@@ -565,8 +595,11 @@ classdef CPlots < matlab.mixin.Copyable
                 if isfield(store,'colors') && strcmp(store.colors, 'nrj') %if to use colors from CM.CH.channelPlot.plotCh3D.brainlabelColors 
                     [brainlabels,labels_barvy] = obj.Eh.CH.channelPlot.GetBrainlabelsSaved();
                     barvy = zeros(numel(kats),3);
+                elseif isfield(obj.plotTimeInt,'colorskat')
+                    barvy = obj.plotTimeInt.colorskat; %preferentially load previously stored and maybe modified colors
                 elseif size(datan,1)==1
                     barvy = cell2mat(obj.Eh.colorskat(2:end)');
+                    obj.plotTimeInt.colorskat = barvy; %store colors so that they can be modified in var editor
                 else
                     barvy = distinguishable_colors(numel(kats));
                 end
