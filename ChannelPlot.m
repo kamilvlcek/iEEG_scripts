@@ -323,10 +323,19 @@ classdef ChannelPlot < matlab.mixin.Copyable
                 else
                     clusternames = cellstr(horzcat( num2str((1:nClusters)')));
                 end
-                text(C(:,1)+5,C(:,2)+5,C(:,3)+5, clusternames,'FontSize',11,'FontWeight','bold');
+                
                 hold on
                 plot3(-C(:,1),C(:,2),C(:,3),'kx','MarkerSize',20,'LineWidth',3,'Color', clustercolor ); %clusters on left side
-                text(-C(:,1)+5,C(:,2)+5,C(:,3)+5, clusternames,'FontSize',11,'FontWeight','bold');
+                if isfield(obj.CH.clusters,'colors') && size(obj.CH.clusters(iCluster).colors,1)==size(obj.CH.clusters(iCluster).C,1)
+                    barvy = obj.CH.clusters(iCluster).colors/255;  % selected rgb colors, saved as 0-255, here we need 0-1                        
+                    for ic =1:numel(clusternames)
+                        text(-C(ic,1)+5,C(ic,2)+5,C(ic,3)+5, clusternames{ic},'FontSize',11,'FontWeight','bold','Color',barvy(ic,:));
+                        text(C(ic,1)+5,C(ic,2)+5,C(ic,3)+5, clusternames{ic},'FontSize',11,'FontWeight','bold','Color',barvy(ic,:));
+                    end
+                else
+                    text(-C(:,1)+5,C(:,2)+5,C(:,3)+5, clusternames,'FontSize',11,'FontWeight','bold');
+                    text(C(:,1)+5,C(:,2)+5,C(:,3)+5, clusternames,'FontSize',11,'FontWeight','bold');
+                end
             end           
             
             %older plotting of complex hull
