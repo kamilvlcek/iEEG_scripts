@@ -1786,7 +1786,134 @@ classdef CiEEGData < matlab.mixin.Copyable
             %  nofile - if 1, do not save any xls file, only plot figure
             obj.PL.TimeIntervals(varargin{:});  %the function moved to CPlots, this is a shortcut to call the moved function          
         end
+        function obj = GetCorrelChan(obj,nofile) % Sofiia since 11.2020
+            % find channels in which neural response is correlated with response time of patient (to be excluded from the further analysis)
+            % correlation between t of max response and patient's RT in all channels are saved in CM.CH.correlChan (struct array)
+            % nofile - if 0, saves the xls file with correlation coeff, pvalue, name of channel, patient
+            
+            assert(obj.epochs > 1,'only for epoched data');
+            if ~exist('nofile','var'), nofile = 0; end % save the xls table by default
+            
+            % time points in sec
+            T = (0 : 1/obj.fs : (size(obj.d,1)-1)/obj.fs)' + obj.epochtime(1); 
+            
+            % initialize cell aray: n channel,patient,name of channel,neurology label, r coeffic, pvalue, correl (0/1)
+            output = cell(size(obj.d,2),7);
+            
+            chanSwitch = 1;
+            for pati = 1:obj.PsyData.nS % over each patient
+                RT = obj.PsyData.Pmulti(pati).data(: , 4); % get RT for one patient (all trials)
+                correctInd = logical(obj.PsyData.Pmulti(pati).data(: , 3)); % indexes of correct trials
+                correctRT = RT(correctInd); % get RT only for correct trials
+                
+                for chanpi = chanSwitch : obj.els(pati)   % for channels of one patient 
+                    maxTrials = zeros (size(obj.d,3),1); % initialize matrix for all trials
+                    iNoMax = T<0.05;  % true max resp can't be in time less that 0.05 sec
+                    
+                    for triali = 1:size(obj.d,3)  % over all trials
+                        d = squeeze(obj.d(: , chanpi, triali)); % CM.d - time points x channels x trials (128 x 424 x 384)
+                        d(iNoMax)=0;   % replace values before 0.05 sec by 0 - to avoid finding max here
+                        [~, iMax] = max(d);   % index of max response over time     
+                        
+                        %[~, ~, ind] = cMax(d, 0.9);  % to get index of 90% of max response
+                        % for individual trials this methd doesn't suit well
+                        
+                        tMaxResp = T(iMax); % time of max response
+                        maxTrials(triali) = tMaxResp;  % put it in matrix for all trials
+                    end
+                    correctmaxTrials = maxTrials(correctInd); % time of max response only for correct trials
+                    [rho,pval] = corr(correctmaxTrials, correctRT,'Type', 'Spearman'); % the use of Spearman's correlation minimizes the impact of potential outliers 
+                    
+                    if pval<0.01 && rho>=0.25, correlCh = 1; else, correlCh = 0; end % weak-to-moderate correlation
+                    
+                    % put everything in cell array for the futher export
+                    output{chanpi,1} = chanpi;  % n of channel
+                    output{chanpi,2} = obj.PsyData.Pmulti(pati).pacientid;  % name of patient
+                    output{chanpi,3} = obj.CH.H.channels(chanpi).name; % name of channel 
+                    output{chanpi,4} = obj.CH.H.channels(chanpi).neurologyLabel; % neurology label of channel
+                    output{chanpi,5} = rho;
+                    output{chanpi,6} = pval;
+                    output{chanpi,7} = correlCh; % correlated activity with RT 
+                    
+                    % create structure in CM.CH
+                    obj.CH.correlChan(chanpi).name = output{chanpi,3};
+                    obj.CH.correlChan(chanpi).rho = output{chanpi,5};
+                    obj.CH.correlChan(chanpi).pval = output{chanpi,6}; 
+                    obj.CH.correlChan(chanpi).correl = output{chanpi,7};
+                end
+                chanSwitch = obj.els(pati)+1; % switch to channels of the next patient               
+            end
+            
+            if nofile == 0  % export xls table 
+                variableNames = {'channel' 'pacient' 'channelName' 'neurologyLabel' 'rho' 'p-value' 'correlated'};
+                assert(~isempty(obj.hfilename),'the object is not saved, please save the object first');
+                [~,mfilename,~] = fileparts(obj.hfilename); %hfilename se naplni az pri ulozeni objektu
+                mfilename = strrep(mfilename, ' ', '_');
+                logfilename = ['CorrelChan_' mfilename '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') ];
+                xlsfilename = fullfile('logs', [logfilename '.xls']);
+                xlswrite(xlsfilename ,vertcat(variableNames,output)); % write to xls file
+                disp(['xls table ' xlsfilename ' was exported']);
+            end            
+        end
         
+        function obj = PlotCorrelChan(obj,ch) % Sofiia since 11.2020
+            % creates scatterplot between t of max neural response and
+            % patient's RT for one specific channel across all trials
+            
+            assert(obj.epochs > 1,'only for epoched data');
+            if ~exist('ch','var'), ch = obj.CH.sortorder(1); end
+            
+            % return the name of the patient of this channel
+            patId = obj.CH.PacientTag(ch);
+            
+            % find index of that patient in PsyData
+            indP = find(strcmp(patId, {obj.PsyData.Pmulti.pacientid}));
+            
+            % get his RT
+            RT = obj.PsyData.Pmulti(indP).data(: , 4);
+            correctInd = logical(obj.PsyData.Pmulti(indP).data(: , 3)); % indexes of correct trials
+            correctRT = RT(correctInd); % get RT only for correct trials
+            
+            % time points in sec
+            T = (0 : 1/obj.fs : (size(obj.d,1)-1)/obj.fs)' + obj.epochtime(1);
+            
+            % initialize matrix for all trials
+            maxTrials = zeros (size(obj.d,3),1);
+            iNoMax = T<0.05;  % true max resp can't be in time less that 0.05 sec
+            
+            for triali = 1:size(obj.d,3)  % over all trials
+                d = squeeze(obj.d(: , ch, triali)); % CM.d - time points x channels x trials (128 x 424 x 384)
+                d(iNoMax)=0;   % replace values before 0.05 sec by 0 - to avoid finding max here
+                [~, iMax] = max(d);   % index of max response
+                tMaxResp = T(iMax); % time of max response
+                maxTrials(triali) = tMaxResp;  % put it in matrix for all trials
+            end
+            correctmaxTrials = maxTrials(correctInd); % time of max response only for correct trials
+            
+            % get correl coeff and pvalue
+            if ~isempty(obj.CH.correlChan)
+                rho = obj.CH.correlChan(ch).rho;
+                pval = obj.CH.correlChan(ch).pval;
+            else
+                [rho,pval] = corr(correctmaxTrials, correctRT,'Type', 'Spearman');
+            end
+            
+            % ploting
+            if ~isempty(obj.plotH) && ishandle(obj.plotH)
+                figure(obj.plotH) % use the existing plot
+            else
+                obj.plotH = figure('Name','scatterplot across trials','Position', [20, 100, 600, 400]);
+            end
+            scatter(correctmaxTrials, correctRT, 25,'m','filled')
+            title(['channel ' num2str(ch) ', patient ' patId ', rho = ' num2str(rho) ', p value = ' num2str(pval)])
+            xlabel('t of max response [s]')
+            ylabel('patients RT [s]')
+            set(gca, 'Xlim', [0 (max(correctmaxTrials)+0.1)], 'Ylim', [0 (max(correctRT)+0.1)], 'XTick', 0:0.2:(max(correctmaxTrials)+0.1), 'YTick', 0:0.2:(max(correctRT)+0.1))            
+            xrange = get(gca,'XLim');
+            yrange = get(gca,'YLim');
+            text(xrange(2)/2-0.2,yrange(2)-0.1,[obj.CH.H.channels(ch).name ', ' obj.CH.H.channels(ch).neurologyLabel])
+        end
+            
     %% SAVE AND LOAD FILE    
         function obj = Save(obj,filename)   
             %ulozi veskere promenne tridy do souboru
@@ -2525,6 +2652,8 @@ classdef CiEEGData < matlab.mixin.Copyable
                     if ~isempty(obj.OR) && isa(obj.OR,'CRefOrigVals') && ~obj.OR.isEmpty()
                         obj.OR.PlotCh(obj.CH.sortorder(obj.plotRCh.ch)); 
                     end
+                case 'p' % scatterplot - t max response and patient's RT with rho and pvalue  % Sofiia
+                    obj.PlotCorrelChan(obj.CH.sortorder(obj.plotRCh.ch));
                 otherwise
                     %disp(['You just pressed: ' eventDat.Key]);
             end

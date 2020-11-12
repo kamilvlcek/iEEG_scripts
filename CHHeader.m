@@ -20,6 +20,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         hull; %data for convex hull
         clusters; %cluster data {popis,C,idx,channels}
         plotClusters; %info to the PlotClusters figure
+        correlChan; %struct array, correlation between t max gamma response and patient's RT for each channel, Sofiia
     end
     %#ok<*PROPLC>
     
@@ -715,7 +716,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             end
             if exist('selCh','var') && ~isempty(selCh)
                 klavesy = 'fghjkl';
-                assert (numel(selCh)<=4,'maximum of 4 letter could be in selCh ');
+                assert (numel(selCh)<=5,'maximum of 5 letter could be in selCh ');
                 if find(ismember(klavesy,selCh)) %vrati index klavesy nektereho selCh v klavesy
                     if ~isfield(obj.plotCh2D,'selCh')
                         warning('No selCh in CH object, first run the ChannelPlot2D');
@@ -750,7 +751,18 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     chshow = intersect(chshow,find(flt));
                     chshowstr = horzcat(chshowstr, {'Epi'}); 
                     filtered = true;
-                end                                               
+                end 
+                if contains(selCh, '~c') % no correlation between t max response and patient's RT, use sign '~c' %Sofiia
+                    uncor = [obj.correlChan.correl] == 0;
+                    chshow = intersect(chshow,find(uncor));
+                    chshowstr = horzcat(chshowstr, {'~Correlated with RT'}); 
+                    filtered = true;
+                elseif contains(selCh, 'c') % 'c' with correlation
+                    cor = [obj.correlChan.correl] == 1;
+                    chshow = intersect(chshow,find(cor));
+                    chshowstr = horzcat(chshowstr, {'Correlated with RT'}); 
+                    filtered = true;
+                end
             end
             if exist('chnum','var') && ~isempty(chnum)
                 if size(chnum,1) > size(chnum,2), chnum = chnum'; end %chci mit cisla kanalu v radku
@@ -1014,6 +1026,9 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 disp('no ChannelPlot figure to plot in');
             end
         end
+       
+        
+        
         %% Clustering of channels based on MNI
         function uniqueCounts = ComputeClusters(obj,nClusters,rejectCl,dofig,useseed,repeats)
             %ComputeClusters Computes clusters using k-means for current channel selection
@@ -1892,7 +1907,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 end
                 
              end
-         end
+         end         
     end
     
 end
