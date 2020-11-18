@@ -342,5 +342,15 @@ pacienti(p).rjepoch = 'p203_aedist_rjepoch.mat';
 pacienti(p).epievents = 'p203_aedist_epievents.mat'; 
 pacienti(p).rjch = [];
 
+p=p+1;
+pacienti(p).todo = 1; %10.11.2020 Sofiia
+pacienti(p).folder = 'VT53 Kra p1236540';
+pacienti(p).data = 'VT53_2020-01-14_12-57_272_512hz_10_concat_aedist.mat';
+pacienti(p).header = 'p1236540_header2.mat'; %sofiia's header for aedist
+pacienti(p).psychopy = 'p1236540_aedist.mat';
+pacienti(p).rjepoch = 'p1236540_aedist_rjepoch.mat'; 
+pacienti(p).epievents = 'p1236540_aedist_epievents.mat'; 
+pacienti(p).rjch = [];
+
 end
 

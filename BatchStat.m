@@ -7,6 +7,9 @@ cfg.srovnejresp = 0;
 cfg.hybernovat = 0;
 %cfg.statmethod = 'permut'; 
 cfg.statmethod = struct('test','wilcox','chn',1,'fdr',1);
+    %default stat method is the wilcox test, the only other possible is permut
+    %default is to fdr correct only over time, from each channel independently, any other value means over all channels
+    %default is fdr pdep - less strict, 2=more strict dep
 if ~exist('method','var') || isempty(method) || ~isstruct(method), method = struct; end 
 if isfield(method,'test'), cfg.statmethod.test = method.test; end
 if isfield(method,'chn'), cfg.statmethod.chn = method.chn; end
