@@ -352,5 +352,64 @@ pacienti(p).rjepoch = 'p1236540_aedist_rjepoch.mat';
 pacienti(p).epievents = 'p1236540_aedist_epievents.mat'; 
 pacienti(p).rjch = [];
 
+p=p+1;
+pacienti(p).todo = 1; %18.11.2020 Sofiia
+pacienti(p).folder = 'p200 Hav VT45';
+pacienti(p).data = 'VT45_2019-05-02_15-21_001_512hz_39_concat_aedist.mat';
+pacienti(p).header = 'p200_header.mat';
+pacienti(p).psychopy = 'p200_aedist.mat';
+pacienti(p).rjepoch = 'p200_aedist_rjepoch.mat'; 
+pacienti(p).epievents = 'p200_aedist_epievents.mat'; 
+pacienti(p).rjch = [];
+
+p=p+1;
+pacienti(p).todo = 1; %18.11.2020 Sofiia
+pacienti(p).folder = 'p213 Kam VT48';
+pacienti(p).data = 'VT48_2019-06-10_10-22_005_512hz_32_concat_aedist.mat';
+pacienti(p).header = 'p213_header.mat';
+pacienti(p).psychopy = 'p213_aedist.mat';
+pacienti(p).rjepoch = 'p213_aedist_rjepoch.mat'; 
+pacienti(p).epievents = 'p213_aedist_epievents.mat'; 
+pacienti(p).rjch = [];
+
+p=p+1;
+pacienti(p).todo = 1; %18.11.2020 Sofiia
+pacienti(p).folder = 'p190 Hau VT43';
+pacienti(p).data = 'VT43_2019-03-12_09-38_001_512hz_30_concat_aedist.mat';
+pacienti(p).header = 'p190_headerS.mat';
+pacienti(p).psychopy = 'p190_aedist.mat';
+pacienti(p).rjepoch = 'p190_aedist_rjepoch.mat'; 
+pacienti(p).epievents = 'p190_aedist_epievents.mat'; 
+pacienti(p).rjch = [];
+
+p=p+1;
+pacienti(p).todo = 1; %19.11.2020 Sofiia
+pacienti(p).folder = 'p1855440 Loj VT52';
+pacienti(p).data = 'VT52_2019-12-10_09-48_045_512hz_13_concat_aedist.mat';
+pacienti(p).header = 'p1855440_headerS.mat';
+pacienti(p).psychopy = 'p1855440_aedist.mat';
+pacienti(p).rjepoch = 'p1855440_aedist_rjepoch.mat'; 
+pacienti(p).epievents = 'p1855440_aedist_epievents.mat'; 
+pacienti(p).rjch = [];
+
+p=p+1;
+pacienti(p).todo = 1; %19.11.2020 Sofiia
+pacienti(p).folder = 'p1670379 Bun VT57';
+pacienti(p).data = 'VT57_2020-06-24_10-46_004_512hz_15_concat_aedist.mat';
+pacienti(p).header = 'p1670379_headerS.mat';
+pacienti(p).psychopy = 'p1670379_aedist.mat';
+pacienti(p).rjepoch = 'p1670379_aedist_rjepoch.mat'; 
+pacienti(p).epievents = 'p1670379_aedist_epievents.mat'; 
+pacienti(p).rjch = [];
+
+p=p+1;
+pacienti(p).todo = 1; %20.11.2020 Sofiia
+pacienti(p).folder = 'p90 Dan VT58';
+pacienti(p).data = 'VT58_2020-09-23_10-23_239_512hz_15_concat_aedist.mat';
+pacienti(p).header = 'p90_headerS.mat';
+pacienti(p).psychopy = 'p90_aedist.mat';
+pacienti(p).rjepoch = 'p90_aedist_rjepoch.mat'; 
+pacienti(p).epievents = 'p90_aedist_epievents.mat'; 
+pacienti(p).rjch = [];
 end
 
