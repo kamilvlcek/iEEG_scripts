@@ -19,7 +19,7 @@ classdef CiEEGData < matlab.mixin.Copyable
         CH; %objekt formatu CHHeader s Hammer headerem 
         els; %cisla poslednich kanalu v kazde elektrode
         plotES; % current electrode, second of plot/epoch, range of y values, time range, allels, rangey all els
-        plotH;  % handle to plot
+        plotH;  % handle to PlotElectrode plot
         plotRCh = struct; %stavove udaje o grafu PlotResponseCh
         plotEp = struct; %stavove udaje o grafu PlotEpochs        
         RjCh; %seznam cisel rejectovanych kanalu
@@ -1786,10 +1786,14 @@ classdef CiEEGData < matlab.mixin.Copyable
             %  nofile - if 1, do not save any xls file, only plot figure
             obj.PL.TimeIntervals(varargin{:});  %the function moved to CPlots, this is a shortcut to call the moved function          
         end
-        function obj = GetCorrelChan(obj,nofile) % Sofiia since 11.2020
+        function obj = GetCorrelChan(obj,nofile, fraction, pval_limit,rho_limit ) % Sofiia since 11.2020
             % find channels in which neural response is correlated with response time of patient (to be excluded from the further analysis)
             % correlation between t of max response and patient's RT in all channels are saved in CM.CH.correlChan (struct array)
             % nofile - if 0, saves the xls file with correlation coeff, pvalue, name of channel, patient
+            
+            %kamil 23.11.2020 - I changed the code in the PlotCorrelChan function, Sofiia could you please change the code here accordingly?
+            %this function should have the values fraction, pval_limit,rho_limit as parameters, to be more flexible. With the values that you used now as defaults. 
+            %if we really store the computed values to the structure correlChan, they should be used again during next xls table generation ... otherwise they seem to me to be useless property of the class. 
             
             assert(obj.epochs > 1,'only for epoched data');
             if ~exist('nofile','var'), nofile = 0; end % save the xls table by default
@@ -1856,59 +1860,63 @@ classdef CiEEGData < matlab.mixin.Copyable
             end            
         end
         
-        function obj = PlotCorrelChan(obj,ch) % Sofiia since 11.2020
+        function obj = PlotCorrelChan(obj,ch,fraction) % Sofiia since 11.2020
             % creates scatterplot between t of max neural response and
             % patient's RT for one specific channel across all trials
             
             assert(obj.epochs > 1,'only for epoched data');
-            if ~exist('ch','var'), ch = obj.CH.sortorder(1); end
+            if ~exist('ch','var') || isempty(ch), ch = obj.CH.sortorder(1); end
+            if ~exist('fraction','var'), fraction = 0.9; end % time of 90% of maximum
             
             % return the name of the patient of this channel
             patId = obj.CH.PacientTag(ch);
             
-            % find index of that patient in PsyData
-            indP = find(strcmp(patId, {obj.PsyData.Pmulti.pacientid}));
+            % find index of that patient in PsyData            
+            obj.PsyData.SubjectChange(find(obj.els >= ch,1)); %change current subjet in CPsyDataMulti (but if called from PlotResponseCh it was changed alread) or do nothing if the file contains only one patient
             
             % get his RT
-            RT = obj.PsyData.Pmulti(indP).data(: , 4);
-            correctInd = logical(obj.PsyData.Pmulti(indP).data(: , 3)); % indexes of correct trials
-            correctRT = RT(correctInd); % get RT only for correct trials
-            
-            % time points in sec
-            T = (0 : 1/obj.fs : (size(obj.d,1)-1)/obj.fs)' + obj.epochtime(1);
-            
+            [resp,RT,~,test] = obj.PsyData.GetResponses();    %its better to use existing functions where available          
+            correctRT = RT(resp==1 & test==1); % get RT only for correct test trials - in CHilbertMulti files the traning is excluded, but in CHilbert files for one patient only not.             
+           
             % initialize matrix for all trials
-            maxTrials = zeros (size(obj.d,3),1);
-            iNoMax = T<0.05;  % true max resp can't be in time less that 0.05 sec
+            maxTrials = zeros (length(correctRT),1);
+            iNoMax = -obj.epochtime(1)*obj.fs;   % true max resp can't be in before the time 0
+            imaxTrials = 1; %index in maxTrials            
             
             for triali = 1:size(obj.d,3)  % over all trials
-                d = squeeze(obj.d(: , ch, triali)); % CM.d - time points x channels x trials (128 x 424 x 384)
-                d(iNoMax)=0;   % replace values before 0.05 sec by 0 - to avoid finding max here
-                [~, iMax] = max(d);   % index of max response
-                tMaxResp = T(iMax); % time of max response
-                maxTrials(triali) = tMaxResp;  % put it in matrix for all trials
-            end
-            correctmaxTrials = maxTrials(correctInd); % time of max response only for correct trials
+                if resp(triali) && test(triali)
+                    d = squeeze(obj.d(iNoMax:end, ch, triali)); % obj.d - time points x channels x trials (128 x 424 x 384) - without the time before stimulus
+                    [~, idxMax, idxFrac] = cMax(d, fraction);                                                         
+                    if fraction >= 1 %if we are interested in the real maximum
+                        maxTrials(imaxTrials) = idxMax/obj.fs;  % put it in matrix for all trials, in seconds
+                    else %if we are interested for a frection of maximum (i.e. fraction < 1)
+                        maxTrials(imaxTrials) = idxFrac/obj.fs;  % put it in matrix for all trials, in seconds
+                    end
+                    imaxTrials = imaxTrials +1;
+                end
+            end            
             
             % get correl coeff and pvalue
             if ~isempty(obj.CH.correlChan)
                 rho = obj.CH.correlChan(ch).rho;
                 pval = obj.CH.correlChan(ch).pval;
             else
-                [rho,pval] = corr(correctmaxTrials, correctRT,'Type', 'Spearman');
+                [rho,pval] = corr(maxTrials, correctRT,'Type', 'Spearman'); %compute correlation between max Power and RT
             end
             
             % ploting
             if ~isempty(obj.plotH) && ishandle(obj.plotH)
-                figure(obj.plotH) % use the existing plot
+                figure(obj.plotH) % use the existing plot %kamil - TODO: this is handle to PlotElectrode plot. different handle should be used
+                    %even better would be to use a structure like obj.plotCorrelChanData to store more values to the plot: 
+                    % handle, the fraction number, the pval_limit,rho_limit, and also data that are now stored in obj.CH.correlChan. If they really need to be stored. 
             else
-                obj.plotH = figure('Name','scatterplot across trials','Position', [20, 100, 600, 400]);
+                obj.plotH = figure('Name','PlotCorrelChan scatterplot','Position', [20, 100, 600, 400]);
             end
-            scatter(correctmaxTrials, correctRT, 25,'m','filled')
-            title(['channel ' num2str(ch) ', patient ' patId ', rho = ' num2str(rho) ', p value = ' num2str(pval)])
+            scatter(maxTrials, correctRT, 25,'m','filled')
+            title(['channel ' num2str(ch) ', patient ' patId ', rho = ' num2str(rho) ', p value = ' num2str(pval) ', fraction = ' num2str(fraction)])
             xlabel('t of max response [s]')
             ylabel('patients RT [s]')
-            set(gca, 'Xlim', [0 (max(correctmaxTrials)+0.1)], 'Ylim', [0 (max(correctRT)+0.1)], 'XTick', 0:0.2:(max(correctmaxTrials)+0.1), 'YTick', 0:0.2:(max(correctRT)+0.1))            
+            set(gca, 'Xlim', [0 (max(maxTrials)+0.1)], 'Ylim', [0 (max(correctRT)+0.1)]);            
             xrange = get(gca,'XLim');
             yrange = get(gca,'YLim');
             text(xrange(2)/2-0.2,yrange(2)-0.1,[obj.CH.H.channels(ch).name ', ' obj.CH.H.channels(ch).neurologyLabel])
