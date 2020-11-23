@@ -411,5 +411,35 @@ pacienti(p).psychopy = 'p90_aedist.mat';
 pacienti(p).rjepoch = 'p90_aedist_rjepoch.mat'; 
 pacienti(p).epievents = 'p90_aedist_epievents.mat'; 
 pacienti(p).rjch = [];
+
+p=p+1;
+pacienti(p).todo = 1; %23.11.2020 Sofiia
+pacienti(p).folder = 'p1967470 Kus VT56';
+pacienti(p).data = 'VT56_2020-05-26_16-40_054_512hz_23_concat_aedist.mat';
+pacienti(p).header = 'p1967470_headerS.mat';
+pacienti(p).psychopy = 'p1967470_aedist.mat';
+pacienti(p).rjepoch = 'p1967470_aedist_rjepoch.mat'; 
+pacienti(p).epievents = 'p1967470_aedist_epievents.mat'; 
+pacienti(p).rjch = [];
+
+p=p+1;
+pacienti(p).todo = 1; %23.11.2020 Sofiia
+pacienti(p).folder = 'p222 Zich VT49';
+pacienti(p).data = 'VT49_2019-09-30_17-53_005_512hz_12_concat_aedist.mat';
+pacienti(p).header = 'p222_headerEX.mat';
+pacienti(p).psychopy = 'p222_aedist.mat';
+pacienti(p).rjepoch = 'p222_aedist_rjepoch.mat'; 
+pacienti(p).epievents = 'p222_aedist_epievents.mat'; 
+pacienti(p).rjch = [];
+
+p=p+1;
+pacienti(p).todo = 1; %23.11.2020 Sofiia
+pacienti(p).folder = 'p890775 Pra VT50';
+pacienti(p).data = 'VT50_2019-10-24_10-14_048_512hz_40_concat_aedist.mat';
+pacienti(p).header = 'p890775_headerS.mat';
+pacienti(p).psychopy = 'p890775_aedist.mat';
+pacienti(p).rjepoch = 'p890775_aedist_rjepoch.mat'; 
+pacienti(p).epievents = 'p890775_aedist_epievents.mat'; 
+pacienti(p).rjch = [];
 end
 
