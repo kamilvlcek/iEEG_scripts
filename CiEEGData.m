@@ -1806,55 +1806,32 @@ classdef CiEEGData < matlab.mixin.Copyable
             output = cell(size(obj.d,2),7);
             
             chanSwitch = 1;
-            for pati = 1:obj.PsyData.nS % over each patient
-                obj.PsyData.SubjectChange(pati); % change current subject in CPsyDataMulti
+            for iPacient = 1:obj.PsyData.nS % over each patient
+                obj.PsyData.SubjectChange(iPacient); % change current subject in CPsyDataMulti
                 [resp,RT,~,test] = obj.PsyData.GetResponses(); % get his RT
                 correctRT = RT(resp==1 & test==1); % get RT only for correct test trials
                 
-                for chanpi = chanSwitch : obj.els(pati)   % for channels of one patient
-                    maxTrials = zeros (length(correctRT),1); % initialize matrix for all trials
-                    iNoMax = -obj.epochtime(1)*obj.fs;   % true max resp can't be in the time before 0
-                    imaxTrials = 1; % index in maxTrials
+                for iChannel = chanSwitch : obj.els(iPacient)   % for channels of one patient
                     
-                    for triali = 1:size(obj.d,3)  % over all trials
-                        if resp(triali) && test(triali)  % get data only for correct test trials
-                            d = squeeze(obj.d(iNoMax:end, chanpi, triali)); % obj.d - time points x channels x trials (128 x 424 x 384) - without the time before stimulus
-                            [~, idxMax, idxFrac] = cMax(d, fraction);
-                            if fraction >= 1 % if we are interested in the real maximum
-                                maxTrials(imaxTrials) = idxMax/obj.fs;  % put it in matrix for all trials, in seconds
-                            else % if we are interested in the fraction of maximum (i.e. fraction < 1)
-                                maxTrials(imaxTrials) = idxFrac/obj.fs;  % put it in matrix for all trials, in seconds
-                            end
-                            imaxTrials = imaxTrials +1;
-                        end
-                    end
-                    
-                    % compute correlation between max Power and RT
-                    [rho,pval] = corr(maxTrials, correctRT,'Type', 'Spearman'); % the use of Spearman's correlation minimizes the impact of potential outliers
+                    [rho,pval] = obj.ComputeCorrelChan(ch,fraction,correctRT,resp==1 & test==1);  %  
                     
                     if pval < pval_limit && rho >= rho_limit, correlCh = 1; else, correlCh = 0; end % weak-to-moderate correlation
                     
                     % put everything in cell array for the futher export
-                    output{chanpi,1} = chanpi;  % n of channel
-                    output{chanpi,2} = obj.PsyData.P.pacientid; % name of patient
-                    output{chanpi,3} = obj.CH.H.channels(chanpi).name; % name of channel
-                    output{chanpi,4} = obj.CH.H.channels(chanpi).neurologyLabel; % neurology label of channel
-                    output{chanpi,5} = rho;
-                    output{chanpi,6} = pval;
-                    output{chanpi,7} = correlCh; % correlated activity with RT
-                    
-                    % create structure in CM.CH
-                    %obj.CH.correlChan(chanpi).name = output{chanpi,3};
-                    %obj.CH.correlChan(chanpi).rho = output{chanpi,5};
-                    %obj.CH.correlChan(chanpi).pval = output{chanpi,6};
-                    %obj.CH.correlChan(chanpi).correl = output{chanpi,7};
-                    
+                    output{iChannel,1} = iChannel;  % n of channel
+                    output{iChannel,2} = obj.PsyData.P.pacientid; % name of patient
+                    output{iChannel,3} = obj.CH.H.channels(iChannel).name; % name of channel
+                    output{iChannel,4} = obj.CH.H.channels(iChannel).neurologyLabel; % neurology label of channel
+                    output{iChannel,5} = rho;
+                    output{iChannel,6} = pval;
+                    output{iChannel,7} = correlCh; % correlated activity with RT
+                                                            
                 end
-                chanSwitch = obj.els(pati)+1; % switch to channels of the next patient
+                chanSwitch = obj.els(iPacient)+1; % switch to channels of the next patient
             end
             
             % save channels correlated/uncorrelated (1/0) with RT to CHHeader
-            obj.CH.StoreCorrelChan(cell2mat(output(:,7)));
+            obj.CH.StoreCorrelChan(cell2mat(output(:,7))); %store the correlCh values 1/0 in the the CH.CorrelChan field
             
             if nofile == 0  % export xls table
                 variableNames = {'channel' 'pacient' 'channelName' 'neurologyLabel' 'rho' 'p-value' 'correlated'...
@@ -1888,26 +1865,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             [resp,RT,~,test] = obj.PsyData.GetResponses();    %its better to use existing functions where available          
             correctRT = RT(resp==1 & test==1); % get RT only for correct test trials - in CHilbertMulti files the traning is excluded, but in CHilbert files for one patient only not.             
            
-            % initialize matrix for all trials
-            maxTrials = zeros (length(correctRT),1);
-            iNoMax = -obj.epochtime(1)*obj.fs;   % true max resp can't be in before the time 0
-            imaxTrials = 1; %index in maxTrials            
-            
-            for triali = 1:size(obj.d,3)  % over all trials
-                if resp(triali) && test(triali)
-                    d = squeeze(obj.d(iNoMax:end, ch, triali)); % obj.d - time points x channels x trials (128 x 424 x 384) - without the time before stimulus
-                    [~, idxMax, idxFrac] = cMax(d, fraction);                                                         
-                    if fraction >= 1 %if we are interested in the real maximum
-                        maxTrials(imaxTrials) = idxMax/obj.fs;  % put it in matrix for all trials, in seconds
-                    else %if we are interested for a frection of maximum (i.e. fraction < 1)
-                        maxTrials(imaxTrials) = idxFrac/obj.fs;  % put it in matrix for all trials, in seconds
-                    end
-                    imaxTrials = imaxTrials +1;
-                end
-            end            
-            
-            % compute correlation between max Power and RT
-            [rho,pval] = corr(maxTrials, correctRT,'Type', 'Spearman');          
+            [rho,pval,maxTrials] = obj.ComputeCorrelChan(ch,fraction,correctRT,resp==1 & test==1);  %  
             
             % save values in the structure obj.plotCorrelChanData
             obj.plotCorrelChanData.fraction = fraction;
@@ -1935,6 +1893,31 @@ classdef CiEEGData < matlab.mixin.Copyable
             text(xrange(2)/2-0.2,yrange(2)-0.1,[obj.CH.H.channels(ch).name ', ' obj.CH.H.channels(ch).neurologyLabel])
         end
             
+        function [rho,pval,maxTrials,obj] = ComputeCorrelChan(obj,ch,fraction,correctRT,correctTrials)
+            %function to compute correlation between behavioural RT and time of eeg resp maximum for one channel
+            % to remove duplicite code in PlotCorrelChan and GetCorrelChan
+            % initialize matrix for all trials
+            maxTrials = zeros (length(correctRT),1); %time of maximum eeg response
+            assert(isfield(obj.Wp,'iepochtime'),'the statistics needs to be computed');
+            iintervalyData = obj.Wp(obj.WpActive).iepochtime(2,:); %indexes of from what was the statistics computed , saved in function ResponseSearch 
+            imaxTrials = 1; %index in maxTrials                        
+            
+            for iTrial = 1:size(obj.d,3)  % over all trials
+                if correctTrials(iTrial)
+                    d = squeeze(obj.d(iintervalyData(1):iintervalyData(2), ch, iTrial)); % obj.d - time points x channels x trials (128 x 424 x 384) - without the time before stimulus
+                    [~, idxMax, idxFrac] = cMax(d, fraction);                                                         
+                    if fraction >= 1 %if we are interested in the real maximum
+                        maxTrials(imaxTrials) = idxMax/obj.fs;  % put it in matrix for all trials, in seconds
+                    else %if we are interested for a frection of maximum (i.e. fraction < 1)
+                        maxTrials(imaxTrials) = idxFrac/obj.fs;  % put it in matrix for all trials, in seconds
+                    end
+                    imaxTrials = imaxTrials +1;
+                end
+            end            
+            
+            % compute correlation between max Power and RT
+            [rho,pval] = corr(maxTrials, correctRT,'Type', 'Spearman');
+        end
     %% SAVE AND LOAD FILE    
         function obj = Save(obj,filename)   
             %ulozi veskere promenne tridy do souboru
