@@ -20,13 +20,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         hull; %data for convex hull
         clusters; %cluster data {popis,C,idx,channels}
         plotClusters; %info to the PlotClusters figure
-        %correlChan; %struct array, correlation between t max gamma response and patient's RT for each channel, Sofiia
-            %kamil - does this structure really need to be stored? isn't fast enough to computer when generating the table? 
-            % anyway, the class CHHeader needs only to store the correlChan.correl values
-            % the classes should be as independent as possible. There fore these values 
-            %  should be store by some short function like StoreRTCorrel or somethink like this, called from CiEEGData.GetCorrelChan
-            %  like obj.Ch.StoreRTCorrel;  and then used in the FilterChannels
-       CorrelChan; % correlated/uncorrelated (1/0) channels with RT
+        CorrelChan; % correlated/uncorrelated (1/0) channels with RT
     end
     %#ok<*PROPLC>
     
@@ -1030,7 +1024,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 disp('no ChannelPlot figure to plot in');
             end
         end
-        function obj = StoreCorrelChan(obj, CorrelChan) % store indexes of correlated with RT channels, call from CiEEGData - GetCorrelChan
+        function obj = StoreCorrelChan(obj, CorrelChan) % store indexes of channels correlated with RT , call from CiEEGData - GetCorrelChan
             obj.CorrelChan = CorrelChan;
         end
         

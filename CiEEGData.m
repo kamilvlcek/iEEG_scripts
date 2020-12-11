@@ -37,8 +37,7 @@ classdef CiEEGData < matlab.mixin.Copyable
         PL = {}; %objekt CPlots
         CS = {}; %objekt CStat
         colorskat = {[0 0 0],[0 1 0],[1 0 0],[0 0 1],[1 1 0],[0 1 1],[1 0 1]}; % black, green, red, blue, yellow, aqua, fuchsia
-        OR = {}; %object CRefOrigVals
-        plotCorrelChanData = struct; % save info about the plot PlotCorelChan
+        OR = {}; %object CRefOrigVals        
     end
     
     properties(SetObservable)
@@ -1787,154 +1786,9 @@ classdef CiEEGData < matlab.mixin.Copyable
             %  nofile - if 1, do not save any xls file, only plot figure
             obj.PL.TimeIntervals(varargin{:});  %the function moved to CPlots, this is a shortcut to call the moved function          
         end
-        function obj = GetCorrelChan(obj,nofile,fraction,pval_limit,rho_limit) % Sofiia since 11.2020
-            % find channels in which neural response is correlated with response time of patient (to be excluded from the further analysis)
-            % correlation between t of max response and patient's RT in all channels are saved in CM.CH.correlChan (struct array)
-            % nofile - if 0, saves the xls file with correlation coeff, pvalue, name of channel, patient
-            
-            %kamil 23.11.2020 - I changed the code in the PlotCorrelChan function, Sofiia could you please change the code here accordingly?
-            %this function should have the values fraction, pval_limit,rho_limit as parameters, to be more flexible. With the values that you used now as defaults.
-            %if we really store the computed values to the structure correlChan, they should be used again during next xls table generation ... otherwise they seem to me to be useless property of the class.
-            
-            assert(obj.epochs > 1,'only for epoched data');
-            if ~exist('nofile','var'), nofile = 0; end % save the xls table by default
-            if ~exist('fraction','var'), fraction = 0.9; end % time of 90% of maximum
-            if ~exist('pval_limit','var'), pval_limit = 0.01; end % threshold for p value
-            if ~exist('rho_limit','var'), rho_limit = 0.2; end % threshold for correlation coeff
-            
-            % initialize cell aray: n channel,patient,name of channel,neurology label, r coeffic, pvalue, correl (0/1)
-            output = cell(size(obj.d,2),7);
-            
-            chanSwitch = 1;
-            for pati = 1:obj.PsyData.nS % over each patient
-                obj.PsyData.SubjectChange(pati); % change current subject in CPsyDataMulti
-                [resp,RT,~,test] = obj.PsyData.GetResponses(); % get his RT
-                correctRT = RT(resp==1 & test==1); % get RT only for correct test trials
-                
-                for chanpi = chanSwitch : obj.els(pati)   % for channels of one patient
-                    maxTrials = zeros (length(correctRT),1); % initialize matrix for all trials
-                    iNoMax = -obj.epochtime(1)*obj.fs;   % true max resp can't be in the time before 0
-                    imaxTrials = 1; % index in maxTrials
-                    
-                    for triali = 1:size(obj.d,3)  % over all trials
-                        if resp(triali) && test(triali)  % get data only for correct test trials
-                            d = squeeze(obj.d(iNoMax:end, chanpi, triali)); % obj.d - time points x channels x trials (128 x 424 x 384) - without the time before stimulus
-                            [~, idxMax, idxFrac] = cMax(d, fraction);
-                            if fraction >= 1 % if we are interested in the real maximum
-                                maxTrials(imaxTrials) = idxMax/obj.fs;  % put it in matrix for all trials, in seconds
-                            else % if we are interested in the fraction of maximum (i.e. fraction < 1)
-                                maxTrials(imaxTrials) = idxFrac/obj.fs;  % put it in matrix for all trials, in seconds
-                            end
-                            imaxTrials = imaxTrials +1;
-                        end
-                    end
-                    
-                    % compute correlation between max Power and RT
-                    [rho,pval] = corr(maxTrials, correctRT,'Type', 'Spearman'); % the use of Spearman's correlation minimizes the impact of potential outliers
-                    
-                    if pval < pval_limit && rho >= rho_limit, correlCh = 1; else, correlCh = 0; end % weak-to-moderate correlation
-                    
-                    % put everything in cell array for the futher export
-                    output{chanpi,1} = chanpi;  % n of channel
-                    output{chanpi,2} = obj.PsyData.P.pacientid; % name of patient
-                    output{chanpi,3} = obj.CH.H.channels(chanpi).name; % name of channel
-                    output{chanpi,4} = obj.CH.H.channels(chanpi).neurologyLabel; % neurology label of channel
-                    output{chanpi,5} = rho;
-                    output{chanpi,6} = pval;
-                    output{chanpi,7} = correlCh; % correlated activity with RT
-                    
-                    % create structure in CM.CH
-                    %obj.CH.correlChan(chanpi).name = output{chanpi,3};
-                    %obj.CH.correlChan(chanpi).rho = output{chanpi,5};
-                    %obj.CH.correlChan(chanpi).pval = output{chanpi,6};
-                    %obj.CH.correlChan(chanpi).correl = output{chanpi,7};
-                    
-                end
-                chanSwitch = obj.els(pati)+1; % switch to channels of the next patient
-            end
-            
-            % save channels correlated/uncorrelated (1/0) with RT to CHHeader
-            obj.CH.StoreCorrelChan(cell2mat(output(:,7)));
-            
-            if nofile == 0  % export xls table
-                variableNames = {'channel' 'pacient' 'channelName' 'neurologyLabel' 'rho' 'p-value' 'correlated'...
-                    'fraction' 'pval_limit' 'rho_limit'};
-                output(1,8:10) = {fraction, pval_limit, rho_limit}; % save also parameters of function
-                assert(~isempty(obj.hfilename),'the object is not saved, please save the object first');
-                [~,mfilename,~] = fileparts(obj.hfilename); %hfilename se naplni az pri ulozeni objektu
-                mfilename = strrep(mfilename, ' ', '_');
-                logfilename = ['CorrelChan_' mfilename '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') ];
-                xlsfilename = fullfile('logs', [logfilename '.xls']);
-                xlswrite(xlsfilename ,vertcat(variableNames,output)); % write to xls file
-                disp(['xls table ' xlsfilename ' was exported']);
-            end
+        function PlotCorrelChan(obj,varargin) % Sofiia since 11.2020
+            obj.PL.PlotCorrelChan(varargin{:});  %the function moved to CPlots, this is a shortcut to call the moved function 
         end
-        
-        function obj = PlotCorrelChan(obj,ch,fraction) % Sofiia since 11.2020
-            % creates scatterplot between t of max neural response and
-            % patient's RT for one specific channel across all trials
-            
-            assert(obj.epochs > 1,'only for epoched data');
-            if ~exist('ch','var') || isempty(ch), ch = obj.CH.sortorder(1); end
-            if ~exist('fraction','var'), fraction = 0.9; end % time of 90% of maximum
-            
-            % return the name of the patient of this channel
-            patId = obj.CH.PacientTag(ch);
-            
-            % find index of that patient in PsyData            
-            obj.PsyData.SubjectChange(find(obj.els >= ch,1)); %change current subjet in CPsyDataMulti (but if called from PlotResponseCh it was changed alread) or do nothing if the file contains only one patient
-            
-            % get his RT
-            [resp,RT,~,test] = obj.PsyData.GetResponses();    %its better to use existing functions where available          
-            correctRT = RT(resp==1 & test==1); % get RT only for correct test trials - in CHilbertMulti files the traning is excluded, but in CHilbert files for one patient only not.             
-           
-            % initialize matrix for all trials
-            maxTrials = zeros (length(correctRT),1);
-            iNoMax = -obj.epochtime(1)*obj.fs;   % true max resp can't be in before the time 0
-            imaxTrials = 1; %index in maxTrials            
-            
-            for triali = 1:size(obj.d,3)  % over all trials
-                if resp(triali) && test(triali)
-                    d = squeeze(obj.d(iNoMax:end, ch, triali)); % obj.d - time points x channels x trials (128 x 424 x 384) - without the time before stimulus
-                    [~, idxMax, idxFrac] = cMax(d, fraction);                                                         
-                    if fraction >= 1 %if we are interested in the real maximum
-                        maxTrials(imaxTrials) = idxMax/obj.fs;  % put it in matrix for all trials, in seconds
-                    else %if we are interested for a frection of maximum (i.e. fraction < 1)
-                        maxTrials(imaxTrials) = idxFrac/obj.fs;  % put it in matrix for all trials, in seconds
-                    end
-                    imaxTrials = imaxTrials +1;
-                end
-            end            
-            
-            % compute correlation between max Power and RT
-            [rho,pval] = corr(maxTrials, correctRT,'Type', 'Spearman');          
-            
-            % save values in the structure obj.plotCorrelChanData
-            obj.plotCorrelChanData.fraction = fraction;
-            obj.plotCorrelChanData.pval = pval;
-            obj.plotCorrelChanData.rho = rho;
-            obj.plotCorrelChanData.chan = ch;
-            
-            % ploting
-            if isfield(obj.plotCorrelChanData,'h') && ~isempty(obj.plotCorrelChanData.h) && ishandle(obj.plotCorrelChanData.h)
-                figure(obj.plotCorrelChanData.h) % use the existing plot 
-                %kamil - TODO: this is handle to PlotElectrode plot. different handle should be used
-                %even better would be to use a structure like obj.plotCorrelChanData to store more values to the plot:
-                % handle, the fraction number, the pval_limit,rho_limit, and also data that are now stored in obj.CH.correlChan. If they really need to be stored.
-            else
-                obj.plotCorrelChanData.h = figure('Name','PlotCorrelChan scatterplot','Position', [20, 100, 600, 400]);
-            end
-            
-            scatter(maxTrials, correctRT, 25,'m','filled')
-            title(['channel ' num2str(ch) ', patient ' patId ', rho = ' num2str(rho) ', p value = ' num2str(pval) ', fraction = ' num2str(fraction)])
-            xlabel(['t of ' num2str(fraction) ' max response [s]'])
-            ylabel('patients RT [s]')
-            set(gca, 'Xlim', [0 (max(maxTrials)+0.1)], 'Ylim', [0 (max(correctRT)+0.1)]);            
-            xrange = get(gca,'XLim');
-            yrange = get(gca,'YLim');
-            text(xrange(2)/2-0.2,yrange(2)-0.1,[obj.CH.H.channels(ch).name ', ' obj.CH.H.channels(ch).neurologyLabel])
-        end
-            
     %% SAVE AND LOAD FILE    
         function obj = Save(obj,filename)   
             %ulozi veskere promenne tridy do souboru
