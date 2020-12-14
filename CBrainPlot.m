@@ -625,8 +625,9 @@ classdef CBrainPlot < matlab.mixin.Copyable
             [ pacienti, setup ] = pacienti_setup_load( testname );
             PAC = {};
             iPAC = 1;
-            ChNum = nan(numel(pacienti),2); %number of channels for each pacient, columns pacient no, num of channels
+            ChNum = nan(numel(pacienti),2); %number of channels for each pacient, columns pacient no, num of channels             
             for p = 1:numel(pacienti)
+                index = [];
                 if pacienti(p).todo == 1 || ~pactodo %pokud je u pacienta todo, nebo se nema pouzivat
                     disp(['* ' pacienti(p).folder ' - ' pacienti(p).header ' *']);
                     hfilename = [setup.basedir pacienti(p).folder '\' pacienti(p).header];                

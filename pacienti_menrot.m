@@ -295,11 +295,72 @@ pacienti(p).rjch = []; %#ok<NBRAK>
 p=p+1; %anna 9.12.2019, 512Hz
 pacienti(p).todo = 1; 
 pacienti(p).folder = 'p183 Tur VT47';
-pacienti(p).data = 'VT47_2019-05-28_17-35_001_512hz_39_concat.menrot.mat';
-pacienti(p).header = 'p183_header.mat';
+pacienti(p).data = 'VT47_2019-05-28_17-35_001_512hz_39_concat_menrot.mat';
+pacienti(p).header = 'p183_headerX.mat';
 pacienti(p).psychopy = 'p183VT47_menrot.mat';
 pacienti(p).rjepoch = 'p183VT47_menrot_RjEpoch.mat';
 pacienti(p).epievents = 'p183VT47_menrot_epievents.mat'; 
+pacienti(p).rjch = []; %#ok<NBRAK>
+
+p=p+1; %anna 26.11.2020, 512Hz
+pacienti(p).todo = 1; 
+pacienti(p).folder = 'p222 Zich VT49';
+pacienti(p).data = 'VT49_2019-09-23_09-50_219_32_concat_512hz_menrot.mat';
+pacienti(p).header = 'p222_headerEX.mat';
+pacienti(p).psychopy = 'p222VT49_menrot.mat';
+pacienti(p).rjepoch = 'p222VT49_menrot_RjEpoch.mat';
+pacienti(p).epievents = 'p222VT49_menrot_epievents.mat'; 
+pacienti(p).rjch = []; %#ok<NBRAK>
+
+p=p+1; %anna 30.11.2020, 512Hz
+pacienti(p).todo = 0; % correct header? The number of channels is 180 - our data, 184 data 
+pacienti(p).folder = 'p1855440 Loj VT52';
+pacienti(p).data = 'VT52_2019-12-09_08-59_033_18_concat_512hz_menrot.mat';
+pacienti(p).header = 'p1855440_header.mat';  % I deleted one empty channel from the header 'p1855440_header.mat' to be the same number as in the data 
+%p1855440_headerm.mat - it has 214 channels instead od 184
+pacienti(p).psychopy = 'p1855440VT52_menrot.mat';
+pacienti(p).rjepoch = 'p1855440VT52_menrot_RjEpoch.mat';
+pacienti(p).epievents = 'p1855440VT52_menrot_epievents.mat'; 
+pacienti(p).rjch = []; %#ok<NBRAK>
+
+p=p+1; %anna 30.11.2020, 512Hz
+pacienti(p).todo = 1; 
+pacienti(p).folder = 'p1236540 Kra VT53';
+pacienti(p).data = 'VT53_2020-01-15_10-03_214_15_concat_512hz_menrot.mat';
+pacienti(p).header = 'p1236540_headerX.mat';  
+pacienti(p).psychopy = 'p1236540VT53_menrot.mat';
+pacienti(p).rjepoch = 'p1236540VT53_menrot_RjEpoch.mat';
+pacienti(p).epievents = 'p1236540VT53_menrot_epievents.mat'; 
+pacienti(p).rjch = []; %#ok<NBRAK>
+
+p=p+1; %anna 30.11.2020, 512Hz
+pacienti(p).todo = 1; 
+pacienti(p).folder = 'p1967470 Kus VT56';
+pacienti(p).data = 'VT56_2020-05-28_11-00_001_34_concat_512hz_menrot.mat';
+pacienti(p).header = 'pVT56_header.mat';  
+pacienti(p).psychopy = 'p1967470VT56_menrot.mat';
+pacienti(p).rjepoch = 'p1967470VT56_menrot_RjEpoch.mat';
+pacienti(p).epievents = 'p1967470VT56_menrot_epievents.mat'; 
+pacienti(p).rjch = []; %#ok<NBRAK>
+
+p=p+1; %anna 1.12.2020, 512Hz
+pacienti(p).todo = 1; 
+pacienti(p).folder = 'p090 Dan VT58';
+pacienti(p).data = 'VT58_2020-09-24_08-06_630_10_concat_512hz_menrot.mat';
+pacienti(p).header = 'p090_header.mat';  
+pacienti(p).psychopy = 'p090VT58_menrot.mat';
+pacienti(p).rjepoch = 'p090VT58_menrot_RjEpoch.mat';
+pacienti(p).epievents = 'p090VT58_menrot_epievents.mat'; 
+pacienti(p).rjch = []; %#ok<NBRAK>
+
+p=p+1; %anna 1.12.2020, 512Hz
+pacienti(p).todo = 1; 
+pacienti(p).folder = 'p187 Boh VT39';
+pacienti(p).data = 'VT39_2018-10-18_12-06_009_6_concat_500hz_menrot.mat';
+pacienti(p).header = 'p187_64ch_header.mat'; % why 152 channels in p187_header64.mat?  
+pacienti(p).psychopy = 'p187VT39_menrot.mat';
+pacienti(p).rjepoch = 'p187VT39_menrot_RjEpoch.mat';
+pacienti(p).epievents = 'p187VT39_menrot_epievents.mat'; 
 pacienti(p).rjch = []; %#ok<NBRAK>
 
 
