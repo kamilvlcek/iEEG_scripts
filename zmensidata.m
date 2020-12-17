@@ -27,10 +27,10 @@ for ff = 1:numel(filenames) %muzu mit celou serii adresaru na zpracovani se stej
 
     else
         %zpracovavam jeden soubor
-        disp(['zpracovavam ... ' filename]);
-        load(filename);  
+        fprintf('processing file ... %d/%d: %s\n', ff, numel(filenames), filename);
+        load(filename);   %#ok<LOAD>
         if size(d,1)<2
-            disp(['zaznam prilis kratky: ' num2str(size(d,1)) ' vzorku' ]);
+            disp(['data are too short: ' num2str(size(d,1)) ' samples' ]);
             delka = numel(tabs);
             %newnames = [newnames; filename]; %#ok<AGROW> %jednovzorkovy zaznam vubec nechci dal zpracovavat
             continue;
@@ -46,7 +46,7 @@ for ff = 1:numel(filenames) %muzu mit celou serii adresaru na zpracovani se stej
             fs = fsforce;
         end
 
-        assert( rem(fs,podil) ==0, 'vysledna frekvence musi byt cele cislo'); 
+        assert( rem(fs,podil) ==0, 'the resulting frequency should be an integral number'); 
         frek = num2str(fs/podil); %vysledna frekvence
         fs = fs / podil;
 

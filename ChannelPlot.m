@@ -306,7 +306,7 @@ classdef ChannelPlot < matlab.mixin.Copyable
     end
     methods  (Access = private)
         function PlotClusters(obj,clrs)
-            %PlotClusters - plots the previosly computer clusters if any exist, according to the current popis   
+            %PlotClusters - plots the previosly computed clusters if any exist, according to the current popis   
             %TODO - plot cluster for even only the part of the channels in a cluster set            
             iCluster = obj.CH.GetCluster(obj.plotCh3D.popis);
             clustercolor = iff(obj.plotCh3D.outputstyle,clrs(1,:)/2,[0 0 0]);

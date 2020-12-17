@@ -296,5 +296,6 @@ pacienti(p).rjepoch = 'p222_ppa_rjepoch.mat';
 pacienti(p).epievents = 'p222_ppa_epievents.mat'; 
 pacienti(p).rjch = [85 125];
 
+pacienti = pacientFolderSelect(pacienti,setup_ppa());
 end
 
