@@ -40,10 +40,10 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             end
         end
         function rt = ReactionTime(obj,nokategories)
-            %vrati matici vsech reakcnich casu roztridenych do sloupcu podle kategorii podnetu            
-            %kde je min hodnot v kategorii, zarovnano pomoci NaN, takze se musi pouzit nanmean
-            %reakcni casy se berou ze synchronizacnich pulzu
-            % pokud nokategories= 1, tak jen jeden sloupec reakcnich casu, bez rozliseni na kategorie
+            %return the matrix of all reaction times split to columnts by stimulus category
+            %using NaN where there are less values in a columns, it is therefore necessary to use nanmean or similar functions
+            %the RT are from the time of sunchronization pulse (so not from the PsychoPy). 
+            %if nokategories= 1, only one column is returned without considering the category
             if ~exist('nokategories','var') || nokategories == 0
                 kat = unique(obj.P.data(:,obj.P.sloupce.kategorie)); %ciselne vyjadreni kategorie podnetu 0-n
                 rt = nan(size(obj.P.data,1),numel(kat)); %pole kam budu ukladat reakcni casy v sekundach
@@ -160,7 +160,7 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         end
         
         function [resp,rt,kat,test] = GetResponses(obj)
-            %vraci odpovedi cloveka - spravne/spatne, reakcni cas, kategorie 
+            %returns the subjects responses - correct=1/incorrect=0, reaction time (from PsychoPy), stimulus category, test=1/training=0
             S = obj.P.sloupce;
             resp = obj.P.data(:,S.spravne); % spravnost odpovedi
             if strcmp(obj.testname,'ppa')

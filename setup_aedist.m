@@ -1,5 +1,5 @@
 function [ setup ] = setup_aedist( alignresponse )
-%SETUP_AEDIST funkce vraci nastaveni vyhodnoceni testu Aedist
+%SETUP_AEDIST returns scripts setup for the test Aedist
 %   Detailed explanation goes here
 if(~exist('alignresponse','var')) || isempty(alignresponse) , alignresponse = 0; end
 setup = {};

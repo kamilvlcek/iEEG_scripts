@@ -48,21 +48,25 @@ classdef CStat < handle
             %pouzije data z plotAUC, pokud je potreba zavola funkci ROCAnalysis
             %time je vyhodnocovany cas ve vterinach, ale vzdy se bere z E
             %kategories jsou E.Wp.kats (cisla kategorii ve statistice), ale parametr se nikdy v kodu nepouziva, bere se z E            
-            if exist('E','var')
-                ch = E.CH.sortorder(ch); 
-            else                
+            assert(numel(ch)==1, 'only one channels should be specified');
+            
+            if ~exist('E','var') || isempty(E)
+                E = obj.plotAUC.Eh;
                 ch = obj.plotAUC.Eh.CH.sortorder(ch);%cislo kanalu musi odpovidat aktualnimu filtru a razeni
+            else
+                ch = E.CH.sortorder(ch);                
             end
             if ~isfield(obj.plotAUC,'reversekats') || isempty(obj.plotAUC.reversekats), obj.plotAUC.reversekats = 0; end %if the categories should be in original or reversed order
-            %overim jestli se nezmenily parametry krivek - zatim mi staci kategorie, kvuli zmene statistiky
+            
             if exist('time','var') && numel(time) == 1 %chci jen vykreslit jednu ROC krivku projeden bod
                 obj.ROCAnalysis(E,ch,time,kategories); 
                 return;
             end
+            %overim jestli se nezmenily parametry krivek - zatim mi staci kategorie, kvuli zmene statistiky
             if isfield(obj.plotAUC,'kategories') 
-                if exist('kategories','var') && ~isempty(kategories) && ~isequal(obj.plotAUC.kategories,kategories)
+                if exist('kategories','var') && ~isempty(kategories) && ~isequal(obj.plotAUC.kategories,kategories) %if there is argument kategories and there are different categories in stored ROC results
                     obj.AUCReset();               
-                elseif exist('E','var') && ~isequal(obj.plotAUC.kategories,E.Wp(E.WpActive).kats)
+                elseif exist('E','var') && ~isequal(obj.plotAUC.kategories,E.Wp(E.WpActive).kats) %if the kategories in active stat are different from saved categories
                     obj.AUCReset();               
                 end               
             end
@@ -82,8 +86,8 @@ classdef CStat < handle
                     obj.plotAUC.Eh = E;
                     obj.plotAUC.PsyData = E.PsyData;
                 end 
-                AUCall = obj.plotAUC.aucdata(ch).AUC; %load the previously computed data
-                AVGall = obj.plotAUC.aucdata(ch).AVG;
+                AUCall = obj.plotAUC.aucdata(ch).AUC; % cellarray: kats x kats - load the previously computed AUC data
+                AVGall = obj.plotAUC.aucdata(ch).AVG; % cellarray: kats x kats - difference between kats
                 if ~exist('time','var') || isempty(time), time = obj.plotAUC.time; end
                 if ~exist('kategories','var') || isempty(kategories), kategories = obj.plotAUC.kategories; end
                 if ~exist('E','var') || isempty(E)
@@ -117,7 +121,7 @@ classdef CStat < handle
                     legenda{obj.plotAUC.setup.legendkomb(k,l)} = [ obj.plotAUC.katnames{obj.plotAUC.setup.legendkomb(k,l)}  ' ' sig];                
 
                     AUC = AUCall{k,l};
-                    MP = AVGall{k,l};                
+                    MP = AVGall{k,l};  %samples x 1 (epochs mean)              
                     MN = AVGall{l,k};
 
                     %kod podle PlotResponseCh, aby stejne barvy pro PPA test
@@ -143,7 +147,7 @@ classdef CStat < handle
                     
                     %do DRUHEHO plotu vykreslim rozdil power obou kategorii
                     subplot(2,1,2); 
-                    title('power');
+                    title('power difference');
                     hold on;
 
                     %prvni a druha kategorie - jejich rozdil                
@@ -183,7 +187,7 @@ classdef CStat < handle
             for ch = channels %jde po sloupcich
                 fprintf('%u,',ch);
                 %musim vyradit spatne epochy            
-                if isempty(obj.plotAUC.aucdata(ch).AUC)  %are there any computed AUC values for this channel?
+                if ~isfield(obj.plotAUC.aucdata,'AUC') || isempty(obj.plotAUC.aucdata)  || length(obj.plotAUC.aucdata) < ch || isempty(obj.plotAUC.aucdata(ch).AUC)  %are there any computed AUC values for this channel?
                     AUCall = cell(numel(kategories)); %tam bud davat AUC data pro vsechny kombinace kategorii
                     AVGall = cell(numel(kategories)); %tam budou prumery rozdilu mezi kategoriemi
                 else
@@ -199,14 +203,14 @@ classdef CStat < handle
                     [~,~,~,iEpN] = E.CategoryData(cellval(kategories,k),[],[],ch); %.... chci mit tu nejdulezitejsi kategorii (l=vyssi cislo) jako prvni, aby se od ni odecitaly ostatni                                                        
 
                     %prvni a druha kategorie - prumer power
-                    if(numel(sample)>1)
+                    if(numel(sample)>1) %from time=sample range - normal case
                         dataP = squeeze(E.d(sample(1):sample(2),ch,iEpP));
                         dataN = squeeze(E.d(sample(1):sample(2),ch,iEpN));
                     else %chci mit zachovanou moznot vyplotit ROC krivku pro jeden sample
                         dataP = squeeze(E.d(sample(1),ch,iEpP));
                         dataN = squeeze(E.d(sample(1),ch,iEpN));
                     end
-                    MP = mean(dataP,2); %prumer pres epochy - zustavaji samples jako rozmer
+                    MP = mean(dataP,2); %prumer pres epochy - zustavaji samples jako prvni rozmer
                     MN = mean(dataN,2);                   
 
                     if numel(sample) == 1 %chci udela ROC krivku jen pro jeden bod v case
@@ -214,17 +218,18 @@ classdef CStat < handle
                         ci =  CStat.AUCconfI(auc,[sum(iEpP) sum(iEpN)],0.05);
                         %AUC = [auc ci];
                         disp(['AUC = ' num2str(auc) '+-' num2str(auc-ci(1)) '=[' num2str(ci(1)) ';' num2str(ci(2)) ']']);
-                    else %udelam ROC krivku pro ze vsech auc
+                    else %udelam ROC krivku for all time samples in the range sample(1) - (2)
                         AUC = zeros(diff(sample)+1,3); %samples x auc hodnota + confidence intervals
                         for s = sample(1):sample(2)
                             auc = CStat.ROCKrivka(E.epochData(iEpP | iEpN,:),squeeze(E.d(s,ch,iEpP | iEpN)),{katnames{l},katnames{k}},0); %zadny graf nedela
                             ci =  CStat.AUCconfI(auc,[sum(iEpP) sum(iEpN)],0.05);
                             AUC(s-sample(1)+1,1:3) = [auc ci];
                         end                                                           
-                        AUCall{k,l} = AUC; %samples x [auc, dolni ci, horni ci]                   
+                        AUCall{k,l} = AUC; %samples x [auc, dolni ci, horni ci]                                           
+                        AVGall{k,l} = MP; % pozitivni data - samples x 1 (epochs mean) = of first higher category l
+                        AVGall{l,k} = MN; % negativni data = of second lower category k  - lower means earlier in kategories vector
+                        %the significance of AUC curve - if both confidence intervals are over or below 0.5, in the same direction
                         obj.plotAUC.sig(ch,obj.plotAUC.setup.legendkomb(k,l)) = any( all(AUC(:,2:3)>0.5,2) | all(AUC(:,2:3)<0.5,2) ); %krivka AUC je signifikancni, pokud oba CI prekroci 0.5 jednom nebo druhym smerem                    
-                        AVGall{k,l} = MP; % pozitivni data - prvni vyssi kategorie - l
-                        AVGall{l,k} = MN; % negativni data - druha nizsi kategorie - k
                     end                    
                 end
                 end
@@ -239,13 +244,14 @@ classdef CStat < handle
             %vykresli vic AUC krivek pres sebe z vybranych kanalu
             %channels je seznam kanalu k vykresleni
             %chSelection je pojmenovani vyberu kanalu, napr [Scene], index v obj.plotAUC.selChNames, 0 pro all channels
-            %selch je cislo kanalu z chsort(channels), ktery je zobrazen vyrazne            
+            %selch je cislo kanalu z channels(chsort) = chnums, ktery je zobrazen vyrazne            
             assert(sum(obj.plotAUC.katplot)==1,'one kontrast for plot is not selected'); %nechci kreslit vic kontrastu jako ScenexObject a ScenexFace dohromady
             
-            if ~isempty(channels)
+            if ~isempty(channels) %has to be above the arguments initialization below (params=)
                 channels = intersect(obj.plotAUC.Eh.CH.sortorder,channels); %chci jen kanaly, ktere odpovidaji filtru podle sortorder
             end
             
+            % POZOR - parameters inicialization %
             params = {'channels','chSelection','selch'}; %zkusim hromadne zpracovani parametru 
             for p = 1:numel(params)            
                 if ~exist(params{p},'var')  || eval(['isempty(' params{p} ')']) 
@@ -254,17 +260,17 @@ classdef CStat < handle
                     eval(['obj.plotAUC_m.' params{p} '='  params{p} ';']  );            
                 end
             end            
-            
-             if isfield(obj.plotAUC_m,'fh') && (verLessThan('matlab','9.0') || isvalid(obj.plotAUC_m.fh)) %isvalid je od verze 2016
+            if ~isfield(obj.plotAUC_m,'plotmean'), obj.plotAUC_m.plotmean = 0; end
+            if isfield(obj.plotAUC_m,'fh') && (verLessThan('matlab','9.0') || isvalid(obj.plotAUC_m.fh)) %isvalid je od verze 2016
                figure(obj.plotAUC_m.fh); %pouziju uz vytvoreny graf
                clf(obj.plotAUC_m.fh); %graf vycistim
                figurenew = 0;  %obnovuju uz drive vytvoreny graf=figure                           
             else                                  
                obj.plotAUC_m.fh = figure('Name','AUC for multiple channels');
                figurenew = 1; %vytvoril jsem novy graf - okno               
-             end            
+            end            
             
-             chantodo = obj.AUCisEmpty(channels); %channels where the AUC data are missing
+            chantodo = obj.AUCisEmpty(channels); %channels where the AUC data are missing
 %             chantodo = find(cellfun(@isempty,{obj.plotAUC.aucdata.AUC})); %najdu kanaly, ktere jsou nespocitane v aucdata
 %             chantodo = find(cellfun(@isempty,{obj.plotAUC.aucdata.AUC{1,2}}));
 %             chantodo = intersect(chantodo,channels); %z tech nespocitanych chci jen ty, ktere se maji ted vykreslit
@@ -273,21 +279,15 @@ classdef CStat < handle
                 obj.ROCAnalysis(obj.plotAUC.Eh,chantodo,obj.plotAUC.time,obj.plotAUC.kategories); 
             end                     
             if isfield(obj.plotAUC_m,'chsort') &&  figurenew == 0 %pokud jsou kanaly serazene jinak a neni to novy obrazek
-                chnums = channels(obj.plotAUC_m.chsort);
+                chnums = channels(obj.plotAUC_m.chsort); %only reorder the channels
             else
-                chnums = channels;            
+                chnums = channels;            %channels are absolute ch numbers
             end
-            sig = obj.plotAUC.sig(chnums,logical(obj.plotAUC.katplot)); %index kanalu se signifik auc krivkami ke kresleni
-            
-            legenda = cell(1,sum(sig));                        
-            ColorSet = distinguishable_colors(sum(sig)); %ruzne barvy pro ruzne kanaly
-            ploth = nan(1,sum(sig)); %handly na ploty, kvuli selektivni legende            
-                        
-           
-            
+%             sig = obj.plotAUC.sig(chnums,logical(obj.plotAUC.katplot)); % ch x 1 double - index kanalu se signifik auc krivkami ke kresleni
+                    
             if exist('chSelection','var') && ~isempty(obj.plotAUC.selChNames)
                 if ~isempty(chSelection)  && chSelection > 0
-                    ChSelText = [' chnls: ' cell2str(obj.plotAUC.selChNames{chSelection}) ];
+                    ChSelText = [' chnls: ' cell2str(obj.plotAUC.selChNames{chSelection}) ]; %list of channels to the figure title
                 else
                     ChSelText = ' chnls: all'; % vsechny kanaly zobrazuju, nefiltruju je podle selCh
                 end
@@ -297,64 +297,106 @@ classdef CStat < handle
             figuretitle= ['AUCPlotM kontrast: ' obj.plotAUC.katnames{find(obj.plotAUC.katplot)}  ChSelText   ]; %#ok<FNDSB>
             if figurenew, disp(figuretitle); end            
             ileg = 1; %specialni index na signif kanaly - legendu a barvy            
-            for ch = 1:numel(channels)                     
-                chnum = chnums(ch);                
-                if channels(ch) > numel(obj.plotAUC.aucdata) || isempty( obj.plotAUC.aucdata(chnum).AUC)                     
-                    obj.ROCAnalysis(obj.plotAUC.Eh,chnum,obj.plotAUC.time,obj.plotAUC.kategories);                                        
+            [AUCData,AUCSig]=obj.AUCPlotMGetData(chnums); %AUCData: time x 3 x channels, AUCSig: channels x 1
+            T = linspace(obj.plotAUC.time(1),obj.plotAUC.time(2),size(AUCData,1));  %1 x time in sec                                           
+            if obj.plotAUC_m.plotmean
+                %mean of the significant channels
+                %TODO merge with obj.AUCPlotMean
+                labels = {obj.plotAUC.Eh.CH.brainlabels(chnums).label};
+                [ulabels,barvy]=obj.plotAUC.Eh.CH.channelPlot.GetBrainlabelsSaved();
+                legendStr = cell(numel(ulabels),1);
+                ploth = zeros(1,numel(ulabels)); 
+                colorsErrorBars = obj.plotAUC.Eh.PL.GetColorsErrorBars(barvy); 
+                for j = 1:numel(ulabels)
+                    ich = contains(labels,ulabels{j});
+                    if sum(ich)>0
+                        M = mean(AUCData(:,1,ich),3);
+                        E = std(AUCData(:,1,ich),[],3)/sqrt(sum(ich)); %std err of mean                        
+                        ciplot(M+E, M-E, T,colorsErrorBars(j,:) ); %colorkatk(2,:)
+                        %plotband(T, M, E, colorsErrorBars(j,:)); %nejlepsi, je pruhledny, ale nejde kopirovat do corelu
+                        hold on;
+                        ploth(j) = plot(T,M,'LineWidth',2,'Color',barvy(j,:));
+                        legendStr{j}=[ ulabels{j} ' x' num2str(sum(ich))];
+                    end
+                end
+            else
+                legendStr = cell(1,sum(AUCSig));                        
+                ColorSet = distinguishable_colors(sum(AUCSig)); %ruzne barvy pro ruzne kanaly
+                ploth = nan(1,sum(AUCSig)); %handly na ploty, kvuli selektivni legende 
+                for ch = 1:size(AUCData,3)                   
+                    if AUCSig(ch) % nechci mit true u dodatecne pocitanych kanalu (ROCAnalysis kousek vyse) , || figure new tu nemuzu dat, protoze pokud neni ch prvni, nejsou vsechny sig naplnene od zacatku
+                        legendStr{ileg} = ['ch' num2str(chnums(ch)) ' ' obj.plotAUC.Eh.CH.H.channels(chnums(ch)).name];
+                        style = iff(any(AUCData(:,2,ch)>0.75) || any(AUCData(:,3,ch)<0.25),'o-','.-'); %channels with high values (>0.75) plotted with circles
+                        LineWidth = iff(ch==selch,3,1); %vybrany kanal je nakresleny tluste
+                        ploth(ileg) = plot(T,AUCData(:,1,ch),style,'Color',ColorSet(ileg,:),'LineWidth',LineWidth); %kazdy kanal jinou barvou, pokud budu kreslit vic krivek pro jeden kanal, bude to asi zmatek
+                        if ch==selch, selchH = ploth(ileg); end                                                        
+                        ileg = ileg + 1;
+                    else  %nesignif  auc krivka
+                        style = iff(ch==selch,'.-','.:'); %ybrany kanal neni teckovane, ostani ano
+                        ph = plot(T,AUCData(:,1,ch),style,'Color',[.5 .5 .5]); %seda barva
+                        if ch==selch, selchH = ph; end
+                    end
+                    hold on;                                                
+                end
+
+                if selch>0 % if there is some selected channel - kdyz poprve graf vykreslim, neni zadny vybrany kanal
+                    uistack(selchH, 'top');  %vybrany kanal dam na popredi
+                    chnum = channels(obj.plotAUC_m.chsort(selch));
+                    txt = sprintf('ch: %i(%i), %s: %s, %s',chnum,selch, obj.plotAUC.Eh.CH.H.channels(chnum).name, ...
+                        obj.plotAUC.Eh.CH.H.channels(chnum).neurologyLabel,obj.plotAUC.Eh.CH.H.channels(chnum).ass_brainAtlas );
+                    text(.05,.1,txt);
+                    if isfield(obj.plotAUC_m,'xlsvals')
+                        if size(obj.plotAUC_m.xlsvals,1) ==  numel(obj.plotAUC_m.channels)
+                            txt = sprintf('aucmax: %.3f, tmax %.3f',obj.plotAUC_m.xlsvals(selch,1),obj.plotAUC_m.xlsvals(selch,2) );                        
+                        else
+                            txt = 'xlsvals have different no of values. Run AUC2XLS to recompute to see aucmax and tmax value.';
+                        end
+                        text(.05,.05,txt);
+                    end
+                end
+                
+                if figurenew %jen pokud kreslim graf poprve
+                    disp(['significant channels: ' num2str(channels(logical(AUCSig)),'%i ')]);
+                    disp(['not significant channels: ' num2str(channels(~logical(AUCSig)),'%i ')]);
+                    obj.AUCPlotMMax(channels);    %spocitam si razeni kanalu podle maxima AUC krivek            
+                end
+            end
+            ylim([0.4 1]);
+            line([T(1) T(end)],[.5 .5]);             
+%             legendStr = legendStr(~cellfun('isempty',legendStr)); %vymazu prazdne polozky, ktere se nevykresluji
+%             ploth = ploth(~isnan(ploth)); %vymazu prazdne polozky, ktere se nevykresluji
+            emptyh = ploth==0;
+            ploth(emptyh)=[];
+            legendStr(emptyh)=[];
+            if ~isempty(legendStr) 
+                legend(ploth,legendStr,'Location','best'); 
+            end
+            title(figuretitle);           
+            set(obj.plotAUC_m.fh,'KeyPressFcn',@obj.hybejAUCPlotM); 
+        end
+        function [AUCData,AUCSig]=AUCPlotMGetData(obj,chnums)          
+            %gets auc data to be plotted - individually or averaged
+            AUCData=zeros(size(obj.plotAUC.aucdata(chnums(1)).AUC{1,2},1),3,numel(chnums));
+            AUCSig = false(numel(chnums,1));
+            for ch = 1:numel(chnums)                     
+                chnum = chnums(ch); %absolute channel number - only shortcut               
+                if chnum > numel(obj.plotAUC.aucdata) || isempty( obj.plotAUC.aucdata(chnum).AUC)                     
+                    obj.ROCAnalysis(obj.plotAUC.Eh,chnum,obj.plotAUC.time,obj.plotAUC.kategories); %if there are still missing values for this channel, compute them now
                 end                
                 for kk = 1:numel(obj.plotAUC.kategories)-1
                 for ll = kk+1:numel(obj.plotAUC.kategories)
                     if obj.plotAUC.reversekats, [l, k] = deal(kk,ll); else,  [k, l] = deal(kk,ll); end %swap both variables content
                     if obj.plotAUC.katplot(obj.plotAUC.setup.legendkomb(k,l)) > 0 ... %pokud se tahle kombinace kategorii ma kreslit
-                    && ~isempty( obj.plotAUC.aucdata(chnum).AUC) %a AUC data existuji
+                        && ~isempty( obj.plotAUC.aucdata(chnum).AUC) %a AUC data existuji
                         
-                        AUC = obj.plotAUC.aucdata(chnum).AUC{k,l};
-                        X = linspace(obj.plotAUC.time(1),obj.plotAUC.time(2),size(AUC,1));                                             
-                        if obj.plotAUC.sig(chnum,obj.plotAUC.setup.legendkomb(k,l)) && sig(ch) % nechci mit true u dodatecne pocitanych kanalu (ROCAnalysis kousek vyse) , || figure new tu nemuzu dat, protoze pokud neni ch prvni, nejsou vsechny sig naplnene od zacatku
-                            legenda{ileg} = ['ch' num2str(chnum) ' ' obj.plotAUC.Eh.CH.H.channels(chnum).name];
-                            style = iff(any(AUC(:,2)>0.75) || any(AUC(:,3)<0.25),'o-','.-');
-                            LineWidth = iff(ch==selch,3,1); %vybrany kanal je nakresleny tluste
-                            ploth(ileg) = plot(X,AUC(:,1),style,'Color',ColorSet(ileg,:),'LineWidth',LineWidth); %kazdy kanal jinou barvou, pokud budu kreslit vic krivek pro jeden kanal, bude to asi zmatek
-                            if ch==selch, selchH = ploth(ileg); end                                                        
-                            ileg = ileg + 1;
-                        else  %nesignif  auc krivka
-                            style = iff(ch==selch,'.-','.:'); %ybrany kanal neni teckovane, ostani ano
-                            ph = plot(X,AUC(:,1),style,'Color',[.5 .5 .5]); %seda barva
-                            if ch==selch, selchH = ph; end
-                        end
-                        hold on;                                                
+                        AUC = obj.plotAUC.aucdata(chnum).AUC{k,l}; %time x 3 - auc curve and confidence intervals
+                        AUCData(:,:,ch)=AUC; %collect the data                        
+                        AUCSig(ch) = obj.plotAUC.sig(chnum,obj.plotAUC.setup.legendkomb(k,l)); % nechci mit true u dodatecne pocitanych kanalu (ROCAnalysis kousek vyse) , || figure new tu nemuzu dat, protoze pokud neni ch prvni, nejsou vsechny sig naplnene od zacatku
+                                    %sig = obj.plotAUC.sig(chnums,logical(obj.plotAUC.katplot));
                     end
                 end
                 end
             end
-            line([X(1) X(end)],[.5 .5]);             
-            if selch>0 %kdyz poprve graf vykreslim, neni zadny vybrany kanal
-                uistack(selchH, 'top');  %vybrany kanal dam na popredi
-                chnum = channels(obj.plotAUC_m.chsort(selch));
-                txt = sprintf('ch: %i(%i), %s: %s, %s',chnum,selch, obj.plotAUC.Eh.CH.H.channels(chnum).name, ...
-                    obj.plotAUC.Eh.CH.H.channels(chnum).neurologyLabel,obj.plotAUC.Eh.CH.H.channels(chnum).ass_brainAtlas );
-                text(.05,.1,txt);
-                if isfield(obj.plotAUC_m,'xlsvals')
-                    if size(obj.plotAUC_m.xlsvals,1) ==  numel(obj.plotAUC_m.channels)
-                        txt = sprintf('aucmax: %.3f, tmax %.3f',obj.plotAUC_m.xlsvals(selch,1),obj.plotAUC_m.xlsvals(selch,2) );                        
-                    else
-                        txt = 'xlsvals have different no of values. Run AUC2XLS to recompute to see aucmax and tmax value.';
-                    end
-                    text(.05,.05,txt);
-                end
-            end
-            legenda = legenda(~cellfun('isempty',legenda)); %vymazu prazdne polozky, ktere se nevykresluji
-            ploth = ploth(~isnan(ploth)); %vymazu prazdne polozky, ktere se nevykresluji
-            if ~isempty(legenda), legend(ploth,legenda); end
-            ylim([0 1]);
-            
-            title(figuretitle);           
-            if figurenew %jen pokud kreslim graf poprve
-                disp(['significant channels: ' num2str(channels(logical(sig)),'%i ')]);
-                disp(['not significant channels: ' num2str(channels(~logical(sig)),'%i ')]);
-                obj.AUCPlotMMax(channels);    %spocitam si razeni kanalu podle maxima AUC krivek            
-            end
-            set(obj.plotAUC_m.fh,'KeyPressFcn',@obj.hybejAUCPlotM); 
         end
         function [chsort] = AUCPlotMMax(obj,channels)
             %chci ziskat poradi kanalu podle maxima AUC krivky
@@ -513,44 +555,61 @@ classdef CStat < handle
             %srovna dve 3D matice proti sobe, ohledne hodnot v poslednim rozmeru
             %A musi mit oba prvni rozmery > rozmery B, 
             %B muze mit jeden nebo oba prvni rozmer = 1 - pak se porovnava se vsemi hodnotami v A
-            %pokud fdr=1 nebo prazne, provadi fdr korekci
+            %pokud fdr=1,2 nebo prazne, provadi fdr korekci
             %pokud print = 0 nebo prazne, netiskne nic
             if ~exist('print','var'), print = 0; end
             if ~exist('fdr','var') || isempty(fdr), fdr = 1; end %min striktni je default           
             if ~exist('msg','var') || isempty(msg), msg = ''; end
+            if size(A,3)==1 %if there are only two dimension of A
+                A = reshape(A,size(A,1),1,[]); %assume that samples are in the second dimension and make it the third dimesions
+            end            
             if ~exist('RjEpChA','var') || isempty(RjEpChA), RjEpChA = false(size(A,2),size(A,3)); end
             if ~exist('RjEpChB','var') || isempty(RjEpChB), RjEpChB = false(size(B,2),size(B,3)); end
-            if ~exist('paired','var'), paired = 0; end %pokud se ma pouzit parovy neparametricky test, defaulte ne
+            if ~exist('paired','var')
+                paired = iff(numel(B)==1,1,0);  %automatically paired, when B is single value
+            end %pokud se ma pouzit parovy neparametricky test, defaulte ne            
             W = zeros(size(A,1),size(A,2));
-           
-            if print, fprintf(['Wilcox Test 2D - ' msg ': ']); end
+            
+            if print, fprintf(['Wilcox Test 2D - ' msg ' (' num2str(size(A)) '): ']); end
             for j = 1:size(A,1) % napr cas
                 if print && mod(j,50)==0, fprintf('%d ', j); end %tisknu jen cele padesatky
                 for k = 1:size(A,2) %napr kanaly   
                    if paired %pri parovem testu musim porovnavat stejny kanal, takze musi vyradit epochy parove
                        RjEpChA_k = RjEpChA(k,:) | RjEpChB(k,:); %binarni OR
-                       RjEpChB_k = RjEpChA(k,:) | RjEpChB(k,:);
+                       RjEpChB_k = iff(numel(RjEpChB)>1,RjEpChA(k,:) | RjEpChB(k,:),0);
                    else
                        RjEpChA_k = RjEpChA(k,:);
                        RjEpChB_k = RjEpChB(k,:);
                    end    
                    aa = squeeze (A(j,k,~RjEpChA_k)); %jen nevyrazene epochy 
                    bb = squeeze (B( min(j,size(B,1)) , min(k,size(B,2)) , ~RjEpChB_k )); %jen nevyrazene epochy
-                   if numel(aa) >= 2 && numel(bb) >= 2 
-                      if paired
+                   if numel(aa) >= 2 
+                      if paired %the signed rank with a single value bb is one-sample test against this value
                         W(j,k) = signrank(aa,bb); %  Wilcoxon signed rank test  paired, two-sided , Statistics and Machine Learning Toolbox  
-                      else
+                      elseif numel(bb) >= 2  %randsum need two sample vectorss
                         W(j,k) = ranksum(aa,bb); % Wilcoxon rank sum test, non-paired, Statistics and Machine Learning Toolbox
+                      else
+                          W(j,k) = 1; %if only one bb for nonpaired,, no stats can be computed
                       end
                    else
-                      W(j,k) = 1; %pokud jen jedna hodnota, nelze delat statistika
+                      W(j,k) = 1; %if only one aa value, no stats can be computed
                    end
                 end
             end
-            if fdr
-                if fdr == 2, method = 'dep'; else method = 'pdep'; end
-                [~, ~, adj_p]=fdr_bh(W,0.05,method,'no'); %dep je striktnejsi nez pdep
+            if fdr > 0
+                if fdr == 2, method = 'dep'; else method = 'pdep'; end %#ok<SEPEX>
+                [~, ~, adj_p]=fdr_bh(W,0.05,method,'no'); %dep je striktnejsi nez pdep 
+                %optionally log the uncorredted and corectec values
+%                 logcell = cell(size(W,1)*2+2,size(W,2)+5);
+%                 logcell{1,1}=method;  logcell{1,2}=msg; logcell{1,5}=datestr(now, 'yyyy-mm-dd_HH-MM-SS'); 
+%                 logcell(2:size(W,1)+1,1:size(W,2)) = num2cell(W);
+%                 logcell(size(W,1)+2,1) = {'adj_p'};
+%                 logcell(size(W,1)+3:end,1:size(W,2)) = num2cell(adj_p);
+%                 if(size(logcell,2)>256), logcell = logcell(:,1:256); end %xls can export more columns
+%                 xlswrite(['logs\Wilcox2D_' msg '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') '.xls'],logcell); %zapisu do xls tabulky
                 W = adj_p; %prepisu puvodni hodnoty korigovanymi podle FDR
+            else
+                if print, fprintf('no fdr ...'); end
             end
             if print, fprintf('%d .. done\n',j); end
         end
@@ -604,7 +663,6 @@ classdef CStat < handle
                 end
             end
         end
-        
         function N = round(n,dig)
             %zakrouhuje na dany pocet desetinnych mist
             N = round(n * 10^dig) / 10 ^ dig;
@@ -640,7 +698,6 @@ classdef CStat < handle
             fft_d_abs = 10*log10(pxx);
             end
         end
-            
         function [filter_result] = FIR(freq,dd,fs,firtype)
             %[filter_result] = FIR(freq,dd,fs) 
             % provede FIR filter podle Cohen Ch 14.  
@@ -679,7 +736,6 @@ classdef CStat < handle
             filter_result = filtfilt(filterweights,1,dd);
             
         end
-        
         function [AUC,X,Y] = ROCKrivka(epochData,dd,katnames,kresli)
             %11/2018 - spocita a vykresli roc krivku
             %epochData - cellarray z CiEEGData
@@ -729,7 +785,6 @@ classdef CStat < handle
                 end
             end
         end
-        
         function ci = AUCconfI(auc,n,p)
             % http://www.real-statistics.com/descriptive-statistics/roc-curve-classification-table/auc-confidence-interval/
             %n jsou velikosti dvou vzorku
@@ -742,12 +797,14 @@ classdef CStat < handle
             zcrit = norminv(1-p/2); %two tailed z critical value from p value
             ci = [auc - se*zcrit , auc + se*zcrit];
         end
-        
-        function [timeB,timeK]=StatDiffStart(channels,Wp,kategories,plevel)  
+        function [timeB,timeK]=StatDiffStart(channels,Wp,kategories,plevel,maintain)  
             %vraci casy zacatku signifikantnich rozdilu vuci baseline a kategorii vuci sobe
             %nezohlednuje smer rozdilu, signum, jako ktere se pouziva treba v CiEEGData.SelChannelStat
             if ~exist('kategories','var'), kategories = Wp.kats; end
             if ~exist('plevel','var'), plevel = 0.05; end
+            if ~exist('maintain','var'), maintain = 1; end %for how many samples should the significance stay to be detected. 1=1/fs
+                %Bastin 2013jneurosci used maintain=8. But we use already the sliding window in CiEEGStat.WilcoxCat. 
+            sigvector = true(1,maintain);
             timeB = NaN(numel(channels),numel(Wp.kats)); % %casy rozdilu vuci baseline
             timeK = NaN(numel(channels),numel(Wp.kats),numel(Wp.kats)); % casy rozdilu mezi kat
             Tr = linspace(Wp.baseline(2),Wp.epochtime(2),size(Wp.D2,1)); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
@@ -755,9 +812,9 @@ classdef CStat < handle
                 ik = find(Wp.kats==kategories(k)); %index kde je cislo kategorie v seznamu kategorii pro tuto statistiku
                 iWp = Wp.WpKatBaseline{ik,1}(:,channels)  <= plevel; 
                 for ch = 1:numel(channels)
-                    iWpfirst = find(iWp(:,ch),1,'first'); %index zacatku signifikance
+                    iWpfirst = strfind(iWp(:,ch)',sigvector); %index of occurences of sigvector - 8 significant differences in sequence
                     if ~isempty(iWpfirst)
-                        timeB(ch,k) = Tr(iWpfirst); %cas zacatku signifikance
+                        timeB(ch,k) = Tr(iWpfirst(1)); %time of start of significance
                     end
                 end
                 for l = k+1:numel(kategories)
@@ -769,9 +826,10 @@ classdef CStat < handle
                     end
                     iWp = WpKat(:,channels)  <= plevel;  
                     for ch = 1:numel(channels)
-                        iWpfirst = find(iWp(:,ch),1,'first'); %index zacatku signifikance
+                        iWpfirst = strfind(iWp(:,ch)',sigvector); %index of occurences of sigvector - 8 significant differences in sequence
                         if ~isempty(iWpfirst)
-                            timeK(ch,k,l) = Tr(iWpfirst); %cas zacatku signifikance
+                            timeK(ch,k,l) = Tr(iWpfirst(1)); %time of start of significance
+                            timeK(ch,l,k) = Tr(iWpfirst(1)); %time of start of significance - currently WpKat is not directional
                         end
                     end
                     
@@ -825,13 +883,20 @@ classdef CStat < handle
                 case 'x' %export kanalu do xls tabulky
                     obj.AUC2XLS(); 
                     kresli = 0;
+                case 'm' %plot mean instead of individual channels
+                    obj.plotAUC_m.plotmean = 1  - obj.plotAUC_m.plotmean;                    
+                case 'd' %just redraws
+                    kresli = 1;
+                    selch = obj.plotAUC_m.selch;
                 otherwise     
                     kresli = 0;
             end
             if kresli 
                 obj.AUCPlotM([],[],selch); %prekresli sumarni plot AUC krivek
-                ch = find(obj.plotAUC.Eh.CH.sortorder==obj.plotAUC_m.channels(obj.plotAUC_m.chsort(selch))); %index vybraneho kanalu v CH.sortorder
-                obj.plotAUC.Eh.PlotResponseCh(ch); %#ok<FNDSB> %prekresli graf PlotResponseCh
+                if selch > 0
+                    ch = find(obj.plotAUC.Eh.CH.sortorder==obj.plotAUC_m.channels(obj.plotAUC_m.chsort(selch))); %index vybraneho kanalu v CH.sortorder
+                    obj.plotAUC.Eh.PlotResponseCh(ch); %#ok<FNDSB> %prekresli graf PlotResponseCh
+                end
                 figure(obj.plotAUC_m.fh);
             end
         end        
@@ -860,7 +925,7 @@ classdef CStat < handle
             for ch = 1:numel(channels) %ch is just index in channels, no real channel number
                 kk = 1; ll = 2;
                 if obj.plotAUC.reversekats, [l, k] = deal(kk,ll); else,  [k, l] = deal(kk,ll); end %swap both variables content
-                if isempty(obj.plotAUC.aucdata(channels(ch)).AUC) || isempty(obj.plotAUC.aucdata(channels(ch)).AUC{k,l})
+                if length(obj.plotAUC.aucdata)<channels(ch) || isempty(obj.plotAUC.aucdata(channels(ch)).AUC) || isempty(obj.plotAUC.aucdata(channels(ch)).AUC{k,l})
                     chtodo(ch) = true; 
                 end              
             end

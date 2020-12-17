@@ -324,27 +324,29 @@ classdef CHilbertMulti < CHilbert
                 obj.CH.els = numel(H.channels);                
             else
                 obj.CH.H.subjName = [obj.CH.H.subjName ',' H.subjName]; %spojim jmena subjektu                
-                CHfields = fieldnames(obj.CH.H.channels);
-                Hfields = fieldnames(H.channels); %nove pridavany header
-
-                if numel(CHfields) > numel(Hfields) %predchozi soubor mel vice poli v H.channels
-                    rozdil = setdiff(CHfields,Hfields); %jaka pole chybi v Hfields
-                    prazdnepole = cell(numel(H.channels),1); %cell array o tolika polich, ktere ma nove pridavany header
-                    for r = 1:numel(rozdil)                       
-                        [H.channels(:).(rozdil{r})] = prazdnepole{:}; %pridam kazde chybejici pole
+                CHfields = fieldnames(obj.CH.H.channels); %headers already loaded
+                Hfields = fieldnames(H.channels); %new header from the current file (being loaded)
+                rozdilCurr = setdiff(CHfields,Hfields); %field names missing in Hfields in the current header
+                rozdilPrev = setdiff(Hfields,CHfields); %field names missing in CHfields in the previous headers
+                
+                if  numel(rozdilCurr)>0  %the current header miss some fields from the previous headers in H.channels 
+                    %rozdil = setdiff(CHfields,Hfields); 
+                    prazdnepole = cell(numel(H.channels),1); %empty cell array with so many field as in the new header
+                    for r = 1:numel(rozdilCurr)                       
+                        [H.channels(:).(rozdilCurr{r})] = prazdnepole{:}; %add a new empty field in the new header, pridam kazde chybejici pole
                         %tomuhle kodu moc nerozumim, ale nasel jsem ho na webu
-                        %(rozdil{r}) je dynamic field
+                        %(rozdil{r}) is dynamic field, the name of the missing field
                     end
-                elseif  numel(CHfields) < numel(Hfields) %predchozi soubory mely mene poli v H.channels
-                    rozdil = setdiff(Hfields,CHfields); %jaka pole chybi v puvodnim CHfields
-                    prazdnepole = cell(numel(obj.CH.H.channels),1); %cell array o tolika polich, ktere ma stary header
-                    for r = 1:numel(rozdil)                       
-                        [obj.CH.H.channels(:).(rozdil{r})] = prazdnepole{:}; %pridam kazde chybejici pole
+                end
+                if  numel(rozdilPrev)>0   %the previous headers were missing some fields existing in the current one in H.channels                    
+                    prazdnepole = cell(numel(obj.CH.H.channels),1); %empty cell array with so many field as in the previous header
+                    for r = 1:numel(rozdilPrev)                       
+                        [obj.CH.H.channels(:).(rozdilPrev{r})] = prazdnepole{:}; %add a new empty field in the previous header,
                         %tomuhle kodu moc nerozumim, ale nasel jsem ho na webu
-                        %(rozdil{r}) je dynamic field
+                        %(rozdil{r}) is dynamic field, the name of the missing field
                     end                    
                 end
-                obj.CH.H.channels = cat(2,obj.CH.H.channels,H.channels); %spojim udaje o kanalech
+                obj.CH.H.channels = cat(2,obj.CH.H.channels,H.channels); %append current after the previous header
                 
                 obj.CH.H.selCh_H = [obj.CH.H.selCh_H  (1:numel(H.channels))+obj.CH.H.selCh_H(end) ];                
                 obj.CH.chgroups{fileno} = (1:numel(H.channels)) + obj.CH.els(fileno-1);

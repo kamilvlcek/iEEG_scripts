@@ -20,6 +20,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         hull; %data for convex hull
         clusters; %cluster data {popis,C,idx,channels}
         plotClusters; %info to the PlotClusters figure
+        CorrelChan; % correlated/uncorrelated (1/0) channels with RT
     end
     %#ok<*PROPLC>
     
@@ -429,10 +430,11 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
 %         function obj = SaveAUCPlotHandle(obj,fh) 
 %             obj.plotCh2D.plotAUCH = fh; %ulozim handle na CStat.AUCPlot funkci,abych ji mohl volat z grafu ChannelPlot2D
 %         end
-        function tag= PacientTag(obj,ch)
+        function tag= PacientTag(obj,ch,forcecell)
             %returns pacient tag, ie. p73
+            if ~exist('forcecell','var'), forcecell = 0; end %if to return cell array even if there is only one channel
             if strcmp(obj.classname,'CHilbertMulti') && exist('ch','var')
-                if numel(ch)>1  %if list of channels
+                if numel(ch)>1 || forcecell %if list of channels
                     tag = cell(numel(ch),1); %output will be cell array
                     for ich = 1:numel(ch)
                         tag{ich} = obj.PacientTag(ch(ich)); %recursion for one channel only
@@ -688,8 +690,10 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                             channelNumbers = []; %absolute channels numbers of channels in all clusters
                             for cn = 1:numel(clusternames)
                                 [iClSet,iCl]=obj.GetCluster([],clusternames{cn});
-                                ChCl = obj.clusters(iClSet).idx == iCl; %index of channels in this cluster (from the current cluster set)
-                                channelNumbers = union(channelNumbers,obj.clusters(iClSet).channels(ChCl)); %absolute channel numbers
+                                if iClSet>0 
+                                    ChCl = obj.clusters(iClSet).idx == iCl; %index of channels in this cluster (from the current cluster set)
+                                    channelNumbers = union(channelNumbers,obj.clusters(iClSet).channels(ChCl)); %absolute channel numbers
+                                end
                             end
                             iL(channelNumbers,iML) = true;
                             chlabelsL{iML} = clusternames;
@@ -707,16 +711,24 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 end
                 chshow = intersect(chshow,find(iL)'); %reduce list of channels to show                                               
                 filtered = true;
+            else
+                chlabels = {};
             end
             if exist('selCh','var') && ~isempty(selCh)
                 klavesy = 'fghjkl';
-                assert (numel(selCh)<=4,'maximum of 4 letter could be in selCh ');
+                assert (numel(selCh)<=5,'maximum of 5 letter could be in selCh ');
                 if find(ismember(klavesy,selCh)) %vrati index klavesy nektereho selCh v klavesy
                     if ~isfield(obj.plotCh2D,'selCh')
                         warning('No selCh in CH object, first run the ChannelPlot2D');
                     else                        
                         chshow = intersect(chshow,find(obj.plotCh2D.selCh(:,ismember(klavesy,selCh)))'); %indexy kanalu se znackou f-l                    
-                        chshowstr = horzcat(chshowstr, {klavesy(ismember(klavesy,selCh))}); 
+                        iklavesy = ismember(klavesy,selCh);
+                        if sum(iklavesy) == 1 && ~isempty(obj.plotCh2D.selChNames{iklavesy}) %if only one selectin was made - normal situation
+                            chshowstr = horzcat(chshowstr, obj.plotCh2D.selChNames(iklavesy));  %use the description of this marking
+                        else
+                            chshowstr = horzcat(chshowstr, {klavesy(iklavesy)});  %use the fghjkl characters
+                        end
+                        
                         filtered = true;  
                     end
                 end
@@ -739,7 +751,16 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     chshow = intersect(chshow,find(flt));
                     chshowstr = horzcat(chshowstr, {'Epi'}); 
                     filtered = true;
-                end                                               
+                end 
+                if contains(selCh, '~c') % no correlation between t max response and patient's RT, use sign '~c' %Sofiia
+                    chshow = intersect(chshow,find(~obj.CorrelChan));
+                    chshowstr = horzcat(chshowstr, {'~Correlated with RT'}); 
+                    filtered = true;
+                elseif contains(selCh, 'c') % 'c' with correlation
+                    chshow = intersect(chshow,find(obj.CorrelChan));
+                    chshowstr = horzcat(chshowstr, {'Correlated with RT'}); 
+                    filtered = true;
+                end
             end
             if exist('chnum','var') && ~isempty(chnum)
                 if size(chnum,1) > size(chnum,2), chnum = chnum'; end %chci mit cisla kanalu v radku
@@ -771,65 +792,95 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             obj.plotCh2D.filterargs = struct('chlabels',chlabels,'notchnlabels',notchnlabels,'selCh',selCh, 'chnum',chnum,'label',label); %saves copy of arguments - to be clear how the data were filtered
             notify(obj, 'FilterChanged');
         end
-        function obj = BrainLabelsImport(obj,brainlbs,filename)
+        function obj = BrainLabelsImport(obj,brainlbs,filename,fields)
             %naimportuje cell array do struct array. Hlavne kvuli tomu, ze v cell array nemusi byt vsechny kanaly
-            %predpoklada ctyri cloupce - cislo kanalu, brainclass	brainlabel	lobe
-            %filename - jmeno CHilbertMulti _CiEEG.mat souboru, ze ktereho se maji brainlabels najit podle jmen kanalu
+            %brainlbs should have four columns -   brainclass, brainlabel, lobe, channelname. If empty, filename is used
+            %filename - full name of CHilbertMulti _CiEEG.mat file, from which the labels should be imported according to channel name
+            %field - option to import only specific fiels of source brainlabels, like maxlabel and/or maxNeurologyLabel
             
+            if ~exist('fields','var')
+                fields = []; 
+            else
+                assert(iscell(fields),'fields has to be cellarray with names of brainlabels field');                
+            end            
             if isempty(brainlbs) && exist('filename','var')
                  assert(exist(filename,'file')==2,'soubor filename neexistuje');
                  vars = whos('-file',filename) ;
                  assert(ismember('CH_H', {vars.name}), 'soubor neobsahuje promennou H'); 
                  assert(ismember('CH_brainlabels', {vars.name}), 'soubor neobsahuje promennou brainlabels'); 
                  CH = load(filename,'CH_H','CH_brainlabels'); %nactu do struktury
-                 names = {CH.CH_H.channels.name};
+                 names = {CH.CH_H.channels.name}; %channel names from header of the source file
+                 for f = 1:numel(fields)
+                    if ~isfield(CH.CH_brainlabels,fields{f})
+                        error(['the field does not exists in source brainlabels: ' fields{f}]);
+                    end
+                 end
                  loaded = 0; %pocet nactenych kanalu
                  for ch = 1:numel(obj.H.channels)
-                     idx = find(ismember(names,obj.H.channels(ch).name));
+                     idx = find(ismember(names,obj.H.channels(ch).name));  
                      if ~isempty(idx)
-                        obj.brainlabels(ch).class = CH.CH_brainlabels(idx).class;
-                        obj.brainlabels(ch).label = CH.CH_brainlabels(idx).label;
-                        obj.brainlabels(ch).lobe = CH.CH_brainlabels(idx).lobe;
-                        loaded = loaded + 1;
-                     end 
+                        if isempty(fields)
+                            obj.brainlabels(ch).class = CH.CH_brainlabels(idx).class;
+                            obj.brainlabels(ch).label = CH.CH_brainlabels(idx).label;
+                            obj.brainlabels(ch).lobe = CH.CH_brainlabels(idx).lobe;                        
+                        else
+                            for f = 1:numel(fields)
+                                obj.brainlabels(ch).(fields{f}) = CH.CH_brainlabels(idx).(fields{f});
+                            end
+                        end
+                        loaded = loaded + 1;                   
+                     end
+                     if isempty(fields) 
+                        obj.brainlabels(ch).name = obj.H.channels(ch).name; %save channels names from header to brainlabels
+                     end
                  end                 
+                 disp(['imported brainlabels of ' num2str(loaded) '/' num2str(numel(obj.H.channels))  ' channels']);
             else
-                %BL = struct('class',{},'label',{},'lobe',{}); %empty struct with 3 fields
-                %nechci mazat ty existujici, to muzu kdyz tak udelat rucne
+                %BL = struct('class',{},'label',{},'lobe',{},'name',{}); %empty struct with 3 fields
+                %imports only selected channel, leaves all other intact
                 loaded = 0; %pocet nactenych kanalu
+                names = {obj.H.channels.name};
                 for j = 1:size(brainlbs,1)
-                    obj.brainlabels(brainlbs{j,1}).class = brainlbs{j,2};
-                    obj.brainlabels(brainlbs{j,1}).label = brainlbs{j,3};
-                    obj.brainlabels(brainlbs{j,1}).lobe = brainlbs{j,4};
-                    loaded = loaded + 1;
+                    ich = contains(names,brainlbs{j,4});   
+                    if sum(ich)==1
+                        obj.brainlabels(ich).class = brainlbs{j,1};
+                        obj.brainlabels(ich).label = brainlbs{j,2};
+                        obj.brainlabels(ich).lobe = brainlbs{j,3};                    
+                        loaded = loaded + 1;
+                    end
                 end    
-                %obj.brainlabels = BL;
+                disp(['imported brainlabels of ' num2str(loaded) '/' num2str(size(brainlbs,1))  ' channels']);
             end
-            disp(['loaded brainlabels of ' num2str(loaded) ' channels']);
-            %chci mit vsude string, zadne prazdne, kvuli exportu. Takze prazdna nahradim mezerou
+            
+            %we want to have everywhere string, no empty, because of export. So all empty replace with space characted
             BL = obj.brainlabels';
-            emptyIndex = find(arrayfun(@(BL) isempty(BL.class),BL)); %nasel jsem https://www.mathworks.com/matlabcentral/answers/328326-check-if-any-field-in-a-given-structure-is-empty
-            if ~isempty(emptyIndex)
-                for j = emptyIndex'
-                    BL(j).class = ' '; %nejaky znak asi musim vlozit
+            fields = {'class','label','lobe','name'};
+            for f = 1:numel(fields)
+                emptyIndex = find(arrayfun(@(BL) isempty(BL.(fields{f})),BL)); %nasel jsem https://www.mathworks.com/matlabcentral/answers/328326-check-if-any-field-in-a-given-structure-is-empty
+                if ~isempty(emptyIndex)
+                    for j = emptyIndex'
+                        BL(j).(fields{f}) = ' '; %nejaky znak asi musim vlozit
+                    end
                 end
+            end           
+            obj.brainlabels = BL';
+        end
+        function obj = NeurologyLabelsImport(obj,labels)
+            %imports neurology labels from cell array - first column is channel name, second col is label
+            names = {obj.H.channels.name};
+            n = 0;
+            for j = 1:size(labels,1)
+                ich = contains(names,labels{j,1});               
+                if sum(ich)==1
+                    obj.H.channels(ich).neurologyLabel = labels{j,2};
+                    n = n+1;
+                end                
             end
-            emptyIndex = find(arrayfun(@(BL) isempty(BL.label),BL)); %nasel jsem https://www.mathworks.com/matlabcentral/answers/328326-check-if-any-field-in-a-given-structure-is-empty
-            if ~isempty(emptyIndex)
-                for j = emptyIndex'
-                    BL(j).label = ' ';
-                end
-            end
-            emptyIndex = find(arrayfun(@(BL) isempty(BL.lobe),BL)); %nasel jsem https://www.mathworks.com/matlabcentral/answers/328326-check-if-any-field-in-a-given-structure-is-empty
-            if ~isempty(emptyIndex)
-                for j = emptyIndex'
-                    BL(j).lobe = ' ';
-                end  
-            end
-            obj.brainlabels = BL;
+            disp([num2str(n) '/' num2str(size(labels,1)) ' labels imported']);
         end
         function obj = RemoveChannels(obj,channels)  
-            %smaze se souboru vybrane kanaly. Kvuli redukci velikost aj                        
+            %smaze se souboru vybrane kanaly. Kvuli redukci velikost aj
+            
             keepch = setdiff(1:numel(obj.H.channels),channels); %channels to keep            
             channelmap = zeros(1,numel(obj.H.channels));
             channelmap(keepch) = 1:numel(keepch); %prevod ze starych cisel kanalu na nove
@@ -841,25 +892,34 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             obj.H.selCh_H = channelmap(setdiff(obj.H.selCh_H,channels,'stable')); %keep the order             
             %kanaly musim precislovat, napriklad z 11 se ma stat 4 atd            
             obj.sortorder = channelmap(setdiff(obj.sortorder,channels,'stable')); %cisla 1:n v poradi puvodniho sortorder   
-            if isprop(obj,'plotCh2D') && isfield(obj.plotCh2D,'chshow')
-                obj.plotCh2D.chshow = channelmap(setdiff(obj.plotCh2D.chshow,channels,'stable')); 
-                obj.plotCh2D.ch_displayed = channelmap(setdiff(obj.plotCh2D.ch_displayed,channels,'stable')); 
+            if isprop(obj,'plotCh2D') 
+                if isfield(obj.plotCh2D,'chshow')
+                    obj.plotCh2D.chshow = channelmap(setdiff(obj.plotCh2D.chshow,channels,'stable')); 
+                    obj.plotCh2D.ch_displayed = channelmap(setdiff(obj.plotCh2D.ch_displayed,channels,'stable')); 
+                end                
+                if isfield(obj.plotCh2D,'selCh')  && ~isempty(obj.plotCh2D.selCh)
+                    obj.plotCh2D.selCh = obj.plotCh2D.selCh(keepch,:);                         
+                end
             end
             
-            %TODO - vyradit i radky z obj.brainlabels
-            obj.filterMatrix = obj.filterMatrix(:,keepch'); 
+            if ~isempty(obj.filterMatrix)
+                obj.filterMatrix = obj.filterMatrix(:,keepch'); 
+            end
+            if ~isempty(obj.brainlabels)
+                obj.brainlabels(channels) = [];
+            end
             for j = 1:numel(obj.els)
                 if j == 1
-                    n = sum(channels<=obj.els(j));
+                    n = sum(channels<=obj.els(j)); %number of channels in the first electrode to be removed
                 else
-                    n = sum(channels > obj.els(j-1) & channels < obj.els(j));
+                    n = sum(channels <= obj.els(j)); %number of channels in the current and previous electrodes %channels > obj.els(j-1) & 
                 end
                 if n > 0
-                    obj.els(j:end) = obj.els(j:end) - n; %potrebuju snizit i vsechny nasledujici
+                    obj.els(j) = obj.els(j) - n; %decrease only this electrode as we search ALL previous electrodes
                 else
-                    obj.els(j) = [];
+                    obj.els(j) = []; % only at the beginning
                 end
-            end
+            end            
             for j = 1:numel(obj.chgroups)
                 obj.chgroups{j} = channelmap(setdiff( obj.chgroups{j},channels,'stable'));
             end
@@ -887,11 +947,11 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 selChNamesLR{m} = [obj.plotCh2D.selChNames{m} 'Right']; %name for this count of pacients
             end
             varnames = [ ... %two lines of column headers
-                horzcat({'','all','','','','channels'},repmat({''},1,noMarks-1),'pacients',repmat({''},1,noMarks-1),'rightside',repmat({''},1,noMarks-1)); ... %line 1
+                horzcat({'','all','','','','markings'},repmat({''},1,noMarks-1),'pacients',repmat({''},1,noMarks-1),'rightside',repmat({''},1,noMarks-1)); ... %line 1
                 horzcat({'brainlabel','count','patients','rejected','epichannels'},obj.plotCh2D.selChNames(1:noMarks),selChNamesPac,selChNamesLR) ... %line 2
                 ];
             output = cell(numel(ulabels),size(varnames,2)); %columns label,noChannels, noPacients,noRejected, noChInMarks fghjkl 1-6, noPacInMarks
-            for j = 1:numel(ulabels) %cycle over all brainlabels
+            for j = 1:numel(ulabels) %cycle over all unique brainlabels
                if j < numel(ulabels)
                   chIndex = find(contains(labels,ulabels{j})); %channels with this brain label
                else
@@ -964,28 +1024,78 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 disp('no ChannelPlot figure to plot in');
             end
         end
+        function obj = StoreCorrelChan(obj, CorrelChan) % store indexes of channels correlated with RT , call from CiEEGData - GetCorrelChan
+            obj.CorrelChan = CorrelChan;
+        end
+        
         %% Clustering of channels based on MNI
-        function ComputeClusters(obj,nClusters,dofig)
+        function uniqueCounts = ComputeClusters(obj,nClusters,rejectCl,dofig,useseed,repeats)
             %ComputeClusters Computes clusters using k-means for current channel selection
             %   plots simple chart
             %   stores the data in obj.clusters
+            %   RjCl - if to reject clusters by a minimal number of [channels patients] - two values vector
+            
+            if ~exist('rejectCl','var')
+                rejectCl = [0 0]; %do not reject any clusters by default
+            else
+                assert(numel(rejectCl)==2,'RjCl should contain 2 vals');
+            end 
             if ~exist('dofig','var'), dofig = 1; end
+            if ~exist('useseed','var') || isempty(useseed), useseed = 0; end %if to use custom seeds generated by obj.SeedClusters
+            if ~exist('repeats','var'), repeats = 10; end %how many times test the cluster stability, -x means until first unstable
             mni0 = [[obj.H.channels.MNI_x]',[obj.H.channels.MNI_y]',[obj.H.channels.MNI_z]'];            
             mni = mni0(obj.channelPlot.plotCh3D.chnsel,:); %computes clusters from currently plottech channels in ChannelPlot
             mni_l2r=[abs(mni(:,1)),mni(:,2),mni(:,3)]; %left brain side made right
             
             %following settings give best results for MNI data. 200 replicates seem to be necessary for clusters to be reproducible
-            [idx,C,sumd,D] = kmeans(mni_l2r,nClusters,'Distance','cityblock','Replicates',200);
-
+            replicates = 500;
+            seeds = iff(useseed,obj.SeedClusters(mni_l2r,nClusters,replicates),'plus'); %default value for kmeans is 'plus'            
+            [idx,C,sumd,D] = kmeans(mni_l2r,nClusters,'Distance','cityblock','Replicates',replicates,'Start', seeds);
+            
+            % test the cluster stability by generating them 10time and compare the centroid position and channel asignment            
+            fprintf('testing %d clusters stability (of %d): ...',nClusters,abs(repeats));            
+            stable = true;
+            
+            for j=1:abs(repeats)
+                seeds = iff(useseed,obj.SeedClusters(mni_l2r,nClusters,replicates),'plus');
+                [idx2,C2] = kmeans(mni_l2r,nClusters,'Distance','cityblock','Replicates',replicates,'Start', seeds);
+                aresame = obj.CompareClusters(idx,C,idx2,C2);                
+                fprintf('%d %s, ',j,iff(aresame==1,'OK',iff(aresame==-1,'idxDif','CDif'))); %CDif=differet centroid position, idxDif=different channel assignment to centroids
+                if aresame < 1
+                    stable = false; 
+                    if repeats < 0
+                        break; %do not confinue with more repeats for unstable clusters
+                    end
+                end                
+            end
+            if stable
+               fprintf('... stable\n');
+            else
+               fprintf('... unstable, finishing\n')    
+               uniqueCounts = zeros(nClusters,1); 
+               return; %finish, do not save unstable clusters
+            end
+            
+            %stable cluster generated 
+            RjCl = obj.RejectClusters(idx,obj.channelPlot.plotCh3D.chnsel,rejectCl);
             if dofig
                 figure('Name',[ num2str(nClusters) ' clusters']); 
-                plot3(C(:,1),C(:,2),C(:,3),'kx','MarkerSize',15,'LineWidth',3); %the X marks for cluster centroids - right side
+                plot3(C(~RjCl,1),C(~RjCl,2),C(~RjCl,3),'kx','MarkerSize',15,'LineWidth',3); %the X marks for cluster centroids - right side
                 hold on
-                plot3(-C(:,1),C(:,2),C(:,3),'kx','MarkerSize',15,'LineWidth',3); %the X marks for cluster centroids - left side
-
-                barvy = distinguishable_colors(nClusters);  %number of clusters
+                plot3(-C(~RjCl,1),C(~RjCl,2),C(~RjCl,3),'kx','MarkerSize',15,'LineWidth',3); %the X marks for cluster centroids - left side
+                if sum(RjCl)>0
+                    plot3(C(RjCl,1),C(RjCl,2),C(RjCl,3),'mx','MarkerSize',12,'LineWidth',3); %the X marks for cluster centroids - right side
+                    hold on
+                    plot3(-C(RjCl,1),C(RjCl,2),C(RjCl,3),'mx','MarkerSize',12,'LineWidth',3); %the X marks for cluster centroids - left side    
+                end
+                barvy = distinguishable_colors(sum(~RjCl));  %number of clusters
+                nonRjCl = find(~RjCl);
                 for c = 1:nClusters
-                    plot3(mni(idx==c,1),mni(idx==c,2),mni(idx==c,3),'.','MarkerSize',12,'MarkerFaceColor',barvy(c,:)); %points in this cluster
+                    if ~RjCl(c)
+                        plot3(mni(idx==c,1),mni(idx==c,2),mni(idx==c,3),'.','MarkerSize',12,'MarkerFaceColor',barvy(nonRjCl==c,:)); %points in this cluster
+                    else
+                        plot3(mni(idx==c,1),mni(idx==c,2),mni(idx==c,3),'.','MarkerSize',12,'MarkerFaceColor',[.5 .5 .5]); %grey points in rejected cluster
+                    end
                 end
                 view([0 90]); %axial horizontal view
                 title(obj.channelPlot.plotCh3D.popis);
@@ -994,7 +1104,12 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 zlabel('MNI Z'); %hornodolni
                 axis equal;
             end
-            
+
+            uniqueCounts = arrayfun(@(x)length(find(idx == x)), unique(idx), 'Uniform', false);  
+            uniqueCounts = sort(cell2mat(uniqueCounts),1,'descend')';
+            fprintf('%d clusters created for %d channels, rejected: %d, channel n: %s\n',nClusters,numel(obj.channelPlot.plotCh3D.chnsel),...
+                    sum(RjCl), num2str(uniqueCounts,'%d,'));
+                
             if isempty(obj.clusters) 
                 obj.clusters = struct('popis',{},'C',{},'idx',{},'sumd',{},'D',{},'channels',{}); %empty struct with 4 fields
             end  
@@ -1002,13 +1117,17 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             if ~iCluster                
                 obj.clusters(end+1).popis = {obj.channelPlot.plotCh3D.popis}; %first cell of cell array (of different popis for this cluster set)
                 iCluster = numel(obj.clusters);
+                fprints('new cluster set');
+            else
+                aresame = obj.CompareClusters(idx,C,obj.clusters(iCluster).idx,obj.clusters(iCluster).C);
+                fprintf('compared to saved: %s \n',iff(aresame==1,'identical',iff(aresame==-1,'idxDif','CDif'))); %CDif=differet centroid position, idxDif=different channel assignment to centroids
             end
-            obj.clusters(iCluster).C = C;
-            obj.clusters(iCluster).idx = idx;
-            obj.clusters(iCluster).sumd = sumd;
-            obj.clusters(iCluster).D = D;
-            obj.clusters(iCluster).channels=obj.channelPlot.plotCh3D.chnsel;            
-            fprintf('%d clusters created for %d channels\n',nClusters,numel(obj.channelPlot.plotCh3D.chnsel));
+            obj.clusters(iCluster).C = C; %cluster centroids MNI coordinate nclusters x 3
+            obj.clusters(iCluster).idx = idx; % nchannels x 1 - cluster number for each channels
+            obj.clusters(iCluster).sumd = sumd; %nclusters x 1 - within cluster sums of channels distances to centroids
+            obj.clusters(iCluster).D = D; %nchannels x nclusters - distances of channels to each cluster cenroids
+            obj.clusters(iCluster).channels=obj.channelPlot.plotCh3D.chnsel; %1x nchannels - absolute numbers of channels in this cluster set           
+            obj.clusters(iCluster).RjCl = RjCl;            
         end
         function [iCluster,iName]=GetCluster(obj,popis, name)  
               %GetCluster - returns the index of channel cluster set corresponding to popis 
@@ -1043,45 +1162,108 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                   end
               end
         end
-        function [PC,K] = OptimalClusters(obj,Cutoff)
+        function [PC,K,clust,S,eva] = OptimalClusters(obj,Cutoff,replicates,useseeds,Repeats)
             %CLUSTERS finds the optimal number of clusters
             %   accorting to the Elbow method and 90% of explained variance
+            % PC is the variability explained by 2,3,...n clusters
+            % K is the number of clusters explaining the Cutoff variance
+            
+            if ~exist('Cutoff','var'), Cutoff = 0.9; end
+            if ~exist('replicates','var') || isempty(replicates), replicates = 200; end % kamil May2020- 200 replicates seem to be necessary for clusters to be reproducible
+            if ~exist('useseeds','var'), useseeds = 0; end            
+            if ~exist('Repeats','var'), Repeats = 1; end
             mni0 = [[obj.H.channels.MNI_x]',[obj.H.channels.MNI_y]',[obj.H.channels.MNI_z]'];
             chns = obj.channelPlot.plotCh3D.chnsel;
             mni = mni0(chns,:);
             mni_l2r=[abs(mni(:,1)),mni(:,2),mni(:,3)]; %left made right
-           
+            %mni_l2r=[mni(:,1),mni(:,2),mni(:,3)]; %left different from right            
+                     
             % https://nl.mathworks.com/matlabcentral/fileexchange/65823-kmeans_opt
             % the elbow method to find the optimal no of cluster to explain 90% of total variance
             ToTest =numel(chns); %maximum clusters to test
-            if ~exist('Cutoff','var'), Cutoff = 0.9; end
+           
             D=zeros(ToTest,1); %variance for number of clusters 1-n
-            Repeats = 3;
+            clust = zeros(numel(chns),numel(chns)); %cluster indices for each set of clusters          
             fprintf('repeat of %i:',numel(D));
-            for j = 1:ToTest
-                [~,~,dist] = kmeans(mni_l2r,j,'Distance','cityblock','emptyaction','drop');%,'Options',opts
-                D(j)=sum(dist); %best so far
+            for K = 1:ToTest                
+                seeds = iff(useseeds,obj.SeedClusters(mni_l2r,K,replicates),'plus'); %plus is default value for Start in kmeans                                   
+                [idx,~,dist] = kmeans(mni_l2r,K,'Distance','cityblock','emptyaction','singleton','Replicates',replicates,'Start',seeds);%,'Options',opts
+                D(K)=sum(dist); %best so far
+                clust(:,K) = idx; %cluster indices
                 for cc=2:Repeats %repeat the algoritm several times to get better result ,'Replicates',50 is too slow here
-                    [~,~,dist]=kmeans(mni_l2r,j,'Distance','cityblock','emptyaction','drop');
-                    D(j)=min(sum(dist),D(j));
+                    [idx,~,dist]=kmeans(mni_l2r,K,'Distance','cityblock','emptyaction','singleton','Replicates',replicates,'Start',seeds);
+                    if sum(dist)<D(K)
+                        D(K)=sum(dist);
+                        clust(:,K) = idx;
+                    end
                 end
-                if mod(j,10) == 0, fprintf('%i ',j); end
+                if mod(K,10) == 0, fprintf('%i ',K); end %print every tenth K
             end
             fprintf('.. done\n');
 
-            Var=D(1:end-1)-D(2:end); %calculate %variance explained - 
-            PC=cumsum(Var)/(D(1)-D(end));                        
+            Var=flip(diff(flip(D))); %D(1:end-1)-D(2:end); %calculate %variance explained = (each lower - each higher D)
+            PC=cumsum(Var)/(D(1)-D(end));   %cumulative variance - relative to total max-min                     
             [r,~]=find(PC>Cutoff); %find the best index
             K=1+r(1,1);
             fprintf('clusters for %d channels in %s\n',ToTest,cell2str(obj.channelPlot.plotCh3D.popis));
-            fprintf('%d clusters explain %.1f%% of total variance\n',K,PC(r(1,1))*100);
-            figure('Name','%variance explained');            
-            plot(PC,'o');
-            xlim([0 K]);
-            set(gca,'xtick',0:K,'xticklabel',cellstr(num2str((1:K+1)')));
+            fprintf('%d clusters explain %.1f%% of total variance\n',K,PC(r(1,1))*100);                          
+            
+            % 1st figure - silhouette plots 
+            figure('Name', 'silhouette');       
+            Kmax = min(K*3,ceil(numel(chns)/2)); %if K is too high
+            S = zeros(numel(chns),Kmax);
+            for j = 2:Kmax
+                subplot(3,ceil(Kmax/3),j);
+                [s,~] = silhouette(mni_l2r,clust(:,j),'cityblock');
+                S(:,j) = s; %average silhouette value  for this set of clusters
+                title(num2str(j));
+                %pause 
+            end
+            [~,j] = max(sum(S,1)); %maximal sum of silhouette values
+            fprintf('%d clusters explain %.1f%% of total variance\n',j+1,PC(j)*100);
+            
+            % 2nf figure - 
+            figure('Name','cluster criterion comparison');
+            plot(2:Kmax,PC(1:(Kmax-1)),'o');
+            ylabel('explained variance'); 
+            hold on;
+            line([0 Kmax],[Cutoff Cutoff],'Color','blue');
+            
+            yyaxis right
+            plot(mean(S),'*');
+            xlim([0 Kmax]);            
+            set(gca,'xtick',1:Kmax,'xticklabel',cellstr(num2str((1:(Kmax+1))')));
             title(obj.channelPlot.plotCh3D.popis);
             xlabel('clusters'); 
-            ylabel('explained variance'); 
+            ylabel('silhouette mean'); 
+            
+            fprintf('evaluating clusters ...');
+            eva = cell(1,3);
+            eva{1} = evalclusters(mni_l2r,clust(:,1:Kmax),'silhouette','Distance','cityblock');            
+            eva{2} = evalclusters(mni_l2r,clust(:,1:Kmax),'DaviesBouldin');
+            eva{3} = evalclusters(mni_l2r,clust(:,1:Kmax),'CalinskiHarabasz');
+            
+            fprintf('S: %i, DB: %i, CH: %i\n',eva{1}.OptimalK,eva{2}.OptimalK,eva{3}.OptimalK );
+            %figure('Name','Channel Plot');
+            %plot3(mni(:,1),mni(:,2),mni(:,3),'o');
+        end
+        function uniqueCounts = FindStableClusters(obj,nClusters,rejectCl,useseed)            
+            %find the highest stable number of clusters <= NClusters
+            %lowers the predefined number of clusters until they are stable   
+            if ~exist('rejectCl','var')
+                rejectCl = [0 0]; %do not reject any clusters by default
+            else
+                assert(numel(rejectCl)==2,'RjCl should contain 2 vals');
+            end
+            if ~exist('useseed','var') || isempty(useseed), useseed = 0; end %if to use custom seeds generated by obj.SeedClusters
+            disp(iff(useseed,'using custom seeds','using default matlab seeds'));
+            for K = nClusters:-1:2
+                uniqueCounts = obj.ComputeClusters(K,rejectCl,0,useseed,-10);                
+                if sum(uniqueCounts)>1
+                    break;
+                end
+            end
+            fprintf('%d stable clusters found\n',numel(uniqueCounts));
         end
         function Clusters2XLS(obj,xlslabel,includeRjCh,dofig)            
             if ~exist('xlslabel','var') || isempty(xlslabel) , xlslabel = ''; end
@@ -1090,7 +1272,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             if ~isempty(obj.clusters)
                 %table of all channels in the file with info about clusters for each one
                 noMarks = sum(~cellfun(@isempty,obj.plotCh2D.selChNames)); %number of used marks fghjkl
-                varnames ={'ch','name','pacient','RjCh','EpiCh','neurologyLabel','class','label','lobe','MNI_x','MNI_y','MNI_z'};
+                varnames ={'ch','name','pacient','RjCh','EpiCh','neurologyLabel','class','label','lobe','maxNeurologyLabel','maxlabel','MNI_x','MNI_y','MNI_z'};
                 nVarN0 = numel(varnames); %number of varnames before clusters
                 for iClSet = 1:numel(obj.clusters) %for all cluster sets
                     popis = iff(iscell(obj.clusters(iClSet).popis),  obj.clusters(iClSet).popis(1) ,obj.clusters(iClSet).popis);
@@ -1102,11 +1284,18 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 output = cell(numel(obj.H.channels),numel(varnames));
                 clusterNum = obj.getClustersNum(); %numbers of clusters in each cluster set - array
                 clusterMainChannels = nan(sum(clusterNum),2); % channels closest to each cluster centroid, columns: channel number, distance to centroid
+                if ~isempty(obj.brainlabels)                        
+                    labels = {obj.brainlabels.class;obj.brainlabels.label;obj.brainlabels.lobe}';
+                    labels = horzcat(labels,iff(isfield(obj.brainlabels,'maxNeurologyLabel'),{obj.brainlabels.maxNeurologyLabel}' , repmat({''},numel(obj.H.channels,1))));
+                    labels = horzcat(labels,iff(isfield(obj.brainlabels,'maxlabel')         ,{obj.brainlabels.maxlabel}'          , repmat({''},numel(obj.H.channels,1))));
+                else
+                    labels = repmat({''},numel(obj.H.channels),5);
+                end
                 for ch = 1:numel(obj.H.channels)  %cycle over all channels in the file
                     epiCh = max(obj.H.channels(ch).interictalOften,obj.H.channels(ch).seizureOnset); %if the channel is classified as epileptic
                     output(ch,1:6) = {num2str(ch),obj.H.channels(ch).name,obj.PacientTag(ch),num2str(sum(obj.RjCh==ch)),epiCh,obj.H.channels(ch).neurologyLabel};
-                    output(ch,7:9) = iff(isempty(obj.brainlabels),{'','',''},{obj.brainlabels(ch).class,obj.brainlabels(ch).label,obj.brainlabels(ch).lobe});
-                    output(ch,10:12) = {obj.H.channels(ch).MNI_x,obj.H.channels(ch).MNI_y,obj.H.channels(ch).MNI_z};
+                    output(ch,7:11) = labels(ch,:);
+                    output(ch,12:14) = {obj.H.channels(ch).MNI_x,obj.H.channels(ch).MNI_y,obj.H.channels(ch).MNI_z};
                     for iClSet = 1:numel(obj.clusters) %for all cluster sets
                         ich = obj.clusters(iClSet).channels == ch; %index of this channel in this set of clusters - one number only
                         if sum(ich) > 0
@@ -1130,8 +1319,12 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 disp([xlsfilename '.xls, sheet channels, with ' num2str(size(output,1)) ' lines saved']);
                 
                 %table with all cluster across clustersets with info
-                labels = lower({obj.brainlabels.label}); %cell array of brainlabels
-                ulabels = unique(labels);
+                if ~isempty(obj.brainlabels) 
+                    labels = lower({obj.brainlabels.label}); %cell array of brainlabels
+                    ulabels = unique(labels);
+                else
+                    ulabels = cell(1,0); %no brain labels to ouput
+                end
                 varnames = {'ClusterSet','clusterN','NameofCluster','ChannelsCount','EpiChannels','pacients','xCentroid','yCentroid','zCentroid','xstderr','ystderr','zstderr','L/R','Sumd','closestChannel','closestChannelDist','neurologyLabel','maxLabels'};                
                 nVarN0 = numel(varnames); %number of varnames before brainlabels
                 varnames = horzcat(varnames,ulabels);
@@ -1152,7 +1345,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                         end
                         ChCl = obj.clusters(iClSet).idx == iCl; %index of channels in this cluster (from the current cluster set)
                         channelNumbers = obj.clusters(iClSet).channels(ChCl); %absolute channem numbers
-                        pTags = obj.PacientTag(channelNumbers); %pacient name for each channel for this label    
+                        pTags = obj.PacientTag(channelNumbers,1); %pacient name for each channel for this label    
                         mni = [obj.H.channels(channelNumbers).MNI_x;obj.H.channels(channelNumbers).MNI_y;obj.H.channels(channelNumbers).MNI_z]'; %mni coordinates of channels in this cluster
                         strmaxLabels = obj.getMaxLabelsCount(channelNumbers,'maxlabel');                        
                         output(iOutput,1:nVarN0)={ num2str(iClSet), num2str(iCl), clName, ... %'ClusterSet','clusterN','NameofCluster' - we have to convert number to char arrays
@@ -1186,7 +1379,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             end
         end
         function PlotClusters(obj,plotviewchar,onlyclusters)
-            %PlotClusters - plots the previosly computer clusters if any exist, according to the current popis            
+            %PlotClusters - plots the previosly computed clusters if any exist, according to the current popis            
             if ~exist('onlyclusters','var'), onlyclusters = 0; end            
             
             barvy = 'gbrmcyk';            
@@ -1256,11 +1449,12 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             set(obj.plotClusters.fh,'KeyPressFcn',@obj.hybejPlotClusters);
         end
         function [names]=NameClusters(obj,iSet,names)
-            %sets names to clusters in the iSet cluster set. names is cellarray with names in order of original clusters            
+            %sets names to clusters in the iSet cluster set. names is cellarray with names in the order of original clusters            
+            %if names is empty, just returns the current names
             if iSet <= numel(obj.clusters) 
                 if exist('names','var') && iscell(names) && numel(names)==size(obj.clusters(iSet).C,1)
                    obj.clusters(iSet).names = iff(size(names,2)==1,names,names'); %the array should be vertical
-                   disp([ num2str(numel(names)) ' names asigned']);
+                   disp([ num2str(numel(names)) ' names assigned']);
                 else
                    names = obj.clusters(iSet).names; %return the current names
                 end                
@@ -1274,9 +1468,9 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     disp(['ERROR: channel numbers do not fit: current plot: ' num2str(numel(obj.channelPlot.plotCh3D.chnsel)) ', cluster set ' num2str(iSet) ': ' num2str(numel(obj.clusters(iSet).channels))]);                       
                     %TODO - if the current channel no is lower - it should be OK - then channelPlot3D should consider only the active channels
                     return;
-                end         
+                end              
             end
-            obj.clusters(iSet).popis{end+1} = {popis};   
+            obj.clusters(iSet).popis{end+1} = popis;   
             disp(['cluster Title assigned: ' cell2str(popis)]);
         end
     end
@@ -1432,6 +1626,19 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
               N = zeros(1,numel(obj.clusters));
               for iClSet = 1:numel(obj.clusters) %cycle over all cluster sets
                   N(iClSet) = size(obj.clusters(iClSet).C,1);
+              end
+          end
+          function rejectedCl = RejectClusters(obj,idx,channels,rejectCl)
+              %RjCh specifies the minimum number of [channels patients]
+              nclusters = numel(unique(idx));
+              rejectedCl = false(nclusters,1);
+              for iCl = 1:nclusters
+                    ChCl = idx == iCl; %index of channels in this cluster (from the current cluster set)
+                    channelNumbers = channels(ChCl); %absolute channel numbers
+                    pTags = obj.PacientTag(channelNumbers,1); %pacient name for each channel for this label
+                    if numel(channelNumbers)<rejectCl(1) || numel(unique(pTags)) < rejectCl(2)
+                        rejectedCl(iCl) = 1;
+                    end
               end
           end
           function strlabels = getMaxLabelsCount(obj, channelNumbers,fieldname) 
@@ -1652,6 +1859,53 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                           str = strjoin(C,delim);                       
                       end                    
               end
+         end  
+         function seeds = SeedClusters(data,K,n)
+              %http://activisiongamescience.github.io/2016/08/19/Assessing-Stability-of-K-Means-Clusterings/
+              L = min(max(ceil(K*log(K)),K),size(data,1)); %L must be between K and size of the data
+              seeds = zeros(K,size(data,2),n);
+              for rep=1:n %how many times to generate seeds
+                  [idx,C] = kmeans(data,L,'Distance','cityblock','Replicates',1);
+                  uniqueCounts = arrayfun(@(x)length(find(idx == x)), unique(idx), 'Uniform', false);  %count of channels in the centroids
+                  [uC,iuC ] = sort(cell2mat(uniqueCounts),1,'descend');  %get sorted values, largest first            
+                  C = C(iuC,:); %sort centroids by number of their channels               
+                  todelete = sum(uC <= 1); %how many centroids to delete, mass is smaller or equal than 1/L
+                  if L - todelete > K %we need more than K centrois to be left for the folloring procedure
+                    C((size(C,1)-todelete+1):end,:) = []; %delete the smalest centroids
+                  end              
+                  if size(C,1) > K %if we have more centroids than we need, select the most distant ones
+                      for j = 2:K %for all centroids except the largest one
+                          %Statistics and Machine Learning Toolbox - pdist2
+                          [D,~] = pdist2(C(1:j-1,:),C(j:end,:),'euclidean','Smallest',1);  %D are minimal distances of all remaining centrods to any of the previous ones
+                          [~,iD]=max(D); % we need the remaining centroid with he maximal minimal distance
+                          temp = C(j,:);  %exchange the selected one with the first one of remaining
+                          C(j,:)=C(iD,:); %move the most distant centroid to the beginning
+                          C(iD,:) = temp;
+                      end
+                  end
+                  seeds(:,:,rep) = C(1:K,:); %we have selected centroids at the begining
+              end
+         end
+         function aresame = CompareClusters(idx1,C1,idx2,C2)
+             if size(C1,1) ~= size(C2,1) || numel(idx1)~=numel(idx2)
+                 aresame = 0; %different number of clusters or channels
+             else                 
+                [D,iC1] = pdist2(C1,C2,'euclidean','Smallest',1); %indexex in C1 that are closes to individual C2
+                if max(D) > 0 
+                    aresame = -1; %differenct position of centroids
+                else                
+                    idx1new = zeros(size(idx1));
+                    for j = 1:numel(iC1)
+                        idx1new(idx1==iC1(j))=j;
+                    end
+                    if ~isequal(idx1new,idx2)
+                        aresame=-2; %different assignment of channels to clusters
+                    else
+                        aresame=1; %both cluster sets are identical
+                    end
+                end
+                
+             end
          end         
     end
     
