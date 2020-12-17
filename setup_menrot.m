@@ -1,5 +1,5 @@
 function [ setup ] = setup_menrot( alignresponse )
-%SETUP_AEDIST funkce vraci nastaveni vyhodnoceni testu Aedist
+%SETUP_MENROT returns scripts setup for the test Menrot
 %   alignresponse = zarovnani epoch podle odpovedi
 
 if(~exist('alignresponse','var')) || isempty(alignresponse) , alignresponse = 0; end

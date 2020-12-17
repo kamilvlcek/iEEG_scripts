@@ -344,7 +344,7 @@ pacienti(p).rjch = [];
 
 p=p+1;
 pacienti(p).todo = 1; %10.11.2020 Sofiia
-pacienti(p).folder = 'VT53 Kra p1236540';
+pacienti(p).folder = {'VT53 Kra p1236540','p1236540 Kra VT53'};
 pacienti(p).data = 'VT53_2020-01-14_12-57_272_512hz_10_concat_aedist.mat';
 pacienti(p).header = 'p1236540_header2.mat'; %sofiia's header for aedist
 pacienti(p).psychopy = 'p1236540_aedist.mat';
@@ -352,5 +352,97 @@ pacienti(p).rjepoch = 'p1236540_aedist_rjepoch.mat';
 pacienti(p).epievents = 'p1236540_aedist_epievents.mat'; 
 pacienti(p).rjch = [];
 
+p=p+1;
+pacienti(p).todo = 1; %18.11.2020 Sofiia
+pacienti(p).folder = 'p200 Hav VT45';
+pacienti(p).data = 'VT45_2019-05-02_15-21_001_512hz_39_concat_aedist.mat';
+pacienti(p).header = 'p200_header.mat';
+pacienti(p).psychopy = 'p200_aedist.mat';
+pacienti(p).rjepoch = 'p200_aedist_rjepoch.mat'; 
+pacienti(p).epievents = 'p200_aedist_epievents.mat'; 
+pacienti(p).rjch = [];
+
+p=p+1;
+pacienti(p).todo = 1; %18.11.2020 Sofiia
+pacienti(p).folder = 'p213 Kam VT48';
+pacienti(p).data = 'VT48_2019-06-10_10-22_005_512hz_32_concat_aedist.mat';
+pacienti(p).header = 'p213_header.mat';
+pacienti(p).psychopy = 'p213_aedist.mat';
+pacienti(p).rjepoch = 'p213_aedist_rjepoch.mat'; 
+pacienti(p).epievents = 'p213_aedist_epievents.mat'; 
+pacienti(p).rjch = [];
+
+p=p+1;
+pacienti(p).todo = 1; %18.11.2020 Sofiia
+pacienti(p).folder = 'p190 Hau VT43';
+pacienti(p).data = 'VT43_2019-03-12_09-38_001_512hz_30_concat_aedist.mat';
+pacienti(p).header = 'p190_headerS.mat';
+pacienti(p).psychopy = 'p190_aedist.mat';
+pacienti(p).rjepoch = 'p190_aedist_rjepoch.mat'; 
+pacienti(p).epievents = 'p190_aedist_epievents.mat'; 
+pacienti(p).rjch = [];
+
+p=p+1;
+pacienti(p).todo = 1; %19.11.2020 Sofiia
+pacienti(p).folder = 'p1855440 Loj VT52';
+pacienti(p).data = 'VT52_2019-12-10_09-48_045_512hz_13_concat_aedist.mat';
+pacienti(p).header = 'p1855440_headerS.mat';
+pacienti(p).psychopy = 'p1855440_aedist.mat';
+pacienti(p).rjepoch = 'p1855440_aedist_rjepoch.mat'; 
+pacienti(p).epievents = 'p1855440_aedist_epievents.mat'; 
+pacienti(p).rjch = [];
+
+p=p+1;
+pacienti(p).todo = 1; %19.11.2020 Sofiia
+pacienti(p).folder = 'p1670379 Bun VT57';
+pacienti(p).data = 'VT57_2020-06-24_10-46_004_512hz_15_concat_aedist.mat';
+pacienti(p).header = 'p1670379_headerS.mat';
+pacienti(p).psychopy = 'p1670379_aedist.mat';
+pacienti(p).rjepoch = 'p1670379_aedist_rjepoch.mat'; 
+pacienti(p).epievents = 'p1670379_aedist_epievents.mat'; 
+pacienti(p).rjch = [];
+
+p=p+1;
+pacienti(p).todo = 1; %20.11.2020 Sofiia
+pacienti(p).folder = 'p90 Dan VT58';
+pacienti(p).data = 'VT58_2020-09-23_10-23_239_512hz_15_concat_aedist.mat';
+pacienti(p).header = 'p90_headerS.mat';
+pacienti(p).psychopy = 'p90_aedist.mat';
+pacienti(p).rjepoch = 'p90_aedist_rjepoch.mat'; 
+pacienti(p).epievents = 'p90_aedist_epievents.mat'; 
+pacienti(p).rjch = [];
+
+p=p+1;
+pacienti(p).todo = 1; %23.11.2020 Sofiia
+pacienti(p).folder = 'p1967470 Kus VT56';
+pacienti(p).data = 'VT56_2020-05-26_16-40_054_512hz_23_concat_aedist.mat';
+pacienti(p).header = 'p1967470_headerS.mat';
+pacienti(p).psychopy = 'p1967470_aedist.mat';
+pacienti(p).rjepoch = 'p1967470_aedist_rjepoch.mat'; 
+pacienti(p).epievents = 'p1967470_aedist_epievents.mat'; 
+pacienti(p).rjch = [];
+
+p=p+1;
+pacienti(p).todo = 1; %23.11.2020 Sofiia
+pacienti(p).folder = 'p222 Zich VT49';
+pacienti(p).data = 'VT49_2019-09-30_17-53_005_512hz_12_concat_aedist.mat';
+pacienti(p).header = 'p222_headerEX.mat';
+pacienti(p).psychopy = 'p222_aedist.mat';
+pacienti(p).rjepoch = 'p222_aedist_rjepoch.mat'; 
+pacienti(p).epievents = 'p222_aedist_epievents.mat'; 
+pacienti(p).rjch = [];
+
+p=p+1;
+pacienti(p).todo = 1; %23.11.2020 Sofiia
+pacienti(p).folder = {'p890775 Pra VT50','VT50 Pra p890775'}; 
+pacienti(p).data = 'VT50_2019-10-24_10-14_048_512hz_40_concat_aedist.mat';
+pacienti(p).header = 'p890775_headerS.mat';
+pacienti(p).psychopy = 'p890775_aedist.mat';
+pacienti(p).rjepoch = 'p890775_aedist_rjepoch.mat'; 
+pacienti(p).epievents = 'p890775_aedist_epievents.mat'; 
+pacienti(p).rjch = [];
+
+
+pacienti = pacientFolderSelect(pacienti,setup_aedist());
 end
 

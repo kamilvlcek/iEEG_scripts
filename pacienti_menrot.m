@@ -363,7 +363,7 @@ pacienti(p).rjepoch = 'p187VT39_menrot_RjEpoch.mat';
 pacienti(p).epievents = 'p187VT39_menrot_epievents.mat'; 
 pacienti(p).rjch = []; %#ok<NBRAK>
 
-
+pacienti = pacientFolderSelect(pacienti,setup_menrot());
 
 end
 
