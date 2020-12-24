@@ -20,7 +20,7 @@ else
 end
 p = pacient_find(pacienti,nick);
 if p<0
-    disp(['pacient nenalezen: ' nick]);    
+    disp(['pacient not found: ' nick]);    
     E = [];
     return;
 end
@@ -42,7 +42,7 @@ if exist('filename','var') && ~isempty(filename) %pokud filename ~= []
         end      
     else
         E = [];
-        disp(['soubor neexistuje: ' fullfilename]);
+        disp(['the file does not exist: ' fullfilename]);
     end
     
 else    

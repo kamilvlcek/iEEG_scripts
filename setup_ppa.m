@@ -1,5 +1,5 @@
 function [ setup ] = setup_ppa( alignresponse )
-%SETUP_AEDIST funkce vraci nastaveni vyhodnoceni testu Aedist
+%SETUP_PPA returns scripts setup for the test PPA
 %   Detailed explanation goes here
 if(~exist('alignresponse','var')) || isempty(alignresponse) , alignresponse = 0; end
 setup = {};

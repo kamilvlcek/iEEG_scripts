@@ -1499,8 +1499,13 @@ classdef CiEEGData < matlab.mixin.Copyable
                
                 for k = 1 : numel(kategories) %index 1-3 (nebo 4)
                     if ~isempty(obj.Wp)
-                        if iscell(kategories), kk = kategories{k}(1);  else,   kk = kategories(k);    end % aby barvy odpovidaly kategoriim podnetum spis nez kategoriim podle statistiky
-                        kstat = find(obj.Wp(WpA).kats == kk); %index of category in statistical results
+                        if iscell(kategories)
+                            kk = kategories{k}(1);  
+                            kstat = find(ismember(cell2mat(obj.Wp(WpA).kats'),kategories{k},'rows')); %index of category in statistical results
+                        else   
+                            kk = kategories(k); 
+                            kstat = find(obj.Wp(WpA).kats == kk); %index of category in statistical results
+                        end % aby barvy odpovidaly kategoriim podnetum spis nez kategoriim podle statistiky
                     else                        
                         kk = k-1; %kk is real number of category, while k is index in kategories
                         kstat = k; % index of category in Stat
@@ -1542,14 +1547,20 @@ classdef CiEEGData < matlab.mixin.Copyable
                     hold on;
                     h_kat(k,1) = plot(T,M,'LineWidth',katlinewidth,'Color',colorkatk(1,:));  %prumerna odpoved,  ulozim si handle na krivku                      
                     
-                    if ~isempty(obj.Wp) && isfield(obj.Wp(WpA),'WpKat') %signifikance mezi kategoriemi
+                    %PLOT significance between categories
+                    if ~isempty(obj.Wp) && isfield(obj.Wp(WpA),'WpKat') 
                         Tr = linspace(obj.Wp(WpA).baseline(2),obj.Wp(WpA).epochtime(2),size(obj.Wp(WpA).D2,1)); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
                         for l = k+1:numel(kategories) %katnum jde od nuly 
-                            ll = kategories(l); %real number of category
-                            lstat = find(obj.Wp(WpA).kats == ll); % index of category in Stat
-                            if iscell(kategories), colorkatl = kategories{l}(1)+1; else, colorkatl = kategories(l)+1; end
+                            if iscell(kategories)
+                                colorkatl = kategories{l}(1)+1; 
+                                lstat = find(ismember(cell2mat(obj.Wp(WpA).kats'),kategories{l},'rows')); % index of category in Stat
+                            else
+                                ll = kategories(l); %real number of category
+                                lstat = find(obj.Wp(WpA).kats == ll); % index of category in Stat
+                                colorkatl = kategories(l)+1; 
+                            end
                             
-                            y = ymin + (ymax-ymin)*(ybottom - (yposkat(lstat-1,kstat))*0.05)  ; %pozice na ose y
+                            y = ymin + (ymax-ymin)*(ybottom - (yposkat(l-1,k))*0.05)  ; %pozice na ose y
                             if kstat==1, color=obj.colorskat{colorkatl}; else, color = obj.colorskat{1}; end %green a red jsou proti kategorii 0, cerna je kat 1 vs kat 2
                             if ~isempty(obj.Wp(WpA).WpKat{kstat,lstat})
                                 WpKat = obj.Wp(WpA).WpKat{kstat,lstat};
@@ -1562,7 +1573,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                             %nejdriv p < 0.05                            
                             iWp = WpKat(:,ch)  <= 0.05; 
                             plot(Tr(iWp),ones(1,sum(iWp))*y, '*','Color',color); %                        
-                            iWpfirst = find(iWp,1,'first');                        
+                            iWpfirst = find(iWp,1,'first');                       
                             if(numel(iWpfirst)>0)                                
                                 text(-0.025+Tr(1),y,[ num2str(round(Tr(iWpfirst)*1000)) 'ms']);  %cas zacatku signifikance 
                                 text(-0.16+Tr(1),y,[ 'p=' num2str(CStat.round(min(WpKat(:,ch)),3))]);  %cas zacatku signifikance 
@@ -1592,10 +1603,10 @@ classdef CiEEGData < matlab.mixin.Copyable
                         end                                              
                     end
                    
-                    
+                    %PLOT significance relative to baseline
                     if ~isempty(obj.Wp) && isfield(obj.Wp(WpA),'WpKatBaseline') %signifikance vuci baseline
                             iWpB = obj.Wp(WpA).WpKatBaseline{kstat,1}(:,ch)  <= 0.05; %nizsi signifikance
-                            y = ymin + (ymax-ymin)*(0.28 - (kstat+2)*0.05)  ;
+                            y = ymin + (ymax-ymin)*(0.28 - (k+2)*0.05)  ;
                             plot(Tr(iWpB),ones(1,sum(iWpB))*y, '.','Color',colorkatk(1,:),'MarkerSize',5); % 
                             iWpB = obj.Wp(WpA).WpKatBaseline{kstat,1}(:,ch)  <= 0.01; % vyssi signifikance
                             %y = ymin + (ymax-ymin)*(0.28 - (k+2)*0.05)  ;
@@ -1615,14 +1626,14 @@ classdef CiEEGData < matlab.mixin.Copyable
                             end
                     end
                     %cara reakcnich casu pro tuhle kategorii
-                    y=ymax-(ymax-ymin)*0.07*kstat;
+                    y=ymax-(ymax-ymin)*0.07*k;
                     rtkatnum = reshape(rt(:,katnum+1),[],1); %chci vsechny hodnoty z obou kategorii dohromady
                     line([quantile(rtkatnum,0.25) quantile(rtkatnum,0.75)],[y y],'Color',colorkatk(1,:)); %cara kvantilu 
                     plot(median(rtkatnum),y,'o','Color',colorkatk(1,:)); %median
                 end
-                y = (ymax-ymin)*0.1  ; %pozice na ose y
+                y = (ymax-ymin)*0.2  ; %pozice na ose y
                 if ~isempty(obj.Wp) %jen pokud je spocitana statistika , vypisu cislo aktivni statistiky a jmena kategorii
-                    text(0.04+obj.Wp(WpA).epochtime(1),y,['stat ' num2str(obj.WpActive) '/' num2str(numel(obj.Wp)) '-'  cell2str(obj.PsyData.CategoryName(kategories,[])) ]); 
+                    text(0.04+obj.Wp(WpA).epochtime(1),y,['stat ' num2str(obj.WpActive) '/' num2str(numel(obj.Wp)) '-'  cell2str(obj.PsyData.CategoryName(obj.Wp(obj.WpActive).kats,[])) ]); 
                 end
                 for k= 1 : numel(kategories) %index 1-3
                     uistack(h_kat(k,1), 'top'); %dam krivky prumeru kategorii uplne dopredu

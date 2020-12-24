@@ -166,6 +166,7 @@ classdef ChannelPlot < matlab.mixin.Copyable
                
                 if ~isempty(selch) && selch>0
                     scatter3(XYZ.X(selch),XYZ.Y(selch),XYZ.Z(selch),max(sizes),[0 0 0]);
+                    obj.highlightChannel(obj.plotCh3D.chnsel(selch));
                 end
                 
                 if ~isempty(roi) && numel(roi)>=4 && ~obj.plotCh3D.outputstyle %[x y z edge]
@@ -218,7 +219,6 @@ classdef ChannelPlot < matlab.mixin.Copyable
                 
                 obj.PlotColorNames(); %plot naming of the colors used for individual channels
                 obj.PlotClusters(clrs); %plot channel clusters if any exist            
-                obj.plotCh3D.dispChannels = chnsel; % ulozim vyber zobrazenych kanalu (je potreba pro klikani)
                 obj.highlightChannel(); %if there is any channel to be highligted, do it
                 %rozhybani obrazku            
                 set(obj.plotCh3D.fh,'KeyPressFcn',@obj.hybejPlot3D);
@@ -226,6 +226,7 @@ classdef ChannelPlot < matlab.mixin.Copyable
                 disp('No MNI data');
             end
         end
+        
         function obj = Plot3DBoundary(obj,plotview)
             %vykresli obrys mozku ve vsech rozmerech do 3d grafu
             %pokud boundary neni vypocitana, spocita ji a ulozi do obj.plotCh3D.BrainBoundaryXYZ
@@ -304,6 +305,7 @@ classdef ChannelPlot < matlab.mixin.Copyable
             end
         end
     end
+    
     methods  (Access = private)
         function PlotClusters(obj,clrs)
             %PlotClusters - plots the previosly computed clusters if any exist, according to the current popis   
@@ -587,8 +589,7 @@ classdef ChannelPlot < matlab.mixin.Copyable
               end
         end
 
-        
-        
+       
         function delete(obj) %destructor of a handle class
             if isfield(obj.plotCh3D,'fh') && ~isempty(obj.plotCh3D.fh) && ishandle(obj.plotCh3D.fh) 
                 close(obj.plotCh3D.fh); 
