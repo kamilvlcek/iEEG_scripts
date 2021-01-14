@@ -238,7 +238,7 @@ pacienti(p).rjch = [];  %zadny kanal k vyrazeni
 
 p=p+1;
 pacienti(p).todo = 1;
-pacienti(p).folder = 'p129 Kuch VT40';
+pacienti(p).folder = {'VT40 Kuch p129','p129 Kuch VT40'};;
 pacienti(p).data = 'VT40_2018-11-13_10-10_001_concat_ppa.mat';
 pacienti(p).header = 'p129_headerVT40.mat'; %posledni od Jirky s labelama,seizureOnset interictalOften
 pacienti(p).psychopy = 'p129vt40_ppa.mat';
@@ -278,7 +278,7 @@ pacienti(p).rjch = [122];
 
 p=p+1; %3.1.2020 Kamil
 pacienti(p).todo = 1;
-pacienti(p).folder = 'p183 Tur VT47';
+pacienti(p).folder = {'VT47 Tur p183','p183 Tur VT47'};
 pacienti(p).data = 'VT47_2019-05-28_17-35_001_512hz_39_concat_ppa.mat';
 pacienti(p).header = 'p183_headerX.mat';
 pacienti(p).psychopy = 'p183_ppa.mat';

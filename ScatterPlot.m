@@ -54,7 +54,7 @@ classdef ScatterPlot < handle
         transparent; % jestli maji byt markers nakreslene s pruhlednosti
     end
     
-    methods
+    methods (Access = public)
         function obj = ScatterPlot(ciEEGData, is3D, axisX, axisY, axisZ)
             %SCATTERPLOT Vytvori novy ScatterPlot
             %   is3D urcuje zda se jedna o 2D nebo 3D graf
@@ -257,7 +257,7 @@ classdef ScatterPlot < handle
 
     end
 
-    methods(Access = private)
+    methods (Access = private)
         
         function setCategories(obj)
             if ~isempty(obj.ciEEGData.Wp) && isfield(obj.ciEEGData.Wp(obj.ciEEGData.WpActive), 'kats') %prvni volba je pouzit kategorie ze statistiky

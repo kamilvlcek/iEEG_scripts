@@ -1117,7 +1117,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             if ~iCluster                
                 obj.clusters(end+1).popis = {obj.channelPlot.plotCh3D.popis}; %first cell of cell array (of different popis for this cluster set)
                 iCluster = numel(obj.clusters);
-                fprints('new cluster set');
+                fprints('new cluster set\n');
             else
                 aresame = obj.CompareClusters(idx,C,obj.clusters(iCluster).idx,obj.clusters(iCluster).C);
                 fprintf('compared to saved: %s \n',iff(aresame==1,'identical',iff(aresame==-1,'idxDif','CDif'))); %CDif=differet centroid position, idxDif=different channel assignment to centroids
@@ -1206,7 +1206,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             [r,~]=find(PC>Cutoff); %find the best index
             K=1+r(1,1);
             fprintf('clusters for %d channels in %s\n',ToTest,cell2str(obj.channelPlot.plotCh3D.popis));
-            fprintf('%d clusters explain %.1f%% of total variance\n',K,PC(r(1,1))*100);                          
+            fprintf('Cutoff %f method: %d clusters explain %.1f%% of total variance\n',Cutoff, K,PC(r(1,1))*100);                          
             
             % 1st figure - silhouette plots 
             figure('Name', 'silhouette');       
@@ -1220,7 +1220,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 %pause 
             end
             [~,j] = max(sum(S,1)); %maximal sum of silhouette values
-            fprintf('%d clusters explain %.1f%% of total variance\n',j+1,PC(j)*100);
+            fprintf('Silhouette method: %d clusters explain %.1f%% of total variance\n',j+1,PC(j)*100);
             
             % 2nf figure - 
             figure('Name','cluster criterion comparison');

@@ -254,7 +254,7 @@ pacienti(p).rjch = [47 84];
 
 p=p+1;
 pacienti(p).todo = 1;
-pacienti(p).folder = 'p099 Hos VT33';
+pacienti(p).folder = {'VT33 Hos p099','p099 Hos VT33'};
 pacienti(p).data = 'VT33_2018-03-23_10-33_001_aedist_512hz.mat';
 pacienti(p).header = 'p099_header.mat';
 pacienti(p).psychopy = 'p099_aedist.mat';
@@ -304,7 +304,7 @@ pacienti(p).rjch = [];
 
 p=p+1;
 pacienti(p).todo = 1; %22.11.2019 Sofiia
-pacienti(p).folder = 'p129 Kuch VT40';
+pacienti(p).folder = {'VT40 Kuch p129','p129 Kuch VT40'};
 pacienti(p).data = 'VT40_2018-11-14_08-54_001_aedist.mat';
 pacienti(p).header = 'p129_headerVT40b.mat';
 pacienti(p).psychopy = 'p129vt40_aedist.mat';
@@ -384,7 +384,7 @@ pacienti(p).rjch = [];
 
 p=p+1;
 pacienti(p).todo = 1; %19.11.2020 Sofiia
-pacienti(p).folder = 'p1855440 Loj VT52';
+pacienti(p).folder = {'VT52 Loj p1855440','p1855440 Loj VT52'};
 pacienti(p).data = 'VT52_2019-12-10_09-48_045_512hz_13_concat_aedist.mat';
 pacienti(p).header = 'p1855440_headerS.mat';
 pacienti(p).psychopy = 'p1855440_aedist.mat';
@@ -394,7 +394,7 @@ pacienti(p).rjch = [];
 
 p=p+1;
 pacienti(p).todo = 1; %19.11.2020 Sofiia
-pacienti(p).folder = 'p1670379 Bun VT57';
+pacienti(p).folder = {'VT57 Bun p1670379','p1670379 Bun VT57'};
 pacienti(p).data = 'VT57_2020-06-24_10-46_004_512hz_15_concat_aedist.mat';
 pacienti(p).header = 'p1670379_headerS.mat';
 pacienti(p).psychopy = 'p1670379_aedist.mat';
@@ -404,9 +404,9 @@ pacienti(p).rjch = [];
 
 p=p+1;
 pacienti(p).todo = 1; %20.11.2020 Sofiia
-pacienti(p).folder = 'p90 Dan VT58';
+pacienti(p).folder = {'VT58 Dan p90','p090 Dan VT58'};
 pacienti(p).data = 'VT58_2020-09-23_10-23_239_512hz_15_concat_aedist.mat';
-pacienti(p).header = 'p90_headerS.mat';
+pacienti(p).header = 'p090_headerS.mat';
 pacienti(p).psychopy = 'p90_aedist.mat';
 pacienti(p).rjepoch = 'p90_aedist_rjepoch.mat'; 
 pacienti(p).epievents = 'p90_aedist_epievents.mat'; 
@@ -414,7 +414,7 @@ pacienti(p).rjch = [];
 
 p=p+1;
 pacienti(p).todo = 1; %23.11.2020 Sofiia
-pacienti(p).folder = 'p1967470 Kus VT56';
+pacienti(p).folder = {'VT56 Kus p1967470','p1967470 Kus VT56'};
 pacienti(p).data = 'VT56_2020-05-26_16-40_054_512hz_23_concat_aedist.mat';
 pacienti(p).header = 'p1967470_headerS.mat';
 pacienti(p).psychopy = 'p1967470_aedist.mat';

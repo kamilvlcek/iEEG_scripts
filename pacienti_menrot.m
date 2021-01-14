@@ -224,7 +224,7 @@ pacienti(p).rjch = [47 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 
 
 p=p+1; %kamil 25.5.2018
 pacienti(p).todo = 1; %vyrazn protoze ma jinou frekvenci 500Hz
-pacienti(p).folder = 'p099 Hos VT33';
+pacienti(p).folder = {'VT33 Hos p099','p099 Hos VT33'};
 pacienti(p).data = 'VT33_2018-03-27_10-21_001_500hz_concat_f1Hz_menrot.mat';
 pacienti(p).header = 'p099_64ch_header.mat';
 pacienti(p).psychopy = 'p099_menrot.mat';
@@ -264,7 +264,7 @@ pacienti(p).rjch = []; %#ok<NBRAK>
 
 p=p+1; %anna 4.12.2019, 512Hz
 pacienti(p).todo = 1; 
-pacienti(p).folder = 'p129 Kuch VT40';
+pacienti(p).folder = {'VT40 Kuch p129','p129 Kuch VT40'};;
 pacienti(p).data = 'VT40_2018-11-13_10-10_001_concat_menrot.mat';
 pacienti(p).header = 'p129_headerVT40.mat';
 pacienti(p).psychopy = 'p129VT40_menrot.mat';
@@ -294,7 +294,7 @@ pacienti(p).rjch = []; %#ok<NBRAK>
 
 p=p+1; %anna 9.12.2019, 512Hz
 pacienti(p).todo = 1; 
-pacienti(p).folder = 'p183 Tur VT47';
+pacienti(p).folder = {'VT47 Tur p183','p183 Tur VT47'};;
 pacienti(p).data = 'VT47_2019-05-28_17-35_001_512hz_39_concat_menrot.mat';
 pacienti(p).header = 'p183_headerX.mat';
 pacienti(p).psychopy = 'p183VT47_menrot.mat';
@@ -314,7 +314,7 @@ pacienti(p).rjch = []; %#ok<NBRAK>
 
 p=p+1; %anna 30.11.2020, 512Hz
 pacienti(p).todo = 0; % correct header? The number of channels is 180 - our data, 184 data 
-pacienti(p).folder = 'p1855440 Loj VT52';
+pacienti(p).folder = {'VT52 Loj p1855440','p1855440 Loj VT52'};
 pacienti(p).data = 'VT52_2019-12-09_08-59_033_18_concat_512hz_menrot.mat';
 pacienti(p).header = 'p1855440_header.mat';  % I deleted one empty channel from the header 'p1855440_header.mat' to be the same number as in the data 
 %p1855440_headerm.mat - it has 214 channels instead od 184
@@ -325,7 +325,7 @@ pacienti(p).rjch = []; %#ok<NBRAK>
 
 p=p+1; %anna 30.11.2020, 512Hz
 pacienti(p).todo = 1; 
-pacienti(p).folder = 'p1236540 Kra VT53';
+pacienti(p).folder = {'VT53 Kra p1236540','p1236540 Kra VT53'};
 pacienti(p).data = 'VT53_2020-01-15_10-03_214_15_concat_512hz_menrot.mat';
 pacienti(p).header = 'p1236540_headerX.mat';  
 pacienti(p).psychopy = 'p1236540VT53_menrot.mat';
@@ -335,9 +335,9 @@ pacienti(p).rjch = []; %#ok<NBRAK>
 
 p=p+1; %anna 30.11.2020, 512Hz
 pacienti(p).todo = 1; 
-pacienti(p).folder = 'p1967470 Kus VT56';
+pacienti(p).folder = {'VT56 Kus p1967470','p1967470 Kus VT56'};
 pacienti(p).data = 'VT56_2020-05-28_11-00_001_34_concat_512hz_menrot.mat';
-pacienti(p).header = 'pVT56_header.mat';  
+pacienti(p).header = 'VT56_header.mat';  
 pacienti(p).psychopy = 'p1967470VT56_menrot.mat';
 pacienti(p).rjepoch = 'p1967470VT56_menrot_RjEpoch.mat';
 pacienti(p).epievents = 'p1967470VT56_menrot_epievents.mat'; 
@@ -345,7 +345,7 @@ pacienti(p).rjch = []; %#ok<NBRAK>
 
 p=p+1; %anna 1.12.2020, 512Hz
 pacienti(p).todo = 1; 
-pacienti(p).folder = 'p090 Dan VT58';
+pacienti(p).folder = {'VT58 Dan p90','p090 Dan VT58'};
 pacienti(p).data = 'VT58_2020-09-24_08-06_630_10_concat_512hz_menrot.mat';
 pacienti(p).header = 'p090_header.mat';  
 pacienti(p).psychopy = 'p090VT58_menrot.mat';

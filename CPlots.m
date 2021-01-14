@@ -288,6 +288,7 @@ classdef CPlots < matlab.mixin.Copyable
                 if obj.plotTimeInt.outputstyle
                     M = M*100; %in percent
                     E = E*100;
+                    ylimits = ylimits * 100; %also the ylimits in percents
                 end
                 if numel(chshowstr)==2
                     if obj.plotTimeInt.outputstyle 
