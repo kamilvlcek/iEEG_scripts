@@ -50,12 +50,12 @@ classdef CEEGStat
             %spocita statistiky pro ruzne kategorie - vuci sobe navzajem a vuci baseline              
             %method struct urcuje parametry statistiky, test = wilcox/permut, chn=1 (over one channel)/2 (fdr over all channels), fdr=1 (less strict) /2 (more strict)
             %rozdily kategorii vuci baseline - 28.3.2017
-            WpKatBaseline = cell(numel(kats),1);  %rozdily kategorii vuci baseline   
+            WpKatBaseline = cell(numel(kats),1);  %differences relative to the baseline, for each category separately
             for k =  1: numel(kats)                
                  baselineall = baselinekat{k};
                  baselineA = mean(baselineall(1:floor(size(baselineall,1)/2)      ,:,:));
                  baselineB = mean(baselineall(  floor(size(baselineall,1)/2)+1:end,:,:));
-                 if method.chn == 1 %nova verze, statistika pro kazdy kanal zvlast, tam kde je odpoved vuci baseline
+                 if method.chn == 1 %statistics for each channel separately, signif response relative to baseline
                      WpKatBaseline{k,1} = ones(size(responsekat{k},1), size(responsekat{k},2)); %time x channels
                      fprintf('kat %i vs baseline - Channels Individually - Wilcox2D: 1 ... ',k);
                      for ch = 1:size(responsekat{k},2) %musim baseline signif taky pocitat pro kazdy kanal zvast protoze ji pak zohlednuju mezi kategoriemi
@@ -78,23 +78,24 @@ classdef CEEGStat
             WpKat = cell(numel(kats)); %rozdily mezi kategorieme
             for k = 1:numel(kats) %budu statisticky porovnavat kazdou kat s kazdou, bez ohledu na poradi
                 for j = k+1:numel(kats)
-                    if strcmp(method.test,'wilcox')
-                        if method.chn == 1 %nova verze, statistika pro kazdy kanal zvlast, tam kde je odpoved vuci baseline
-                            Wr = ones(size(WpKatBaseline{1})); %vysoke pravdepodobnosti
+                    if strcmp(method.test,'wilcox') %non-parametri wilcoxon test 
+                        if method.chn == 1 %statistics for each channel separatele, only the the times with signif response relative to baseline
+                            Wr = ones(size(WpKatBaseline{1})); %hi p values by default 
                             fprintf('kat %i vs %i - Channels Individually - Wilcox2D %s: 1 ... ',k,j,pairedstr);
                             for ch = 1:size(Wr,2)                                
                                 if min(WpKatBaseline{k}(:,ch))<.05 || min(WpKatBaseline{j}(:,ch))<.05 %if at least one kat is significant from baseline
-                                    Wr(:,ch) = CStat.Wilcox2D(responsekat{k}(:,ch,:), responsekat{j}(:,ch,:),0,method.fdr,['kat ' num2str(k) ' vs ' num2str(j)],rjepchkat{k}(ch,:),rjepchkat{j}(ch,:),paired); % -------- WILCOX kazda kat s kazdou                                     
+                                    % -------- WILCOX each category with each category:
+                                    Wr(:,ch) = CStat.Wilcox2D(responsekat{k}(:,ch,:), responsekat{j}(:,ch,:),0,method.fdr,['kat ' num2str(k) ' vs ' num2str(j)],rjepchkat{k}(ch,:),rjepchkat{j}(ch,:),paired); 
                                     %fprintf('%i,',ch);
                                 end                                
                             end
                             if method.fdr == 0, fprintf('no fdr ...'); end
                             fprintf('... %i \n',ch);
-                        else  %puvodni verze, statistika pro vsechny kanaly najednou 
+                        else  %statistics for all channels together 
                             %TODO no difference to baseline is required. Is it OK? Inconsistent with the method.chn == 1
                             Wr = CStat.Wilcox2D(responsekat{k}, responsekat{j},1,method.fdr,['kat ' num2str(k) ' vs ' num2str(j)],rjepchkat{k},rjepchkat{j}, paired); % -------- WILCOX kazda kat s kazdou 
                         end
-                    elseif strcmp(method.test,'permut')
+                    elseif strcmp(method.test,'permut') %non-parametric permutation test
                         Wr = CStat.PermStat(responsekat{k}, responsekat{j},1,['kat ' num2str(k) ' vs ' num2str(j)],rjepchkat{k},rjepchkat{j}); % -------- Permutacni test kazda kat s kazdou 
                     else
                         disp('neznama metoda statistiky');

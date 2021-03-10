@@ -809,7 +809,14 @@ classdef CStat < handle
             timeK = NaN(numel(channels),numel(Wp.kats),numel(Wp.kats)); % casy rozdilu mezi kat
             Tr = linspace(Wp.baseline(2),Wp.epochtime(2),size(Wp.D2,1)); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
             for k = 1:numel(kategories) %pro vsechny zadane kategorie
-                ik = find(Wp.kats==kategories(k)); %index kde je cislo kategorie v seznamu kategorii pro tuto statistiku
+                %index where this kategory number is in the list of categories for this stat
+                %ik = find(Wp.kats==kategories(k)); %this does not work for cell arrays
+                for ikats = 1:numel(Wp.kats)
+                    if cellval(Wp.kats,ikats)==cellval(kategories,k)
+                        ik = ikats;
+                        break;
+                    end
+                end                
                 iWp = Wp.WpKatBaseline{ik,1}(:,channels)  <= plevel; 
                 for ch = 1:numel(channels)
                     iWpfirst = strfind(iWp(:,ch)',sigvector); %index of occurences of sigvector - 8 significant differences in sequence
@@ -818,7 +825,14 @@ classdef CStat < handle
                     end
                 end
                 for l = k+1:numel(kategories)
-                    il = find(Wp.kats==kategories(l));
+                    %index where this kategory number is in the list of categories for this stat
+                    %il = find(Wp.kats==kategories(l)); %this does not work for cell arrays
+                    for ikats = 1:numel(Wp.kats)
+                        if cellval(Wp.kats,ikats)==cellval(kategories,l)
+                            il = ikats;
+                            break;
+                        end
+                    end                    
                     if ~isempty(Wp.WpKat{ik,il}) %pro jistotu, nevim v jakem poradi prijdou kategorie
                         WpKat = Wp.WpKat{ik,il}; 
                     else 

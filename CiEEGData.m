@@ -544,27 +544,28 @@ classdef CiEEGData < matlab.mixin.Copyable
             obj.Wp(WpA).iepochtime = [ibaseline; abs(iepochtime(1)-ibaseline(2))+1 obj.samples ; iepochtime ]; %15.1.2019 - pro zpetnou kontrolu - statistika je pocitana podle indexu druheho radku
             
             if exist('opakovani','var') && ~isempty(opakovani) && iscell(opakovani)
+                %we are evaluating stimulus repetitions, instead of categories. 
                 assert(numel(opakovani)<=4,'kategorie opakovani mohou byt maximalne ctyri');
-                KATNUM = kats; %cisla kategorii, pro ktere se pocita efekt opakovani
-                kats = opakovani;   %POZOR kats se meni na opakovani, abych mohl pouzit kod dole   
+                KATNUM = kats; %number of cateogires , for which to compute the effect of repetition.
+                kats = opakovani;   %ATTENTION kats is used as repetition, for the code below to be the same   
                 disp('hodnotim opakovani');
             else
-                KATNUM = []; %hodnotim rozdily mezi kategorimi, 
+                KATNUM = []; % we are evaluating differences between stimulus cateogires  
             end
-            %STATISTIKA PRO JEDNOTLIVE KATEGORIE - VUCI BASELINE I VUCI SOBE NAVZAJEM
+            %STATISTICS FOR INDIVIDUAL CATEGORIES - RELATIVE TO BASELINE AND RELATIVE TO EACH OTHER
             if exist('kats','var') && numel(kats)>1  && numel(timewindow)<= 1 
-                %vygeneruju EEG data na statistiku pro kazdou kategorii zvlast
-                responsekat = cell(numel(kats),1); %eeg response zvlast pro kazdou kategorii 
-                baselinekat = cell(numel(kats),1); %baseline zvlast pro kazdou kategorii 
-                rjepchkat = cell(numel(kats),1); %epochyxkanaly k vyrazeni u kazde kategori          
-                for k = 1:numel(kats) %pro vsechny kategorie/opakovani
+                %we need EEG data for the statistics for each kategory separately
+                responsekat = cell(numel(kats),1); %EEG response for each category separately
+                baselinekat = cell(numel(kats),1); %baseline for each category separately
+                rjepchkat = cell(numel(kats),1); % {epoch x channels}; to be rejected for each category           
+                for k = 1:numel(kats) %for all categories ( or repetitions )
                     if ~isempty(KATNUM) 
-                        [katdata,~,RjEpCh] = obj.CategoryData(KATNUM,[],kats{k}); %v kats jsou ted opakovani
+                        [katdata,~,RjEpCh] = obj.CategoryData(KATNUM,[],kats{k}); %in kats are repetitions 
                     else
-                        [katdata,~,RjEpCh] = obj.CategoryData(cellval(kats,k)); %epochy time*channel*epochs jedne kategorie, uz jsou vyrazeny vyrazene epochy
+                        [katdata,~,RjEpCh] = obj.CategoryData(cellval(kats,k)); % time*channel*epochs for one category, epochs are excluded already?
                     end
-                    responsekat{k,1} = katdata( ibaseline(2) - iepochtime(1)+1 :end,:,:); %jen cas po podnetu : cas x channel x epochs; 
-                    baselinekat{k,1} = katdata( ibaseline(1) - iepochtime(1)+1 : ibaseline(2) - iepochtime(1),:,:); %jen cas po podnetu : cas x channel x epochs; 
+                    responsekat{k,1} = katdata( ibaseline(2) - iepochtime(1)+1 :end,:,:); %time only after the stimulus : time x channel x epochs; 
+                    baselinekat{k,1} = katdata( ibaseline(1) - iepochtime(1)+1 : ibaseline(2) - iepochtime(1),:,:); 
                     rjepchkat{k,1} = RjEpCh;
                 end
                 %provedu statisticke testy  - vuci baseline i mezi kat navzajem                
@@ -2030,9 +2031,12 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
             if iscell(katnum)   % katnum muze byt cell array, ale obj.CategoryData chce integer (nebo pole integeru)
                 katnum = cell2mat(katnum);
+                katnumIsCell = true; %when the original katnum was cell array, we dont want contrast between categories, but rather one joint category
+            else
+                katnumIsCell = false; %orignal katnum was numeric array
             end
             iintervalyData = obj.Wp(obj.WpActive).iepochtime(2,:); %16.1.2019 - indexy statistiky ulozene v ResponseSearch 
-            if numel(katnum) == 1
+            if numel(katnum) == 1 || katnumIsCell
                 [katdata,~,RjEpCh] = obj.CategoryData(katnum); %eegdata time x channels x epochs - epochy jedne kategorie
                 katdata = katdata(:,channels,:); %time x channels x epochs- vyberu jen kanaly podle channels
                 RjEpCh = RjEpCh(channels,:); % channels x epochs - vyberu jen kanaly podle channels
@@ -2084,7 +2088,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             else
                 ikatnum = find(ismember(obj.Wp(obj.WpActive).kats,katnum)); %index of kat in WpKatBaseline - jsou indexovane ne podle cisel kategorii ale podle indexu v kats
             end
-            if numel(ikatnum)==1 %difference relative to baseline
+            if numel(ikatnum)==1 || katnumIsCell %difference relative to baseline
                 WpB = obj.Wp(obj.WpActive).WpKatBaseline{ikatnum,1}(iintervalyStat(1):iintervalyStat(2),channels); %time x channels - statistika vuci baseline
                 %WpK = zeros(diff(iintervalyStat)+1,numel(channels)); %time x channels, just fake significant to be used below
                 WpAllCh = cat(3,WpB<0.05, idataM); %boolean: time x channels x WpB+idataK = two conditions - difference relative to baseline and signum

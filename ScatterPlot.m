@@ -271,7 +271,8 @@ classdef ScatterPlot < handle
                 obj.categoryNames(k) = obj.ciEEGData.PsyData.CategoryName(catnum);
                 %check that the order of categories is the same as order of selChNames
                 if ~strcmp(obj.categoryNames{k},obj.selChNames{k})
-                    warning('categoryNames{%i}="%s" is different from selChNames{%i}="%s"',k,obj.categoryNames{k},k,obj.selChNames{k});
+                    %warning disabled, as this does not seem to cause problems
+                    %warning('categoryNames{%i}="%s" is different from selChNames{%i}="%s"',k,obj.categoryNames{k},k,obj.selChNames{k});
                 end
             end
             obj.categoriesSelectionIndex = 1:numel(obj.categories);
