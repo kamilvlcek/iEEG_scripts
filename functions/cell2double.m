@@ -1,5 +1,5 @@
 function [b] = cell2double(a)
-%CELL2DOUBLE converts cell array with intermixed double values and chararrays to double array
+%CELL2DOUBLE converts cell array with intermixed double values and char arrays to double array
 %   Detailed explanation goes here
 if iscell(a)
     b = zeros(size(a));

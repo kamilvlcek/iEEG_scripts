@@ -2026,31 +2026,38 @@ classdef CiEEGData < matlab.mixin.Copyable
             nlFilter = ismember({obj.CH.H.channels.neurologyLabel}, neurologyLabels);
         end      
         function [valmax, tmax, tfrac, tint,len] = ResponseTriggerTime(obj, val_fraction, int_fraction, katnum, channels,signum)          
+            %katnum defines category number. Can be cell array or matrix. To make contrast between two categories than have to be in rows
             if ~exist('channels', 'var') || isempty(channels)
                 channels = 1:obj.channels; %vsechny kanaly
             end
-            if iscell(katnum)   % katnum muze byt cell array, ale obj.CategoryData chce integer (nebo pole integeru)
-                katnum = cell2mat(katnum);
-                katnumIsCell = true; %when the original katnum was cell array, we dont want contrast between categories, but rather one joint category
+            if iscell(katnum)   % katnum muze byt cell array, ale obj.CategoryData chce integer (nebo pole integeru)                
+                %katnum_orig = katnum; %backup                
+                katnum = cell2mat(katnum); %the pairs of combined categories MUST be in rows! 
+                if size(katnum,1) == 1 
+                    katnumSingle = true; % when there is only one category or one rows of categories, we dont want contrast between categories, but rather one (joint) category
+                else
+                    katnumSingle = false;
+                end
             else
-                katnumIsCell = false; %orignal katnum was numeric array
+                katnumSingle = iff(numel(katnum) == 1,true,false); %orignal katnum was numeric array                
+                %to compare two categories against each other, they MUST in be rows! 
             end
             iintervalyData = obj.Wp(obj.WpActive).iepochtime(2,:); %16.1.2019 - indexy statistiky ulozene v ResponseSearch 
-            if numel(katnum) == 1 || katnumIsCell
+            if katnumSingle
                 [katdata,~,RjEpCh] = obj.CategoryData(katnum); %eegdata time x channels x epochs - epochy jedne kategorie
                 katdata = katdata(:,channels,:); %time x channels x epochs- vyberu jen kanaly podle channels
                 RjEpCh = RjEpCh(channels,:); % channels x epochs - vyberu jen kanaly podle channels
                 
                 dataM = zeros(diff(iintervalyData)+1,size(katdata,2)); %time x channels
-                for ch = 1:size(katdata,2) %mam pocit, ze to nejde udelat bez cyklu, protoze pro kazdy kanal potrebuju vyradit jiny pocet epoch
+                for ch = 1:size(katdata,2) %cycle over channels, mam pocit, ze to nejde udelat bez cyklu, protoze pro kazdy kanal potrebuju vyradit jiny pocet epoch
                     dataM(:,ch) = mean(katdata(iintervalyData(1):iintervalyData(2), ch, ~RjEpCh(ch,:)), 3); 
                 end
             else    
-                [katdata1,~,RjEpCh1] = obj.CategoryData(katnum(1)); %eegdata time x channels x epochs - epochy jedne kategorie
+                [katdata1,~,RjEpCh1] = obj.CategoryData(katnum(1,:)); %eegdata time x channels x epochs - epochy jedne kategorie
                 katdata1 = katdata1(:,channels,:); %time x channels x epochs- vyberu jen kanaly podle channels
                 RjEpCh1 = RjEpCh1(channels,:); % channels x epochs - vyberu jen kanaly podle channels
                 
-                [katdata2,~,RjEpCh2] = obj.CategoryData(katnum(2)); %eegdata time x channels x epochs - epochy jedne kategorie
+                [katdata2,~,RjEpCh2] = obj.CategoryData(katnum(2,:)); %eegdata time x channels x epochs - epochy jedne kategorie
                 katdata2 = katdata2(:,channels,:); %time x channels x epochs- vyberu jen kanaly podle channels
                 RjEpCh2 = RjEpCh2(channels,:); % channels x epochs - vyberu jen kanaly podle channels
                 dataM = zeros(diff(iintervalyData)+1,size(katdata1,2)); %time x channels
@@ -2074,7 +2081,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             iintervalyStat = [1 diff(iintervalyData)+1]; % min max of obj.Wp.WpKatBaseline
             if ~exist('signum','var') || isempty(signum)
                 %muzu zadat signum v poslednim parametru, v tom pripade pouziju to
-                if isfield(obj.plotRCh,'selChSignum') &&  numel(katnum)==1 %pokud mam nastavene signum z SelChannelStat, pouziju to, jinak chci odchylky od 0 v obou smerech
+                if isfield(obj.plotRCh,'selChSignum') &&   katnumSingle%pokud mam nastavene signum z SelChannelStat, pouziju to, jinak chci odchylky od 0 v obou smerech
                     signum = obj.plotRCh.selChSignum;
                 else
                     signum = 0; %signum 0 we want also for pairs of categories 
@@ -2084,15 +2091,17 @@ classdef CiEEGData < matlab.mixin.Copyable
             
             if iscell(obj.Wp(obj.WpActive).kats)
                 ikatnum = ismember(cell2mat(obj.Wp(obj.WpActive).kats'), katnum);
-                ikatnum = find(all(ikatnum'));
+                ikatnum = find(all(ikatnum')); %index of katnum in obj.Wp.kats, works also for combined categories like [0 1; 2 3] and obj.Wp().kats = {[0 1],[2 3]}
             else
                 ikatnum = find(ismember(obj.Wp(obj.WpActive).kats,katnum)); %index of kat in WpKatBaseline - jsou indexovane ne podle cisel kategorii ale podle indexu v kats
             end
-            if numel(ikatnum)==1 || katnumIsCell %difference relative to baseline
+            if katnumSingle %difference relative to baseline
                 WpB = obj.Wp(obj.WpActive).WpKatBaseline{ikatnum,1}(iintervalyStat(1):iintervalyStat(2),channels); %time x channels - statistika vuci baseline
                 %WpK = zeros(diff(iintervalyStat)+1,numel(channels)); %time x channels, just fake significant to be used below
                 WpAllCh = cat(3,WpB<0.05, idataM); %boolean: time x channels x WpB+idataK = two conditions - difference relative to baseline and signum
             else %difference between kats
+                %ikatnum are two numbers, index of both categories in obj.Wp().kats
+                %kombinace is matrix n x 2, with all possible pairs of the categories in obj.Wp().kats
                 ikombinace = all(ismember(kombinace,ikatnum),2) | all(ismember(kombinace,flip(ikatnum)),2); %independent of categories order                
                 WpK = obj.Wp(obj.WpActive).WpKat{kombinace(ikombinace,2),kombinace(ikombinace,1)}(iintervalyStat(1):iintervalyStat(2),channels); %time x channels - p values kat1 <> kat2
                 %WpB = obj.Wp(obj.WpActive).WpKatBaseline{kombinace(ikombinace,1),1}(iintervalyStat(1):iintervalyStat(2),channels); %time x channels - p values kat1>baseline
@@ -2153,12 +2162,12 @@ classdef CiEEGData < matlab.mixin.Copyable
            RespDiffs = struct; %struct array to store values from ResponseTriggerTime for pairs of categories
            [SigTimeBaseline,SigTimeKat]=obj.CS.StatDiffStart(obj.CH.sortorder,obj.Wp(obj.WpActive),kategories,0.05); %casy zacatku signifikanci %channels x kats (x kats), 
              %SigTimeKat channels x kats x kats - pro kazdy ch vyplneno jen 12 13 a 23, ostatni nan
-           for k = 1:numel(kategories) %oposite order to prealocate the structure
-               katnum = cellval(kategories,k); %funkce cellval funguje at je to cell array nebo neni
+           for k = 1:numel(kategories) 
+               katnum = kategories(k); % if kategories is cellarray, the katnum will also be cellarray %cellval(kategories,k); %funkce cellval funguje at je to cell array nebo neni
                [RespVALS(k).valmax, RespVALS(k).tmax,  RespVALS(k).tfrac, RespVALS(k).tint, RespVALS(k).len] = obj.ResponseTriggerTime(val_fraction, int_fraction, katnum, obj.CH.sortorder);                  
                for l = k+1 : numel(kategories) %difference between categories
-                   katnum2 = cellval(kategories,l);
-                   [RespDiffs(k,l).valmax, RespDiffs(k,l).tmax,  RespDiffs(k,l).tfrac, RespDiffs(k,l).tint,RespDiffs(k,l).len] = obj.ResponseTriggerTime(val_fraction, int_fraction, [katnum2 katnum], obj.CH.sortorder);                  
+                   katnum2 = kategories(l); % if kategories is cellarray, the katnum will also be cellarray  %cellval(kategories,l);
+                   [RespDiffs(k,l).valmax, RespDiffs(k,l).tmax,  RespDiffs(k,l).tfrac, RespDiffs(k,l).tint,RespDiffs(k,l).len] = obj.ResponseTriggerTime(val_fraction, int_fraction, [katnum2; katnum], obj.CH.sortorder);                  
                end
            end
                       
