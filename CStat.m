@@ -613,6 +613,70 @@ classdef CStat < handle
             end
             if print, fprintf('%d .. done\n',j); end
         end
+        function [ranova_table, Tukey_table] = ANOVA2rm(data, factorNames, levelNames, nofile)
+            %%%% 2 way repeated measures ANOVA, both factors are repeated measures
+            % returns the stats table for ANOVA and table with post-hoc comparisons
+            % if no signific interaction between 2 factors was found,returns empty Tukey_table
+            %%%% Inputs: 
+            % data - matrix in the format: rows - subjects, columns - all levels of two factors, just numbers without variable names
+            % the order of repeated factors should be like this, for example:
+            %  1111 2222 3333
+            %  1234 1234 1234
+            % factorNames - cell array with names of factors, for example: {'Categories', 'Time'}
+            % levelNames - cell array with names of levels for each factor in strings, each factor in separate cell, for example:
+            % {{"control" "ego" "allo"}; {"0-0.2" "0.2-0.4" "0.4-0.6" "0.6-0.8" "0.8-1"}}
+            % nofile = 0 by default, saves the output xls file with all statistic 
+           
+            assert(any( [cellfun(@isstring, levelNames{1}) cellfun(@isstring, levelNames{2})] )==1,'names of levels should be in double quotes'); % in strings, not in chars
+            if ~exist('nofile','var') || isempty(nofile)
+                nofile = 0; % save the output xls file with all statistic by default
+            end
+            
+            % create variable names for all columns in data
+            varNames = cell(size(data,2),1);
+            for in = 1 : size(data,2)
+                v = strcat('V',num2str(in));
+                varNames{in,1} = v;
+            end
+            
+            datatable = array2table(data, 'VariableNames',varNames);
+            
+            % create names for factors by replication
+            % for factor 1
+            factor1 = [];
+            for leveli = 1:numel(levelNames{1})
+                factor1 = [factor1; repmat(levelNames{1}{leveli},numel(levelNames{2}),1)];
+            end
+            
+            % for factor 2
+            factor2 = string(repmat(levelNames{2}',numel(levelNames{1}),1));
+            
+            % specify that all variables are in the same group - repeated measures
+            repeatFactors = table(factor1,factor2, 'VariableNames',factorNames);
+            
+            % create a model to be fit with repeated measures
+            rm = fitrm(datatable,[eval('varNames{1}') '-' eval('varNames{end}') ' ~ 1'],'WithinDesign',repeatFactors);
+            
+            % fit the model
+            ranova_table = ranova(rm,'WithinModel',[eval('factorNames{1}') '*' eval('factorNames{2}')]);
+            
+            % multiple comparisons across groups
+            if ranova_table{7,5} < 0.05  % if interaction between 2 factors is signif, then tukey tests over all combinations of factors
+                Tukey_table = multcompare(rm,eval('factorNames{1}'), 'By', eval('factorNames{2}'));
+            else
+                Tukey_table = []; % don't perform tests if no signif interaction
+            end
+            
+            if nofile == 0
+                % save statistic in xls file
+                charFactors = char(join(factorNames, '_'));
+                xlsfilename = ['logs\ANOVA2rm_' charFactors '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') '.xls'];
+                writetable(ranova_table,xlsfilename,'Sheet','rANOVA_result','WriteRowNames',1);
+                writetable(Tukey_table,xlsfilename,'Sheet','Tukey_result');
+                disp([ 'xls tables saved: ' xlsfilename]);
+            end
+        end
+        
         function p_corrected = PermStat(A,B,print,msg,RjEpChA,RjEpChB) %#ok<INUSD>
             %P = PermStat(A,B,print,msg,RjEpChA,RjEpChB)            
             % A a B jsou cas x channels x epochs
