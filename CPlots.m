@@ -360,7 +360,7 @@ classdef CPlots < matlab.mixin.Copyable
                 end
                 
                 factorNames = {'Category', 'Time'};
-                [ranova_table, Tukey_table] = CStat.ANOVA2rm(data, factorNames, levelNames, 1);
+                [ranova_table, Tukey_table] = CStat.ANOVA2rm(data, factorNames, levelNames, 1,1);
                 
                 % find significant pairs for ploting stars - here only for 3 categories
                 % TODO - for any number of categories
@@ -438,10 +438,10 @@ classdef CPlots < matlab.mixin.Copyable
             end
                         
             % export data in xls table
-            if numel(kats)>2 && obj.plotTimeInt.nofile==0
-                obj.TimeIntervals2XLS(vch,kats , legendStr, intervals, chanMeans,chshowstr, categories, allmeans,ranova_table, Tukey_table);
+            if length(vch)>1 && numel(kats)>2 && obj.plotTimeInt.nofile==0
+                obj.TimeIntervals2XLS(vch,kats, legendStr, intervals, chanMeans,chshowstr, categories, allmeans,ranova_table, Tukey_table);
             elseif obj.plotTimeInt.nofile==0 && isempty(store) 
-                obj.TimeIntervals2XLS(vch,kats , legendStr, intervals, chanMeans,chshowstr, categories, allmeans);
+                obj.TimeIntervals2XLS(vch,kats, legendStr, intervals, chanMeans,chshowstr, categories, allmeans);
             end
         end
         function TimeIntervalsColect(obj,marks,labels,labelsAreCluster)
@@ -537,7 +537,7 @@ classdef CPlots < matlab.mixin.Copyable
     
             xlsfilename = ['logs\TimeIntervals_' strch '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') '.xls'];
             xlswrite(xlsfilename,[titles4table; tableX]);
-            if nargin>8
+            if nargin>9
                 ranova_table = varargin{9};
                 Tukey_table = varargin{10};
                 writetable(ranova_table,xlsfilename,'Sheet','rANOVA_result','WriteRowNames',1); % export ANOVA statistic

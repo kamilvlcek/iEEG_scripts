@@ -613,7 +613,7 @@ classdef CStat < handle
             end
             if print, fprintf('%d .. done\n',j); end
         end
-        function [ranova_table, Tukey_table] = ANOVA2rm(data, factorNames, levelNames, nofile)
+        function [ranova_table, Tukey_table] = ANOVA2rm(data, factorNames, levelNames, interact, nofile)
             %%%% 2 way repeated measures ANOVA, both factors are repeated measures
             % returns the stats table for ANOVA and table with post-hoc comparisons
             % if no signific interaction between 2 factors was found,returns empty Tukey_table
@@ -625,6 +625,7 @@ classdef CStat < handle
             % factorNames - cell array with names of factors, for example: {'Categories', 'Time'}
             % levelNames - cell array with names of levels for each factor in strings, each factor in separate cell, for example:
             % {{"control" "ego" "allo"}; {"0-0.2" "0.2-0.4" "0.4-0.6" "0.6-0.8" "0.8-1"}}
+            % interact - how to perform post-hoc Tukey tests; =1 factor 1 by factor 2 (default) or =2 factor 2 by factor 1 
             % nofile = 0 by default, saves the output xls file with all statistic 
            
             assert(any( [cellfun(@isstring, levelNames{1}) cellfun(@isstring, levelNames{2})] )==1,'names of levels should be in double quotes'); % in strings, not in chars
@@ -632,6 +633,9 @@ classdef CStat < handle
                 nofile = 0; % save the output xls file with all statistic by default
             end
             
+            if ~exist('interact','var') || isempty(interact)
+                interact = 1; % post-hoc Tukey tests; factor 1 by factor 2
+            end
             % create variable names for all columns in data
             varNames = cell(size(data,2),1);
             for in = 1 : size(data,2)
@@ -662,7 +666,11 @@ classdef CStat < handle
             
             % multiple comparisons across groups
             if ranova_table{7,5} < 0.05  % if interaction between 2 factors is signif, then tukey tests over all combinations of factors
-                Tukey_table = multcompare(rm,eval('factorNames{1}'), 'By', eval('factorNames{2}'));
+                if interact == 1
+                    Tukey_table = multcompare(rm,eval('factorNames{1}'), 'By', eval('factorNames{2}'));
+                elseif interact == 2
+                    Tukey_table = multcompare(rm,eval('factorNames{2}'), 'By', eval('factorNames{1}'));
+                end
             else
                 Tukey_table = []; % don't perform tests if no signif interaction
             end
