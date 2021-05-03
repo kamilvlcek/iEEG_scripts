@@ -1036,6 +1036,29 @@ classdef CiEEGData < matlab.mixin.Copyable
             obj.plotRCh.selChSignum = signum;
             obj.CH.SetSelCh(obj.plotRCh.selCh,obj.plotRCh.selChNames); %transfers channel marking to CHHeader class
         end
+        function [kk,kstat,obj] = KatIndex(obj,kategories,k,WpA)
+            %returns indexes for category k in kategores: kk for obj.colorskat, kstat for WpKat
+            %kategories can be either cell array (for combined categories) or numerical array  
+            % mostly because of combined categories in kategories=cellarray
+            % the code moved from PlotResponseCh
+            if ~exist('WpA','var'), WpA = -1;kstat = -1; end %if I need kstat, necessary to use WpA
+            if ~isempty(obj.Wp)
+                if iscell(kategories)
+                    kk = kategories{k}(1)+1;  
+                    if WpA>=0
+                        kstat = find(ismember(cell2mat(obj.Wp(WpA).kats'),kategories{k},'rows')); %index of category in statistical results
+                    end
+                else   
+                    kk = kategories(k)+1; 
+                    if WpA>=0
+                        kstat = find(obj.Wp(WpA).kats == kk); %index of category in statistical results
+                    end
+                end % aby barvy odpovidaly kategoriim podnetum spis nez kategoriim podle statistiky
+            else                        
+                kk = k; %kk is index in obj.colorskat, while k is index in kategories
+                kstat = k; % index of category in Stat
+            end            
+        end
         %% PLOT FUNCTIONS
         function PlotChannels(obj)  
             %vykresli korelace kazdeho kanalu s kazdym
@@ -1498,22 +1521,11 @@ classdef CiEEGData < matlab.mixin.Copyable
                 ybottom = iff(numel(kategories)>3,0.4,0.3); %odkud se maji umistovat kontrasty mezi kategoriemi - parametr vypoctu y                
                 h_kat = zeros(numel(kategories),2); 
                
-                for k = 1 : numel(kategories) %index 1-3 (nebo 4)
-                    if ~isempty(obj.Wp)
-                        if iscell(kategories)
-                            kk = kategories{k}(1);  
-                            kstat = find(ismember(cell2mat(obj.Wp(WpA).kats'),kategories{k},'rows')); %index of category in statistical results
-                        else   
-                            kk = kategories(k); 
-                            kstat = find(obj.Wp(WpA).kats == kk); %index of category in statistical results
-                        end % aby barvy odpovidaly kategoriim podnetum spis nez kategoriim podle statistiky
-                    else                        
-                        kk = k-1; %kk is real number of category, while k is index in kategories
-                        kstat = k; % index of category in Stat
-                    end
+                for k = 1 : numel(kategories) %index 1-3 (nebo 4)                    
+                    [kk,kstat] = obj.KatIndex(kategories,k,WpA);
                     
                     %to se hodi zvlast, kdyz se delaji jen dve kategorie vuci sobe ane vsechny, nebo dve vuci jedne nebo dve vuci dvema
-                    colorkatk = [obj.colorskat{kk+1} ; colorsErrorBars{kk+1}]; %dve barvy, na caru a stderr plochu kolem
+                    colorkatk = [obj.colorskat{kk} ; colorsErrorBars{kk}]; %dve barvy, na caru a stderr plochu kolem
                     if exist('opakovani','var') && ~isempty(opakovani)
                         katnum = kategories{k}; %v kategories jsou opakovani k vykresleni, a je to cell array
                         [katdata,~,RjEpCh] = obj.CategoryData(KATNUM,[],katnum,ch); %eegdata - epochy pro tato opakovani

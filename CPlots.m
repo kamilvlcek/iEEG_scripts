@@ -195,7 +195,7 @@ classdef CPlots < matlab.mixin.Copyable
             if isfield(obj.Eh.plotRCh,'kategories') && ~isempty(obj.Eh.plotRCh.kategories)
                 kats = obj.Eh.plotRCh.kategories;
             else
-                kats = obj.Eh.Wp(obj.WpActive).kats; % define categories
+                kats = obj.Eh.Wp(obj.Eh.WpActive).kats; % define categories
             end
             if ~isfield(obj.plotTimeInt,'outputstyle')
                 obj.plotTimeInt.outputstyle = 0; %stores the default value, which can be than changed in var editor
@@ -206,23 +206,23 @@ classdef CPlots < matlab.mixin.Copyable
             %get data from obj.CategoryData for all channels at onces - to make the whole function faster
             categorydata = cell(numel(kats),2); %store precomputed category data here 
             legendStr = cell(1,numel(kats)); % strings for legend and xls table
-            for k = 1:numel(kats)
-                [d,~,RjEpCh,~]= obj.Eh.CategoryData(kats(k),[],[],vch); % d:time x channels x epochs - get data for all channels
+            for k = 1:numel(kats)                
+                [d,~,RjEpCh,~]= obj.Eh.CategoryData(cellval(kats,k),[],[],vch); % d:time x channels x epochs - get data for all channels
                 categorydata(k,:) = {d(:,vch,:),RjEpCh}; % save d (time x channels x epochs) and RjEpCh (channels x epochs)
-                legendStr{k} = obj.Eh.PsyData.CategoryName(kats(k)); % array of names of categories for a legend
+                legendStr{k} = obj.Eh.PsyData.CategoryName(cellval(kats,k)); % array of names of categories for a legend
             end
             
             for ch = 1:size(vch,2) % for each channel                
                 % initialize matrix for an individual channel
                 allmeans = cell(size(intervals,1),numel(kats)); %  time intervals x kategories (x epochs)
-                categories = NaN(size(obj.Eh.d,3), 1); % vector to define categories for all epochs for an individual channel - for xls table
+                categories = cell(size(obj.Eh.d,3), 1); % vector to define categories for all epochs for an individual channel - for xls table
                 T = (0 : 1/obj.Eh.fs : (size(obj.Eh.d,1)-1)/obj.Eh.fs)' + obj.Eh.epochtime(1); % time in sec
                 nInd = 1; % initialize index for variable categories
                 
                 for k = 1:numel(kats) % for each category%                   
                     RjEpCh = categorydata{k,2}(ch,:); %previously stored RjEpCh
                     d = squeeze(categorydata{k,1}(:,ch,~RjEpCh));  %time x epochs, previously stored d value                  
-                    categories(nInd:(nInd+size(d,2)-1)) = kats(k); % to establish the number of category for all epochs for an individual channel - for xls table
+                    categories(nInd:(nInd+size(d,2)-1)) = repmat({cellval(kats,k)},size(d,2),1); % to establish the number of category for all epochs for an individual channel - for xls table
                     nInd = size(d,2)+nInd;
                     
                     for int = 1:size(intervals,1)  % for each interval
@@ -306,7 +306,7 @@ classdef CPlots < matlab.mixin.Copyable
                 if numel(kats)>3                                           
                     barvy = distinguishable_colors(numel(kats));                
                 else
-                    barvy = cell2mat(obj.Eh.colorskat(2:end)');
+                    barvy = cell2mat(obj.Eh.colorskat(1:end)');
                 end
             end
             
@@ -326,9 +326,10 @@ classdef CPlots < matlab.mixin.Copyable
                
             for k=1:numel(kats)
                 hold on
-                errorbar(intervals(:, 2),M(:,k),E(:,k),'.','LineWidth',2,'Color', barvy(kats(k),:)); % plot errors
+                kk = obj.Eh.KatIndex(kats,k);
+                errorbar(intervals(:, 2),M(:,k),E(:,k),'.','LineWidth',2,'Color', barvy(kk,:)); % plot errors
                 hold on;
-                h_mean = plot(intervals(:, 2), M(:,k),style{k},'LineWidth',2,'Color',barvy(kats(k),:),'MarkerSize',10,'MarkerFaceColor', barvy(kats(k),:)); % plot means %'none'
+                h_mean = plot(intervals(:, 2), M(:,k),style{k},'LineWidth',2,'Color',barvy(kk,:),'MarkerSize',10,'MarkerFaceColor', barvy(kk,:)); % plot means %'none'
                 ploth(k) = h_mean; % plot handle                
             end
             if numel(kats)==2 && (~isfield(store,'stat') || store.stat ~= 0) %for just two categoires, plot nonparametric paired fdr corrected statistics
