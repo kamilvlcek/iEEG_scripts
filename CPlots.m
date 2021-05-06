@@ -31,7 +31,11 @@ classdef CPlots < matlab.mixin.Copyable
             end
             
             if ~exist('channels','var') || isempty(channels)  %selection of channels to plot
-                channels = obj.Eh.CH.plotCh2D.chshow;                
+                if ~isempty(obj.Eh.CH.plotCh2D.chshow)
+                    channels = obj.Eh.CH.plotCh2D.chshow;                
+                else
+                    channels = 1:numel(obj.Eh.CH.H.channels);
+                end
                 figuretitle = [obj.Eh.CH.plotCh2D.chshowstr ' chns: ' num2str(numel(channels))];                
             else
                 figuretitle = ['channels: ' num2str(numel(channels))];                
@@ -63,10 +67,10 @@ classdef CPlots < matlab.mixin.Copyable
             
             if strcmp(labels{1},'nrj') %plot the labels saved in CM.CH.channelPlot.plotCh3D.brainlabelColors
                 [labels,barvy]=obj.Eh.CH.channelPlot.GetBrainlabelsSaved();
-                figuretitle = [figuretitle ' - ' obj.Eh.PsyData.CategoryName(kategories(1))];
+                figuretitle = [figuretitle ' - ' obj.Eh.PsyData.CategoryName(cellval(kategories,1))];
             elseif ~strcmp(labels{1},'no') %plotting individual labels
-                barvy = distinguishable_colors(numel(labels));               
-                figuretitle = [figuretitle ' - ' obj.Eh.PsyData.CategoryName(kategories(1))];
+                barvy = distinguishable_colors(max(numel(labels), numel(kategories)));               
+                figuretitle = [figuretitle ' - ' obj.Eh.PsyData.CategoryName(cellval(kategories,1))];
             else %plotting categories
                 barvy = cell2mat(obj.Eh.colorskat(1:end)'); %from cell array of rgb to matrix
             end            
@@ -91,24 +95,27 @@ classdef CPlots < matlab.mixin.Copyable
             ploth = zeros(1,max(numel(kategories),numel(labels))); % handles of plots for legend, we expect 1 category or 1 label.
             legendStr = cell(size(ploth)); 
             for k = 1 : numel(kategories) %index 1-3 (nebo 4)
-                katnum = kategories(k);               
+                katnum = cellval(kategories,k);     
+                kk = obj.Eh.KatIndex(kategories,k); %index of color
                 for l = 1:numel(labels)
                     if strcmp(labels{l},'no') % all brainlabels, plotting categories
                         chsel = channels; %all channels
-                        colorkatk = [barvy(katnum+1,:) ; colorsErrorBars(katnum+1,:)]; %dve barvy, na caru a stderr plochu kolem                            
+                        colorkatk = [barvy(kk,:) ; colorsErrorBars(kk,:)]; %dve barvy, na caru a stderr plochu kolem                            
                         legendStr{k} = obj.Eh.PsyData.CategoryName(katnum); % array of names of categories for a legend
                     else % plotting individual brainlabels for one stimulus category
                         brailabels = lower({obj.Eh.CH.brainlabels.label});
                         chsel = intersect(find(contains(brailabels,labels{l})),channels);
-                        colorkatk = [barvy(l,:) ; colorsErrorBars(l,:)]; %dve barvy, na caru a stderr plochu kolem  
-                        legendStr{l} = [labels{l} ' x' num2str(numel(chsel))];
+                        colorkatk = [barvy(max(k,l),:) ; colorsErrorBars(max(k,l),:)]; %dve barvy, na caru a stderr plochu kolem  
+                        legendStr{max(k,l)} = [labels{l} ' x' num2str(numel(chsel)) ':'  obj.Eh.PsyData.CategoryName(katnum)];
                     end
                     [katdata,~,RjEpCh] = obj.Eh.CategoryData(katnum,[],[],chsel);%katdata now time x channels x epochs                                
                     for ich = 1:numel(chsel)
                         CHM(:,k,ich) = mean(katdata(:,chsel(ich),~RjEpCh(ich,:)),3); %mean over valid epochs from katdata
                     end
-                    M = mean(CHM(:,k,1:numel(chsel)),3);  %mean over channels, 
-                    E = std(CHM(:,k,1:numel(chsel)),[],3)/sqrt(numel(chsel)); %std err of mean over channels          
+                    M = nanmean(CHM(:,k,1:numel(chsel)),3);  %mean over channels, nan values can emerge if all epochs for some channel were excluded
+                    nanvals = find(isnan(CHM(1,k,1:numel(chsel)))); %count of nan channels (for the first time point)
+                    if numel(nanvals) > 0, disp([ legendStr{k} ':' num2str(nanvals') ' are channels with only NaN values']); end                           
+                    E = nanstd(CHM(:,k,1:numel(chsel)),[],3)/sqrt(numel(chsel)-numel(nanvals)); %std err of mean over channels          
                     ymax = max(ymax,max(M+E));
                     if obj.PlotRChMean.plotband
                         plotband(T, M, E, colorkatk(2,:)); % transparent but copying to CorelDraw does not work (its all black)
@@ -149,15 +156,18 @@ classdef CPlots < matlab.mixin.Copyable
             %  or if it's empty it will use numbers of channels after current filtering (from CM.CH.sortoder)
             %  default intervals = [0 0.2; 0.2 0.4; 0.4 0.6; 0.6 0.8];
             %  nofile - if 1, do not save any xls file, only plot figure
-            
-            
+                        
             %process arguments
-            if isstruct(vch) && ~exist('store','var')
+            if exist('vch','var') && ~isempty(vch) && isstruct(vch) && ~exist('store','var')
                 store = vch; %ve can use first argument as store struct
                 vch = [];
             end
             if ~exist('vch','var') || isempty(vch) %vector of channels
-                vch = obj.Eh.CH.sortorder; % will use numbers of channels after current filtering
+                if ~isempty(obj.Eh.CH.sortorder)
+                   vch = obj.Eh.CH.sortorder; % will use numbers of channels after current filtering
+                else
+                   vch = 1:numel(obj.Eh.CH.H.channels);
+                end
                 chshowstr = obj.Eh.CH.plotCh2D.chshowstr; %description of the selected channels - name from CM.CH.FilterChannels();
             else
                 chshowstr = [ num2str(length(vch)) 'channels'];
@@ -259,10 +269,9 @@ classdef CPlots < matlab.mixin.Copyable
             else
                 obj.plotTimeInt.fh = figure('Name','TimeIntervals','CloseRequestFcn', @obj.tearDownFigCallbackTimeIntervals);                 
             end                          
-      
-         
-            % plot mean and std across epochs for one channel
+                           
             if length(vch)==1 && isempty(store) && (~isfield(obj.plotTimeInt,'nosinglechannel') || obj.plotTimeInt.nosinglechannel == 0)
+                % plot mean and std across epochs for one channel
                 M=MOverEpoch; %set variable to be plotted - means
                 E=EOverEp;    %set variable to be plotted - errorbars
                 % the number of the channel in the title of plot
@@ -302,7 +311,7 @@ classdef CPlots < matlab.mixin.Copyable
             end            
             
             ploth = zeros(1,numel(kats)); % handles of plots for legend                        
-            if ~exist('barvy','var') %if not set inside TimeIntervalsStore  
+            if ~exist('barvy','var') || isempty(barvy) %if not set inside TimeIntervalsStore  
                 if numel(kats)>3                                           
                     barvy = distinguishable_colors(numel(kats));                
                 else
@@ -392,6 +401,9 @@ classdef CPlots < matlab.mixin.Copyable
                 labelsAreCluster = 0; %if labelsAreCluster==1, the labels var contains names of clusters
             end
             if exist('marks','var')
+                if size(marks,1) == 2 && size(marks,2)>2
+                    marks = marks'; %if the dimensions are swaped, make them correct
+                end
                 obj.plotTimeInt.nosinglechannel = 1; %to not use the special code for single channel plot
                 for l = 1:numel(labels)
                     for m = 1:size(marks,1)
@@ -636,13 +648,14 @@ classdef CPlots < matlab.mixin.Copyable
             %stores or retrieves the to be plotted data in obj.plotTimeInt.data
             assert(numel(store) == 1,'store can be only of size 1');
             if isfield(store,'store') && store.store==1
+                %store the values into obj.plotTimeInt.data
                     if ~isfield(obj.plotTimeInt,'data'), obj.plotTimeInt.data = struct(); end
                     if ~isfield(store,'label') || isempty(store.label) %any label, e.g. brainlabel
                         store.label = 'NaN';
                     end
                     if isfield(obj.plotTimeInt.data,'label')                        
                         labels = {obj.plotTimeInt.data.label}; %labels stored until now
-                        nlabel = find(contains(labels,store.label));
+                        nlabel = find(contains(labels,store.label)); 
                         if isempty(nlabel)
                             nlabel = numel(obj.plotTimeInt.data)+1;
                         end
@@ -663,8 +676,8 @@ classdef CPlots < matlab.mixin.Copyable
                         nmark = 1;
                     end
 
-                    n = intersect(nmark,nlabel);
-                    if isempty(n), n = numel(obj.plotTimeInt.data)+1; end
+                    n = intersect(nmark,nlabel); 
+                    if isempty(n), n = numel(obj.plotTimeInt.data)+1; end %new combination of label and mark
                     obj.plotTimeInt.data(n).label = store.label;
                     obj.plotTimeInt.data(n).mark = store.mark;
                     obj.plotTimeInt.data(n).chanMeans = chanMeans; % intervals x kats x channels

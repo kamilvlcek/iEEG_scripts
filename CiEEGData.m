@@ -1051,7 +1051,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 else   
                     kk = kategories(k)+1; 
                     if WpA>=0
-                        kstat = find(obj.Wp(WpA).kats == kk); %index of category in statistical results
+                        kstat = find(obj.Wp(WpA).kats == kategories(k)); %index of category in statistical results
                     end
                 end % aby barvy odpovidaly kategoriim podnetum spis nez kategoriim podle statistiky
             else                        
@@ -1672,7 +1672,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             title(['channel ' chstr '/' num2str(obj.channels) ' - ' obj.PacientID()], 'Interpreter', 'none'); % v titulu obrazku bude i pacientID napriklad p132-VT18
             text(-0.1,ymax*.95,[ obj.CH.H.channels(1,ch).name ' : ' obj.CH.H.channels(1,ch).neurologyLabel ',' obj.CH.H.channels(1,ch).ass_brainAtlas]);
             if  isfield(obj.CH.H.channels,'MNI_x') %vypisu MNI souradnice
-                text(-0.1,ymax*.90,[ 'MNI: ' num2str(obj.CH.H.channels(1,ch).MNI_x) ', ' num2str(obj.CH.H.channels(1,ch).MNI_y ) ', ' num2str(obj.CH.H.channels(1,ch).MNI_z)]);
+                text(-0.1,ymax*.90,[ 'MNI: ' num2str(round(obj.CH.H.channels(1,ch).MNI_x)) ', ' num2str(round(obj.CH.H.channels(1,ch).MNI_y)) ', ' num2str(round(obj.CH.H.channels(1,ch).MNI_z))]);
             else
                 text(-0.1,ymax*.90,'no MNI');
             end
@@ -2081,11 +2081,11 @@ classdef CiEEGData < matlab.mixin.Copyable
                 [~,kombinace,~] = obj.GetKatsNames(); %we need the categories combinations
             end
             nChannels = numel(channels);            
-            tint = zeros(1, nChannels); %time of fraction of area under curve
-            len = zeros(1, nChannels); %length of significance
             tmax = zeros(1, nChannels); %time of maximal value
-            tfrac = zeros(1, nChannels); %cas poloviny maxima, nebo jineho podilu 
+            tfrac = zeros(1, nChannels); %time of fraction of the maximal value (like 90%) 
+            tint = zeros(1, nChannels); %time of fraction of area under curve
             valmax = zeros(1, nChannels); %maximal value
+            len = zeros(1, nChannels); %length of significance
             
             %kamil - potrebuju zjistit, kdy je kazdy kanal signifikantni, podle kodu z IntervalyResp            
             intervalData = iintervalyData/obj.fs + obj.epochtime(1); %casy ve vterinach
@@ -2269,7 +2269,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 obj.plotRCh.selChSave(obj.plotRCh.selChN).selCh = obj.plotRCh.selCh;
                 obj.plotRCh.selChSave(obj.plotRCh.selChN).selChNames = obj.plotRCh.selChNames;
                 obj.plotRCh.selChSave(obj.plotRCh.selChN).selChSignum = obj.plotRCh.selChSignum;                  
-                if noprint==0, disp(['saved current marking set as no. ' num2str(obj.plotRCh.selChN)]);  end              
+                if noprint==0, disp(['SetSelChActive: saved current marking set as no. ' num2str(obj.plotRCh.selChN)]);  end              
             end
             %load the new channel marking set
             if n <= numel(obj.plotRCh.selChSave) && n~= obj.plotRCh.selChN
@@ -2278,13 +2278,13 @@ classdef CiEEGData < matlab.mixin.Copyable
                 obj.plotRCh.selChSignum = obj.plotRCh.selChSave(n).selChSignum;
                 obj.plotRCh.selChN = n;
                 obj.CH.SetSelCh(obj.plotRCh.selCh,obj.plotRCh.selChNames); %transfers channel marking to CHHeader class
-                if noprint==0, disp(['loaded marking set no. ' num2str(n) ]);end
+                if noprint==0, disp(['SetSelChActive: loaded marking set no. ' num2str(n) ]);end
             elseif n > numel(obj.plotRCh.selChSave)
                 obj.SetSelCh([]); 
                 obj.plotRCh.selChN = n;
-                if noprint==0, disp(['loaded empty marking set no.' num2str(n)]); end
+                if noprint==0, disp(['SetSelChActive: loaded empty marking set no.' num2str(n)]); end
             else
-                if noprint==0, disp(['no change of selected marking set no.' num2str(obj.plotRCh.selChN)]); end
+                if noprint==0, disp(['SetSelChActive: no change of selected marking set no.' num2str(obj.plotRCh.selChN)]); end
             end
         end
         function CompareChannels(obj,filename,label,marks)
