@@ -341,6 +341,7 @@ classdef CPlots < matlab.mixin.Copyable
                 h_mean = plot(intervals(:, 2), M(:,k),style{k},'LineWidth',2,'Color',barvy(kk,:),'MarkerSize',10,'MarkerFaceColor', barvy(kk,:)); % plot means %'none'
                 ploth(k) = h_mean; % plot handle                
             end
+                      
             if numel(kats)==2 && (~isfield(store,'stat') || store.stat ~= 0) %for just two categoires, plot nonparametric paired fdr corrected statistics
                 %if store.stat ==0 , no stars for statistics are ploted
                 paired = 1; %paired
@@ -353,6 +354,73 @@ classdef CPlots < matlab.mixin.Copyable
                 Wp = CStat.Wilcox2D(chanMeans(:,1,:), chanMeans(:,2,:),0,fdrlevel,'kat 1 vs 2',[],[],paired); %more strict dep method
                 iWp = Wp <= 0.05;
                 plot(intervals(iWp, 2),ones(1,sum(iWp))*y, '*','Color','red'); %stars
+                
+            elseif numel(kats) > 2 && (~isfield(store,'stat') || store.stat ~= 0) && length(vch)>1  % compute 2 rm ANOVA for set of channels
+                [tableX,~] = obj.TimeIntervals2XLSTable(vch,chanMeans,kats,legendStr,intervals); % get data in prepared table
+                data = cell2mat(tableX(:, 7:end)); % only numerical data
+                levelNames = cell(2,1);
+                
+                % convert to strings - double quotes - needs for function CStat.ANOVA2rm
+                tempStr = string(legendStr); % names of categories
+                for stri = 1:numel(tempStr)
+                    levelNames{1}{stri} = tempStr(stri);
+                end
+                strInterv = string(num2str(intervals,'%.1f-%.1f')); % names of intervals
+                for stri = 1:numel(strInterv)
+                    levelNames{2}{stri} = strInterv(stri);
+                end
+                
+                factorNames = {'Category', 'Time'};
+                [ranova_table, Tukey_table] = CStat.ANOVA2rm(data, factorNames, levelNames, 1,1);
+                
+                % find significant pairs for ploting stars - here only for 3 categories
+                % TODO - for any number of categories
+                if ~isempty(Tukey_table) && numel(kats) == 3
+                    [~, ipval, ~] = unique(Tukey_table{:,6},'stable'); % only unique pvalue for one pair
+                    Tukey_tableUniq = Tukey_table(ipval,:);
+                    iSignPairs = Tukey_tableUniq{:,6} <= 0.05; % pvalue <= 0.05
+                    signPairs = table2cell(Tukey_tableUniq(iSignPairs, 1:4)); % signif time intervals, category1, category2 and their difference without repetition
+                    
+                    % define y limits for ploting
+                    if ~isempty(ylimits)
+                        yrange = ylimits;
+                    else
+                        yrange = get(gca, 'ylim');
+                    end
+                    ydiff = 0;
+                    
+                    for ipair=1:size(signPairs,1)
+                        color = [];
+                        if signPairs{ipair,4}<0 && signPairs{ipair,2} == legendStr{1} && signPairs{ipair,3} == legendStr{2}
+                            color = barvy(2,:); % asterisk of 2 category's color - cat2 > cat1
+                        elseif signPairs{ipair,4}<0 && signPairs{ipair,2} == legendStr{1} && signPairs{ipair,3} == legendStr{3}
+                            color = barvy(3,:); % asterisk of 3 category's color - - cat3 > cat1
+                        elseif (signPairs{ipair,2} == legendStr{2} && signPairs{ipair,3} == legendStr{3}) || (signPairs{ipair,2} == legendStr{3} && signPairs{ipair,3} == legendStr{2})
+                            color = [0 0 0]; % asterisk of black color - - cat3 > cat2 or cat2 > cat3
+                        end
+                        
+                        iInterv = strcmp(signPairs{ipair,1},strInterv); % define time interval
+                        ys = yrange(1)+diff(yrange)*0.02; % initial y coordinate of star
+                        if ~isempty(color) && ipair>1 && signPairs{ipair,1}==signPairs{ipair-1,1} % to plot several stars for one time interv
+                            ydiff = ydiff + diff(yrange)*0.02;
+                            plot(intervals(iInterv,2), ys+ydiff, '*','Color',color); % plot star
+                        elseif ~isempty(color)
+                            plot(intervals(iInterv,2), ys, '*','Color',color); 
+                            ydiff = 0;
+                        end
+                    end
+                    
+                    % add pvalue and F statistic on the figure
+                    text(intervals(1,2),yrange(2)*0.96,['F(' num2str(ranova_table{7,2}) ', ' num2str(ranova_table{8,2}) ') = ' num2str(ranova_table{7,4}) ', p = ' num2str(ranova_table{7,5})])
+                    % legend for stars
+                    text(intervals(1,2),yrange(2)*0.9,['* ' legendStr{3} ' vs ' legendStr{2}],'Color',[0 0 0])
+                    text(intervals(1,2),yrange(2)*0.86,['* ' legendStr{2} ' > ' legendStr{1}],'Color',barvy(2,:))
+                    text(intervals(1,2),yrange(2)*0.82,['* ' legendStr{3} ' > ' legendStr{1}],'Color',barvy(3,:))
+                    
+                end
+                
+                % TODO - save in obj.plotTimeInt.data ?
+                % [vch,kats,chanMeans,legendStr,chshowstr,ylimits,barvy,ANOVA]=obj.TimeIntervalsStore(store,vch,kats,chanMeans,legendStr,chshowstr,ylimits,intervals,ranova_table, Tukey_table);
             end
             if ~isempty(ylimits), ylim(ylimits); end
             xlim([intervals(1,2)-.05, max(max(intervals))+.05]);
@@ -381,8 +449,10 @@ classdef CPlots < matlab.mixin.Copyable
             end
                         
             % export data in xls table
-            if obj.plotTimeInt.nofile==0 && isempty(store) 
-                obj.TimeIntervals2XLS(vch,kats , legendStr, intervals, chanMeans,chshowstr, categories, allmeans);
+            if length(vch)>1 && numel(kats)>2 && obj.plotTimeInt.nofile==0
+                obj.TimeIntervals2XLS(vch,kats, legendStr, intervals, chanMeans,chshowstr, categories, allmeans,ranova_table, Tukey_table);
+            elseif obj.plotTimeInt.nofile==0 && isempty(store) 
+                obj.TimeIntervals2XLS(vch,kats, legendStr, intervals, chanMeans,chshowstr, categories, allmeans);
             end
         end
         function TimeIntervalsColect(obj,marks,labels,labelsAreCluster)
@@ -424,7 +494,7 @@ classdef CPlots < matlab.mixin.Copyable
         end
         function TimeIntervals2XLS(obj,varargin)
             if nargin > 2 %when called directly from TimeIntervals()
-               %vch,kats , legendStr, intervals, chanMeans,chshowstr, categories, allmeans
+               %vch,kats , legendStr, intervals, chanMeans,chshowstr,categories, allmeans, (ranova_table, Tukey_table)
                vch = varargin{1}; 
                kats = varargin{2}; 
                legendStr = varargin{3};
@@ -481,8 +551,16 @@ classdef CPlots < matlab.mixin.Copyable
     
             xlsfilename = ['logs\TimeIntervals_' strch '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') '.xls'];
             xlswrite(xlsfilename,[titles4table; tableX]);
+            if nargin>9
+                ranova_table = varargin{9};
+                Tukey_table = varargin{10};
+                writetable(ranova_table,xlsfilename,'Sheet','rANOVA_result','WriteRowNames',1); % export ANOVA statistic
+                if ~isempty(Tukey_table)
+                    writetable(Tukey_table,xlsfilename,'Sheet','Tukey_result');
+                end
+            end
             disp([ 'xls tables saved: ' xlsfilename]);
-           
+            
         end
         function obj = GetCorrelChan(obj,nofile,fraction,pval_limit,rho_limit) % Sofiia since 11.2020
             % find channels in which neural response is correlated with response time of patient (to be excluded from the further analysis)

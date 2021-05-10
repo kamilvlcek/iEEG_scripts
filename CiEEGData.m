@@ -1845,6 +1845,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             epochtime = obj.epochtime;      %#ok<PROP,NASGU>
             baseline = obj.baseline;        %#ok<PROP,NASGU>
             CH_H=obj.CH.H;                  %#ok<NASGU>                                                                      
+            CH_CorrelChan=obj.CH.CorrelChan;
             [CH_plots,CS_plots,RCh_plots,PL_Plots] = obj.SaveRemoveFh(obj.plotRCh);  %#ok<ASGLU> %smazu vsechny handely na obrazky             
             CH_filterMatrix = obj.CH.filterMatrix; %#ok<NASGU>  
             CH_brainlabels = obj.CH.brainlabels; %#ok<NASGU>
@@ -1865,7 +1866,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             [pathstr,fname,ext] = CiEEGData.matextension(filename);        
             filename2 = fullfile(pathstr,[fname ext]);
             save(filename2,'d','tabs','tabs_orig','fs','header','sce','PsyDataP','PsyData','testname','epochtime','baseline','CH_H','CH_plots','CH_brainlabels','CH_clusters','CS_plots','els',...
-                    'plotES','RCh_plots','RjCh','RjEpoch','RjEpochCh','epochTags','epochLast','reference','epochData','Wp','DE','DatumCas', 'label', ...
+                    'plotES','RCh_plots','RjCh','RjEpoch','RjEpochCh','epochTags','epochLast','reference','epochData','Wp','DE','DatumCas', 'label', 'CH_CorrelChan', ...
                     'CH_filterMatrix','PL_Plots','-v7.3');  
             disp(['saved to ' filename2]); 
         end
@@ -1942,6 +1943,9 @@ classdef CiEEGData < matlab.mixin.Copyable
             else
                 load(filename,'CH');
                 obj.CH = CH; %#ok<CPROPLC,CPROP,PROP> %  %drive ulozeny objekt, nez jsem zavedl ukladani struct
+            end 
+            if ismember('CH_CorrelChan', {vars.name})
+                load(filename,'CH_CorrelChan');      obj.CH.CorrelChan = CH_CorrelChan;                              
             end 
             if ismember('CH_filterMatrix', {vars.name})
                 load(filename,'CH_filterMatrix');      obj.CH.filterMatrix = CH_filterMatrix;                              
