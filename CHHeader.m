@@ -680,7 +680,8 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     
                     for iML=1:nMainLabels
                         if strcmp(names{iML},'label') || strcmp(names{iML},'lobe') || strcmp(names{iML},'class')
-                            L = {obj.brainlabels(:).(names{iML})}'; %current brainlabel (label, lobe or class), the whole column
+                            L = {obj.brainlabels(:).(names{iML})}'; %current brainlabel (label, lobe or class), the whole column                           
+                            assert(sum(cellfun(@isempty,L))==0,'brainlabels cannot containt empty values');
                             chlabelsL{iML} = chlabels((positions{iML}+1):(positions{iML+1}-1)); %labels I am searching for 
                             showstr{iML} = names{iML}; %name of the column in obj.brainlabels
                             iL(:,iML) = contains(lower(L),lower(chlabelsL{iML}));
@@ -851,15 +852,20 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 end    
                 disp(['imported brainlabels of ' num2str(loaded) '/' num2str(size(brainlbs,1))  ' channels']);
             end
-            
             %we want to have everywhere string, no empty, because of export. So all empty replace with space characted
+            obj.BrainLabelsReplaceEmpty(' ');            
+        end
+        function obj = BrainLabelsReplaceEmpty(obj,newlabel)
+            % replace all empty valurs in all fields with the string newlabel
             BL = obj.brainlabels';
             fields = {'class','label','lobe','name'};
-            for f = 1:numel(fields)
-                emptyIndex = find(arrayfun(@(BL) isempty(BL.(fields{f})),BL)); %nasel jsem https://www.mathworks.com/matlabcentral/answers/328326-check-if-any-field-in-a-given-structure-is-empty
-                if ~isempty(emptyIndex)
-                    for j = emptyIndex'
-                        BL(j).(fields{f}) = ' '; %nejaky znak asi musim vlozit
+            for f = 1:numel(fields)                
+                if isfield(BL, fields{f}) 
+                    emptyIndex = find(arrayfun(@(BL) isempty(BL.(fields{f})),BL)); %nasel jsem https://www.mathworks.com/matlabcentral/answers/328326-check-if-any-field-in-a-given-structure-is-empty
+                    if ~isempty(emptyIndex)
+                        for j = emptyIndex'
+                            BL(j).(fields{f}) = newlabel; %nejaky znak asi musim vlozit
+                        end
                     end
                 end
             end           

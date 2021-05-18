@@ -401,6 +401,7 @@ classdef CPlots < matlab.mixin.Copyable
                 labelsAreCluster = 0; %if labelsAreCluster==1, the labels var contains names of clusters
             end
             if exist('marks','var')
+                assert(iscell(marks),'marks has to be a cell array');                
                 if size(marks,1) == 2 && size(marks,2)>2
                     marks = marks'; %if the dimensions are swaped, make them correct
                 end
@@ -780,8 +781,7 @@ classdef CPlots < matlab.mixin.Copyable
                     end
                 end
                 chshowstr = {cell2str(obj.plotTimeInt.data(idata1).legendStr(store.kat)) ['mark=' cell2str(store.mark) ] }; %assumes same category accross data fields                   
-            end
-            
+            end            
         end        
         function filterChangedCallbackPlotResponseChMean(obj,~,~)   %update chart if the filter is changed         
             if isfield(obj.PlotRChMean,'fh') && ishandle(obj.PlotRChMean.fh)
