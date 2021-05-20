@@ -210,6 +210,10 @@ classdef CPlots < matlab.mixin.Copyable
             if ~isfield(obj.plotTimeInt,'outputstyle')
                 obj.plotTimeInt.outputstyle = 0; %stores the default value, which can be than changed in var editor
             end
+            if ~isfield(obj.plotTimeInt,'interaction')
+                obj.plotTimeInt.interaction = 1; % how to perform post-hoc test: 1(default)-category by time, 2-time by category(duration); can be than changed in var editor
+            end
+            
             % initialize matrix for all channels
             chanMeans = zeros (size(intervals,1), numel(kats), length(vch)); % intervals x kats x channels  -  for statistica - all time intervals and category in columns
             
@@ -368,60 +372,81 @@ classdef CPlots < matlab.mixin.Copyable
                 strInterv = string(num2str(intervals,'%.1f-%.1f')); % names of intervals
                 for stri = 1:numel(strInterv)
                     levelNames{2}{stri} = strInterv(stri);
-                end
-                
+                end                
                 factorNames = {'Category', 'Time'};
-                [ranova_table, Tukey_table] = CStat.ANOVA2rm(data, factorNames, levelNames, 1,1);
+                interact = obj.plotTimeInt.interaction; % 1 - category by time; 2 - time by category (to find duration of response);
+                [ranova_table, Tukey_table] = CStat.ANOVA2rm(data, factorNames, levelNames, interact,1); % compute 2-way repeated measures ANOVA
                 
-                % find significant pairs for ploting stars - here only for 3 categories
-                % TODO - for any number of categories
-                if ~isempty(Tukey_table) && numel(kats) == 3
+                % define y limits for ploting stars
+                if ~isempty(ylimits)
+                    yrange = ylimits;
+                else
+                    yrange = get(gca, 'ylim');
+                end
+                ydiff = 0;
+                ys = yrange(1)+diff(yrange)*0.02; % initial y coordinate of star
+                % add pvalue and F statistic on the figure
+                text(intervals(1,2),yrange(2)*0.96,['F(' num2str(ranova_table{7,2}) ', ' num2str(ranova_table{8,2}) ') = ' num2str(ranova_table{7,4}) ', p = ' num2str(ranova_table{7,5})])
+                
+                % find significant pairs for ploting stars              
+                if ~isempty(Tukey_table) 
+                    % find significant pairs
                     [~, ipval, ~] = unique(Tukey_table{:,6},'stable'); % only unique pvalue for one pair
                     Tukey_tableUniq = Tukey_table(ipval,:);
                     iSignPairs = Tukey_tableUniq{:,6} <= 0.05; % pvalue <= 0.05
                     signPairs = table2cell(Tukey_tableUniq(iSignPairs, 1:4)); % signif time intervals, category1, category2 and their difference without repetition
                     
-                    % define y limits for ploting
-                    if ~isempty(ylimits)
-                        yrange = ylimits;
-                    else
-                        yrange = get(gca, 'ylim');
-                    end
-                    ydiff = 0;
-                    
-                    for ipair=1:size(signPairs,1)
-                        color = [];
-                        if signPairs{ipair,4}<0 && signPairs{ipair,2} == legendStr{1} && signPairs{ipair,3} == legendStr{2}
-                            color = barvy(2,:); % asterisk of 2 category's color - cat2 > cat1
-                        elseif signPairs{ipair,4}<0 && signPairs{ipair,2} == legendStr{1} && signPairs{ipair,3} == legendStr{3}
-                            color = barvy(3,:); % asterisk of 3 category's color - - cat3 > cat1
-                        elseif (signPairs{ipair,2} == legendStr{2} && signPairs{ipair,3} == legendStr{3}) || (signPairs{ipair,2} == legendStr{3} && signPairs{ipair,3} == legendStr{2})
-                            color = [0 0 0]; % asterisk of black color - - cat3 > cat2 or cat2 > cat3
+                    % plot stars of significance between kats on the same time interval (now only for 3 categories) 
+                    % TODO - for any number of categories
+                    if interact == 1 && numel(kats) == 3
+                        for ipair=1:size(signPairs,1)
+                            color = [];
+                            if signPairs{ipair,4}<0 && signPairs{ipair,2} == legendStr{1} && signPairs{ipair,3} == legendStr{2}
+                                color = barvy(2,:); % asterisk of 2 category's color - cat2 > cat1
+                            elseif signPairs{ipair,4}<0 && signPairs{ipair,2} == legendStr{1} && signPairs{ipair,3} == legendStr{3}
+                                color = barvy(3,:); % asterisk of 3 category's color - - cat3 > cat1
+                            elseif (signPairs{ipair,2} == legendStr{2} && signPairs{ipair,3} == legendStr{3}) || (signPairs{ipair,2} == legendStr{3} && signPairs{ipair,3} == legendStr{2})
+                                color = [1 0 1]; % asterisk of magenta color - - cat3 > cat2 or cat2 > cat3
+                            end
+                            
+                            iInterv = strcmp(signPairs{ipair,1},strInterv); % define time interval
+                            
+                            if ~isempty(color) && ipair>1 && signPairs{ipair,1}==signPairs{ipair-1,1} % to plot several stars for one time interv
+                                ydiff = ydiff + diff(yrange)*0.02;
+                                plot(intervals(iInterv,2), ys+ydiff, '*','Color',color); % plot star
+                            elseif ~isempty(color)
+                                plot(intervals(iInterv,2), ys, '*','Color',color);
+                                ydiff = 0;
+                            end
                         end
                         
-                        iInterv = strcmp(signPairs{ipair,1},strInterv); % define time interval
-                        ys = yrange(1)+diff(yrange)*0.02; % initial y coordinate of star
-                        if ~isempty(color) && ipair>1 && signPairs{ipair,1}==signPairs{ipair-1,1} % to plot several stars for one time interv
-                            ydiff = ydiff + diff(yrange)*0.02;
-                            plot(intervals(iInterv,2), ys+ydiff, '*','Color',color); % plot star
-                        elseif ~isempty(color)
-                            plot(intervals(iInterv,2), ys, '*','Color',color); 
-                            ydiff = 0;
+                        % legend for stars
+                        text(intervals(1,2),yrange(2)*0.9,['* ' legendStr{3} ' vs ' legendStr{2}],'Color',[1 0 1])
+                        text(intervals(1,2),yrange(2)*0.86,['* ' legendStr{2} ' > ' legendStr{1}],'Color',barvy(2,:))
+                        text(intervals(1,2),yrange(2)*0.82,['* ' legendStr{3} ' > ' legendStr{1}],'Color',barvy(3,:))
+                        
+                    elseif interact == 2 % plot stars of significance between 1st time int and all others for each category separately (duration)
+                        % leave only sign pairs with the first time interval
+                        iSignFirst = strcmp(string(signPairs(:,2)),strInterv(1));
+                        SignFirst = signPairs(iSignFirst,:);
+                        
+                        % plot stars for each kat
+                        for k = 1:numel(legendStr)
+                            ikat = strcmp(string(SignFirst(:,1)),tempStr(k)); % find all sign time intervals for this kat
+                            ikat = find(ikat);
+                            for iOnekat = 1:numel(ikat) % for each time int
+                                iInterv = strcmp(string(SignFirst(ikat(iOnekat),3)),strInterv); % define time interval
+                                plot(intervals(iInterv,2), ys+ydiff, '*','Color',barvy(k,:)); % plot star on this time int
+                            end
+                            % legend for star
+                            text(intervals(1,2)-0.03, yrange(2)*(0.9 - ydiff*3),['* ' legendStr{k} '(t) > ' legendStr{k} ' (' char(strInterv(1)) ')'],'Color',barvy(k,:))
+                            
+                            ydiff = ydiff + diff(yrange)*0.02; % new y of next star
                         end
                     end
-                    
-                    % add pvalue and F statistic on the figure
-                    text(intervals(1,2),yrange(2)*0.96,['F(' num2str(ranova_table{7,2}) ', ' num2str(ranova_table{8,2}) ') = ' num2str(ranova_table{7,4}) ', p = ' num2str(ranova_table{7,5})])
-                    % legend for stars
-                    text(intervals(1,2),yrange(2)*0.9,['* ' legendStr{3} ' vs ' legendStr{2}],'Color',[0 0 0])
-                    text(intervals(1,2),yrange(2)*0.86,['* ' legendStr{2} ' > ' legendStr{1}],'Color',barvy(2,:))
-                    text(intervals(1,2),yrange(2)*0.82,['* ' legendStr{3} ' > ' legendStr{1}],'Color',barvy(3,:))
-                    
                 end
-                
-                % TODO - save in obj.plotTimeInt.data ?
-                % [vch,kats,chanMeans,legendStr,chshowstr,ylimits,barvy,ANOVA]=obj.TimeIntervalsStore(store,vch,kats,chanMeans,legendStr,chshowstr,ylimits,intervals,ranova_table, Tukey_table);
             end
+            
             if ~isempty(ylimits), ylim(ylimits); end
             xlim([intervals(1,2)-.05, max(max(intervals))+.05]);
             xticks([intervals(1, 1) (intervals( : , 2))'])
@@ -705,7 +730,7 @@ classdef CPlots < matlab.mixin.Copyable
             pacients = obj.Eh.CH.PacientTag(vch); %pacient tags
             chanMeans = permute(chanMeans,[3 1 2]); %make channels the first dim
             chanMeans = reshape(chanMeans,size(chanMeans,1), size(chanMeans,2)*size(chanMeans,3)); %concat the 2. and 3. dim
-            tableX = [num2cell(vch'), names, pacients, labels, num2cell(chanMeans)]; % final table
+            tableX = [num2cell(vch), names, pacients, labels, num2cell(chanMeans)]; % final table
             
             if exist('kats','var')  %if to return also table header
                 % long names for columns in STATISTICA (category + time interval)
