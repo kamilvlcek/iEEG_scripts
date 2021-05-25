@@ -1057,7 +1057,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             replicates = 500;
             seeds = iff(useseed,obj.SeedClusters(mni_l2r,nClusters,replicates),'plus'); %default value for kmeans is 'plus'            
             [idx,C,sumd,D] = kmeans(mni_l2r,nClusters,'Distance','cityblock','Replicates',replicates,'Start', seeds);
-            
+                %idx are indexes of cluster for each channel            
             % test the cluster stability by generating them 10time and compare the centroid position and channel asignment            
             fprintf('testing %d clusters stability (of %d): ...',nClusters,abs(repeats));            
             stable = true;
@@ -1111,7 +1111,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 axis equal;
             end
 
-            uniqueCounts = arrayfun(@(x)length(find(idx == x)), unique(idx), 'Uniform', false);  
+            uniqueCounts = arrayfun(@(x)length(find(idx == x)), unique(idx), 'Uniform', false);  %number of channels in each cluster
             uniqueCounts = sort(cell2mat(uniqueCounts),1,'descend')';
             fprintf('%d clusters created for %d channels, rejected: %d, channel n: %s\n',nClusters,numel(obj.channelPlot.plotCh3D.chnsel),...
                     sum(RjCl), num2str(uniqueCounts,'%d,'));
@@ -1120,11 +1120,11 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 obj.clusters = struct('popis',{},'C',{},'idx',{},'sumd',{},'D',{},'channels',{}); %empty struct with 4 fields
             end  
             iCluster = obj.GetCluster(obj.channelPlot.plotCh3D.popis);
-            if ~iCluster                
+            if ~iCluster %no clusters exist for the current plotCh3D.popis                
                 obj.clusters(end+1).popis = {obj.channelPlot.plotCh3D.popis}; %first cell of cell array (of different popis for this cluster set)
                 iCluster = numel(obj.clusters);
-                fprints('new cluster set\n');
-            else
+                fprintf('new cluster set\n');
+            else %some cluesters already exists - compare them with the new ones
                 aresame = obj.CompareClusters(idx,C,obj.clusters(iCluster).idx,obj.clusters(iCluster).C);
                 fprintf('compared to saved: %s \n',iff(aresame==1,'identical',iff(aresame==-1,'idxDif','CDif'))); %CDif=differet centroid position, idxDif=different channel assignment to centroids
             end
@@ -1292,8 +1292,16 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 clusterMainChannels = nan(sum(clusterNum),2); % channels closest to each cluster centroid, columns: channel number, distance to centroid
                 if ~isempty(obj.brainlabels)                        
                     labels = {obj.brainlabels.class;obj.brainlabels.label;obj.brainlabels.lobe}';
-                    labels = horzcat(labels,iff(isfield(obj.brainlabels,'maxNeurologyLabel'),{obj.brainlabels.maxNeurologyLabel}' , repmat({''},numel(obj.H.channels,1))));
-                    labels = horzcat(labels,iff(isfield(obj.brainlabels,'maxlabel')         ,{obj.brainlabels.maxlabel}'          , repmat({''},numel(obj.H.channels,1))));
+                    if isfield(obj.brainlabels,'maxNeurologyLabel')
+                        labels = horzcat(labels,{obj.brainlabels.maxNeurologyLabel}');
+                    else
+                        labels = horzcat(labels,repmat({''},numel(obj.H.channels),1));
+                    end
+                    if isfield(obj.brainlabels,'maxlabel') 
+                        labels = horzcat(labels,{obj.brainlabels.maxlabel}');
+                    else
+                        labels = horzcat(labels,repmat({''},numel(obj.H.channels),1));
+                    end
                 else
                     labels = repmat({''},numel(obj.H.channels),5);
                 end
