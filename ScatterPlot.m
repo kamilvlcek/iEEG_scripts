@@ -684,11 +684,14 @@ classdef ScatterPlot < handle
         function hybejPlot3Dclick(obj, ~, ~)
             mousept = get(gca,'currentPoint');
             p1 = mousept(1,:); p2 = mousept(2,:); % souradnice kliknuti v grafu - predni a zadni bod
-            displayedChannels = obj.header.H.channels(obj.header.channelPlot.plotCh3D.dispChannels); % zobrazene kanaly
+            displayedChannels = obj.header.H.channels(obj.dispChannels); % zobrazene kanaly .header.channelPlot.plotCh3D.
             coordinates = [displayedChannels.MNI_x; displayedChannels.MNI_y; displayedChannels.MNI_z];    % souradnice zobrazenych kanalu
+            if obj.header.channelPlot.plotCh3D.absx==1
+                coordinates(1,:) = abs( coordinates(1,:)); %they are in rows - first row is X coordinate
+            end
             closestChannel = findClosestPoint(p1, p2, coordinates, 2);    % najdu kanal nejblize mistu kliknuti
             if closestChannel
-                ch = obj.header.channelPlot.plotCh3D.dispChannels(closestChannel);
+                ch = obj.dispChannels(closestChannel); %header.channelPlot.plotCh3D.
                 %TODO: Pokud neni otevreny PlotResponseCh, nebude po otevreni znat cislo vybraneho kanalu. Lepsi by bylo pouzit proxy objekt, ktery drzi informaci o vybranem kanalu a v pripade zmeny vyberu posle signal, ktery se tak zpropaguje do vsech plotu, ktere ho potrebuji.
                 if isfield(obj.ieegdata.plotRCh, 'fh') && isvalid(obj.ieegdata.plotRCh.fh)  % Zjistim, jeslti je otevreny PlotResponseCh
                   sortChannel = find(obj.ieegdata.CH.sortorder == ch);

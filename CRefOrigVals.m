@@ -54,10 +54,12 @@ classdef CRefOrigVals < matlab.mixin.Copyable
                 if iFile ~= lastiFile %for the first channel of new patient
                     [pacientId,fnameOrig] = obj.extractPacient(obj.Eh.filenames{iFile});
                     E = pacient_load(pacientId,obj.Eh.PsyData.testname,fnameOrig);
-                    valmax = zeros(E.channels,numel(obj.kats));
-                    tmax = zeros(E.channels,numel(obj.kats));                    
-                    for k = 1:numel(obj.kats) %nactu si z tohohle souboru maxima pro vsechny kategorie                       
-                        [valmax(:,k),tmax(:,k)] = E.ResponseTriggerTime(0.9,0.9,obj.kats(k),[],signum);                          
+                    if ~isempty(E) %if the original reference file was found
+                        valmax = zeros(E.channels,numel(obj.kats));
+                        tmax = zeros(E.channels,numel(obj.kats));                    
+                        for k = 1:numel(obj.kats) %nactu si z tohohle souboru maxima pro vsechny kategorie                       
+                            [valmax(:,k),tmax(:,k)] = E.ResponseTriggerTime(0.9,0.9,obj.kats(k),[],signum);                          
+                        end
                     end
                     lastiFile = iFile; %posledni nactene cislo souboru
                 end

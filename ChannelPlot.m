@@ -278,6 +278,7 @@ classdef ChannelPlot < matlab.mixin.Copyable
             ax = obj.plotCh3D.fh.CurrentAxes;
             %disp(displayedChannels(closestChannel).name)
             x = obj.CH.H.channels(ch).MNI_x; y = obj.CH.H.channels(ch).MNI_y; z = obj.CH.H.channels(ch).MNI_z;
+            if obj.CH.channelPlot.plotCh3D.absx==1, x = abs(x); end
             if isfield(obj.plotCh3D, 'selHandle') % smazu predchozi oznaceni, pokud nejake bylo
                 delete(obj.plotCh3D.selHandle)
             end
@@ -285,7 +286,8 @@ classdef ChannelPlot < matlab.mixin.Copyable
                 delete(obj.plotCh3D.selNameHandle)
             end
             obj.plotCh3D.selHandle = scatter3(ax, x, y, z, obj.plotCh3D.sizes(obj.plotCh3D.chnsel==ch)+60, 'ok', 'LineWidth', 2); % oznacim vybrany kanal na 3D grafu
-            obj.plotCh3D.selNameHandle = annotation(obj.plotCh3D.fh, 'textbox',[0 1 0 0],'String',obj.CH.H.channels(ch).name,'FitBoxToText','on');
+            msg = iff(~isempty(obj.CH.brainlabels),[obj.CH.H.channels(ch).name ', ' obj.CH.brainlabels(ch).label], obj.CH.H.channels(ch).name); %channel name + brain labels if available
+            obj.plotCh3D.selNameHandle = annotation(obj.plotCh3D.fh, 'textbox',[0 1 0 0],'String',msg,'FitBoxToText','on');
           else  % pokud se zadny kanal nenasel (kliknuti mimo)
              if isfield(obj.plotCh3D, 'selHandle') % smazu predchozi oznaceni, pokud nejake bylo
                delete(obj.plotCh3D.selHandle)
