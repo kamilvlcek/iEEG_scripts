@@ -30,6 +30,7 @@ if exist('filename','var') && ~isempty(filename) %pokud filename ~= []
     %nactu si existujici CHilbert nebo CiEEGdata
     fullfilename = fullfile(setup.basedir, pacienti(p).folder, setup.subfolder, filename);
     if exist(fullfilename,'file') ~= 2 %zkusim jeste pridat koncovku
+        fullfilenameorig = fullfilename; %just back the filename to report it later
         fullfilename = [fullfilename '_CiEEG.mat'];
     end   
     if exist(fullfilename,'file')==2
@@ -42,7 +43,7 @@ if exist('filename','var') && ~isempty(filename) %pokud filename ~= []
         end      
     else
         E = [];
-        disp(['the file does not exist: ' fullfilename]);
+        disp(['the file does not exist: ' fullfilenameorig]);
     end
     
 else    

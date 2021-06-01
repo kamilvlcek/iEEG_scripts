@@ -22,10 +22,10 @@ classdef  CMorlet < CHilbert
             %   freq    seznam freqvenci pro ktere se ma delat prumer - lo, .., ..., .., hi
             if ~exist('channels','var') || isempty(channels) , channels = 1:obj.channels; end
             %if ~exist('prekryv','var'), prekryv = 0; end %kolik se maji prekryvat sousedni frekvencni pasma, napriklad 0.5
-            if ~exist('decimatefactor','var') || isempty(decimatefactor) , decimatefactor = obj.decimatefactor; end; %volitelny parametr decimatefactor 
+            if ~exist('decimatefactor','var') || isempty(decimatefactor) , decimatefactor = obj.decimatefactor; end %volitelny parametr decimatefactor 
             HFreq = zeros(ceil(obj.samples/decimatefactor),obj.channels,numel(freq)); %inicializace pole - power
             fphase = zeros(ceil(obj.samples/decimatefactor),obj.channels,numel(freq)); % inicializace pole - faze
-            ffreal = zeros(ceil(obj.samples/decimatefactor),obj.channels,numel(freq)); % inicializace pole - filtrovana puvodni data
+            ffreal = zeros(ceil(obj.samples/decimatefactor),obj.channels,numel(freq)); % time x channels x freq inicializace pole - filtrovana puvodni data
             timer = tic; %zacnu merit cas
             fprintf('kanal ze %i: ', numel(channels) );
             
@@ -52,28 +52,28 @@ classdef  CMorlet < CHilbert
                     eegconv = ifft(wavelet.*eegfft); %convoluce pomoci convolution theorem
                     eegconv = eegconv(1:n_convolution);
                     eegconv = eegconv(half_of_wavelet_size+1:end-half_of_wavelet_size);    
-                    fpower = eegconv .* conj(eegconv); % nasobeni conj je pry 2x rychlejsi  - abs(eegconv).^2; %z komplexniho cisla vypocitam power
+                    fpower = eegconv .* conj(eegconv); % distance^2 = power of this frequency. Should be  abs(eegconv).^2 , but this should be 2x faster, according to Cohen                        
                     if decimatefactor > 1
                         fpower = decimate(fpower,decimatefactor); % mensi sampling rate (moving average vubec nepomohl)
                     end
                     HFreq(:,ch,fno) = fpower; % povodna normalizacia (fpower./mean(fpower)) premiestnena do funkcie CHilbert.Normalize                   
                     %fprintf('%i Hz, ',loF);
-                    fphase0 = angle(eegconv); %#ok<PROPLC> %faze frekvence 
+                    fphase0 = angle(eegconv);  %the phase of this frequency 
                     if decimatefactor > 1                   
-                        fphase0 = decimate(fphase0,decimatefactor);    %#ok<PROPLC>                        
+                        fphase0 = decimate(fphase0,decimatefactor);                          
                     end
                     fphase(:,ch,fno) = fphase0;
-                    freal0 = real(eegconv);
+                    freal0 = real(eegconv); %the bandpass-filtered signal - projection on the real axis
                     if decimatefactor > 1
-                        freal0 = decimate(freal0,decimatefactor);    %#ok<PROPLC>                        
+                        freal0 = decimate(freal0,decimatefactor);                            
                     end
                     ffreal(:,ch,fno) = freal0;
                 end
                 %fprintf('\n'); %tisk znova na stejnou radku
             end
-            obj.HFreq = HFreq; %#ok<PROPLC>
-            obj.fphase = fphase;%#ok<PROPLC>
-            obj.freal = ffreal;
+            obj.HFreq = HFreq; %power of this frequency
+            obj.fphase = fphase; %the phase of this frequency
+            obj.freal = ffreal; %the bandpass-filtered signal
             toc(timer); %ukoncim mereni casu a vypisu,
             obj.d = squeeze(mean(obj.HFreq,3)); %11.5.2016 - prepisu puvodni data prumerem pres frekvence
             obj.fs = obj.fs/decimatefactor;

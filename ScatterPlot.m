@@ -3,8 +3,8 @@ classdef ScatterPlot < handle
     %   Detailed explanation goes here
     
     properties
-        ciEEGData@CiEEGData; % handle na zdroj dat
-        cHHeader; % handle na kopii ieegdata.CH, kvuli PlotBrain
+        ieegdata@CiEEGData; % handle na zdroj dat
+        header; % handle na kopii ieegdata.CH, kvuli PlotBrain
         dispChannels; % zobrazene kanaly v grafu
         dispData; % vyobrazena data ve scatterplotu
         
@@ -59,19 +59,19 @@ classdef ScatterPlot < handle
             %SCATTERPLOT Vytvori novy ScatterPlot
             %   is3D urcuje zda se jedna o 2D nebo 3D graf
             %   parametry axis* urcuji typ dat zobrazeny na osach
-            obj.ciEEGData = ciEEGData;
+            obj.ieegdata = ciEEGData;
             
-            obj.cHHeader = copy(obj.ciEEGData.CH); %vytvorim nezavislou kopii kvuli PlotBrain, aby ne kolize z AUCPlotM grafem
-            obj.cHHeader.channelPlot =  ChannelPlot(obj.cHHeader); % create new ChannelPlot object with a link to the current header
-            obj.cHHeader.channelPlot.ChannelPlotInit(obj.ciEEGData.CH.channelPlot.plotCh3D); %copy the setup from the CH.CH.channelPlot object
+            obj.header = copy(obj.ieegdata.CH); %vytvorim nezavislou kopii kvuli PlotBrain, aby ne kolize z AUCPlotM grafem
+            obj.header.channelPlot =  ChannelPlot(obj.header); % create new ChannelPlot object with a link to the current header
+            obj.header.channelPlot.ChannelPlotInit(obj.ieegdata.CH.channelPlot.plotCh3D); %copy the setup from the CH.CH.channelPlot object
             
-            obj.selCh = obj.ciEEGData.plotRCh.selCh; %vyber kanalu fghjkl * pocet kanalu
-            obj.selChNames = obj.ciEEGData.plotRCh.selChNames; %vyber kanalu fghjkl * pocet kanalu
+            obj.selCh = obj.ieegdata.plotRCh.selCh; %vyber kanalu fghjkl * pocet kanalu
+            obj.selChNames = obj.ieegdata.plotRCh.selChNames; %vyber kanalu fghjkl * pocet kanalu
             obj.dispSelChName = [];
             obj.dispSelCh = 1:size(obj.selCh,1);  % Show all channels (all markings)
             obj.dispSelChN = [1 1 1 1 1 1]; %all 6 markings
             
-            obj.dispFilterCh = obj.ciEEGData.CH.sortorder; % Vyber podle FilterChannels
+            obj.dispFilterCh = obj.ieegdata.CH.sortorder; % Vyber podle FilterChannels
             obj.connectChannels = 0;
             obj.showNumbers = 0; %defaultne se zadne labels nezobrazuji
             obj.numbers = gobjects();
@@ -109,11 +109,11 @@ classdef ScatterPlot < handle
         
         
         function Save(obj)
-            if isempty(obj.ciEEGData)
+            if isempty(obj.ieegdata)
                 disp('no original CiEEGData data loaded');
                 return; 
             end
-            fname = obj.filenameM(obj.ciEEGData.filename);
+            fname = obj.filenameM(obj.ieegdata.filename);
 
             selCh = obj.selCh; %#ok<PROP,NASGU>
             selChNames = obj.selChNames; %#ok<PROP,NASGU>
@@ -143,11 +143,11 @@ classdef ScatterPlot < handle
             disp(['saved to ' fname ]);
         end
         function Load(obj)
-            if isempty(obj.ciEEGData)
+            if isempty(obj.ieegdata)
                 disp('no original CiEEGData data loaded');
                 return; 
             end
-            fname = obj.filenameM(obj.ciEEGData.filename);
+            fname = obj.filenameM(obj.ieegdata.filename);
             if exist(fname,'file')
                 V = load(fname);
                 obj.selCh = V.selCh;
@@ -209,18 +209,18 @@ classdef ScatterPlot < handle
                 dataName = obj.axisY;
             end
             idata = ~isnan(data); %exclude data with no significance relative to baseline (in any category)
-            obj.cHHeader.channelPlot.plotCh3D.selch = []; %nechci mit vybrany zadny kanal z minula
-            if isfield(obj.cHHeader.plotCh2D,'chshowstr')
-                chshowstr = obj.cHHeader.plotCh2D.chshowstr; 
+            obj.header.channelPlot.plotCh3D.selch = []; %nechci mit vybrany zadny kanal z minula
+            if isfield(obj.header.plotCh2D,'chshowstr')
+                chshowstr = obj.header.plotCh2D.chshowstr; 
             else
                 chshowstr = '';
             end
-            obj.cHHeader.ChannelPlotProxy(data(idata),... %param chnvals
+            obj.header.ChannelPlotProxy(data(idata),... %param chnvals
                 obj.dispChannels(idata),... %chnsel jsou cisla kanalu, pokud chci jen jejich vyber
                 [],[],{[dataName '(' obj.categoryNames{katnum} '), SelCh: ' cell2str(obj.dispSelChName) ], ... %popis grafu = title - prvni radek
                 ['show:' chshowstr]}, ... %popis grafu title, druhy radek
                 rangeZ); %rozsah hodnot - meritko barevne skaly
-            set(obj.cHHeader.channelPlot.plotCh3D.fh, 'WindowButtonDownFcn', @obj.hybejPlot3Dclick);
+            set(obj.header.channelPlot.plotCh3D.fh, 'WindowButtonDownFcn', @obj.hybejPlot3Dclick);
         end
         
         function setXYLim(obj,xrange,yrange) %set axes limit
@@ -233,22 +233,22 @@ classdef ScatterPlot < handle
         function CopyHeaderParams(obj)
             %copies variosu header properties of CHHeader from ScatterPlot object to original CHilbertMulti object            
             %to be saved with the CM object and not deleted with the SP object
-            % currently obj.cHHeader.plotCh3D.roi and obj.cHHeader.clusters
-%             if isfield(obj.cHHeader.plotCh3D,'roi') && ~isempty(obj.cHHeader.plotCh3D.roi)
-%                 obj.ciEEGData.CH.plotCh3D.roi = obj.cHHeader.plotCh3D.roi ;            
-%                 disp( [num2str(size(obj.cHHeader.plotCh3D.roi,1)) ' ROIs copied']);
+            % currently obj.header.plotCh3D.roi and obj.header.clusters
+%             if isfield(obj.header.plotCh3D,'roi') && ~isempty(obj.header.plotCh3D.roi)
+%                 obj.ieegdata.CH.plotCh3D.roi = obj.header.plotCh3D.roi ;            
+%                 disp( [num2str(size(obj.header.plotCh3D.roi,1)) ' ROIs copied']);
 %             end
-            if ~isempty(obj.cHHeader.clusters)
-                obj.ciEEGData.CH.clusters = obj.cHHeader.clusters;
-                disp( [num2str(numel(obj.cHHeader.clusters)) ' Cluster sets copied']);
+            if ~isempty(obj.header.clusters)
+                obj.ieegdata.CH.clusters = obj.header.clusters;
+                disp( [num2str(numel(obj.header.clusters)) ' Cluster sets copied']);
             end
-            fields = fieldnames(obj.cHHeader.channelPlot.plotCh3D);
+            fields = fieldnames(obj.header.channelPlot.plotCh3D);
             copied = 0;
             for f = fields'
                 ff = cell2mat(f);
-                fv = obj.cHHeader.channelPlot.plotCh3D.(ff);
+                fv = obj.header.channelPlot.plotCh3D.(ff);
                 if ~isempty(fv) && ~isobject(fv(1)) && (~isgraphics(fv(1)) || isequal(fv,0)) %isgraphics is true for 0
-                    obj.ciEEGData.CH.channelPlot.plotCh3D.(ff) = obj.cHHeader.channelPlot.plotCh3D.(ff);
+                    obj.ieegdata.CH.channelPlot.plotCh3D.(ff) = obj.header.channelPlot.plotCh3D.(ff);
                     copied = copied + 1;
                 end
             end
@@ -260,15 +260,15 @@ classdef ScatterPlot < handle
     methods (Access = private)
         
         function setCategories(obj)
-            if ~isempty(obj.ciEEGData.Wp) && isfield(obj.ciEEGData.Wp(obj.ciEEGData.WpActive), 'kats') %prvni volba je pouzit kategorie ze statistiky
-                obj.categories  = flip(obj.ciEEGData.Wp(obj.ciEEGData.WpActive).kats);
+            if ~isempty(obj.ieegdata.Wp) && isfield(obj.ieegdata.Wp(obj.ieegdata.WpActive), 'kats') %prvni volba je pouzit kategorie ze statistiky
+                obj.categories  = flip(obj.ieegdata.Wp(obj.ieegdata.WpActive).kats);
             else
-                obj.categories = obj.ciEEGData.PsyData.Categories(); %pokud nejsou, pouziju vsechny kategorie
+                obj.categories = obj.ieegdata.PsyData.Categories(); %pokud nejsou, pouziju vsechny kategorie
             end
             obj.categoryNames = strings(size(obj.categories));
             for k = 1 : numel(obj.categories)                
                 catnum = cellval(obj.categories,k);%cislo kategorie, muze byt cell, pokud vice kategorii proti jedne
-                obj.categoryNames(k) = obj.ciEEGData.PsyData.CategoryName(catnum);
+                obj.categoryNames(k) = obj.ieegdata.PsyData.CategoryName(catnum);
                 %check that the order of categories is the same as order of selChNames
                 if ~strcmp(obj.categoryNames{k},obj.selChNames{k})
                     %warning disabled, as this does not seem to cause problems
@@ -314,8 +314,8 @@ classdef ScatterPlot < handle
             ylabel(obj.ax, axesLabels{2});
             zlabel(obj.ax, axesLabels{3});
 
-            obj.filterListener = addlistener(obj.ciEEGData.CH, 'FilterChanged', @obj.filterChangedCallback);
-            obj.channelListener = addlistener(obj.ciEEGData, 'SelectedChannel', 'PostSet', @obj.channelChangedCallback);
+            obj.filterListener = addlistener(obj.ieegdata.CH, 'FilterChanged', @obj.filterChangedCallback);
+            obj.channelListener = addlistener(obj.ieegdata, 'SelectedChannel', 'PostSet', @obj.channelChangedCallback);
             
             set(obj.fig, 'KeyPressFcn', @obj.hybejScatterPlot);
             set(obj.fig, 'WindowButtonDownFcn', @obj.hybejScatterPlotClick);
@@ -330,7 +330,7 @@ classdef ScatterPlot < handle
             if ~exist('recompute','var'), recompute = 1; end
             obj.setDisplayedChannels(); % Kombinace voleb pro zobrazeni kanalu
             selChFiltered = obj.selCh(obj.dispChannels,:); %channels x marks - filter kanalu ve vyberu fghjkl
-            RjCh = intersect(intersect(obj.dispFilterCh, obj.dispSelCh),obj.ciEEGData.RjCh); %vyrazene kanaly z tech nyni zobrazenych - cisla kanalu
+            RjCh = intersect(intersect(obj.dispFilterCh, obj.dispSelCh),obj.ieegdata.RjCh); %vyrazene kanaly z tech nyni zobrazenych - cisla kanalu
             selChRj = obj.selCh(RjCh,:); %filter vyrazenych kanalu ve vyberu fghjkl
             
             % Delete plot variables if there was a plot open
@@ -370,7 +370,7 @@ classdef ScatterPlot < handle
                 obj.stats = struct();
                 for k = obj.categoriesSelectionIndex %1:numel(obj.categories)
                     catnum = obj.categories(k);
-                    [obj.stats(k).valmax, obj.stats(k).tmax, obj.stats(k).tfrac, obj.stats(k).tint] = obj.ciEEGData.ResponseTriggerTime(obj.valFraction, obj.intFraction, catnum, obj.dispChannels);
+                    [obj.stats(k).valmax, obj.stats(k).tmax, obj.stats(k).tfrac, obj.stats(k).tint] = obj.ieegdata.ResponseTriggerTime(obj.valFraction, obj.intFraction, catnum, obj.dispChannels);
                 end
             end
             
@@ -384,8 +384,8 @@ classdef ScatterPlot < handle
             
             legend(obj.ax, 'show');
             hold(obj.ax, 'off');
-            if isfield(obj.ciEEGData.CH.plotCh2D, 'chshowstr') && ~isempty(obj.ciEEGData.CH.plotCh2D.chshowstr)
-                title(['show:' obj.ciEEGData.CH.plotCh2D.chshowstr]);
+            if isfield(obj.ieegdata.CH.plotCh2D, 'chshowstr') && ~isempty(obj.ieegdata.CH.plotCh2D.chshowstr)
+                title(['show:' obj.ieegdata.CH.plotCh2D.chshowstr]);
             else
                 title('show: all');
             end
@@ -408,11 +408,11 @@ classdef ScatterPlot < handle
                 case 'category'
                     data = categoryIndex * ones(numChannels);
                 case 'mnix'
-                    data = [obj.ciEEGData.CH.H.channels(obj.dispChannels).MNI_x];
+                    data = [obj.ieegdata.CH.H.channels(obj.dispChannels).MNI_x];
                 case 'mniy'
-                    data = [obj.ciEEGData.CH.H.channels(obj.dispChannels).MNI_y];
+                    data = [obj.ieegdata.CH.H.channels(obj.dispChannels).MNI_y];
                 case 'mniz'
-                    data = [obj.ciEEGData.CH.H.channels(obj.dispChannels).MNI_z];
+                    data = [obj.ieegdata.CH.H.channels(obj.dispChannels).MNI_z];
                 otherwise
                     data = obj.stats(categoryIndex).(dataType);
             end
@@ -469,12 +469,12 @@ classdef ScatterPlot < handle
                         case 1
                             labels = cellstr(num2str(obj.dispChannels')); %cisla zobrazenych kanalu 
                         case 2
-                            labels = {obj.ciEEGData.CH.H.channels(obj.dispChannels).name}'; %jmena kanalu
+                            labels = {obj.ieegdata.CH.H.channels(obj.dispChannels).name}'; %jmena kanalu
                         case 3
-                            labels = {obj.ciEEGData.CH.H.channels(obj.dispChannels).neurologyLabel}'; %anatomicke oznaceni kanalu
+                            labels = {obj.ieegdata.CH.H.channels(obj.dispChannels).neurologyLabel}'; %anatomicke oznaceni kanalu
                         case 4
-                            if isa(obj.ciEEGData, 'CHilbertMulti')
-                                names = {obj.ciEEGData.CH.H.channels(obj.dispChannels).name}; % jmena pacientu
+                            if isa(obj.ieegdata, 'CHilbertMulti')
+                                names = {obj.ieegdata.CH.H.channels(obj.dispChannels).name}; % jmena pacientu
                                 labels = cellstr(extractBefore(names,' ')); %vsechno pred mezerou - pro CHilbertMulti
                             else
                                 labels = cellstr(num2str(obj.dispChannels'));
@@ -571,7 +571,7 @@ classdef ScatterPlot < handle
                 end
                 figure(obj.fig);
                 if ~isnan(obj.texthandles(2,1)), delete(obj.texthandles(2,1)); end %delete the previously shown text
-                obj.texthandles(2,1) = text(obj.ax.XLim(1)+diff(obj.ax.XLim)/20, obj.ax.YLim(2)-diff(obj.ax.YLim)/20,[ 'ch ' num2str(ch) ', ' obj.ciEEGData.CH.H.channels(1,ch).name ]);                
+                obj.texthandles(2,1) = text(obj.ax.XLim(1)+diff(obj.ax.XLim)/20, obj.ax.YLim(2)-diff(obj.ax.YLim)/20,[ 'ch ' num2str(ch) ', ' obj.ieegdata.CH.H.channels(1,ch).name ]);                
             end
             hold(obj.ax, 'off');
         end
@@ -591,7 +591,7 @@ classdef ScatterPlot < handle
                 case {'a'}  % Resset do zakladniho vyberu
                     if sum(obj.dispSelChN) < 6 %if not all channel markings are shown
                         %show all channel markings = all channels in current sortorder
-                        obj.dispFilterCh = obj.ciEEGData.CH.sortorder; % Vyber podle FilterChannels
+                        obj.dispFilterCh = obj.ieegdata.CH.sortorder; % Vyber podle FilterChannels
                         obj.dispSelCh = 1:size(obj.selCh,1);   % Zrusit vyber dle SelCh - display all channels
                         obj.dispSelChN = [1 1 1 1 1 1]; %all channel markings
                     else
@@ -667,9 +667,9 @@ classdef ScatterPlot < handle
             if mindist < inf
               ch = obj.dispChannels(chs(k_min));
               %TODO: Pokud neni otevreny PlotResponseCh, nebude po otevreni znat cislo vybraneho kanalu. Lepsi by bylo pouzit proxy objekt, ktery drzi informaci o vybranem kanalu a v pripade zmeny vyberu posle signal, ktery se tak zpropaguje do vsech plotu, ktere ho potrebuji.
-              if isfield(obj.ciEEGData.plotRCh, 'fh') && isvalid(obj.ciEEGData.plotRCh.fh)  % Zjistim, jeslti je otevreny PlotResponseCh
-                  sortChannel = find(obj.ciEEGData.CH.sortorder == ch);
-                  obj.ciEEGData.PlotResponseCh(sortChannel);    % Pokud mam PlotResponseCh, updatuju zobrezene kanaly
+              if isfield(obj.ieegdata.plotRCh, 'fh') && isvalid(obj.ieegdata.plotRCh.fh)  % Zjistim, jeslti je otevreny PlotResponseCh
+                  sortChannel = find(obj.ieegdata.CH.sortorder == ch);
+                  obj.ieegdata.PlotResponseCh(sortChannel);    % Pokud mam PlotResponseCh, updatuju zobrezene kanaly
                   % Nevolam highlightSelected, protoze ten se zavola diky eventu
                   figure(obj.fig); %kamil - dam do popredi scatter plot
               else
@@ -684,15 +684,18 @@ classdef ScatterPlot < handle
         function hybejPlot3Dclick(obj, ~, ~)
             mousept = get(gca,'currentPoint');
             p1 = mousept(1,:); p2 = mousept(2,:); % souradnice kliknuti v grafu - predni a zadni bod
-            displayedChannels = obj.cHHeader.H.channels(obj.cHHeader.channelPlot.plotCh3D.dispChannels); % zobrazene kanaly
+            displayedChannels = obj.header.H.channels(obj.dispChannels); % zobrazene kanaly .header.channelPlot.plotCh3D.
             coordinates = [displayedChannels.MNI_x; displayedChannels.MNI_y; displayedChannels.MNI_z];    % souradnice zobrazenych kanalu
+            if obj.header.channelPlot.plotCh3D.absx==1
+                coordinates(1,:) = abs( coordinates(1,:)); %they are in rows - first row is X coordinate
+            end
             closestChannel = findClosestPoint(p1, p2, coordinates, 2);    % najdu kanal nejblize mistu kliknuti
             if closestChannel
-                ch = obj.cHHeader.channelPlot.plotCh3D.dispChannels(closestChannel);
+                ch = obj.dispChannels(closestChannel); %header.channelPlot.plotCh3D.
                 %TODO: Pokud neni otevreny PlotResponseCh, nebude po otevreni znat cislo vybraneho kanalu. Lepsi by bylo pouzit proxy objekt, ktery drzi informaci o vybranem kanalu a v pripade zmeny vyberu posle signal, ktery se tak zpropaguje do vsech plotu, ktere ho potrebuji.
-                if isfield(obj.ciEEGData.plotRCh, 'fh') && isvalid(obj.ciEEGData.plotRCh.fh)  % Zjistim, jeslti je otevreny PlotResponseCh
-                  sortChannel = find(obj.ciEEGData.CH.sortorder == ch);
-                  obj.ciEEGData.PlotResponseCh(sortChannel);    %#ok<FNDSB> % Pokud mam PlotResponseCh, updatuju zobrezene kanaly
+                if isfield(obj.ieegdata.plotRCh, 'fh') && isvalid(obj.ieegdata.plotRCh.fh)  % Zjistim, jeslti je otevreny PlotResponseCh
+                  sortChannel = find(obj.ieegdata.CH.sortorder == ch);
+                  obj.ieegdata.PlotResponseCh(sortChannel);    %#ok<FNDSB> % Pokud mam PlotResponseCh, updatuju zobrezene kanaly
                   % Nevolam highlightSelected, protoze ten se zavola diky eventu
                 else
                   obj.highlightInMyPlots(ch);
@@ -701,7 +704,7 @@ classdef ScatterPlot < handle
             else
                 obj.highlightInMyPlots(0);
             end
-            figure(obj.cHHeader.channelPlot.plotCh3D.fh);
+            figure(obj.header.channelPlot.plotCh3D.fh);
         end
         
         function [color, marker] = getCategoryIcon(obj, k)
@@ -711,17 +714,17 @@ classdef ScatterPlot < handle
             else
                 colorIndex = obj.categories(k) + 1;
             end
-            color = obj.ciEEGData.colorskat{colorIndex};
+            color = obj.ieegdata.colorskat{colorIndex};
             marker = obj.categoryMarkers{colorIndex};
         end
         
         function setDisplayedChannels(obj)
             obj.dispChannels = intersect(obj.dispFilterCh, obj.dispSelCh); % CH.sortorder (vysledek CH.FilterChannels) & vyber klavesami fghjkl 
-            obj.dispChannels = setdiff(obj.dispChannels,obj.ciEEGData.RjCh); %kamil 15.10 - vyradim ze zobrazeni vyrazene kanaly
+            obj.dispChannels = setdiff(obj.dispChannels,obj.ieegdata.RjCh); %kamil 15.10 - vyradim ze zobrazeni vyrazene kanaly
         end
         
         function filterChangedCallback(obj,~,~)
-            obj.dispFilterCh = obj.ciEEGData.CH.sortorder;   % Zmena vyberu dle filtru
+            obj.dispFilterCh = obj.ieegdata.CH.sortorder;   % Zmena vyberu dle filtru
             obj.updatePlot();
         end
 
@@ -734,8 +737,8 @@ classdef ScatterPlot < handle
 
         function highlightInMyPlots(obj, ch)    %TODO: Toto nebude potreba, pokud budou vsechny ploty reagovat na signal, misto aby se highlight volal explicitne
             obj.highlightSelected(ch);
-            if isfield(obj.cHHeader.channelPlot.plotCh3D, 'fh') && isvalid(obj.cHHeader.channelPlot.plotCh3D.fh)
-                obj.cHHeader.channelPlot.highlightChannel(ch);
+            if isfield(obj.header.channelPlot.plotCh3D, 'fh') && isvalid(obj.header.channelPlot.plotCh3D.fh)
+                obj.header.channelPlot.highlightChannel(ch);
             end
         end
         
