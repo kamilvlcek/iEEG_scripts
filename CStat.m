@@ -684,7 +684,39 @@ classdef CStat < handle
                 disp([ 'xls tables saved: ' xlsfilename]);
             end
         end
-        
+        function [pvalue, ranova_tbl, Tukey_tbl] = ANOVA1rm(data)
+            %%%% computes one way repeated measures ANOVA
+            % returns pvalue, the stats table for ANOVA and table with post-hoc comparisons (Tukey test)
+            %%%% Input: matrix in the format: data = [ data1 data2 data3 ]; each column - one level of the rm factor
+            
+            % create variable names for all columns in data
+            varNames = cell(size(data,2),1);
+            for in = 1 : size(data,2)
+                v = strcat('V',num2str(in));
+                varNames{in,1} = v;
+            end
+            
+            % create the data table
+            datatable = array2table(data, 'VariableNames',varNames);
+            
+            % specify that all variables are in the same group - repeated measures
+            rmFactor = table(varNames,'VariableNames',{'levels'});
+            
+            % create a model to be fit
+            rm = fitrm(datatable,[eval('varNames{1}') '-' eval('varNames{end}') ' ~ 1'],'WithinDesign',rmFactor);
+            
+            % fit the model
+            ranova_tbl = ranova(rm,'WithinModel','levels');
+            pvalue = ranova_tbl{3,5};
+            
+            % multiple comparisons across groups
+            Tukey_tbl = multcompare(rm,'levels');
+            
+            % leave only unique pairs without repetition
+            [~, ipval, ~] = unique(Tukey_tbl{:,5},'stable'); % only unique pvalue for one pair
+            Tukey_tbl = Tukey_tbl(ipval,:);
+        end
+         
         function p_corrected = PermStat(A,B,print,msg,RjEpChA,RjEpChB) %#ok<INUSD>
             %P = PermStat(A,B,print,msg,RjEpChA,RjEpChB)            
             % A a B jsou cas x channels x epochs
