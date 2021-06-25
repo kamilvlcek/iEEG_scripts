@@ -102,7 +102,7 @@ classdef CHilbert < CiEEGData
             switch type
                 case 'orig' %(fpower./mean(fpower)) - povodna normalizacia
                     for ch = channels
-                        for f = 1:size(obj.HFreq,3)
+                        for f = 1:size(obj.HFreq,3) %the frequency bands
                             obj.HFreq(:,ch,f) = obj.HFreq(:,ch,f)./mean(obj.HFreq(:,ch,f)); 
                         end                        
                     end
@@ -125,10 +125,31 @@ classdef CHilbert < CiEEGData
                             obj.HFreq(:,ch,f) = 10*log10(chdata + 1 - min(chdata) ); % values >=1 for log10
                         end
                     end
+                case 'valmax' %normalize all data to have the same average valmax of the response
+                    assert(size(obj.d,3) > 1,'the data should be epoched');
+                    kategories = flip(obj.Wp(obj.WpActive).kats);    %categories according to currently selected contrast                 
+                    fprintf('category:');
+                    for kk = 1:numel(kategories)                        
+                       katnum = cellval(kategories,kk); % if kategories is cellarray, the katnum will also be cellarray %cellval(kategories,k); %funkce cellval funguje at je to cell array nebo neni
+                       valmax = obj.ResponseTriggerTime(1, 1, {katnum}, channels); %valmax for all channels %here katnum should be in one column                                     
+                       for k = 1:numel(katnum) %categories individually if they are combined
+                            fprintf('%i,', cellval(katnum,k));
+                            %for f = 1:size(obj.HFreq,3) %the frequency bands
+                            %dimensions of HFreq are: samples, channels, frequency bands, kategories
+                            obj.HFreq(:,:,:,cellval(katnum,k)+1) = obj.HFreq(:,:,:,cellval(katnum,k)+1)./valmax; %matlab matches 2. dimentions (channels) with valmax dimension by its size
+                            %end                   
+                            iEpochy =  ismember(cell2mat(obj.epochData(:,2)), cellval(katnum,k)) ;   %epochs with this stimulus category                           
+                            %dimensions of d are: samples, channels, epochs
+                            obj.d(:,:,iEpochy) = obj.d(:,:,iEpochy)./valmax; %M2016b and after: implicit expansion of arrays with compatible sizes.                            
+                       end                       
+                    end 
+                    fprintf('\n');                    
                 otherwise
                     error(['unknown normalization: ' type]);
             end
-            obj.d = squeeze(mean(obj.HFreq,3)); 
+            if size(obj.d,3) == 1 %only for non-epoched data
+                obj.d = squeeze(mean(obj.HFreq,3)); %mean over freq bands 
+            end
             obj.normalization = type; %pro zpetnou referenci
         end
         
@@ -145,7 +166,7 @@ classdef CHilbert < CiEEGData
                  iepochtime = round(epochtime(1:2).*obj.fs); %v poctu vzorku cas pred a po udalosti, prvni cislo je zaporne druhe kladne             
                  ibaseline =  round(baseline.*obj.fs); %v poctu vzorku cas pred a po udalosti
                  kategorie = cell2mat(obj.PsyData.P.strings.podminka(:,2)); %cisla karegorii ve sloupcich
-                 Hfreq2 = zeros(iepochtime(2)-iepochtime(1), size(obj.d,2), numel(obj.Hfmean),size(kategorie,1)); %new epoched power data: time x channel x freq x kategorie=podminka
+                 Hfreq2 = zeros(iepochtime(2)-iepochtime(1), size(obj.d,2), numel(obj.Hfmean),size(kategorie,1)); %nova epochovana data time x channel x freq x kategorie=podminka
                  if freqepochs
                      obj.HFreqEpochs = zeros(iepochtime(2)-iepochtime(1),size(obj.HFreq,2),size(obj.HFreq,3),obj.epochs); % time x channel x frequency x epoch
                      obj.fphaseEpochs = zeros(iepochtime(2)-iepochtime(1),size(obj.HFreq,2),size(obj.HFreq,3),obj.epochs); % time x channel x frequency x epoch
@@ -153,20 +174,20 @@ classdef CHilbert < CiEEGData
                  else
                      obj.HFreqEpochs = [];
                      obj.fphaseEpochs = [];
-                     obj.frealEpochs = []; 
+                     obj.frealEpochs = [];
                  end
                  %cyklus po kategoriich ne po epochach
-                 for katnum = kategorie' %categories in rows
-                     Epochy = find(cell2mat(obj.epochData(:,2))==katnum); %epochs x 1: epochs numbers for this category
-                     for epoch = Epochy' %epochs in rows
+                 for katnum = kategorie' %potrebuji to v radcich
+                     Epochy = find(cell2mat(obj.epochData(:,2))==katnum); %seznam epoch v ramci kategorie ve sloupci 
+                     for epoch = Epochy' %potrebuji to v radcich
                          izacatek = find(obj.tabs_orig==obj.epochData{epoch,3}); %najdu index podnetu, podle jeho timestampu. v tretim sloupci epochData jsou timestampy
                          for ch=1:obj.channels
-                            baseline_mean = mean(obj.HFreq(izacatek + ibaseline(1) : izacatek+ibaseline(2)-1,ch,:),1); %1xfreq: baseline for all freq band together - mean over time
-                            epoch_data = bsxfun(@minus,obj.HFreq(izacatek + iepochtime(1) : izacatek+iepochtime(2)-1,ch,:) , baseline_mean); %timex1xfreq - substract baseline for current epoch and channel
+                            baseline_mean = mean(obj.HFreq(izacatek + ibaseline(1) : izacatek+ibaseline(2)-1,ch,:),1); %baseline pro vsechny frekvencni pasma dohromady
+                            epoch_data = bsxfun(@minus,obj.HFreq(izacatek + iepochtime(1) : izacatek+iepochtime(2)-1,ch,:) , baseline_mean); %odecteni baseline pro aktualni epochu a kanal
 
                             if freqepochs
-                                obj.HFreqEpochs(:,ch,:,epoch) = epoch_data; % here data for each epoch, channel and freq separately are saved, independent of category
-                                if isprop(obj,'fphase') && ~isempty(obj.fphase) %created in CMorlet.PasmoFrekvence
+                                obj.HFreqEpochs(:,ch,:,epoch) = epoch_data; 
+                                if isprop(obj,'fphase') && ~isempty(obj.fphase)
                                     obj.fphaseEpochs(:,ch,:,epoch) = obj.fphase(izacatek + iepochtime(1) : izacatek + iepochtime(2)-1, ch, :);
                                 end
                                 
@@ -175,8 +196,8 @@ classdef CHilbert < CiEEGData
                                 end
 
                             end
-                            Hfreq2(:,ch,:,katnum+1) = Hfreq2(:,ch,:,katnum+1) + epoch_data; %sum over all epochs of power for this channel and category, over all timesamples and frequecies
-                                %for this channel and katnum, this line is executed ones for each epoch
+                            Hfreq2(:,ch,:,katnum+1) = Hfreq2(:,ch,:,katnum+1) + epoch_data; %soucet power pro kategorii, pres prislusne epochy
+                            %tady se mi to mozna odecetlo blbe? KOntrola
                          end
                      end
                      Hfreq2(:,:,:,katnum+1) = Hfreq2(:,:,:,katnum+1)./numel(Epochy); %prumer pred epochy - soucet podelim prumerem
