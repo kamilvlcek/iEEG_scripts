@@ -133,11 +133,48 @@ classdef CPlots < matlab.mixin.Copyable
             SignPairs = allTukey(iadj_p);  % needs for ploting stars between different cats
             y = ymin*0.95;
             adj_pLims = [find(iadj_p,1) find(iadj_p,1,'last')];
+            % plot general results of ANOVA or Wilcoxon test - the line of significance
             if ~isempty(adj_pLims)
                 plot([T(adj_pLims(1)) T(adj_pLims(2))],[y y],'LineWidth',5,'Color',[255 99 71]./255); %full line between start and end of significance
-                if mean(iadj_p(adj_pLims(1) : adj_pLims(2)))<1 %if there are non signifant parts
+                if numel(kategories)==2
+                    if mean(iadj_p(adj_pLims(1) : adj_pLims(2)))<1  %if there are non signifant parts
                     y = ymin*0.85;
-                    plot(T(iadj_p),ones(1,sum(iadj_p))*y, '*','Color','red'); %stars
+                    plot(T(iadj_p),ones(1,sum(iadj_p))*y, '*','Color','red'); %stars for Wilcoxon test
+                    end
+                else
+                    % plot post hoc results only for ANOVA - significance between categories
+                    if ~isempty(SignPairs)
+                        yposkat = [3 0 0 0; 4 5 0 0; 6 7 8 0]; %pozice y pro kombinaci k a l - k v radcich a l-1 ve sloupcich
+                        ybottom = iff(numel(kategories)>3,0.4,0.3); %odkud se maji umistovat kontrasty mezi kategoriemi - parametr vypoctu y
+                        
+                        for si = 1:numel(SignPairs)  % for each time point where ANOVA result<0.05 (after FDR corr)
+                            isignCats = find(SignPairs{si}{:,5} < 0.05);   % find in which pairs pvalue <0.05 in post-hoc tukey table
+                            for ipair = 1:numel(isignCats) % for each sign pair
+                                catIndex1 = regexp(SignPairs{si}{isignCats(ipair),1},'(\d+)','match'); % split the letter and index of category, save only index
+                                catIndex1 = str2double(catIndex1{1});
+                                catIndex2 = regexp(SignPairs{si}{isignCats(ipair),2},'(\d+)','match');
+                                catIndex2 = str2double(catIndex2{1});
+                                if catIndex1==1
+                                    colorstar = barvy(catIndex2,:); %green a red jsou proti kategorii 0, cerna je kat 1 vs kat 2
+                                elseif catIndex2==1
+                                    colorstar = barvy(catIndex1,:);
+                                else
+                                    colorstar = barvy(1,:);
+                                end
+                                y = ymin + (ymax-ymin)*(ybottom - (yposkat(isignCats(ipair),isignCats(ipair)))*0.05)  ; %pozice na ose y
+                                plot(T(adj_pLims(1)-1+si),y, '*','Color',colorstar);
+                            end
+                        end
+                         % names of categories
+%                          for k = 1 : numel(kategories)
+%                              kat1name = legendStr{k};
+%                              kat2name = legendStr{k+1};
+%                              text(0.04+T(1),y, ['\color[rgb]{' num2str(barvy(k,:)) '}' kat1name ...
+%                                  '\color[rgb]{' num2str(color) '} *X* '  ...
+%                                  '\color[rgb]{' num2str(colorkatk(1,:)) '}' kat2name]);
+%                          end                         
+                                          
+                     end
                 end
             end                  
             xlim(obj.Eh.epochtime(1:2)); 
