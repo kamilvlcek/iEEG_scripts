@@ -4,18 +4,21 @@ classdef CPlotsN < handle
     
     properties (Access = public)
         E;                      % CiEEGData object
-        HOrigData;              % original untransformed EEG data
+        HOrigData;              % original untransformed EEG data - unepoched
         plotData = struct;      % contains figure and plot info
     end
     
     methods (Access = public)
         
         function obj = CPlotsN(E, HOrigData)
-            obj.E = E;
-            if ~exist('HOrigData', 'var') || isempty(HOrigData)
+            obj.E = E;            
+            if size(obj.E.d,3)>1 %for epoched data
+                obj.HOrigData = []; %no original data - used only in plotUnepochedData
+            elseif ~exist('HOrigData', 'var') || isempty(HOrigData) %only for non-epoched data
                 obj.HOrigData = downsample(E.d,E.decimatefactor); %do funkce plotUnepochedData
             else
-                obj.HOrigData = HOrigData;
+                %argument used for non-epoched data
+                obj.HOrigData = HOrigData;           
             end
         end
         
@@ -24,7 +27,7 @@ classdef CPlotsN < handle
             %   * all selected frequencies for one channel
             %   * or one frequency for all channels if called from PlotElectrodeGroup
             % INPUT:
-            % type          - 0 = power, 1 = original filtered data
+            % type          - 0 = power (HFreq), 1 = original filtered data (obj.freal)
             % psy           - psy structure, aka aedist for stimuli and response time
             % channels      - if called directly, only one channel
             % frequencies   - frequencies to plot (not indexes)
@@ -34,7 +37,7 @@ classdef CPlotsN < handle
             % plotGroup     - only if called from PlotElectrodeGroup, default false
             
             obj.plotData.type = type;
-            
+            assert(~isempty(obj.HOrigData),'the field HOrigData with unepoched data cant be empty');
             assert(isa(psy,'struct'),'Prvy parameter musi byt struktura s datami z psychopy'); % kvoli response time
             obj.E.PsyData = CPsyData(psy); 
             
@@ -55,7 +58,7 @@ classdef CPlotsN < handle
             obj.plotData.f = figure('Name','All Frequencies','Position', [20, 100, 1000, 600]); % init the figure
             set(obj.plotData.f, 'KeyPressFcn', @obj.MovePlotFreqs); % set key press function
             
-            if ~exist('plotGroup','var'); obj.plotData.plotGroup = false; else obj.plotData.plotGroup = plotGroup; end
+            if ~exist('plotGroup','var'); obj.plotData.plotGroup = false; else, obj.plotData.plotGroup = plotGroup; end
      
             if ~isfield(obj.plotData,'plotGroup'); obj.plotData.plotGroup = false; end 
             obj.plotData.stimuli = (obj.E.PsyData.P.data(:,obj.E.PsyData.P.sloupce.ts_podnet) - obj.E.tabs(1))*24*3600;
@@ -104,7 +107,14 @@ classdef CPlotsN < handle
                % plot rejected line
                if obj.PlotRejected(channel, time, epochs(i), sum(errors(epochs(i),:))) %jestli jde o vyrazenou epochu
                   correct = correct +1; % ukladam indexy spravnych epoch
-                  title(sprintf('%d - epoch %d (%d) ', obj.E.PsyData.P.data(epochs(i),obj.E.PsyData.P.sloupce.opakovani), correct, epochs(i)),'FontSize',8) ;
+                  if isfield(obj.E.PsyData.P.sloupce,'opakovani')
+                      sloupec_opakovani = obj.E.PsyData.P.sloupce.opakovani; %pro AEDIST
+                  elseif isfield(obj.E.PsyData.P.sloupce,'opakovani_obrazku')
+                      sloupec_opakovani = obj.E.PsyData.P.sloupce.opakovani_obrazku; %pro PPA
+                  else
+                      sloupec_opakovani = 1; %soubor, skoro vzdy 0
+                  end
+                  title(sprintf('%d - epoch %d (%d) ', obj.E.PsyData.P.data(epochs(i),sloupec_opakovani), correct, epochs(i)),'FontSize',8) ;
                end
                
                % plot response time 
@@ -134,7 +144,7 @@ classdef CPlotsN < handle
             %pre dany channel a condition (napriklad 0=cervena, 1=vy, 2=znacka, 9=all conditions)
             %priemerne z-scored power cez cely casovy usek pre kazdu frekvenciu
             %a zvlast pre useky pred/po podnete
-            assert(~isempty(obj.E.HFreqEpochs),'soubor s frekvencnimi daty pro epochy neexistuje');
+            assert(~isempty(obj.E.HFreqEpochs),'pole HFreqEpochs s frekvencnimi daty pro epochy neexistuje');
             correct_epochs = obj.CorrectEpochs(channel, icondition); %vyfiltruje len spravne epochy
             
             time = linspace(obj.E.epochtime(1), obj.E.epochtime(2), size(obj.E.HFreqEpochs,1));
@@ -493,22 +503,29 @@ classdef CPlotsN < handle
             
         end
                 
-        % modro zlte plots synchronizacie fazy image
-        function fig = PlotITPCallEpochs(obj, channel)
+        function fig = PlotITPCallEpochs(obj, channel, iHf, sortbycondition)
+            % modro zlte plots synchronizacie fazy image
             fig = figure;
             time = linspace(obj.E.epochtime(1), obj.E.epochtime(2), size(obj.E.fphaseEpochs,1));
-            for iFq = 1:length(obj.E.Hf)
-                subplot(2,ceil(length(obj.E.Hf)/2),iFq);
+            if ~exist('iHf','var'), iHf = 1:numel(obj.E.Hfmean); end %all frequencies by default
+            if ~exist('sortbycondition','var'), sortbycondition = 0; end %if to sorf epochs by condition
+            for iFq = 1:numel(iHf)
+                if numel(iHf) > 1
+                    subplot(2,ceil(length(iHf)/2),iFq);
+                end
                 % sort epochs by condition
-                epochsByCond = sortrows([[obj.E.epochData{:,2}]' (1:length(obj.E.epochData))'],1);
-                phases = squeeze(obj.E.frealEpochs(:,channel,iFq,:))';
-                image(phases(epochsByCond(:,2),:), 'XData', time);
+                epochsByCond = [[obj.E.epochData{:,2}]' (1:length(obj.E.epochData))']; % colmuns: stimulus condition, epoch no               
+                if sortbycondition
+                    epochsByCond = sortrows(epochsByCond,1); %sort epochs by stimulus condition
+                end 
+                phases = squeeze(obj.E.frealEpochs(:,channel,iHf(iFq),:))'; %epochs x time - the filtered signal
+                image(phases(epochsByCond(:,2),:), 'XData', time); % yellow = signal above zero, blue = signal below zero. 
                 hold on;
                 set(gca,'YDir','normal')
                 xlabel('Time (s)'); ylabel('Epoch');
-                title([num2str(obj.E.Hf(iFq)), ' Hz']);
+                title([num2str(obj.E.Hfmean(iHf((iFq)))), ' Hz']); %title for this subplot
             end
-            mtit(sprintf('Channel %d \n', channel));
+            mtit(sprintf('Channel %d, %s\n', channel,obj.E.CH.H.channels(channel).name));
             hold off;
         end
         
@@ -580,7 +597,7 @@ classdef CPlotsN < handle
             % Plot all unepoched transformed data - power/original transformed signal and phase
             % one subplot = one frequency
             % called from PlotUnepoched()
-            
+            assert(~isempty(obj.HOrigData),'the field HOrigData with unepoched data cant be empty');
             time = (obj.plotData.iTime*obj.E.fs+1):(obj.plotData.iTime*obj.E.fs+obj.plotData.timeDelay); % moving time window
             x = time./obj.E.fs; % current x axis in seconds
             % determine number of subplots based on selected channels or frequencies

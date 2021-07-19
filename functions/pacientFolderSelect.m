@@ -11,6 +11,7 @@ for p = 1:numel(pacienti)
             if exist(ff,'dir')==7 %the folder exists
                 pacienti(p).folder = pacienti(p).folder{ifolder};
                 found = true;
+                break
             end
         end
         if ~found %we have to select one folder from the cell array
