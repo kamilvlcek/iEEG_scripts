@@ -445,23 +445,21 @@ classdef CPlotsN < handle
             % ispc = time x fq
             assert(numel(channels)==2, 'there must be exactly two channels');
             if ~exist('fdr','var'), fdr = 2; end %the more strict method
-            ispc = nan(size(obj.E.fphaseEpochs,1),size(obj.E.fphaseEpochs,3)); %time x fq
-            ispc_p = nan(size(obj.E.fphaseEpochs,1),size(obj.E.fphaseEpochs,3)); %time x fq - p-level of the ISPC - see MXCohen
-            ispc_all = zeros(size(obj.E.fphaseEpochs,1),size(obj.E.fphaseEpochs,3),size(obj.E.fphaseEpochs,4));%time x fq x epochs
+            n_epochs = size(obj.E.fphaseEpochs,4); %number of epochs
+            ispc = nan(size(obj.E.fphaseEpochs,1),size(obj.E.fphaseEpochs,3)); %time x fq            
+            ispc_all = zeros(size(obj.E.fphaseEpochs,1),size(obj.E.fphaseEpochs,3),n_epochs);%time x fq x epochs            
             for iHf = 1:size(obj.E.fphaseEpochs,3) %frequencies computed
                 for iTime = 1:size(obj.E.fphaseEpochs,1) %time samples
                     %complex values (unitary vectors from angles) for all epochs, computed at once                    
                     ispc_all(iTime,iHf,:) = exp(1i*(squeeze(obj.E.fphaseEpochs(iTime,channels(1),iHf,:)) - squeeze(obj.E.fphaseEpochs(iTime,channels(2),iHf,:))));
                     ispc(iTime,iHf) = abs(mean(ispc_all(iTime,iHf,:))); %abs = lenght of the average vector                                        
-                    ispc_p(iTime,iHf) = exp(-size(obj.E.fphaseEpochs,4) * ispc(iTime,iHf).^2);  %hladina siginifikance je zavisla na poctu epoch
+                    %ispc_p(iTime,iHf) = exp(-size(obj.E.fphaseEpochs,4) * ispc(iTime,iHf).^2);  %p-level of the ISPC - see MXCohen, not used
                 end
             end
-            if fdr > 0
-                if fdr == 2, method = 'dep'; else method = 'pdep'; end %#ok<SEPEX>
-                [~, ~, adj_p]=fdr_bh(ispc_p,0.05,method,'no'); %dep je striktnejsi nez pdep 
-                ispc_p = adj_p; %overwrite the corrected values by FDR corrected                
-            end
-            figure; imagesc((ispc_p<0.05)');  axis xy; % colorbar;
+            ispc_p = CEEGStat.ISPCBaseline(ispc,n_epochs, obj.E.epochtime,obj.E.baseline,obj.E.fs,fdr); %significance relative to mean baseline ispc
+            figure('Name',['ispc_p for fdr=' num2str(fdr)]); T = linspace(obj.E.epochtime(1), obj.E.epochtime(2), size(obj.E.fphaseEpochs,1));
+            subplot(1,2,1); imagesc(T,obj.E.Hfmean,ispc_p');  axis xy; colorbar;
+            subplot(1,2,2); imagesc(T,obj.E.Hfmean,1-ispc_p',[ 0.95 1]);  axis xy; % colorbar;
             
             obj.plotISPC.ispc = ispc;            
             obj.plotISPC.ispc_all = ispc_all;
