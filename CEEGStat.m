@@ -121,7 +121,7 @@ classdef CEEGStat
             iepochtime = round(epochtime(1:2).*fs); %samples before and after stimulus, first is negative number           
             ibaseline = round(CEEGStat.Baseline(epochtime,baseline).*fs); %samples before stimulus, first is negative number  
             ispcbaseline = mean(ispc(ibaseline(1)-iepochtime(1)+1 : ibaseline(2)-iepochtime(1),:),1); % mean over time
-            iispc = abs(iepochtime(1)-ibaseline(2))+1 : size(ispc,2) ; %ispc values after stimulus        
+            iispc = abs(iepochtime(1)-ibaseline(2))+1 : size(ispc,1) ; %ispc values after stimulus        
             ispcdiff = ispc(iispc,:) - repmat(ispcbaseline,numel(iispc),1);
             [ispc_p,~]=CStat.CorrelStat(ispcdiff,n); %significance of the ISPC difference
             if fdr > 0 

@@ -484,7 +484,7 @@ classdef CPlotsN < handle
         
         function ISPCPlot(obj,chnpair,TimeHf, updateS, ISPCPlotSelection)
             %plot all ispc values  for a specific pair of channels from computed values            
-            if ~exist('channelpair','var'), chnpair = 1:2; end
+            if ~exist('chnpair','var')  || isempty(chnpair) , chnpair = 1:2; end
             if ~exist('TimeHf','var') || isempty(TimeHf)
                 [iTime,iHf] = find(squeeze(obj.plotISPC.ispc_p(chnpair(1),chnpair(2),:,:)) == obj.plotISPC.ispc_p_min(chnpair(1),chnpair(2)));
                 TimeHf = [iTime(1) iHf(1)];
@@ -496,6 +496,7 @@ classdef CPlotsN < handle
                 obj.plotISPC.fh_ispc = figure('Name','ISPCPlot');   
                 obj.plotISPC.subph = {}; %handles to subplots
                 obj.plotISPC.annoth = {}; %handles to annotations
+                obj.plotISPC.plotsig = [0.5 0.95]; % limits of significance plots
                 updateS = [1 1 1 1];
                 assignhandle = true;
             else
@@ -530,7 +531,7 @@ classdef CPlotsN < handle
                 xlabel([num2str(T(TimeHf(1))) ' sec']);
                 ylabel([num2str(F(TimeHf(2))) ' Hz']);
                 hold on;
-                plot(T(TimeHf(1)),F(TimeHf(2)),'o','MarkerFaceColor','auto');            
+                plot(T(TimeHf(1)),F(TimeHf(2)),'o','MarkerFaceColor','red');            
                 obj.plotISPC.annoth{1} = annotation(obj.plotISPC.fh_ispc,'textbox',[0 .9 .4 .1],'String',num2str(obj.plotISPC.ispc(chnpair(1),chnpair(2), TimeHf(1),TimeHf(2))), 'EdgeColor', 'none');
             end
             
@@ -544,17 +545,24 @@ classdef CPlotsN < handle
                 ylim([0 max(max(squeeze(obj.plotISPC.ispc(chnpair(1),chnpair(2),:,:))))])                
             end
             
-            if updateS(2) 
-                %subplot with minimum ISPC significance across all channels
+            %subplot with minimum ISPC significance across all channels
+            if updateS(2)                
                 obj.plotISPC.subph{2} = subplot(2,2,2);            
-                imagesc(obj.plotISPC.channels,obj.plotISPC.channels,1-obj.plotISPC.ispc_p_min',[ 0.5 0.95]); 
+                imagesc(obj.plotISPC.channels,obj.plotISPC.channels,1-obj.plotISPC.ispc_p_min',obj.plotISPC.plotsig); 
                 axis xy; colorbar; 
+                hold on;
+                plot(chnpair(1),chnpair(2),'o','MarkerFaceColor','red'); 
             end
             
             %subplot with significance of ISPC of this pair of channels
             if updateS(4) 
                 obj.plotISPC.subph{4} = subplot(2,2,4);
-                imagesc(T,F,obj.plotISPC.ispc_p(chnpair(1),chnpair(2))');  axis xy; colorbar;
+                T4 = linspace(0, obj.E.epochtime(2), size(obj.plotISPC.ispc_p,3));
+                imagesc(T4,F,1-squeeze(obj.plotISPC.ispc_p(chnpair(1),chnpair(2),:,:))',obj.plotISPC.plotsig);  %0.5
+                axis xy;                  
+                colorbar;
+                hold on;
+                plot(T(TimeHf(1)),F(TimeHf(2)),'o','MarkerFaceColor','red');  
             end
                     
             %another optional plot all phase angles for selected time and freq
@@ -1063,33 +1071,64 @@ classdef CPlotsN < handle
                 shift = 1;
             end
             switch eventDat.Key
-                case {'rightarrow'} %next time sample
+                case {'numpad6','d'} %next time sample
                     if obj.plotISPC.TimeHf(1) <= size(obj.plotISPC.ispc,3)-shift %compare to num of time samples
                         TimeHf = [(obj.plotISPC.TimeHf(1) + shift), obj.plotISPC.TimeHf(2)];
                         obj.ISPCPlot(obj.plotISPC.chnpair, TimeHf);
                     end
-                case {'leftarrow'} %previous time sample   
+                case {'numpad4','a'} %previous time sample   
                     if obj.plotISPC.TimeHf(1) > shift
                         TimeHf = [(obj.plotISPC.TimeHf(1) - shift), obj.plotISPC.TimeHf(2)];
                         obj.ISPCPlot(obj.plotISPC.chnpair, TimeHf)
                     end         
-                case {'uparrow'} %next frequency
+                case {'numpad8','w'} %next frequency
                     if obj.plotISPC.TimeHf(2) <= size(obj.plotISPC.ispc,4) - shift   %compare to num of freq 
                         TimeHf = [obj.plotISPC.TimeHf(1) , (obj.plotISPC.TimeHf(2)+shift)];
                         obj.ISPCPlot(obj.plotISPC.chnpair, TimeHf)
                     end
-                case {'downarrow'} %previous frequency 
+                case {'numpad2','s'} %previous frequency 
                     if obj.plotISPC.TimeHf(2) > shift
                         TimeHf = [obj.plotISPC.TimeHf(1) , (obj.plotISPC.TimeHf(2)-shift)];
                         obj.ISPCPlot(obj.plotISPC.chnpair, TimeHf)
-                    end 
-                case {'s'}    
-                    obj.ISPCPlot(obj.plotISPC.chnpair, obj.plotISPC.TimeHf,[],1)
+                    end                
                 case {'home'}                     
                     obj.ISPCPlot(obj.plotISPC.chnpair, []);
                 case {'return'}
                     obj.ISPCPlot(obj.plotISPC.chnpair, obj.plotISPC.TimeHf, [1 1 1 1]);
-            end
+                case {'rightarrow'} %move the channel pair to right
+                    if obj.plotISPC.chnpair(1) <= numel(obj.plotISPC.channels) -shift
+                        chnpair = [obj.plotISPC.chnpair(1)+shift obj.plotISPC.chnpair(2)];
+                        obj.ISPCPlot(chnpair, obj.plotISPC.TimeHf, [0 1 0 0]);
+                    end
+                case {'leftarrow'} % move the channel pair to left
+                    if obj.plotISPC.chnpair(1) > shift
+                        chnpair = [obj.plotISPC.chnpair(1)-shift obj.plotISPC.chnpair(2)];
+                        obj.ISPCPlot(chnpair, obj.plotISPC.TimeHf, [0 1 0 0]);
+                    end
+                case {'uparrow'} % zvyseni cisla aktivni statistiky
+                    if obj.plotISPC.chnpair(2) <= numel(obj.plotISPC.channels) -shift
+                        chnpair = [obj.plotISPC.chnpair(1) obj.plotISPC.chnpair(2)+shift];
+                        obj.ISPCPlot(chnpair, obj.plotISPC.TimeHf, [0 1 0 0]);
+                    end
+                case {'downarrow'}
+                    if obj.plotISPC.chnpair(2) > shift
+                        chnpair = [obj.plotISPC.chnpair(1) obj.plotISPC.chnpair(2)-shift];
+                        obj.ISPCPlot(chnpair, obj.plotISPC.TimeHf, [0 1 0 0]);
+                    end
+                case 'space'
+                    if obj.plotISPC.plotsig(1) == 0.5
+                        obj.plotISPC.plotsig = [0.95 1];
+                    elseif obj.plotISPC.plotsig(1) == 0.95 
+                        obj.plotISPC.plotsig = [0.99 1];
+                    else
+                        obj.plotISPC.plotsig = [0.5 0.95];
+                    end
+                    obj.ISPCPlot(obj.plotISPC.chnpair, obj.plotISPC.TimeHf, [0 1 0 1]);
+                case {'o'}    %plots all epochs for this frequency - their phase
+                    obj.PlotITPCallEpochs(obj.plotISPC.chnpair,obj.plotISPC.TimeHf(2));
+                case {'p'}    
+                    obj.ISPCPlot(obj.plotISPC.chnpair, obj.plotISPC.TimeHf,[],1)
+               end
         end
          
     end
