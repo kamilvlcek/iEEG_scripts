@@ -128,18 +128,20 @@ classdef CPlots < matlab.mixin.Copyable
             end 
             
             % call separate function for computing statistic
-            [adj_p,allTukey] = PlotResponseChMeanStat(obj, CHM, [], fdrlevel); % return adjusted pvalue after FDR corr
+            [adj_p,allTukey] = PlotResponseChMeanStat(obj, CHM, fdrlevel); % return adjusted pvalue after FDR corr
             iadj_p = adj_p <= 0.05;      % Wilcoxon signed rank or ANOVA - find significant time points       
             SignPairs = allTukey(iadj_p);  % needs for ploting stars between different cats
             y = ymin*0.95;
             adj_pLims = [find(iadj_p,1) find(iadj_p,1,'last')];
             % plot general results of ANOVA or Wilcoxon test - the line of significance
             if ~isempty(adj_pLims)
-                plot([T(adj_pLims(1)) T(adj_pLims(2))],[y y],'LineWidth',5,'Color',[255 99 71]./255); %full line between start and end of significance
+                iTimeWndw = obj.Eh.Wp(obj.Eh.WpActive).iepochtime(2,:); %indexes of from what was the statistics computed
+                Tnew = T(iTimeWndw(1):iTimeWndw(2));
+                plot([Tnew(adj_pLims(1)) Tnew(adj_pLims(2))],[y y],'LineWidth',5,'Color',[255 99 71]./255); %full line between start and end of significance
                 if numel(kategories)==2
                     if mean(iadj_p(adj_pLims(1) : adj_pLims(2)))<1  %if there are non signifant parts
                     y = ymin*0.85;
-                    plot(T(iadj_p),ones(1,sum(iadj_p))*y, '*','Color','red'); %stars for Wilcoxon test
+                    plot(Tnew(iadj_p),ones(1,sum(iadj_p))*y, '*','Color','red'); %stars for Wilcoxon test
                     end
                 else
                     % plot post hoc results only for ANOVA - significance between categories
@@ -162,7 +164,7 @@ classdef CPlots < matlab.mixin.Copyable
                                     colorstar = barvy(1,:);
                                 end
                                 y = ymin + (ymax-ymin)*(ybottom - (yposkat(isignCats(ipair),isignCats(ipair)))*0.05)  ; %pozice na ose y
-                                plot(T(adj_pLims(1)-1+si),y, '*','Color',colorstar);
+                                plot(Tnew(adj_pLims(1)-1+si),y, '*','Color',colorstar);
                             end
                         end
                          % names of categories
@@ -187,16 +189,13 @@ classdef CPlots < matlab.mixin.Copyable
                 obj.PlotRChMean.filterListener = addlistener(obj.Eh.CH, 'FilterChanged', @obj.filterChangedCallbackPlotResponseChMean);
             end
         end
-        function [adj_p, allTukey] = PlotResponseChMeanStat(obj, CHM, timeWndw, fdrlevel)
+        function [adj_p, allTukey] = PlotResponseChMeanStat(obj, CHM, fdrlevel)
             % computes statistic for figure PlotResponseChMean
             % if 2 categories, Wilcoxon signed rank is used; otherwise one-way rm ANOVA with FDR correction is used
             % returns adjusted pvalues after FDR corr and cell array with all Tukey post-hoc results for each time point
             % calls from PlotResponseChMean function
             
             % process arguments
-            if ~exist('timeWndw','var') || isempty(timeWndw) % time window in which statistic should be computed; not yet is used in function
-                timeWndw = [obj.Eh.epochtime(1),obj.Eh.epochtime(2)]; % from stimulus time to the end of epoch
-            end
             if ~exist('fdrlevel','var') || isempty(fdrlevel)
                 fdrlevel = 1;  %less strict fdr correction, 2 is more strict
             end
@@ -205,12 +204,15 @@ classdef CPlots < matlab.mixin.Copyable
                 paired = 1; %paired
                 adj_p = CStat.Wilcox2D(CHM(:,1,:), CHM(:,2,:),0,fdrlevel,'kat 1 vs 2',[],[],paired); %more strict dep method
             else
+                % time window in which ANOVA should be computed (from stimulus time to the end of epoch)
+                iTimeWndw = obj.Eh.Wp(obj.Eh.WpActive).iepochtime(2,:); %indexes of from what was the statistics computed 
+                CHMnewTime = CHM(iTimeWndw(1):iTimeWndw(2),:,:);
                 % initialize matrix with all p values 
-                allpvalue = zeros(size(CHM,1),1);
+                allpvalue = zeros(size(CHMnewTime,1),1);
                 % initialize cell array for all tukey tables - needs for ploting stars
-                allTukey = cell(size(CHM,1),1);
-                for ti = 1:size(CHM,1) % for each time point
-                    data1sample =  squeeze(CHM(ti, :,:)); % cats x chan
+                allTukey = cell(size(CHMnewTime,1),1);
+                for ti = 1:size(CHMnewTime,1) % for each time point
+                    data1sample =  squeeze(CHMnewTime(ti, :,:)); % cats x chan
                     [pvalue, ~, Tukey_tbl] = CStat.ANOVA1rm(data1sample'); % compute 1-way rm ANOVA for this ti; transpose - chan x cats
                     allpvalue(ti) = pvalue;
                     allTukey{ti} = Tukey_tbl;
