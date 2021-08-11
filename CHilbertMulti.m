@@ -485,20 +485,22 @@ classdef CHilbertMulti < CHilbert
             if ~exist('overwrite','var'), overwrite = 0; end %defaultne se nemaji prepisovat existujici soubory
             if ~exist('loadall','var'), loadall = 0; end %by default we dont want to load HFreqEpochs,fphaseEpochs,frealEpochs
             
-            pacienti = unique({PAC.pacient}); %trik po delsim usili vygooglovany, jak ziskat ze struct jedno pole
+            pacienti = unique({PAC.pacient},'stable'); %trik po delsim usili vygooglovany, jak ziskat ze struct jedno pole
             filenames = cell(numel(pacienti),1);
             nextr = 0;
             nenalezeno = {};
+            preskoceno = 0; %how many files were skipped and not saved (e.g. because of overwrite=0)
             
             for p = 1:numel(pacienti)                                
                 ipacienti = strcmp({PAC.pacient}, pacienti{p})==1; %indexy ve strukture PAC pro tohoto pacienta
                 E = pacient_load(pacienti{p},testname,filename,[],[],[],loadall);  %pokud spatny testname, zde se vrati chyba
                 if ~isempty(E) %soubor muze neexistovat, chci pokracovat dalsim souborem
-                    [filename_extract,basefilename_extract] = E.ExtractData([PAC(ipacienti).ch],label,overwrite);
+                    [filename_extract,basefilename_extract,skipped] = E.ExtractData([PAC(ipacienti).ch],label,overwrite);
                     filenames{p,1} = filename_extract;
                     disp(['*** OK: ' pacienti{p} ': chns ' num2str([PAC(ipacienti).ch],'%i ') ', ' basefilename_extract]);
                     fprintf('\n'); 
                     nextr = nextr + 1;
+                    preskoceno = preskoceno + skipped;
                 else
                     disp(['*** nenalezen: ' pacienti{p} ]);
                     nenalezeno = [nenalezeno; pacienti{p}]; %#ok<AGROW>
@@ -507,6 +509,9 @@ classdef CHilbertMulti < CHilbert
             disp(['extrahovano ' num2str(nextr) ' souboru z ' num2str(numel(pacienti))]);
             if numel(nenalezeno) > 0 
                 disp(['nenalezeno :' cell2str(nenalezeno)]);
+            end
+            if numel(preskoceno) > 0 
+                disp(['skipped :' num2str(preskoceno)]);
             end
         end
         function filenames = FindExtract(testname,filename,label)

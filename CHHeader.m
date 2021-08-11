@@ -1396,15 +1396,17 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             %PlotClusters - plots the previosly computed clusters if any exist, according to the current popis            
             if ~exist('onlyclusters','var'), onlyclusters = 0; end            
             
-            barvy = 'gbrmcyk';            
+            barvy = 'gbrmcyk';   
+            sethandle = false; 
             if isfield(obj.plotClusters,'fh') && ishandle(obj.plotClusters.fh)
                 figure(obj.plotClusters.fh); %pouziju uz vytvoreny figure
                 clf(obj.plotClusters.fh); %graf vycistim
             else
                 obj.plotClusters.fh = figure('Name',[num2str(numel(obj.clusters)) ' sets of clusters']);                   
+                sethandle = true; %set the handler to move the figure only for newly created figures
             end
             mni0 = [[obj.H.channels.MNI_x]',[obj.H.channels.MNI_y]',[obj.H.channels.MNI_z]'];                        
-            for iCluster = 1:numel(obj.clusters)           
+            for iCluster = 1:numel(obj.clusters) %cycle over cluster sets        
                 C = obj.clusters(iCluster).C;
                 nClusters = size(C,1);
                 plot3(C(:,1),C(:,2),C(:,3),[barvy(iCluster) 'x'],'MarkerSize',20,'LineWidth',3); %clusters on right side
@@ -1417,12 +1419,19 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                         ); %
                     end
                 else
-                    clusternames = cellstr(horzcat( num2str((1:nClusters)')));
+                    clusternames = cellstr(horzcat( num2str((1:nClusters)'))); %
                 end
-                text(C(:,1)+5,C(:,2)+5,C(:,3)+5,clusternames ,'FontSize',12,'FontWeight','bold','Color',barvy(iCluster));
+                text(C(:,1)+5,C(:,2)+5,C(:,3)+5,clusternames ,'FontSize',12,'FontWeight','bold','Color',barvy(iCluster)); %cluster names
                 hold on
                 plot3(-C(:,1),C(:,2),C(:,3),[barvy(iCluster) 'x'],'MarkerSize',20,'LineWidth',3); %clusters on left side
-                text(-C(:,1)+5,C(:,2)+5,C(:,3)+5, clusternames,'FontSize',12,'FontWeight','bold','Color',barvy(iCluster));            
+                text(-C(:,1)+5,C(:,2)+5,C(:,3)+5, clusternames,'FontSize',12,'FontWeight','bold','Color',barvy(iCluster)); %cluster names
+                
+                if isfield(obj.clusters(iCluster),'size') && ~isempty(obj.clusters(iCluster).size)
+                    for iC = 1:size(C,1) %for each cluster, plot its size as circle
+                        circle(obj.clusters(iCluster).size(iC),C(iC,:),3,barvy(iCluster)); 
+                    end
+                end
+                
                 %plot the connecting lines to nearest clusters from other cluster sets                
                 for iCluster0 = 1:numel(obj.clusters)  %cycle over all preceding cluster sets
                     if iCluster0 ~= iCluster
@@ -1443,7 +1452,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 end
             end
             
-            if ~exist('plotviewchar','var')
+            if ~exist('plotviewchar','var') || isempty(plotviewchar)
                 plotview = [108 13];  %saggital [90 0], [0 90]=axial horizontal view               
             elseif plotviewchar == 's'   %sagital view                                                             
                 plotview = [90 0]; 
@@ -1460,7 +1469,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             axis([-75 75 -120 80 -75 85]); %zhruba velikost mozku
             axis equal;
             %rozhybani obrazku            
-            set(obj.plotClusters.fh,'KeyPressFcn',@obj.hybejPlotClusters);
+            if sethandle, set(obj.plotClusters.fh,'KeyPressFcn',@obj.hybejPlotClusters); end
         end
         function [names]=NameClusters(obj,iSet,names)
             %sets names to clusters in the iSet cluster set. names is cellarray with names in the order of original clusters            
@@ -1486,6 +1495,12 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             end
             obj.clusters(iSet).popis{end+1} = popis;   
             disp(['cluster Title assigned: ' cell2str(popis)]);
+        end
+        function ClusterFindSize(obj,iSet)
+            %size is here defined as half distance to the nearest other cluster
+            [D,~] = pdist2(obj.clusters(iSet).C,obj.clusters(iSet).C,'euclidean','Smallest',2); %two smallest distances among the centroids
+                %first row is distance to itself = 0, second row is distance to the nearest other cluster
+            obj.clusters(iSet).size = D(2,:)./2;  %size is the half              
         end
     end
     methods (Access = public,Static)

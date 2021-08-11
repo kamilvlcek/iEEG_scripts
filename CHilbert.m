@@ -99,10 +99,13 @@ classdef CHilbert < CiEEGData
          
             if ~exist('channels','var'), channels = 1:obj.channels; end
             if ~exist('type','var') || isempty(type), type='orig'; end %default normalization 
+            fprintf('Normalize %s: ', type);
             switch type
                 case 'orig' %(fpower./mean(fpower)) - povodna normalizacia
+                    fprintf('channel:');
                     for ch = channels
-                        for f = 1:size(obj.HFreq,3) %the frequency bands
+                        fprintf('%i,', ch );
+                        for f = 1:size(obj.HFreq,3) %over frequency bands
                             obj.HFreq(:,ch,f) = obj.HFreq(:,ch,f)./mean(obj.HFreq(:,ch,f)); 
                         end                        
                     end
@@ -142,8 +145,7 @@ classdef CHilbert < CiEEGData
                             %dimensions of d are: samples, channels, epochs
                             obj.d(:,:,iEpochy) = obj.d(:,:,iEpochy)./valmax; %M2016b and after: implicit expansion of arrays with compatible sizes.                            
                        end                       
-                    end 
-                    fprintf('\n');                    
+                    end                                        
                 otherwise
                     error(['unknown normalization: ' type]);
             end
@@ -151,6 +153,7 @@ classdef CHilbert < CiEEGData
                 obj.d = squeeze(mean(obj.HFreq,3)); %mean over freq bands 
             end
             obj.normalization = type; %pro zpetnou referenci
+            fprintf('... finished\n');
         end
         
         function obj = ExtractEpochs(obj, PsyData,epochtime,baseline,freqepochs)
@@ -160,13 +163,14 @@ classdef CHilbert < CiEEGData
             if ~exist('baseline','var') || isempty(baseline), baseline = [epochtime(1) 0]; end %defaultni baseline je do 0 sec
             if ~exist('freqepochs','var') || isempty(freqepochs), freqepochs = 0; end %defaultne se neukladaji frekvencni pasma pro vsechny epochy
             ExtractEpochs@CiEEGData(obj,PsyData, epochtime,baseline); %to mi zepochuje prumernou obalku za frekvencni pasma v poli d
+            fprintf('CHilbert.ExtractEpochs: category ' );
             if(numel(obj.HFreq)>0)
                 %ted epochace vsech frekvencnich pasem zvlast, hlavne kvuli obrazkum
                 %prumer za kazdou kategorii, statistiku z toho delat nechci
                  iepochtime = round(epochtime(1:2).*obj.fs); %v poctu vzorku cas pred a po udalosti, prvni cislo je zaporne druhe kladne             
                  ibaseline =  round(baseline.*obj.fs); %v poctu vzorku cas pred a po udalosti
                  kategorie = cell2mat(obj.PsyData.P.strings.podminka(:,2)); %cisla karegorii ve sloupcich
-                 Hfreq2 = zeros(iepochtime(2)-iepochtime(1), size(obj.d,2), numel(obj.Hfmean),size(kategorie,1)); %nova epochovana data time x channel x freq x kategorie=podminka
+                 Hfreq2 = zeros(iepochtime(2)-iepochtime(1), size(obj.d,2), numel(obj.Hfmean),size(kategorie,1)); %new epoched power data: time x channel x freq x kategorie=podminka
                  if freqepochs
                      obj.HFreqEpochs = zeros(iepochtime(2)-iepochtime(1),size(obj.HFreq,2),size(obj.HFreq,3),obj.epochs); % time x channel x frequency x epoch
                      obj.fphaseEpochs = zeros(iepochtime(2)-iepochtime(1),size(obj.HFreq,2),size(obj.HFreq,3),obj.epochs); % time x channel x frequency x epoch
@@ -177,32 +181,34 @@ classdef CHilbert < CiEEGData
                      obj.frealEpochs = [];
                  end
                  %cyklus po kategoriich ne po epochach
-                 for katnum = kategorie' %potrebuji to v radcich
-                     Epochy = find(cell2mat(obj.epochData(:,2))==katnum); %seznam epoch v ramci kategorie ve sloupci 
-                     for epoch = Epochy' %potrebuji to v radcich
+                 for katnum = kategorie' %categories in rows
+ 	       	     fprintf('%i,', katnum);  	 	
+                     Epochy = find(cell2mat(obj.epochData(:,2))==katnum);  %epochs x 1: epochs numbers for this category
+                     for epoch = Epochy' %epochs in row
                          izacatek = find(obj.tabs_orig==obj.epochData{epoch,3}); %najdu index podnetu, podle jeho timestampu. v tretim sloupci epochData jsou timestampy
                          for ch=1:obj.channels
-                            baseline_mean = mean(obj.HFreq(izacatek + ibaseline(1) : izacatek+ibaseline(2)-1,ch,:),1); %baseline pro vsechny frekvencni pasma dohromady
-                            epoch_data = bsxfun(@minus,obj.HFreq(izacatek + iepochtime(1) : izacatek+iepochtime(2)-1,ch,:) , baseline_mean); %odecteni baseline pro aktualni epochu a kanal
+                            baseline_mean = mean(obj.HFreq(izacatek + ibaseline(1) : izacatek+ibaseline(2)-1,ch,:),1); %1x1xfreq: baseline for all freq band together - mean over time                            
+                            epoch_data = bsxfun(@minus,obj.HFreq(izacatek + iepochtime(1) : izacatek+iepochtime(2)-1,ch,:) , baseline_mean); %timex1xfreq - substract baseline for current epoch and channel
 
                             if freqepochs
-                                obj.HFreqEpochs(:,ch,:,epoch) = epoch_data; 
-                                if isprop(obj,'fphase') && ~isempty(obj.fphase)
-                                    obj.fphaseEpochs(:,ch,:,epoch) = obj.fphase(izacatek + iepochtime(1) : izacatek + iepochtime(2)-1, ch, :);
+                                obj.HFreqEpochs(:,ch,:,epoch) = squeeze(epoch_data); % here data for each epoch, channel and freq separately are saved, independent of category
+                                if isprop(obj,'fphase') && ~isempty(obj.fphase) %created in CMorlet.PasmoFrekvence
+                                    obj.fphaseEpochs(:,ch,:,epoch) = squeeze(obj.fphase(izacatek + iepochtime(1) : izacatek + iepochtime(2)-1, ch, :));
                                 end
                                 
                                 if isprop(obj,'freal') && ~isempty(obj.freal)
-                                    obj.frealEpochs(:,ch,:,epoch) = obj.freal(izacatek + iepochtime(1) : izacatek + iepochtime(2)-1, ch, :);
+                                    obj.frealEpochs(:,ch,:,epoch) = squeeze(obj.freal(izacatek + iepochtime(1) : izacatek + iepochtime(2)-1, ch, :));
                                 end
 
                             end
-                            Hfreq2(:,ch,:,katnum+1) = Hfreq2(:,ch,:,katnum+1) + epoch_data; %soucet power pro kategorii, pres prislusne epochy
-                            %tady se mi to mozna odecetlo blbe? KOntrola
+                            Hfreq2(:,ch,:,katnum+1) = Hfreq2(:,ch,:,katnum+1) + epoch_data; %sum over all epochs of power for this channel and category, over all timesamples and frequecies
+                                %for this channel and katnum, this line is executed ones for each epoch
                          end
                      end
                      Hfreq2(:,:,:,katnum+1) = Hfreq2(:,:,:,katnum+1)./numel(Epochy); %prumer pred epochy - soucet podelim prumerem
                  end             
                  obj.HFreq = Hfreq2;
+                 fprintf('\n');
             end
         end
         function GetITPC(obj)
@@ -459,7 +465,7 @@ classdef CHilbert < CiEEGData
             obj.hfilename = filename; 
         end 
         
-        function [filename,basefilename] = ExtractData(obj,chns,label,overwrite)
+        function [filename,basefilename,skipped] = ExtractData(obj,chns,label,overwrite)
             %vytvori data z vyberu elektrod, pro sdruzeni elektrod pres vsechny pacienty. 
             %pole d, tabs, RjEpochCh a header H
             %jen epochovana data, bipolarni reference
@@ -513,8 +519,10 @@ classdef CHilbert < CiEEGData
                     save(filename,'HFreqEpochs','-append'); %pridam k existujicimu souboru 
                 end
                 disp(['extract saved to "' basefilename '"']);
+                skipped = 0;
             else
                 disp(['extract already exists, skipped: "' basefilename '"']);
+                skipped = 1;
             end
                 
         end

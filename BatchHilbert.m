@@ -94,7 +94,7 @@ else
         disp('pouze test existence souboru');
         fclose(fileID);
         return; 
-    end; 
+    end 
 end
 
 if (cfg.vypnout),    disp('system se po dokonceni vypne'); end 

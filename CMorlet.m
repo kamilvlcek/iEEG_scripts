@@ -29,7 +29,7 @@ classdef  CMorlet < CHilbert
             timer = tic; %zacnu merit cas
             fprintf('kanal ze %i: ', numel(channels) );
             
-            if freq(1) < 10
+            if freq(1) <= 10
                 time = -2:1/obj.fs:2; %pro nizke frekvence pouziju delsi wavelet - +- 2s - % 40 cyklu wavelet pro 10Hz
             else
                 time = -1:1/obj.fs:1; %pro vyssi frekvence staci wv +- 1s %alespon 20 cyklu waveletu pro 10Hz. Neni to zbytecne moc ?
