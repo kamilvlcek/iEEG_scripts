@@ -762,7 +762,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
                         PAC(iPAC).MNI_y = H.channels(iCh(ii)).MNI_y; %#ok<AGROW>
                         PAC(iPAC).MNI_z = H.channels(iCh(ii)).MNI_z; %#ok<AGROW>
                         PAC(iPAC).MNIdist = min(D1(iCh(ii)),D2(iCh(ii))); %#ok<AGROW>
-                        PAC(iPAC).DistN = iChannelDist(iCh(ii)); %#ok<AGROW>
+                        PAC(iPAC).label = iChannelDist{iCh(ii)}; %#ok<AGROW>
                         iPAC = iPAC + 1;
                     end
                 end

@@ -182,7 +182,7 @@ classdef CHilbert < CiEEGData
                  end
                  %cyklus po kategoriich ne po epochach
                  for katnum = kategorie' %categories in rows
- 	       	     fprintf('%i,', katnum);  	 	
+                     fprintf('%i,', katnum);  	 	
                      Epochy = find(cell2mat(obj.epochData(:,2))==katnum);  %epochs x 1: epochs numbers for this category
                      for epoch = Epochy' %epochs in row
                          izacatek = find(obj.tabs_orig==obj.epochData{epoch,3}); %najdu index podnetu, podle jeho timestampu. v tretim sloupci epochData jsou timestampy
@@ -401,8 +401,9 @@ classdef CHilbert < CiEEGData
                 fphase = obj.fphase; %#ok<NASGU,PROPLC> %15.5.2018
                 fphaseEpochs = obj.fphaseEpochs; %#ok<NASGU,PROPLC> %15.5.2018
                 frealEpochs = obj.frealEpochs;  %#ok<NASGU,PROPLC> %30.5.2018
+                if isprop(obj,'freal'), freal = obj.freal; else, freal=[]; end   %#ok<NASGU>                 
                 normalization = obj.normalization; %#ok<NASGU,PROPLC> 
-                save(CHilbert.filenameH(filename),'HFreq','Hf','Hfmean','HFreqEpochs','frealEpochs','yrange','fphase','fphaseEpochs','normalization','-v7.3'); %do druheho souboru data z teto tridy
+                save(CHilbert.filenameH(filename),'HFreq','Hf','Hfmean','HFreqEpochs','freal','frealEpochs','yrange','fphase','fphaseEpochs','normalization','-v7.3'); %do druheho souboru data z teto tridy
             end
         end
         
@@ -456,6 +457,7 @@ classdef CHilbert < CiEEGData
                 else
                     obj.HFreqEpochs = [];
                     obj.fphaseEpochs = [];
+                    obj.frealEpochs = [];
                 end
                 
                 disp(['nacten soubor ' CHilbert.filenameH(filename)]); 
@@ -465,14 +467,14 @@ classdef CHilbert < CiEEGData
             obj.hfilename = filename; 
         end 
         
-        function [filename,basefilename,skipped] = ExtractData(obj,chns,label,overwrite)
+        function [filename,basefilename,skipped] = ExtractData(obj,PAC,label,overwrite)
             %vytvori data z vyberu elektrod, pro sdruzeni elektrod pres vsechny pacienty. 
             %pole d, tabs, RjEpochCh a header H
             %jen epochovana data, bipolarni reference
             %overwrite urcuje, jestli se maji prepisovat existujici soubory
             if ~exist('overwrite','var'), overwrite = 0; end %defaultne se nemaji prepisovat existujici soubory
-            assert(obj.epochs > 1,'nejsou epochovana data');
-            
+            assert(obj.epochs > 1,'data have to be epoched');
+            chns = [PAC.ch];
             [filepath,fname,ext] = CHilbert.matextension(obj.filename);
             podtrzitko = strfind(fname,'_'); %chci zrusit cast za poslednim podtrzitkem
             basefilename = [fname(1:podtrzitko(end)-1) ' ' label '_Extract' ext]; %jmeno bez cesty
@@ -513,10 +515,19 @@ classdef CHilbert < CiEEGData
                 HFreq = obj.HFreq(:,chns,:,:); %#ok<PROPLC,NASGU>  %time x channel x freq (x kategorie)             
                 Wp = obj.Wp;  %#ok<NASGU>  %exportuju statistiku
                 reference = obj.reference; %#ok<NASGU>  %exportuju referenci
-                save(filename,'d','tabs','tabs_orig','fs','P','epochtime','baseline','RjEpochCh','RjEpoch','epochData','DatumCas','H','Hf','Hfmean','HFreq','Wp','reference','-v7.3'); 
-                if isprop(obj,'HFreqEpochs') && ~isempty(obj.HFreqEpochs) %pokud jsem ukladal vsechny epochy ze vsech frekvenci
+                if isfield(PAC,'label')
+                    chnlabels =  {PAC(:).label}; %#ok<NASGU> %optional field generated in CBrainPlot.MNIFind 
+                else
+                    chnlabels =  cell(size(PAC)); %#ok<NASGU>
+                end
+                save(filename,'d','tabs','tabs_orig','fs','P','epochtime','baseline','RjEpochCh','RjEpoch','epochData','DatumCas','H','Hf','Hfmean','HFreq','Wp','reference','chnlabels','label','-v7.3');                 
+                %for now its impossible to import fphase and freal to CHilberMulti, as they are unepoched and of variable lenght
+                %so there no reason to save them here                
+                if isprop(obj,'HFreqEpochs') && ~isempty(obj.HFreqEpochs) %for epoched data with all epochs for all freq saved 
                     HFreqEpochs = obj.HFreqEpochs(:,chns,:,:); %#ok<NASGU,PROPLC> % time x channel x frequency x epoch
-                    save(filename,'HFreqEpochs','-append'); %pridam k existujicimu souboru 
+                    fphaseEpochs = obj.fphaseEpochs(:,chns,:,:); %#ok<NASGU,PROPLC> %time x channel x freq x epoch
+                    frealEpochs = obj.frealEpochs(:,chns,:,:); %#ok<NASGU,PROPLC>
+                    save(filename,'HFreqEpochs','fphaseEpochs','frealEpochs','-append'); %pridam k existujicimu souboru 
                 end
                 disp(['extract saved to "' basefilename '"']);
                 skipped = 0;

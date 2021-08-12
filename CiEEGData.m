@@ -1415,9 +1415,9 @@ classdef CiEEGData < matlab.mixin.Copyable
             if ~exist('kategories','var') || isempty(kategories) 
                 if isfield(obj.plotRCh,'kategories') 
                     kategories = obj.plotRCh.kategories; %hodnoty drive pouzite v grafu, ty maji prednost pred statistikou
-                elseif isfield(obj,'Wp') && ~isempty(obj.Wp(WpA)) && isfield(obj.Wp(WpA), 'kats')
+                elseif isprop(obj,'Wp') && ~isempty(obj.Wp(WpA)) && isfield(obj.Wp(WpA), 'kats')
                     kategories = obj.Wp(WpA).kats; %pokud nejsou kategorie v parametru, prvni volba je pouzit je ze statistiky                
-                elseif isfield(obj,'Wp') && ~isempty(obj.Wp(WpA)) && isfield(obj.Wp(WpA),'kats')
+                elseif isprop(obj,'Wp') && ~isempty(obj.Wp(WpA)) && isfield(obj.Wp(WpA),'kats')
                     kategories = obj.Wp(WpA).kats; %hodnoty pouzite ve statistice, 0-n, odpovida cislum v oobj.PsyData.P.strings.podminka
                 else
                    if numel(obj.PsyData.Categories())<=4 %uz muzu pouzivat 4 kategorie, kvuli Menrot
@@ -1464,7 +1464,9 @@ classdef CiEEGData < matlab.mixin.Copyable
             else
                 if isprop(obj,'label') && ~isempty(obj.label)
                     figurename = ['PlotResponseCh - ' obj.label];
-                else
+                elseif isprop(obj,'mfilename') && ~isempty(obj.mfilename)
+                    figurename = ['PlotResponseCh - ' basename(obj.mfilename)];
+                else                    
                     figurename = 'PlotResponseCh';
                 end
                 obj.plotRCh.fh = figure('Name',figurename);

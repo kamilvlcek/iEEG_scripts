@@ -795,16 +795,16 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         end
         function obj = BrainLabelsImport(obj,brainlbs,filename,fields)
             %naimportuje cell array do struct array. Hlavne kvuli tomu, ze v cell array nemusi byt vsechny kanaly
-            %brainlbs should have four columns -   brainclass, brainlabel, lobe, channelname. If empty, filename is used
+            %brainlbs should be cellarray and have four columns -   brainclass, brainlabel, lobe, channelname. If empty, filename is used
             %filename - full name of CHilbertMulti _CiEEG.mat file, from which the labels should be imported according to channel name
-            %field - option to import only specific fiels of source brainlabels, like maxlabel and/or maxNeurologyLabel
+            %field - option to import only specific fiels of source brainlabels (from filename), like maxlabel and/or maxNeurologyLabel
             
             if ~exist('fields','var')
                 fields = []; 
             else
                 assert(iscell(fields),'fields has to be cellarray with names of brainlabels field');                
             end            
-            if isempty(brainlbs) && exist('filename','var')
+            if isempty(brainlbs) && exist('filename','var') %brain labels from file
                  assert(exist(filename,'file')==2,'soubor filename neexistuje');
                  vars = whos('-file',filename) ;
                  assert(ismember('CH_H', {vars.name}), 'soubor neobsahuje promennou H'); 
@@ -836,17 +836,18 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                      end
                  end                 
                  disp(['imported brainlabels of ' num2str(loaded) '/' num2str(numel(obj.H.channels))  ' channels']);
-            else
+            else %brain labels from brainlbs cell array
                 %BL = struct('class',{},'label',{},'lobe',{},'name',{}); %empty struct with 3 fields
                 %imports only selected channel, leaves all other intact
                 loaded = 0; %pocet nactenych kanalu
                 names = {obj.H.channels.name};
                 for j = 1:size(brainlbs,1)
-                    ich = contains(names,brainlbs{j,4});   
+                    ich = contains(names,brainlbs{j,4}); %index of channels in H having this name  
                     if sum(ich)==1
                         obj.brainlabels(ich).class = brainlbs{j,1};
                         obj.brainlabels(ich).label = brainlbs{j,2};
                         obj.brainlabels(ich).lobe = brainlbs{j,3};                    
+                        obj.brainlabels(ich).name = brainlbs{j,4};
                         loaded = loaded + 1;
                     end
                 end    
@@ -856,7 +857,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             obj.BrainLabelsReplaceEmpty(' ');            
         end
         function obj = BrainLabelsReplaceEmpty(obj,newlabel)
-            % replace all empty valurs in all fields with the string newlabel
+            % replace all empty values in all fields with the string newlabel
             BL = obj.brainlabels';
             fields = {'class','label','lobe','name'};
             for f = 1:numel(fields)                

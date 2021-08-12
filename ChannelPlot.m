@@ -229,8 +229,7 @@ classdef ChannelPlot < matlab.mixin.Copyable
             else
                 disp('No MNI data');
             end
-        end
-        
+        end        
         function obj = Plot3DBoundary(obj,plotview)
             %vykresli obrys mozku ve vsech rozmerech do 3d grafu
             %pokud boundary neni vypocitana, spocita ji a ulozi do obj.plotCh3D.BrainBoundaryXYZ
@@ -471,9 +470,7 @@ classdef ChannelPlot < matlab.mixin.Copyable
                     
             end
             obj.plotCh3D.sizes = sizes;
-          end
-        
-        
+        end
         function obj = PlotSizeLegend(obj,chnvals,rangeZ)
              %plots the size scale of scatter3 balls 
              positions = struct('x',[],'y',[],'z',[]);
@@ -501,7 +498,6 @@ classdef ChannelPlot < matlab.mixin.Copyable
              scatter3([positions.x],[positions.y],[positions.z],sizes,'k');
               
         end
-        
         function obj = hybejPlot3D(obj,~,eventDat)
               switch eventDat.Key
                   case 's'    %sagital view                                       

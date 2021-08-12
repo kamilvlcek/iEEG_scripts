@@ -107,7 +107,6 @@ classdef ScatterPlot < handle
             obj.Draw(); %default values for valFraction and intFraction
         end
         
-        
         function Save(obj)
             if isempty(obj.ieegdata)
                 disp('no original CiEEGData data loaded');
