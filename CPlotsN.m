@@ -442,10 +442,10 @@ classdef CPlotsN < handle
         %ISPC functions
         function [ispc] = ISPCCalculate(obj,channels,fdr)
             % inter site phase coherence = PLV - according to MikeXCohen
-            % currently only: ISPC-trial, for one pair of channels, for all computed frequencies, for all time points
+            % currently only: ISPC-trial, for one group of channels, for all computed frequencies, for all time points
             % ispc = time x fq
-            if ~exist('channels','var') || isempty(channels), channels = 1:obj.E.channels; end %the more strict method
-            if ~exist('fdr','var'), fdr = 2; end %the more strict method
+            if ~exist('channels','var') || isempty(channels), channels = 1:obj.E.channels; end %default is all channels
+            if ~exist('fdr','var'), fdr = 1; end %the more strict method
             n_epochs = size(obj.E.fphaseEpochs,4); %number of epochs
             ispc = nan(numel(channels), numel(channels), size(obj.E.fphaseEpochs,1),size(obj.E.fphaseEpochs,3)); %chn x chn x time x fq            
             
@@ -453,33 +453,49 @@ classdef CPlotsN < handle
             %ispc_all = nan(size(obj.E.fphaseEpochs,1),size(obj.E.fphaseEpochs,3),n_epochs);%chn x chn x time x fq x epochs                           
             
             ispc_p_min = nan(numel(channels), numel(channels));
-            fprintf('ISPCCalculate: ');
+            fprintf('ISPCCalculate:    ');
             for ichn1 = 1:numel(channels)
-                fprintf('%i, ',ichn1);
-                for ichn2 = ichn1+1:numel(channels)                                           
-                    fphaseEpochs1 = squeeze(obj.E.fphaseEpochs(:,channels(ichn1),:,:)); %time x freq x epochs
-                    fphaseEpochs2 = squeeze(obj.E.fphaseEpochs(:,channels(ichn2),:,:));
-                    %the cycles over frequencies and time removed - all computed at once in the following commands
-                    ispc_all = exp(1i*(fphaseEpochs1 - fphaseEpochs2)); %time x freq x epochs - complex number
-                    ispc_ch = abs(mean(ispc_all,3)); %abs = lenght of the average vector ,%time x freq , mean over epochs
-                    ispc(ichn1,ichn2,:,:) = ispc_ch;
-                    ispc_p0 = CEEGStat.ISPCBaseline(squeeze(ispc(ichn1,ichn2,:,:)),n_epochs, obj.E.epochtime,obj.E.baseline,obj.E.fs,fdr); %significance relative to mean baseline ispc
-                    if ~exist('ispc_p','var') %easiest way how to find the first dimension of ispc_p0
-                        ispc_p = nan(numel(channels), numel(channels),size(ispc_p0,1),size(ispc_p0,2));
+                fprintf('\b\b\b%3i',ichn1); %delete previous three characters and print the %i in three characters
+                for ichn2 = ichn1+1:numel(channels)    
+                    if ~isa(obj.E, 'CHilbertMulti') || find(obj.E.els >= channels(ichn1),1) == find(obj.E.els >= channels(ichn2),1) %the find expression get the pacient number
+                        %compute only for single pacient or for CHilbertMulti if the pacient is the same
+                        fphaseEpochs1 = squeeze(obj.E.fphaseEpochs(:,channels(ichn1),:,:)); %time x freq x epochs
+                        fphaseEpochs2 = squeeze(obj.E.fphaseEpochs(:,channels(ichn2),:,:));
+                        %the cycles over frequencies and time removed - all computed at once in the following commands
+                        ispc_all = exp(1i*(fphaseEpochs1 - fphaseEpochs2)); %time x freq x epochs - complex number
+                        ispc_ch = abs(mean(ispc_all,3)); %abs = lenght of the average vector ,%time x freq , mean over epochs
+                        ispc(ichn1,ichn2,:,:) = ispc_ch;
+                        ispc_p0 = CEEGStat.ISPCBaseline(squeeze(ispc(ichn1,ichn2,:,:)),n_epochs, obj.E.epochtime,obj.E.baseline,obj.E.fs,0); %significance relative to mean baseline ispc, no fdr correction for now
+                        if ~exist('ispc_p','var') %easiest way how to find the first dimension of ispc_p0
+                            ispc_p = nan(numel(channels), numel(channels),size(ispc_p0,1),size(ispc_p0,2));
+                        end
+                        ispc_p(ichn1,ichn2,:,:) = ispc_p0;                       
                     end
-                    ispc_p(ichn1,ichn2,:,:) = ispc_p0;
-                    ispc_p_min(ichn1,ichn2) = min(min(ispc_p0)); %find the most significan ispc value for each combination of channels                                        
                 end                
             end
             fprintf('\n');
-           
+            if fdr>0
+                iispc_p = ~isnan(ispc_p); %fdr correction over all non nan values (=computed actually)
+                pvals = ispc_p(iispc_p); %this makes a simple array (from original 4D array)
+                if fdr == 2, method = 'dep'; else method = 'pdep'; end %#ok<SEPEX>
+                [~, ~, adj_p]=fdr_bh(pvals,0.05,method,'no'); %dep is more sctrict than pdep 
+                ispc_p(iispc_p) = adj_p; %overwrite the corrected values by FDR corrected - only the original non-nan values
+            end
+            for ichn1 = 1:numel(channels)                
+                for ichn2 = ichn1+1:numel(channels) 
+                    ispc_p0 = squeeze(ispc_p(ichn1,ichn2,:,:));
+                    iispc_p = ~isnan(ispc_p0);
+                    if sum(sum(iispc_p))>0
+                        ispc_p_min(ichn1,ichn2)=min(ispc_p0(iispc_p)); %find the most significan ispc value for each combination of channels                                        
+                    end
+                end
+            end
             obj.plotISPC.ispc = ispc;            
             obj.plotISPC.ispc_all = ispc_all; %the angles computed for the last combination of channels
             obj.plotISPC.ispc_p = ispc_p;
             obj.plotISPC.fdr = fdr;
             obj.plotISPC.channels = channels;            
-            obj.plotISPC.ispc_p_min = ispc_p_min; 
-            
+            obj.plotISPC.ispc_p_min = ispc_p_min;             
         end
         
         function ISPCPlot(obj,chnpair,TimeHf, updateS, ISPCPlotSelection)
@@ -497,19 +513,28 @@ classdef CPlotsN < handle
                 obj.plotISPC.subph = {}; %handles to subplots
                 obj.plotISPC.annoth = {}; %handles to annotations
                 obj.plotISPC.plotsig = [0.5 0.95]; % limits of significance plots
-                updateS = [1 1 1 1];
+                obj.plotISPC.onlysub2 = 0; % plot only second chart with an overview of all channels
+                obj.plotISPC.clf = 0; % clear the whole plot to plot all subplots after only second chart was plotted                
+                updateS = [1 1 1 1]; %create all subplots
                 assignhandle = true;
             else
-                figure(obj.plotISPC.fh_ispc);
-                %clf; %vymazu obrazek                 
-                for iu = 1:numel(updateS) %clear individual subplots
-                    if updateS(iu)
-                        cla( obj.plotISPC.subph{iu})
-                        delete(obj.plotISPC.subph{iu});                        
-                        if numel(obj.plotISPC.annoth()) >= iu && ~isempty(obj.plotISPC.annoth{iu})
-                            delete(obj.plotISPC.annoth{iu});
-                        end
-                    end                        
+                figure(obj.plotISPC.fh_ispc);                             
+                if ~obj.plotISPC.onlysub2 && ~obj.plotISPC.clf
+                    for iu = 1:numel(updateS) %clear individual subplots
+                        if updateS(iu)
+                            cla( obj.plotISPC.subph{iu})
+                            delete(obj.plotISPC.subph{iu});                        
+                            if numel(obj.plotISPC.annoth()) >= iu && ~isempty(obj.plotISPC.annoth{iu})
+                                delete(obj.plotISPC.annoth{iu});
+                            end
+                        end                        
+                    end
+                else
+                    clf; %vymazu obrazek    
+                    if ~obj.plotISPC.onlysub2 && obj.plotISPC.clf
+                        updateS = [1 1 1 1]; %restore all subplots
+                        obj.plotISPC.clf = 0;
+                    end
                 end
             end   
             
@@ -520,7 +545,9 @@ classdef CPlotsN < handle
             
             %subplot with ISPC values from one pair of channels
             if updateS(1) 
-                obj.plotISPC.subph{1} = subplot(2,2,1);            
+                if ~obj.plotISPC.onlysub2
+                    obj.plotISPC.subph{1} = subplot(2,2,1);  
+                end
                 imagesc(T,F,squeeze(obj.plotISPC.ispc(chnpair(1),chnpair(2),:,:))'); %has to transpose, imagesc probably plots first dimension in rows 
                 axis xy; %make the y axis increasing from bottom to top
                 colormap parula;
@@ -537,7 +564,9 @@ classdef CPlotsN < handle
             
             %subplot with ISPC values from one frequency of one pair of channels
             if updateS(3) 
-                obj.plotISPC.subph{3} = subplot(2,2,3);
+                if ~obj.plotISPC.onlysub2
+                    obj.plotISPC.subph{3} = subplot(2,2,3); 
+                end
                 plot(T,squeeze(obj.plotISPC.ispc(chnpair(1),chnpair(2), :,TimeHf(2))));
                 hold on;
                 plot(T(TimeHf(1)),obj.plotISPC.ispc(chnpair(1),chnpair(2), TimeHf(1),TimeHf(2)),'o');
@@ -547,16 +576,21 @@ classdef CPlotsN < handle
             
             %subplot with minimum ISPC significance across all channels
             if updateS(2)                
-                obj.plotISPC.subph{2} = subplot(2,2,2);            
+                if ~obj.plotISPC.onlysub2
+                    obj.plotISPC.subph{2} = subplot(2,2,2); 
+                end
                 imagesc(obj.plotISPC.channels,obj.plotISPC.channels,1-obj.plotISPC.ispc_p_min',obj.plotISPC.plotsig); 
                 axis xy; colorbar; 
                 hold on;
                 plot(chnpair(1),chnpair(2),'o','MarkerFaceColor','red'); 
+                title(sprintf('channel %i x %i',chnpair(1),chnpair(2)));
             end
             
             %subplot with significance of ISPC of this pair of channels
             if updateS(4) 
-                obj.plotISPC.subph{4} = subplot(2,2,4);
+                if ~obj.plotISPC.onlysub2
+                    obj.plotISPC.subph{4} = subplot(2,2,4); 
+                end
                 T4 = linspace(0, obj.E.epochtime(2), size(obj.plotISPC.ispc_p,3));
                 imagesc(T4,F,1-squeeze(obj.plotISPC.ispc_p(chnpair(1),chnpair(2),:,:))',obj.plotISPC.plotsig);  %0.5
                 axis xy;                  
@@ -1094,6 +1128,10 @@ classdef CPlotsN < handle
                 case {'home'}                     
                     obj.ISPCPlot(obj.plotISPC.chnpair, []);
                 case {'return'}
+                    if obj.plotISPC.onlysub2 == 1
+                       obj.plotISPC.onlysub2 = 0;
+                       obj.plotISPC.clf = 1;
+                    end
                     obj.ISPCPlot(obj.plotISPC.chnpair, obj.plotISPC.TimeHf, [1 1 1 1]);
                 case {'rightarrow'} %move the channel pair to right
                     if obj.plotISPC.chnpair(1) <= numel(obj.plotISPC.channels) -shift
@@ -1126,9 +1164,15 @@ classdef CPlotsN < handle
                     obj.ISPCPlot(obj.plotISPC.chnpair, obj.plotISPC.TimeHf, [0 1 0 1]);
                 case {'o'}    %plots all epochs for this frequency - their phase
                     obj.PlotITPCallEpochs(obj.plotISPC.chnpair,obj.plotISPC.TimeHf(2));
-                case {'p'}    
+                case {'p'}  %plot optional plot all phase angles for selected time and freq
                     obj.ISPCPlot(obj.plotISPC.chnpair, obj.plotISPC.TimeHf,[],1)
-               end
+                case 'v'
+                    obj.plotISPC.onlysub2 = 1-obj.plotISPC.onlysub2;
+                    if obj.plotISPC.onlysub2 == 0
+                       obj.plotISPC.clf = 1;
+                    end
+                    obj.ISPCPlot(obj.plotISPC.chnpair, obj.plotISPC.TimeHf, [0 1 0 0]); 
+            end
         end
          
     end
