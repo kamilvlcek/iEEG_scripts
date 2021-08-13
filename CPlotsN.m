@@ -455,8 +455,10 @@ classdef CPlotsN < handle
             ispc_p_min = nan(numel(channels), numel(channels));
             fprintf('ISPCCalculate:    ');
             for ichn1 = 1:numel(channels)
+                if sum(obj.E.CH.RjCh==channels(ichn1))>0, continue; end %if the channel is rejected, co not compute
                 fprintf('\b\b\b%3i',ichn1); %delete previous three characters and print the %i in three characters
                 for ichn2 = ichn1+1:numel(channels)    
+                    if sum(obj.E.CH.RjCh==channels(ichn2))>0, continue; end
                     if ~isa(obj.E, 'CHilbertMulti') || find(obj.E.els >= channels(ichn1),1) == find(obj.E.els >= channels(ichn2),1) %the find expression get the pacient number
                         %compute only for single pacient or for CHilbertMulti if the pacient is the same
                         fphaseEpochs1 = squeeze(obj.E.fphaseEpochs(:,channels(ichn1),:,:)); %time x freq x epochs
@@ -500,11 +502,32 @@ classdef CPlotsN < handle
         
         function ISPCPlot(obj,chnpair,TimeHf, updateS, ISPCPlotSelection)
             %plot all ispc values  for a specific pair of channels from computed values            
-            if ~exist('chnpair','var')  || isempty(chnpair) , chnpair = 1:2; end
+            % chnpair - pair of the channels to be higlited on the left top plot of all channels, and shown an all other figure
+            % TimeHf - point in the time-frequency space highlighted on the left top plot - 
+            if ~exist('chnpair','var')  || isempty(chnpair) 
+                if isfield(obj.plotISPC,'chnpair') && ~isempty(obj.plotISPC.chnpair)
+                    chnpair = obj.plotISPC.chnpair;                     
+                else
+                    chnpair = 1:2; %plotISPC.chnpair is position in sortorder, plotISPC.sortorder are posisions in plotISPC.ispc ans also in  plotISPC.channels.  plotISPC.channels are actual channel numbers               
+                end
+            else
+                obj.plotISPC.chnpair = chnpair; %store the state of this figure
+            end
+            chn1 = obj.plotISPC.sortorder(chnpair(1));
+            chn2 = obj.plotISPC.sortorder(chnpair(2));
+            if isnan(max(max(squeeze(obj.plotISPC.ispc(chn1,chn2,:,:))))) %if the order of the channels is reversed - the ispc values are stored only once
+                chn1 = obj.plotISPC.sortorder(chnpair(2));
+                chn2 = obj.plotISPC.sortorder(chnpair(1));
+            end
             if ~exist('TimeHf','var') || isempty(TimeHf)
-                [iTime,iHf] = find(squeeze(obj.plotISPC.ispc_p(chnpair(1),chnpair(2),:,:)) == obj.plotISPC.ispc_p_min(chnpair(1),chnpair(2)));
-                TimeHf = [iTime(1) iHf(1)];
+                if isnan(obj.plotISPC.ispc_p_min(chn1,chn2))
+                    TimeHf = [round(size(obj.plotISPC.ispc,3)/2) round(size(obj.plotISPC.ispc,4)/2)]; % point in the middle
+                else
+                    [iTime,iHf] = find(squeeze(obj.plotISPC.ispc_p(chn1,chn2,:,:)) == obj.plotISPC.ispc_p_min(chn1,chn2));
+                    TimeHf = [iTime(1) iHf(1)];
+                end
             end 
+            obj.plotISPC.TimeHf = TimeHf; %store the state of this figure   
             if ~exist('updateS','var') || isempty(updateS) , updateS = [1 0 0 0]; end
             if ~exist('ISPCPlotSelection','var'), ISPCPlotSelection = 0; end
             assignhandle = false;
@@ -515,6 +538,9 @@ classdef CPlotsN < handle
                 obj.plotISPC.plotsig = [0.5 0.95]; % limits of significance plots
                 obj.plotISPC.onlysub2 = 0; % plot only second chart with an overview of all channels
                 obj.plotISPC.clf = 0; % clear the whole plot to plot all subplots after only second chart was plotted                
+                obj.plotISPC.sortorder = 1:size(obj.plotISPC.ispc,1); %originally channels sorted by default
+                obj.plotISPC.sortby = 0; %sorted originally, 1=sorted by brainlabel
+                obj.plotISPC.els = obj.E.CH.els; %borders of the electrodes/pacients
                 updateS = [1 1 1 1]; %create all subplots
                 assignhandle = true;
             else
@@ -539,27 +565,25 @@ classdef CPlotsN < handle
             end   
             
             T = linspace(obj.E.epochtime(1), obj.E.epochtime(2), size(obj.E.fphaseEpochs,1));
-            F =  obj.E.Hfmean;
-            obj.plotISPC.TimeHf = TimeHf; %store the state of this figure            
-            obj.plotISPC.chnpair = chnpair; %store the state of this figure 
+            F =  obj.E.Hfmean;                                 
             
             %subplot with ISPC values from one pair of channels
             if updateS(1) 
                 if ~obj.plotISPC.onlysub2
                     obj.plotISPC.subph{1} = subplot(2,2,1);  
                 end
-                imagesc(T,F,squeeze(obj.plotISPC.ispc(chnpair(1),chnpair(2),:,:))'); %has to transpose, imagesc probably plots first dimension in rows 
+                imagesc(T,F,squeeze(obj.plotISPC.ispc(chn1,chn2,:,:))'); %has to transpose, imagesc probably plots first dimension in rows 
                 axis xy; %make the y axis increasing from bottom to top
                 colormap parula;
                 colorbar;
                 title(sprintf(' channels %i, %s - %i, %s', ...
-                    obj.plotISPC.channels(chnpair(1)),obj.E.CH.H.channels(obj.plotISPC.channels(chnpair(1))).name,...
-                    obj.plotISPC.channels(chnpair(2)),obj.E.CH.H.channels(obj.plotISPC.channels(chnpair(2))).name));
+                    obj.plotISPC.channels(chn1),obj.E.CH.H.channels(obj.plotISPC.channels(chn1)).name,...
+                    obj.plotISPC.channels(chn2),obj.E.CH.H.channels(obj.plotISPC.channels(chn2)).name));
                 xlabel([num2str(T(TimeHf(1))) ' sec']);
                 ylabel([num2str(F(TimeHf(2))) ' Hz']);
                 hold on;
                 plot(T(TimeHf(1)),F(TimeHf(2)),'o','MarkerFaceColor','red');            
-                obj.plotISPC.annoth{1} = annotation(obj.plotISPC.fh_ispc,'textbox',[0 .9 .4 .1],'String',num2str(obj.plotISPC.ispc(chnpair(1),chnpair(2), TimeHf(1),TimeHf(2))), 'EdgeColor', 'none');
+                obj.plotISPC.annoth{1} = annotation(obj.plotISPC.fh_ispc,'textbox',[0 .9 .4 .1],'String',num2str(obj.plotISPC.ispc(chn1,chn2, TimeHf(1),TimeHf(2))), 'EdgeColor', 'none');
             end
             
             %subplot with ISPC values from one frequency of one pair of channels
@@ -567,11 +591,12 @@ classdef CPlotsN < handle
                 if ~obj.plotISPC.onlysub2
                     obj.plotISPC.subph{3} = subplot(2,2,3); 
                 end
-                plot(T,squeeze(obj.plotISPC.ispc(chnpair(1),chnpair(2), :,TimeHf(2))));
+                plot(T,squeeze(obj.plotISPC.ispc(chn1,chn2, :,TimeHf(2))));
                 hold on;
-                plot(T(TimeHf(1)),obj.plotISPC.ispc(chnpair(1),chnpair(2), TimeHf(1),TimeHf(2)),'o');
+                plot(T(TimeHf(1)),obj.plotISPC.ispc(chn1,chn2, TimeHf(1),TimeHf(2)),'o');
                 title([num2str(F(TimeHf(2))) ' Hz']);
-                ylim([0 max(max(squeeze(obj.plotISPC.ispc(chnpair(1),chnpair(2),:,:))))])                
+                maxispc = max(max(squeeze(obj.plotISPC.ispc(chn1,chn2,:,:))));
+                ylim([0 iff(isnan(maxispc),1,maxispc)]);            
             end
             
             %subplot with minimum ISPC significance across all channels
@@ -579,11 +604,33 @@ classdef CPlotsN < handle
                 if ~obj.plotISPC.onlysub2
                     obj.plotISPC.subph{2} = subplot(2,2,2); 
                 end
-                imagesc(obj.plotISPC.channels,obj.plotISPC.channels,1-obj.plotISPC.ispc_p_min',obj.plotISPC.plotsig); 
+                ispc_p_min = obj.plotISPC.ispc_p_min(obj.plotISPC.sortorder,obj.plotISPC.sortorder); %values sorted according to sortorder                
+                [x,y]=find(isnan(ispc_p_min));
+                ispc_p_min(sub2ind(size(ispc_p_min),x,y)) = ispc_p_min(sub2ind(size(ispc_p_min),y,x)); %make the matrix symmetrical - each value will be there twice 
+                im=imagesc(obj.plotISPC.channels,obj.plotISPC.channels,1-ispc_p_min',obj.plotISPC.plotsig); 
+                imAlpha=ones(size(ispc_p_min'));  %https://www.mathworks.com/matlabcentral/answers/81938-set-nan-as-another-color-than-default-using-imagesc
+                imAlpha(isnan(ispc_p_min'))=0;
+                im.AlphaData = imAlpha; %set transparency for nan values
+                set(gca,'color',0*[1 1 1]); %black background
                 axis xy; colorbar; 
                 hold on;
-                plot(chnpair(1),chnpair(2),'o','MarkerFaceColor','red'); 
-                title(sprintf('channel %i x %i',chnpair(1),chnpair(2)));
+                plot(chnpair(1),chnpair(2),'o','MarkerFaceColor','red');
+                for e=1:numel(obj.plotISPC.els)-1
+                    line([obj.plotISPC.els(e)+.5 obj.plotISPC.els(e)+.5], [1 numel(obj.plotISPC.channels)]);
+                    line([1 numel(obj.plotISPC.channels)],[obj.plotISPC.els(e)+.5 obj.plotISPC.els(e)+.5]);
+                end
+                if obj.plotISPC.sortby ==1 %if ordered by brain labels
+                    labels=unique({obj.E.CH.brainlabels(:).label});
+                    els = [1 obj.plotISPC.els(1:end-1)+1];
+                    for e=1:numel(els)
+                        text(els(e)+5,els(e)+2,labels{e},'Color','red');                        
+                    end
+                end
+                t1 = sprintf('channel %i (%s) x %i (%s)',obj.plotISPC.channels(chn1),obj.E.CH.H.channels(obj.plotISPC.channels(chn1)).name,...
+                    obj.plotISPC.channels(chn2), obj.E.CH.H.channels(obj.plotISPC.channels(chn2)).name);
+                t2 = [obj.E.CH.H.channels(obj.plotISPC.channels(chn1)).neurologyLabel '-' obj.E.CH.H.channels(obj.plotISPC.channels(chn2)).neurologyLabel '; ' ...
+                    obj.E.CH.brainlabels(obj.plotISPC.channels(chn1)).label '-' obj.E.CH.brainlabels(obj.plotISPC.channels(chn2)).label]; 
+                title( iff(obj.plotISPC.onlysub2,{t1,t2},t1)); %two line title for this large plot
             end
             
             %subplot with significance of ISPC of this pair of channels
@@ -592,11 +639,13 @@ classdef CPlotsN < handle
                     obj.plotISPC.subph{4} = subplot(2,2,4); 
                 end
                 T4 = linspace(0, obj.E.epochtime(2), size(obj.plotISPC.ispc_p,3));
-                imagesc(T4,F,1-squeeze(obj.plotISPC.ispc_p(chnpair(1),chnpair(2),:,:))',obj.plotISPC.plotsig);  %0.5
+                imagesc(T4,F,1-squeeze(obj.plotISPC.ispc_p(chn1,chn2,:,:))',obj.plotISPC.plotsig);  %0.5
                 axis xy;                  
                 colorbar;
                 hold on;
                 plot(T(TimeHf(1)),F(TimeHf(2)),'o','MarkerFaceColor','red');  
+                title(sprintf('channel %i (%s) x %i (%s)',obj.plotISPC.channels(chn1),obj.E.CH.H.channels(obj.plotISPC.channels(chn1)).neurologyLabel,...
+                    obj.plotISPC.channels(chn2), obj.E.CH.H.channels(obj.plotISPC.channels(chn2)).neurologyLabel));
             end
                     
             %another optional plot all phase angles for selected time and freq
@@ -613,7 +662,7 @@ classdef CPlotsN < handle
                 axis equal;
                 hold on;
                 line([zeros(size(ispc_sel))' ; real(ispc_sel)'],[zeros(size(ispc_sel))' ;  imag(ispc_sel)' ]);
-                title(['ispc = ' num2str(obj.plotISPC.ispc(chnpair(1),chnpair(2), TimeHf(1),TimeHf(2)))]);                
+                title(['ispc = ' num2str(obj.plotISPC.ispc(chn1,chn2, TimeHf(1),TimeHf(2)))]);                
             end 
                         
             %figure(obj.plotISPC.fh_ispc); %put the figure to top
@@ -1132,7 +1181,7 @@ classdef CPlotsN < handle
                        obj.plotISPC.onlysub2 = 0;
                        obj.plotISPC.clf = 1;
                     end
-                    obj.ISPCPlot(obj.plotISPC.chnpair, obj.plotISPC.TimeHf, [1 1 1 1]);
+                    obj.ISPCPlot(obj.plotISPC.chnpair, [], [1 1 1 1]);
                 case {'rightarrow'} %move the channel pair to right
                     if obj.plotISPC.chnpair(1) <= numel(obj.plotISPC.channels) -shift
                         chnpair = [obj.plotISPC.chnpair(1)+shift obj.plotISPC.chnpair(2)];
@@ -1153,7 +1202,7 @@ classdef CPlotsN < handle
                         chnpair = [obj.plotISPC.chnpair(1) obj.plotISPC.chnpair(2)-shift];
                         obj.ISPCPlot(chnpair, obj.plotISPC.TimeHf, [0 1 0 0]);
                     end
-                case 'space'
+                case 'q'
                     if obj.plotISPC.plotsig(1) == 0.5
                         obj.plotISPC.plotsig = [0.95 1];
                     elseif obj.plotISPC.plotsig(1) == 0.95 
@@ -1163,15 +1212,31 @@ classdef CPlotsN < handle
                     end
                     obj.ISPCPlot(obj.plotISPC.chnpair, obj.plotISPC.TimeHf, [0 1 0 1]);
                 case {'o'}    %plots all epochs for this frequency - their phase
-                    obj.PlotITPCallEpochs(obj.plotISPC.chnpair,obj.plotISPC.TimeHf(2));
+                    chnpair = [obj.plotISPC.channels(obj.plotISPC.sortorder(obj.plotISPC.chnpair(1))) ...
+                            obj.plotISPC.channels(obj.plotISPC.sortorder(obj.plotISPC.chnpair(2)))];
+                    obj.PlotITPCallEpochs(chnpair,obj.plotISPC.TimeHf(2));
                 case {'p'}  %plot optional plot all phase angles for selected time and freq
-                    obj.ISPCPlot(obj.plotISPC.chnpair, obj.plotISPC.TimeHf,[],1)
-                case 'v'
+                    obj.ISPCoPlot(obj.plotISPC.chnpair, obj.plotISPC.TimeHf,[],1)
+                case 'space' %zoom/unzoom the top right plot
                     obj.plotISPC.onlysub2 = 1-obj.plotISPC.onlysub2;
                     if obj.plotISPC.onlysub2 == 0
                        obj.plotISPC.clf = 1;
                     end
                     obj.ISPCPlot(obj.plotISPC.chnpair, obj.plotISPC.TimeHf, [0 1 0 0]); 
+                case 'v' %change sorting of channels in the top right figure - original vs. brainlabels
+                    if obj.plotISPC.sortby == 0
+                        labels={obj.E.CH.brainlabels(:).label};
+                        [slabels,sortindex]=sort(labels);
+                        [~,ia] =unique(slabels,'stable');
+                        obj.plotISPC.els = [ia(2:end)'-1 numel(obj.plotISPC.channels)];
+                        obj.plotISPC.sortorder = sortindex;
+                        obj.plotISPC.sortby = 1;
+                    else
+                        obj.plotISPC.els=obj.E.CH.els;
+                        obj.plotISPC.sortorder = 1:size(obj.plotISPC.ispc,1);
+                        obj.plotISPC.sortby = 0;
+                    end
+                    obj.ISPCPlot(obj.plotISPC.chnpair, obj.plotISPC.TimeHf, [0 1 0 0]); %update the all channel plot
             end
         end
          
