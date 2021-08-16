@@ -4,18 +4,22 @@ classdef CPlotsN < handle
     
     properties (Access = public)
         E;                      % CiEEGData object
-        HOrigData;              % original untransformed EEG data
+        HOrigData;              % original untransformed EEG data - unepoched
         plotData = struct;      % contains figure and plot info
+        plotISPC = struct;        
     end
     
     methods (Access = public)
         
         function obj = CPlotsN(E, HOrigData)
-            obj.E = E;
-            if ~exist('HOrigData', 'var') || isempty(HOrigData)
+            obj.E = E;            
+            if size(obj.E.d,3)>1 %for epoched data
+                obj.HOrigData = []; %no original data - used only in plotUnepochedData
+            elseif ~exist('HOrigData', 'var') || isempty(HOrigData) %only for non-epoched data
                 obj.HOrigData = downsample(E.d,E.decimatefactor); %do funkce plotUnepochedData
             else
-                obj.HOrigData = HOrigData;
+                %argument used for non-epoched data
+                obj.HOrigData = HOrigData;           
             end
         end
         
@@ -24,7 +28,7 @@ classdef CPlotsN < handle
             %   * all selected frequencies for one channel
             %   * or one frequency for all channels if called from PlotElectrodeGroup
             % INPUT:
-            % type          - 0 = power, 1 = original filtered data
+            % type          - 0 = power (HFreq), 1 = original filtered data (obj.freal)
             % psy           - psy structure, aka aedist for stimuli and response time
             % channels      - if called directly, only one channel
             % frequencies   - frequencies to plot (not indexes)
@@ -34,7 +38,7 @@ classdef CPlotsN < handle
             % plotGroup     - only if called from PlotElectrodeGroup, default false
             
             obj.plotData.type = type;
-            
+            assert(~isempty(obj.HOrigData),'the field HOrigData with unepoched data cant be empty');
             assert(isa(psy,'struct'),'Prvy parameter musi byt struktura s datami z psychopy'); % kvoli response time
             obj.E.PsyData = CPsyData(psy); 
             
@@ -55,7 +59,7 @@ classdef CPlotsN < handle
             obj.plotData.f = figure('Name','All Frequencies','Position', [20, 100, 1000, 600]); % init the figure
             set(obj.plotData.f, 'KeyPressFcn', @obj.MovePlotFreqs); % set key press function
             
-            if ~exist('plotGroup','var'); obj.plotData.plotGroup = false; else obj.plotData.plotGroup = plotGroup; end
+            if ~exist('plotGroup','var'); obj.plotData.plotGroup = false; else, obj.plotData.plotGroup = plotGroup; end
      
             if ~isfield(obj.plotData,'plotGroup'); obj.plotData.plotGroup = false; end 
             obj.plotData.stimuli = (obj.E.PsyData.P.data(:,obj.E.PsyData.P.sloupce.ts_podnet) - obj.E.tabs(1))*24*3600;
@@ -104,7 +108,14 @@ classdef CPlotsN < handle
                % plot rejected line
                if obj.PlotRejected(channel, time, epochs(i), sum(errors(epochs(i),:))) %jestli jde o vyrazenou epochu
                   correct = correct +1; % ukladam indexy spravnych epoch
-                  title(sprintf('%d - epoch %d (%d) ', obj.E.PsyData.P.data(epochs(i),obj.E.PsyData.P.sloupce.opakovani), correct, epochs(i)),'FontSize',8) ;
+                  if isfield(obj.E.PsyData.P.sloupce,'opakovani')
+                      sloupec_opakovani = obj.E.PsyData.P.sloupce.opakovani; %pro AEDIST
+                  elseif isfield(obj.E.PsyData.P.sloupce,'opakovani_obrazku')
+                      sloupec_opakovani = obj.E.PsyData.P.sloupce.opakovani_obrazku; %pro PPA
+                  else
+                      sloupec_opakovani = 1; %soubor, skoro vzdy 0
+                  end
+                  title(sprintf('%d - epoch %d (%d) ', obj.E.PsyData.P.data(epochs(i),sloupec_opakovani), correct, epochs(i)),'FontSize',8) ;
                end
                
                % plot response time 
@@ -134,7 +145,7 @@ classdef CPlotsN < handle
             %pre dany channel a condition (napriklad 0=cervena, 1=vy, 2=znacka, 9=all conditions)
             %priemerne z-scored power cez cely casovy usek pre kazdu frekvenciu
             %a zvlast pre useky pred/po podnete
-            assert(~isempty(obj.E.HFreqEpochs),'soubor s frekvencnimi daty pro epochy neexistuje');
+            assert(~isempty(obj.E.HFreqEpochs),'pole HFreqEpochs s frekvencnimi daty pro epochy neexistuje');
             correct_epochs = obj.CorrectEpochs(channel, icondition); %vyfiltruje len spravne epochy
             
             time = linspace(obj.E.epochtime(1), obj.E.epochtime(2), size(obj.E.HFreqEpochs,1));
@@ -428,6 +439,179 @@ classdef CPlotsN < handle
             
         end
         
+        %ISPC functions
+        function [ispc] = ISPCCalculate(obj,channels,fdr)
+            % inter site phase coherence = PLV - according to MikeXCohen
+            % currently only: ISPC-trial, for one pair of channels, for all computed frequencies, for all time points
+            % ispc = time x fq
+            if ~exist('channels','var') || isempty(channels), channels = 1:obj.E.channels; end %the more strict method
+            if ~exist('fdr','var'), fdr = 2; end %the more strict method
+            n_epochs = size(obj.E.fphaseEpochs,4); %number of epochs
+            ispc = nan(numel(channels), numel(channels), size(obj.E.fphaseEpochs,1),size(obj.E.fphaseEpochs,3)); %chn x chn x time x fq            
+            
+            %this is too large field to be computed for 100 channels: Requested 100x100x64x46x650 (142.6GB) array 
+            %ispc_all = nan(size(obj.E.fphaseEpochs,1),size(obj.E.fphaseEpochs,3),n_epochs);%chn x chn x time x fq x epochs                           
+            
+            ispc_p_min = nan(numel(channels), numel(channels));
+            fprintf('ISPCCalculate: ');
+            for ichn1 = 1:numel(channels)
+                fprintf('%i, ',ichn1);
+                for ichn2 = ichn1+1:numel(channels)                                           
+                    fphaseEpochs1 = squeeze(obj.E.fphaseEpochs(:,channels(ichn1),:,:)); %time x freq x epochs
+                    fphaseEpochs2 = squeeze(obj.E.fphaseEpochs(:,channels(ichn2),:,:));
+                    %the cycles over frequencies and time removed - all computed at once in the following commands
+                    ispc_all = exp(1i*(fphaseEpochs1 - fphaseEpochs2)); %time x freq x epochs - complex number
+                    ispc_ch = abs(mean(ispc_all,3)); %abs = lenght of the average vector ,%time x freq , mean over epochs
+                    ispc(ichn1,ichn2,:,:) = ispc_ch;
+                    ispc_p0 = CEEGStat.ISPCBaseline(squeeze(ispc(ichn1,ichn2,:,:)),n_epochs, obj.E.epochtime,obj.E.baseline,obj.E.fs,fdr); %significance relative to mean baseline ispc
+                    if ~exist('ispc_p','var') %easiest way how to find the first dimension of ispc_p0
+                        ispc_p = nan(numel(channels), numel(channels),size(ispc_p0,1),size(ispc_p0,2));
+                    end
+                    ispc_p(ichn1,ichn2,:,:) = ispc_p0;
+                    ispc_p_min(ichn1,ichn2) = min(min(ispc_p0)); %find the most significan ispc value for each combination of channels                                        
+                end                
+            end
+            fprintf('\n');
+           
+            obj.plotISPC.ispc = ispc;            
+            obj.plotISPC.ispc_all = ispc_all; %the angles computed for the last combination of channels
+            obj.plotISPC.ispc_p = ispc_p;
+            obj.plotISPC.fdr = fdr;
+            obj.plotISPC.channels = channels;            
+            obj.plotISPC.ispc_p_min = ispc_p_min; 
+            
+        end
+        
+        function ISPCPlot(obj,chnpair,TimeHf, updateS, ISPCPlotSelection)
+            %plot all ispc values  for a specific pair of channels from computed values            
+            if ~exist('chnpair','var')  || isempty(chnpair) , chnpair = 1:2; end
+            if ~exist('TimeHf','var') || isempty(TimeHf)
+                [iTime,iHf] = find(squeeze(obj.plotISPC.ispc_p(chnpair(1),chnpair(2),:,:)) == obj.plotISPC.ispc_p_min(chnpair(1),chnpair(2)));
+                TimeHf = [iTime(1) iHf(1)];
+            end 
+            if ~exist('updateS','var') || isempty(updateS) , updateS = [1 0 0 0]; end
+            if ~exist('ISPCPlotSelection','var'), ISPCPlotSelection = 0; end
+            assignhandle = false;
+            if ~isfield(obj.plotISPC,'fh_ispc') || isempty(obj.plotISPC.fh_ispc) || ~ishghandle(obj.plotISPC.fh_ispc)
+                obj.plotISPC.fh_ispc = figure('Name','ISPCPlot');   
+                obj.plotISPC.subph = {}; %handles to subplots
+                obj.plotISPC.annoth = {}; %handles to annotations
+                obj.plotISPC.plotsig = [0.5 0.95]; % limits of significance plots
+                updateS = [1 1 1 1];
+                assignhandle = true;
+            else
+                figure(obj.plotISPC.fh_ispc);
+                %clf; %vymazu obrazek                 
+                for iu = 1:numel(updateS) %clear individual subplots
+                    if updateS(iu)
+                        cla( obj.plotISPC.subph{iu})
+                        delete(obj.plotISPC.subph{iu});                        
+                        if numel(obj.plotISPC.annoth()) >= iu && ~isempty(obj.plotISPC.annoth{iu})
+                            delete(obj.plotISPC.annoth{iu});
+                        end
+                    end                        
+                end
+            end   
+            
+            T = linspace(obj.E.epochtime(1), obj.E.epochtime(2), size(obj.E.fphaseEpochs,1));
+            F =  obj.E.Hfmean;
+            obj.plotISPC.TimeHf = TimeHf; %store the state of this figure            
+            obj.plotISPC.chnpair = chnpair; %store the state of this figure 
+            
+            %subplot with ISPC values from one pair of channels
+            if updateS(1) 
+                obj.plotISPC.subph{1} = subplot(2,2,1);            
+                imagesc(T,F,squeeze(obj.plotISPC.ispc(chnpair(1),chnpair(2),:,:))'); %has to transpose, imagesc probably plots first dimension in rows 
+                axis xy; %make the y axis increasing from bottom to top
+                colormap parula;
+                colorbar;
+                title(sprintf(' channels %i, %s - %i, %s', ...
+                    obj.plotISPC.channels(chnpair(1)),obj.E.CH.H.channels(obj.plotISPC.channels(chnpair(1))).name,...
+                    obj.plotISPC.channels(chnpair(2)),obj.E.CH.H.channels(obj.plotISPC.channels(chnpair(2))).name));
+                xlabel([num2str(T(TimeHf(1))) ' sec']);
+                ylabel([num2str(F(TimeHf(2))) ' Hz']);
+                hold on;
+                plot(T(TimeHf(1)),F(TimeHf(2)),'o','MarkerFaceColor','red');            
+                obj.plotISPC.annoth{1} = annotation(obj.plotISPC.fh_ispc,'textbox',[0 .9 .4 .1],'String',num2str(obj.plotISPC.ispc(chnpair(1),chnpair(2), TimeHf(1),TimeHf(2))), 'EdgeColor', 'none');
+            end
+            
+            %subplot with ISPC values from one frequency of one pair of channels
+            if updateS(3) 
+                obj.plotISPC.subph{3} = subplot(2,2,3);
+                plot(T,squeeze(obj.plotISPC.ispc(chnpair(1),chnpair(2), :,TimeHf(2))));
+                hold on;
+                plot(T(TimeHf(1)),obj.plotISPC.ispc(chnpair(1),chnpair(2), TimeHf(1),TimeHf(2)),'o');
+                title([num2str(F(TimeHf(2))) ' Hz']);
+                ylim([0 max(max(squeeze(obj.plotISPC.ispc(chnpair(1),chnpair(2),:,:))))])                
+            end
+            
+            %subplot with minimum ISPC significance across all channels
+            if updateS(2)                
+                obj.plotISPC.subph{2} = subplot(2,2,2);            
+                imagesc(obj.plotISPC.channels,obj.plotISPC.channels,1-obj.plotISPC.ispc_p_min',obj.plotISPC.plotsig); 
+                axis xy; colorbar; 
+                hold on;
+                plot(chnpair(1),chnpair(2),'o','MarkerFaceColor','red'); 
+            end
+            
+            %subplot with significance of ISPC of this pair of channels
+            if updateS(4) 
+                obj.plotISPC.subph{4} = subplot(2,2,4);
+                T4 = linspace(0, obj.E.epochtime(2), size(obj.plotISPC.ispc_p,3));
+                imagesc(T4,F,1-squeeze(obj.plotISPC.ispc_p(chnpair(1),chnpair(2),:,:))',obj.plotISPC.plotsig);  %0.5
+                axis xy;                  
+                colorbar;
+                hold on;
+                plot(T(TimeHf(1)),F(TimeHf(2)),'o','MarkerFaceColor','red');  
+            end
+                    
+            %another optional plot all phase angles for selected time and freq
+            if ~isempty(TimeHf(2)) && ISPCPlotSelection && chnpair(1) == obj.plotISPC.channels(end-1) && chnpair(2) == obj.plotISPC.channels(end)
+                
+                ispc_sel = squeeze(obj.plotISPC.ispc_all(TimeHf(1),TimeHf(2),:));                 
+                if ~isfield(obj.plotISPC,'fh_ispc_sel') || isempty(obj.plotISPC.fh_ispc_sel) || ~ishghandle(obj.plotISPC.fh_ispc_sel)
+                    obj.plotISPC.fh_ispc_sel = figure('Name','ISPCPlot Selection');                
+                else
+                    figure(obj.plotISPC.fh_ispc_sel);
+                    clf; %vymazu obrazek                 
+                end        
+                circle(1,0,0,'k');
+                axis equal;
+                hold on;
+                line([zeros(size(ispc_sel))' ; real(ispc_sel)'],[zeros(size(ispc_sel))' ;  imag(ispc_sel)' ]);
+                title(['ispc = ' num2str(obj.plotISPC.ispc(chnpair(1),chnpair(2), TimeHf(1),TimeHf(2)))]);                
+            end 
+                        
+            %figure(obj.plotISPC.fh_ispc); %put the figure to top
+            if assignhandle
+                methodhandle = @obj.hybejPlotISPC;
+                set(obj.plotISPC.fh_ispc,'KeyPressFcn',methodhandle);
+            end
+        end
+        
+        function ISPCSave(obj)
+            assert(~isempty(obj.E),'no original CiEEGData data exist');
+            assert(~isempty(obj.plotISPC),'no plotISPC data exist');
+            fname = obj.filenameISPC(obj.E.filename);
+            plotISPC = obj.plotISPC; %#ok<PROP>
+            plotISPC.fh_ispc = []; %#ok<PROP>
+            plotISPC.fh_ispc_sel = []; %#ok<PROP>
+            plotISPC.annoth = {};%#ok<PROP>
+            plotISPC.subph = {};%#ok<PROP>
+            save(fname,'plotISPC','-v7.3'); 
+            disp(['saved to ' fname ]);
+        end
+        function ISPCLoad(obj)
+            assert(~isempty(obj.E),'no original CiEEGData data exist');
+            fname = obj.filenameISPC(obj.E.filename);
+            if exist(fname,'file')
+                V = load(fname);
+                obj.plotISPC = V.plotISPC;
+                disp(['loaded ' fname ]);
+            else
+                disp(['not found: ' fname ]);
+            end
+        end
         
         
         function fig = PlotITPCsig(obj, ch, sig, diffs)
@@ -493,22 +677,52 @@ classdef CPlotsN < handle
             
         end
                 
-        % modro zlte plots synchronizacie fazy image
-        function fig = PlotITPCallEpochs(obj, channel)
-            fig = figure;
+        function fH = PlotITPCallEpochs(obj, channel, iHf, sortbycondition)
+            % modro zlte plots synchronizacie fazy image            
+            if ~exist('iHf','var'), iHf = 1:numel(obj.E.Hfmean); end %all frequencies by default
+            if ~exist('sortbycondition','var'), sortbycondition = 0; end %if to sorf epochs by condition
+            assert(numel(channel)<=3 || numel(iHf)==1, 'needs to plot either one channel or one frequency');
+            fH= figure('Name','PlotITPCallEpochs');
             time = linspace(obj.E.epochtime(1), obj.E.epochtime(2), size(obj.E.fphaseEpochs,1));
-            for iFq = 1:length(obj.E.Hf)
-                subplot(2,ceil(length(obj.E.Hf)/2),iFq);
-                % sort epochs by condition
-                epochsByCond = sortrows([[obj.E.epochData{:,2}]' (1:length(obj.E.epochData))'],1);
-                phases = squeeze(obj.E.frealEpochs(:,channel,iFq,:))';
-                image(phases(epochsByCond(:,2),:), 'XData', time);
-                hold on;
-                set(gca,'YDir','normal')
-                xlabel('Time (s)'); ylabel('Epoch');
-                title([num2str(obj.E.Hf(iFq)), ' Hz']);
+            for ich = 1:numel(channel)
+                for iFq = 1:numel(iHf)                    
+                    if numel(channel) == 1 %show multiple frequencies for only one channel
+                        subplot(2,ceil(length(iHf)/2),iFq);
+                        xoff = iff( rem(ceil(length(iHf)/2), 2)==1  ,.3,0); %for only even number of columns of subplots - move the mtit a bit
+                    elseif numel(channel) == 2 || numel(channel) == 3 %compare multiple frequencies in 2 or 3 channels
+                        subplot(numel(channel),length(iHf),(ich-1)*numel(iHf)+iFq); 
+                        xoff = iff( rem(length(iHf), 2)==1  ,.3,0);  %for only even number of columns of subplots - move the mtit a bit
+                    else %show one frequency for multiple channels
+                        subplot(2,ceil(numel(channel)/2),ich);
+                        xoff = iff( rem(ceil(numel(channel)/2),2)==1,.3,0); %for only even number of columns of subplots - move the mtit a bit
+                    end                    
+                    % sort epochs by condition
+                    epochsByCond = [[obj.E.epochData{:,2}]' (1:length(obj.E.epochData))']; % colmuns: stimulus condition, epoch no               
+                    if sortbycondition
+                        epochsByCond = sortrows(epochsByCond,1); %sort epochs by stimulus condition
+                    end 
+                    phases = squeeze(obj.E.frealEpochs(:,channel(ich),iHf(iFq),:))'; %epochs x time - the filtered signal
+                    image(phases(epochsByCond(:,2),:), 'XData', time); % yellow = signal above zero, blue = signal below zero. 
+                    hold on;
+                    set(gca,'YDir','normal')
+                    xlabel('Time (s)'); ylabel('Epoch');
+                    if numel(channel) == 1
+                        title([num2str(round(obj.E.Hfmean(iHf((iFq))),2)), ' Hz']); %title for this subplot
+                    elseif numel(channel) == 2 || numel(channel) == 3
+                        title([num2str(round(obj.E.Hfmean(iHf((iFq))),2)), ' Hz']); 
+                    else
+                        title([num2str(channel(ich)), obj.E.CH.H.channels(channel(ich)).name]); %title for this subplot
+                    end
+                    if iFq == 1 && (numel(channel) == 2 || numel(channel) == 3)
+                        ylabel([num2str(channel(ich)), obj.E.CH.H.channels(channel(ich)).name]);
+                    end
+                end                
+            end           
+            if numel(channel) == 1
+                mtit(sprintf('Channel %d, %s', channel(ich),obj.E.CH.H.channels(channel(ich)).name),'xoff',xoff);
+            elseif numel(channel) >3 
+                mtit(sprintf('Fq %2.2d Hz', round(obj.E.Hfmean(iHf((iFq))),2)),'xoff',xoff);
             end
-            mtit(sprintf('Channel %d \n', channel));
             hold off;
         end
         
@@ -540,7 +754,17 @@ classdef CPlotsN < handle
         
     end
     
-    
+    methods (Static,Access = public)        
+        function filename2 = filenameISPC(filename)
+             %vraci jmeno souboru s daty teto tridy
+           filename=strrep(filename,'_CHilb',''); %odstranim pripony vytvorene pri save
+           filename=strrep(filename,'_CiEEG','');
+           filename=strrep(filename,'_CHMult','');
+           [pathstr,fname,ext] = CiEEGData.matextension(filename);            
+           filename2 = fullfile(pathstr,[fname '_ISPC' ext]);
+        end
+        
+    end
     methods (Access = private)
         
         function itpc = ITPCpermute(n_permutes, itpcOrig, eegphase)
@@ -580,7 +804,7 @@ classdef CPlotsN < handle
             % Plot all unepoched transformed data - power/original transformed signal and phase
             % one subplot = one frequency
             % called from PlotUnepoched()
-            
+            assert(~isempty(obj.HOrigData),'the field HOrigData with unepoched data cant be empty');
             time = (obj.plotData.iTime*obj.E.fs+1):(obj.plotData.iTime*obj.E.fs+obj.plotData.timeDelay); % moving time window
             x = time./obj.E.fs; % current x axis in seconds
             % determine number of subplots based on selected channels or frequencies
@@ -640,7 +864,7 @@ classdef CPlotsN < handle
 
                     responses = obj.plotData.responses(obj.plotData.responses >= x(1) & obj.plotData.responses <= x(end));
                     plot([responses responses]', repmat(ylim,length(responses),1)','k', 'LineWidth',2); % plot responses
-                    if obj.plotData.plotGroup; 
+                    if obj.plotData.plotGroup
                         title(strcat(num2str(obj.plotData.iChannels(i)), '. channel (', t, ') ',names{obj.plotData.iChannels(i)},'-',labels{obj.plotData.iChannels(i)}));
                     else
                         title(strcat(num2str(obj.E.Hf(obj.plotData.iFreqs(i))), ' Hz (', t, ')'));
@@ -649,9 +873,9 @@ classdef CPlotsN < handle
                     %%%%%%%%%%%%%%%%%%% PHASE %%%%%%%%%%%%%%%%%%% 
                     subplot(numSubplot,2,i*2)
                     % phase values
-                    if obj.plotData.plotGroup; 
+                    if obj.plotData.plotGroup
                         y = squeeze(obj.E.fphase(time,obj.plotData.iChannels(i),obj.plotData.iFreqs)); % channel phase values
-                        display('correct, more')
+                        disp('correct, more')
                     else
                         y = squeeze(obj.E.fphase(time,obj.plotData.iChannels,obj.plotData.iFreqs(i))); % frequency phase values
                     end 
@@ -837,6 +1061,74 @@ classdef CPlotsN < handle
             if isempty(next)
                 next = obj.plotData.iEpoch;
             end
+        end
+        
+        function obj = hybejPlotISPC(obj,~,eventDat)  
+            %reacts to events in figure ISPCPlot
+            if ~isempty(eventDat.Modifier) && strcmp(eventDat.Modifier{:},'shift')
+                shift = 10;
+            else
+                shift = 1;
+            end
+            switch eventDat.Key
+                case {'numpad6','d'} %next time sample
+                    if obj.plotISPC.TimeHf(1) <= size(obj.plotISPC.ispc,3)-shift %compare to num of time samples
+                        TimeHf = [(obj.plotISPC.TimeHf(1) + shift), obj.plotISPC.TimeHf(2)];
+                        obj.ISPCPlot(obj.plotISPC.chnpair, TimeHf);
+                    end
+                case {'numpad4','a'} %previous time sample   
+                    if obj.plotISPC.TimeHf(1) > shift
+                        TimeHf = [(obj.plotISPC.TimeHf(1) - shift), obj.plotISPC.TimeHf(2)];
+                        obj.ISPCPlot(obj.plotISPC.chnpair, TimeHf)
+                    end         
+                case {'numpad8','w'} %next frequency
+                    if obj.plotISPC.TimeHf(2) <= size(obj.plotISPC.ispc,4) - shift   %compare to num of freq 
+                        TimeHf = [obj.plotISPC.TimeHf(1) , (obj.plotISPC.TimeHf(2)+shift)];
+                        obj.ISPCPlot(obj.plotISPC.chnpair, TimeHf)
+                    end
+                case {'numpad2','s'} %previous frequency 
+                    if obj.plotISPC.TimeHf(2) > shift
+                        TimeHf = [obj.plotISPC.TimeHf(1) , (obj.plotISPC.TimeHf(2)-shift)];
+                        obj.ISPCPlot(obj.plotISPC.chnpair, TimeHf)
+                    end                
+                case {'home'}                     
+                    obj.ISPCPlot(obj.plotISPC.chnpair, []);
+                case {'return'}
+                    obj.ISPCPlot(obj.plotISPC.chnpair, obj.plotISPC.TimeHf, [1 1 1 1]);
+                case {'rightarrow'} %move the channel pair to right
+                    if obj.plotISPC.chnpair(1) <= numel(obj.plotISPC.channels) -shift
+                        chnpair = [obj.plotISPC.chnpair(1)+shift obj.plotISPC.chnpair(2)];
+                        obj.ISPCPlot(chnpair, obj.plotISPC.TimeHf, [0 1 0 0]);
+                    end
+                case {'leftarrow'} % move the channel pair to left
+                    if obj.plotISPC.chnpair(1) > shift
+                        chnpair = [obj.plotISPC.chnpair(1)-shift obj.plotISPC.chnpair(2)];
+                        obj.ISPCPlot(chnpair, obj.plotISPC.TimeHf, [0 1 0 0]);
+                    end
+                case {'uparrow'} % zvyseni cisla aktivni statistiky
+                    if obj.plotISPC.chnpair(2) <= numel(obj.plotISPC.channels) -shift
+                        chnpair = [obj.plotISPC.chnpair(1) obj.plotISPC.chnpair(2)+shift];
+                        obj.ISPCPlot(chnpair, obj.plotISPC.TimeHf, [0 1 0 0]);
+                    end
+                case {'downarrow'}
+                    if obj.plotISPC.chnpair(2) > shift
+                        chnpair = [obj.plotISPC.chnpair(1) obj.plotISPC.chnpair(2)-shift];
+                        obj.ISPCPlot(chnpair, obj.plotISPC.TimeHf, [0 1 0 0]);
+                    end
+                case 'space'
+                    if obj.plotISPC.plotsig(1) == 0.5
+                        obj.plotISPC.plotsig = [0.95 1];
+                    elseif obj.plotISPC.plotsig(1) == 0.95 
+                        obj.plotISPC.plotsig = [0.99 1];
+                    else
+                        obj.plotISPC.plotsig = [0.5 0.95];
+                    end
+                    obj.ISPCPlot(obj.plotISPC.chnpair, obj.plotISPC.TimeHf, [0 1 0 1]);
+                case {'o'}    %plots all epochs for this frequency - their phase
+                    obj.PlotITPCallEpochs(obj.plotISPC.chnpair,obj.plotISPC.TimeHf(2));
+                case {'p'}    
+                    obj.ISPCPlot(obj.plotISPC.chnpair, obj.plotISPC.TimeHf,[],1)
+               end
         end
          
     end

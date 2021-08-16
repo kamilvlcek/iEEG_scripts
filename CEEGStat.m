@@ -114,6 +114,22 @@ classdef CEEGStat
             %baseline0 je cast epochtime pred koncem baseline nebo pred casem 0
             baseline0 = [epochtime(1) iff(baseline(2)>epochtime(1),baseline(2),0)]; %zalezi jestli se baselina a epochtime prekryvaj
         end
+        function ispc_p = ISPCBaseline(ispc,n,epochtime,baseline,fs,fdr)
+            %computes significance of ispc relative to baseline
+            %ispc is time x freq, n is number of epochs from which the ispc was computed
+            %fdr 0=no fdr, 1=less strict,2=more strict
+            iepochtime = round(epochtime(1:2).*fs); %samples before and after stimulus, first is negative number           
+            ibaseline = round(CEEGStat.Baseline(epochtime,baseline).*fs); %samples before stimulus, first is negative number  
+            ispcbaseline = mean(ispc(ibaseline(1)-iepochtime(1)+1 : ibaseline(2)-iepochtime(1),:),1); % mean over time
+            iispc = abs(iepochtime(1)-ibaseline(2))+1 : size(ispc,1) ; %ispc values after stimulus        
+            ispcdiff = ispc(iispc,:) - repmat(ispcbaseline,numel(iispc),1);
+            [ispc_p,~]=CStat.CorrelStat(ispcdiff,n); %significance of the ISPC difference
+            if fdr > 0 
+                if fdr == 2, method = 'dep'; else method = 'pdep'; end %#ok<SEPEX>
+                [~, ~, adj_p]=fdr_bh(ispc_p,0.05,method,'no'); %dep is more sctrict than pdep 
+                ispc_p = adj_p; %overwrite the corrected values by FDR corrected                
+            end
+        end
     end
     
 end

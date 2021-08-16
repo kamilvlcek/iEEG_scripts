@@ -954,6 +954,13 @@ classdef CStat < handle
                 end
             end
         end
+        function [p,t]=CorrelStat(r,n)
+            %returns the significance of correlation coeeficient, r can be a vector or matrix
+            %according to MXCohen par 34.7 to be used to test significance of ISCP difference - 2021/07
+            %z = 0.5*log((1+r)/(1-r)); %fischer z transform of r - not needed
+            t = r.*sqrt((n-2)./(1-r.^2)); %t-statistics
+            p = 1-tcdf(abs(t),n-2); %two tailed one-sample t-test            
+        end
     end
     methods (Access = private)
         function obj = hybejAUCPlot(obj,~,eventDat)
