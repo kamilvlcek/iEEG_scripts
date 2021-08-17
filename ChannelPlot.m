@@ -236,7 +236,15 @@ classdef ChannelPlot < matlab.mixin.Copyable
             %netvori graf, kresli do existujiciho a aktivniho ChannelPlot, a predpoklada hold on;
             dimenze = [2 3; 1 3; 2 1]; %xy, xz a yz ,  
             load('GMSurfaceMesh.mat');             %#ok<LOAD>
-            if ~exist('plotview','var'), plotview = obj.plotCh3D.view; end
+            if ~isprop(obj,'plotCh3D') || ~isfield(obj.plotCh3D,'outputstyle')
+               obj.ChannelPlotInit();
+            end
+            if ~exist('plotview','var')                               
+                if ~isfield(obj.plotCh3D,'view') 
+                    obj.plotCh3D.view = [0 90]; %default view
+                end    
+                plotview = obj.plotCh3D.view;
+            end
             if ~obj.plotCh3D.outputstyle
                 dd = 1:3;
             else

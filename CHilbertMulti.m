@@ -101,7 +101,8 @@ classdef CHilbertMulti < CHilbert
             obj.DatumCas = {};
             disp('data objektu smazana');
         end
-        function obj = ImportExtract(obj,filenames,label)
+        function obj = ImportExtract(obj,filenames,label,which)
+            %which is cell array of varnames to load: from these: HFreqEpochs, fphaseEpochs, frealEpochs - to spare RAM memory and file size            
             if numel(obj.filenames)>0
                 if obj.filesimported == 0 %nejaky soubor naimportovan castecne kvuli chybe - musim smazat
                     obj.Clear();
@@ -109,19 +110,33 @@ classdef CHilbertMulti < CHilbert
                     disp(['pridavam data k existujicim souborum: ' num2str(obj.filesimported)]);
                 end
             end
-            if exist('label','var'), obj.label = label; end             
+            if exist('label','var'), obj.label = label; end  
+            if ~exist('which','var'), which={}; end    
             for fileno = 1:size(filenames,1)
                 fprintf('%i/%i: ',fileno,size(filenames,1));
                 filename = filenames{fileno,1}; %cell array, zatim to musi byt plna cesta                                
                 if exist(filename,'file') 
                     disp(obj.basename(filename)); %zobrazim jmeno souboru s pouze koncem 
                     obj.filenames{fileno,1} = filename;
-                    load(filename); %#ok<LOAD> %nacte vsechny promenne
-                    if ~exist('baseline','var'), baseline = [epochtime(1) 0]; end %fake baseline, pokud nebyla ulozena                    
-                    if ~exist('chnlabels','var'), chnlabels = cell(1,numel(H.channels)); end %empty channel labels if not saved 
-                    if ~exist('HFreqEpochs','var'), HFreqEpochs=[]; end %frekvencni data ze vsech epoch, pokud neexistuji udelam prazdne                                                        
-                    if ~exist('fphaseEpochs','var'), fphaseEpochs = []; end %epoched phase data if not saved                     
-                    if ~exist('frealEpochs','var'), frealEpochs = []; end %epoched filtered signal if not saved 
+                    load(filename,'P','epochtime','epochData','RjEpoch','RjEpochCh','d','tabs','fs','reference','H','Hf','Hfmean','HFreq','DatumCas');%nacte vsechny promenne
+                    vars = whos('-file',filename);
+                    if ismember('baseline', {vars.name}), load(filename,'baseline'); else, baseline = [epochtime(1) 0]; end %fake baseline, pokud nebyla ulozena                    
+                    if ismember('chnlabels', {vars.name}), load(filename,'chnlabels'); else, chnlabels = cell(1,numel(H.channels)); end %empty channel labels if not saved 
+                    if ismember('HFreqEpochs', {vars.name}) && contains(which,'HFreqEpochs')
+                        load(filename,'HFreqEpochs'); %frekvencni data ze vsech epoch, pokud neexistuji udelam prazdne
+                    else
+                        HFreqEpochs=[]; 
+                    end 
+                    if ismember('fphaseEpochs', {vars.name}) && contains(which,'fphaseEpochs')
+                        load(filename,'fphaseEpochs'); %epoched phase data if not saved  
+                    else
+                        fphaseEpochs=[]; 
+                    end 
+                    if ismember('frealEpochs', {vars.name}) && contains(which,'frealEpochs')
+                        load(filename,'frealEpochs'); %epoched filtered signal if not saved 
+                    else
+                        frealEpochs=[]; 
+                    end                     
                     
                     test = ~P.data(:,P.sloupce.zpetnavazba); %index testovych epoch
                     
@@ -134,7 +149,7 @@ classdef CHilbertMulti < CHilbert
                     obj.GetEpochData(epochData,fileno,test,1); 
                     
                     %d hlavni data
-                    obj.GetD(d,RjEpochCh,HFreqEpochs); %ulozi nova data d, pripadne prehazi epochy
+                    obj.GetD(d,RjEpochCh); %ulozi nova data d, pripadne prehazi epochy
                     
                     %tabs a tabs_orig
                     obj.GetTabs(tabs); %,tabs_orig,fileno                   
@@ -270,7 +285,8 @@ classdef CHilbertMulti < CHilbert
                 if isempty(obj.fphaseEpochs)
                     obj.fphaseEpochs = fphaseEpochs; %time x channels x freq x eepochs
                 else
-                    if nepochs > 0
+                    if size(obj.fphaseEpochs,4) < size(fphaseEpochs,4) 
+                        nepochs = size(fphaseEpochs,4) - size(obj.fphaseEpochs,4); %kolik sepoch se ma pridat
                         obj.fphaseEpochs = cat(4,obj.fphaseEpochs,zeros(size(obj.fphaseEpochs,1),size(obj.fphaseEpochs,2),size(obj.fphaseEpochs,3),nepochs));
                     end
                     obj.fphaseEpochs = cat(2,obj.fphaseEpochs,fphaseEpochs); % time x channel x frequency x epochs
@@ -280,7 +296,8 @@ classdef CHilbertMulti < CHilbert
                 if isempty(obj.frealEpochs)
                     obj.frealEpochs = frealEpochs; %time x channels x freq x eepochs
                 else
-                    if nepochs > 0 
+                    if size(obj.frealEpochs,4) < size(frealEpochs,4) 
+                        nepochs = size(frealEpochs,4) - size(obj.frealEpochs,4); %kolik sepoch se ma pridat
                         obj.frealEpochs = cat(4,obj.frealEpochs,zeros(size(obj.frealEpochs,1),size(obj.frealEpochs,2),size(obj.frealEpochs,3),nepochs));
                     end
                     obj.frealEpochs = cat(2,obj.frealEpochs,frealEpochs); % time x channel x frequency x epochs
@@ -481,6 +498,22 @@ classdef CHilbertMulti < CHilbert
             els = [els ch];  %konec posledniho pacienta chci taky
             obj.els = els;
             obj.CH.els = els;
+        end
+        function obj = ReduceFreqs(obj,reductionf)
+            %reduce all frequency data to every reductionf freq band
+            numf = numel(obj.Hf);
+            obj.Hf = obj.Hf(1:reductionf:numf);
+            obj.Hfmean = obj.Hfmean(1:reductionf:numf);
+            obj.HFreq = obj.HFreq(:,:,1:reductionf:numf,:);
+            if ~isempty(obj.HFreqEpochs)
+                obj.HFreqEpochs = obj.HFreqEpochs(:,:,1:reductionf:numf,:);
+            end
+            if ~isempty(obj.fphaseEpochs)
+                obj.fphaseEpochs = obj.fphaseEpochs(:,:,1:reductionf:numf,:);
+            end
+            if ~isempty(obj.frealEpochs)
+                obj.frealEpochs = obj.frealEpochs(:,:,1:reductionf:numf,:);
+            end
         end
         
         %% SAVE AND LOAD FILE

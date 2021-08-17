@@ -446,6 +446,7 @@ classdef CPlotsN < handle
             % ispc = time x fq
             if ~exist('channels','var') || isempty(channels), channels = 1:obj.E.channels; end %default is all channels
             if ~exist('fdr','var'), fdr = 1; end %the more strict method
+            assert(isprop(obj.E,'fphaseEpochs') && ~isempty(obj.E.fphaseEpochs), 'fphaseEpochs must be computed to use ISPC');
             n_epochs = size(obj.E.fphaseEpochs,4); %number of epochs
             ispc = nan(numel(channels), numel(channels), size(obj.E.fphaseEpochs,1),size(obj.E.fphaseEpochs,3)); %chn x chn x time x fq            
             
@@ -502,19 +503,27 @@ classdef CPlotsN < handle
         
         function ISPCPlot(obj,chnpair,TimeHf, updateS, ISPCPlotSelection)
             %plot all ispc values  for a specific pair of channels from computed values            
-            % chnpair - pair of the channels to be higlited on the left top plot of all channels, and shown an all other figure
+            % chnpair - pair of the channels (or rather their xy coordinates in the plot) to be higlited on the left top plot of all channels, and shown an all other figure
             % TimeHf - point in the time-frequency space highlighted on the left top plot - 
+            assert(isfield(obj.plotISPC,'ispc')&& ~isempty(obj.plotISPC.ispc), 'no ispc values are computed');
             if ~exist('chnpair','var')  || isempty(chnpair) 
                 if isfield(obj.plotISPC,'chnpair') && ~isempty(obj.plotISPC.chnpair)
                     chnpair = obj.plotISPC.chnpair;                     
                 else
                     chnpair = 1:2; %plotISPC.chnpair is position in sortorder, plotISPC.sortorder are posisions in plotISPC.ispc ans also in  plotISPC.channels.  plotISPC.channels are actual channel numbers               
+                    obj.plotISPC.chnpair = chnpair;
                 end
             else
                 obj.plotISPC.chnpair = chnpair; %store the state of this figure
             end
-            chn1 = obj.plotISPC.sortorder(chnpair(1));
-            chn2 = obj.plotISPC.sortorder(chnpair(2));
+            if isfield(obj.plotISPC, 'sortorder')
+                chn1 = obj.plotISPC.sortorder(chnpair(1));
+                chn2 = obj.plotISPC.sortorder(chnpair(2));
+            else
+                chn1 = chnpair(1);
+                chn2 = chnpair(2);
+            end
+                
             if isnan(max(max(squeeze(obj.plotISPC.ispc(chn1,chn2,:,:))))) %if the order of the channels is reversed - the ispc values are stored only once
                 chn1 = obj.plotISPC.sortorder(chnpair(2));
                 chn2 = obj.plotISPC.sortorder(chnpair(1));
@@ -535,12 +544,13 @@ classdef CPlotsN < handle
                 obj.plotISPC.fh_ispc = figure('Name','ISPCPlot');   
                 obj.plotISPC.subph = {}; %handles to subplots
                 obj.plotISPC.annoth = {}; %handles to annotations
-                obj.plotISPC.plotsig = [0.5 0.95]; % limits of significance plots
+                obj.plotISPC.plotsig = [0.95 1]; % limits of significance plots
                 obj.plotISPC.onlysub2 = 0; % plot only second chart with an overview of all channels
                 obj.plotISPC.clf = 0; % clear the whole plot to plot all subplots after only second chart was plotted                
                 obj.plotISPC.sortorder = 1:size(obj.plotISPC.ispc,1); %originally channels sorted by default
                 obj.plotISPC.sortby = 0; %sorted originally, 1=sorted by brainlabel
                 obj.plotISPC.els = obj.E.CH.els; %borders of the electrodes/pacients
+                obj.plotISPC.aplha = 0.4; %transparency for non signif IPSC values 1=non transparent, 0= completely transparent
                 updateS = [1 1 1 1]; %create all subplots
                 assignhandle = true;
             else
@@ -572,7 +582,8 @@ classdef CPlotsN < handle
                 if ~obj.plotISPC.onlysub2
                     obj.plotISPC.subph{1} = subplot(2,2,1);  
                 end
-                imagesc(T,F,squeeze(obj.plotISPC.ispc(chn1,chn2,:,:))'); %has to transpose, imagesc probably plots first dimension in rows 
+                ispc=squeeze(obj.plotISPC.ispc(chn1,chn2,:,:))';
+                im1=imagesc(T,F,ispc); %has to transpose, imagesc probably plots first dimension in rows 
                 axis xy; %make the y axis increasing from bottom to top
                 colormap parula;
                 colorbar;
@@ -607,10 +618,10 @@ classdef CPlotsN < handle
                 ispc_p_min = obj.plotISPC.ispc_p_min(obj.plotISPC.sortorder,obj.plotISPC.sortorder); %values sorted according to sortorder                
                 [x,y]=find(isnan(ispc_p_min));
                 ispc_p_min(sub2ind(size(ispc_p_min),x,y)) = ispc_p_min(sub2ind(size(ispc_p_min),y,x)); %make the matrix symmetrical - each value will be there twice 
-                im=imagesc(obj.plotISPC.channels,obj.plotISPC.channels,1-ispc_p_min',obj.plotISPC.plotsig); 
+                im2=imagesc(obj.plotISPC.channels,obj.plotISPC.channels,1-ispc_p_min',obj.plotISPC.plotsig); 
                 imAlpha=ones(size(ispc_p_min'));  %https://www.mathworks.com/matlabcentral/answers/81938-set-nan-as-another-color-than-default-using-imagesc
                 imAlpha(isnan(ispc_p_min'))=0;
-                im.AlphaData = imAlpha; %set transparency for nan values
+                im2.AlphaData = imAlpha; %set transparency for nan values
                 set(gca,'color',0*[1 1 1]); %black background
                 axis xy; colorbar; 
                 hold on;
@@ -639,7 +650,13 @@ classdef CPlotsN < handle
                     obj.plotISPC.subph{4} = subplot(2,2,4); 
                 end
                 T4 = linspace(0, obj.E.epochtime(2), size(obj.plotISPC.ispc_p,3));
-                imagesc(T4,F,1-squeeze(obj.plotISPC.ispc_p(chn1,chn2,:,:))',obj.plotISPC.plotsig);  %0.5
+                ispc_p = 1-squeeze(obj.plotISPC.ispc_p(chn1,chn2,:,:))';
+                im4=imagesc(T4,F,ispc_p,obj.plotISPC.plotsig);  %0.5
+                imAlpha=ones(size(ispc_p));  %https://www.mathworks.com/matlabcentral/answers/81938-set-nan-as-another-color-than-default-using-imagesc
+                imAlpha(ispc_p<obj.plotISPC.plotsig(1))=obj.plotISPC.aplha;
+                im4.AlphaData = imAlpha; %set transparency for nan values
+                imAplhaISPC = cat(2,repmat(obj.plotISPC.aplha,size(imAlpha,1),size(ispc,2)-size(ispc_p,2)),imAlpha);
+                im1.AlphaData = imAplhaISPC;
                 axis xy;                  
                 colorbar;
                 hold on;
@@ -669,9 +686,10 @@ classdef CPlotsN < handle
             if assignhandle
                 methodhandle = @obj.hybejPlotISPC;
                 set(obj.plotISPC.fh_ispc,'KeyPressFcn',methodhandle);
+                set(obj.plotISPC.fh_ispc, 'WindowButtonDownFcn', @obj.hybejPlotISPCClick);
             end
         end
-        
+                    
         function ISPCSave(obj)
             assert(~isempty(obj.E),'no original CiEEGData data exist');
             assert(~isempty(obj.plotISPC),'no plotISPC data exist');
@@ -1237,7 +1255,38 @@ classdef CPlotsN < handle
                         obj.plotISPC.sortby = 0;
                     end
                     obj.ISPCPlot(obj.plotISPC.chnpair, obj.plotISPC.TimeHf, [0 1 0 0]); %update the all channel plot
+                case 'subtract'
+                    if obj.plotISPC.aplha > 0
+                        obj.plotISPC.aplha = obj.plotISPC.aplha - 0.1;
+                        obj.ISPCPlot(obj.plotISPC.chnpair, obj.plotISPC.TimeHf, [1 0 0 1]);
+                    end
+                case 'add'
+                    if obj.plotISPC.aplha < 1
+                        obj.plotISPC.aplha = obj.plotISPC.aplha + 0.1;
+                        obj.ISPCPlot(obj.plotISPC.chnpair, obj.plotISPC.TimeHf, [1 0 0 1]);
+                    end
             end
+        end
+        function hybejPlotISPCClick(obj,~,~)     
+            mousept = get(gca,'currentPoint');
+            if mousept(1,1)<1
+                %probably click in the time freq chart
+                
+                T = linspace(obj.E.epochtime(1), obj.E.epochtime(2), size(obj.E.fphaseEpochs,1));
+                F =  obj.E.Hfmean; 
+                x = find(T>=mousept(1,1),1); 
+                y = find(F>=mousept(1,2),1); %coordinated of the click
+                if x <= size(obj.plotISPC.ispc,3) && x>=0 && y <= size(obj.plotISPC.ispc,4) && y >= 0%compare to num of time samples                        
+                        obj.ISPCPlot(obj.plotISPC.chnpair, [x y],[1 0 1 1]);
+                end                
+            else %click in the channel plot
+                x = round(mousept(1,1)); y = round(mousept(1,2)); %coordinated of the click
+                if x <= numel(obj.plotISPC.channels) && x>=1 && y<=numel(obj.plotISPC.channels) && y >=1                        
+                            updateS = iff(obj.plotISPC.onlysub2 == 0,[1 1 1 1],[0 1 0 0]);
+                            obj.ISPCPlot([x y], obj.plotISPC.TimeHf,updateS);
+                end
+            end
+            
         end
          
     end
