@@ -130,27 +130,35 @@ classdef CPlots < matlab.mixin.Copyable
             % call separate function for computing statistic
             [adj_p,allTukey] = PlotResponseChMeanStat(obj, CHM, fdrlevel); % return adjusted pvalue after FDR corr
             iadj_p = adj_p <= 0.05;      % Wilcoxon signed rank or ANOVA - find significant time points       
-            SignPairs = allTukey(iadj_p);  % needs for ploting stars between different cats
+            if ~isempty(allTukey)
+                SignPairs = allTukey(iadj_p);  % needs for ploting stars between different cats
+            end
             y = ymin*0.95;
             adj_pLims = [find(iadj_p,1) find(iadj_p,1,'last')];
-            % plot general results of ANOVA or Wilcoxon test - the line of significance
+            
+            % plot results of Wilcoxon test or ANOVA
             if ~isempty(adj_pLims)
-                iTimeWndw = obj.Eh.Wp(obj.Eh.WpActive).iepochtime(2,:); %indexes of from what was the statistics computed
-                Tnew = T(iTimeWndw(1):iTimeWndw(2));
-                plot([Tnew(adj_pLims(1)) Tnew(adj_pLims(2))],[y y],'LineWidth',5,'Color',[255 99 71]./255); %full line between start and end of significance
-                if numel(kategories)==2
-                    if mean(iadj_p(adj_pLims(1) : adj_pLims(2)))<1  %if there are non signifant parts
+                if numel(kategories)==2 % results of Wilcoxon test for 2 cats
                     y = ymin*0.85;
-                    plot(Tnew(iadj_p),ones(1,sum(iadj_p))*y, '*','Color','red'); %stars for Wilcoxon test
-                    end
-                else
+                    plot(T(iadj_p),ones(1,sum(iadj_p))*y, '*','Color','red'); %stars for Wilcoxon test
+                else % general results of ANOVA                  
+                    iTimeWndw = obj.Eh.Wp(obj.Eh.WpActive).iepochtime(2,:); %indexes of from what was the statistics computed
+                    Tnew = T(iTimeWndw(1):iTimeWndw(2));
+                    Tgaps = Tnew; % in case there are non-significant parts in ANOVA results
+                    Tgaps(~iadj_p) = NaN; % replace non-signif parts by NaN
+                    plot(Tgaps(adj_pLims(1):adj_pLims(2)),ones(1,diff(adj_pLims)+1)*y,'LineWidth',5,'Color',[255 99 71]./255); % line between start and end of significance (could be with gaps)
+                    
                     % plot post hoc results only for ANOVA - significance between categories
                     if ~isempty(SignPairs)
                         yposkat = [3 0 0 0; 4 5 0 0; 6 7 8 0]; %pozice y pro kombinaci k a l - k v radcich a l-1 ve sloupcich
                         ybottom = iff(numel(kategories)>3,0.4,0.3); %odkud se maji umistovat kontrasty mezi kategoriemi - parametr vypoctu y
-                        
+                        iTimeSign = find(~isnan(Tgaps)); % indexes of significant time points (after ANOVA FDR-corr)                      
+                        TukeyResult = zeros(numel(SignPairs), numel(kategories)+1); % initialize matrix for all tukey results
+
                         for si = 1:numel(SignPairs)  % for each time point where ANOVA result<0.05 (after FDR corr)
                             isignCats = find(SignPairs{si}{:,5} < 0.05);   % find in which pairs pvalue <0.05 in post-hoc tukey table
+                            TukeyResult(si,1) = Tgaps(iTimeSign(si)); % save signif time point
+                            
                             for ipair = 1:numel(isignCats) % for each sign pair
                                 catIndex1 = regexp(SignPairs{si}{isignCats(ipair),1},'(\d+)','match'); % split the letter and index of category, save only index
                                 catIndex1 = str2double(catIndex1{1});
@@ -158,25 +166,46 @@ classdef CPlots < matlab.mixin.Copyable
                                 catIndex2 = str2double(catIndex2{1});
                                 if catIndex1==1
                                     colorstar = barvy(catIndex2,:); %green a red jsou proti kategorii 0, cerna je kat 1 vs kat 2
+                                    TukeyResult(si,catIndex2) = 1;   % in aedist: ego > ctrl or allo > ctrl
                                 elseif catIndex2==1
-                                    colorstar = barvy(catIndex1,:);
+                                    colorstar = barvy(catIndex1,:);  
                                 else
-                                    colorstar = barvy(1,:);
+                                    colorstar = barvy(1,:);  % allo vs ego
+                                    TukeyResult(si,4) = 1;
                                 end
-                                y = ymin + (ymax-ymin)*(ybottom - (yposkat(isignCats(ipair),isignCats(ipair)))*0.05)  ; %pozice na ose y
-                                plot(Tnew(adj_pLims(1)-1+si),y, '*','Color',colorstar);
+                                y = ymin + (ymax-ymin)*(ybottom - (yposkat(isignCats(ipair),isignCats(ipair)))*0.05)  ; %pozice na ose y                             
+                                plot(Tgaps(iTimeSign(si)),y, '*','Color',colorstar); % plot the star 
+                            end                                
+                        end                       
+                        
+                        % create names for pairs of categories - columns names for the table
+                        ColNames = cell(1,numel(legendStr)+1);
+                        ni = 0;
+                        for k = 1:numel(legendStr)
+                            for j = k+1:numel(legendStr)
+                                ni=ni+1;
+                                ColNames{ni+1} = [legendStr{k} 'X' legendStr{j}];
                             end
                         end
-                         % names of categories
-%                          for k = 1 : numel(kategories)
-%                              kat1name = legendStr{k};
-%                              kat2name = legendStr{k+1};
-%                              text(0.04+T(1),y, ['\color[rgb]{' num2str(barvy(k,:)) '}' kat1name ...
-%                                  '\color[rgb]{' num2str(color) '} *X* '  ...
-%                                  '\color[rgb]{' num2str(colorkatk(1,:)) '}' kat2name]);
-%                          end                         
-                                          
-                     end
+                        ColNames{1} = 'TimePoint'; 
+                        % create table for easier manipulations
+                        TukeyTable = array2table(TukeyResult,'VariableNames', ColNames); 
+                        
+                        % names of pairs of categories and tsig on the plot
+                        for pi = 1 : numel(kategories)
+                            itsig = find(TukeyTable{:,pi+1} == 1, 1,'first'); % first time point of signif
+                            y = ymin + (ymax-ymin)*(ybottom - (yposkat(pi,pi))*0.05);
+                            if pi == 3
+                                colortxt = barvy(1,:);  % allo vs ego
+                            else
+                                colortxt = barvy(pi+1,:);
+                            end
+                            text(0.2+obj.Eh.epochtime(1),y, ColNames{pi+1},'FontSize',12, 'Color', colortxt); % name of categories pair
+                            if ~isempty(itsig)
+                                text(TukeyTable{itsig,1} - 0.07,y, [ num2str(round(TukeyTable{itsig,1}*1000)) 'ms']); % time of start of significance
+                            end
+                        end
+                    end
                 end
             end                  
             xlim(obj.Eh.epochtime(1:2)); 
@@ -203,6 +232,7 @@ classdef CPlots < matlab.mixin.Copyable
             if size(CHM,2) == 2  % if 2 cats, compute Wilcoxon signed rank
                 paired = 1; %paired
                 adj_p = CStat.Wilcox2D(CHM(:,1,:), CHM(:,2,:),0,fdrlevel,'kat 1 vs 2',[],[],paired); %more strict dep method
+                allTukey = [];
             else
                 % time window in which ANOVA should be computed (from stimulus time to the end of epoch)
                 iTimeWndw = obj.Eh.Wp(obj.Eh.WpActive).iepochtime(2,:); %indexes of from what was the statistics computed 
