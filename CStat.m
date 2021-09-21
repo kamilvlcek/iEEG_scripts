@@ -571,9 +571,9 @@ classdef CStat < handle
             W = zeros(size(A,1),size(A,2));
             
             if print, fprintf(['Wilcox Test 2D - ' msg ' (' num2str(size(A)) '): ']); end
-            for j = 1:size(A,1) % napr cas
+            for j = 1:size(A,1) % over first dimension, usualy time
                 if print && mod(j,50)==0, fprintf('%d ', j); end %tisknu jen cele padesatky
-                for k = 1:size(A,2) %napr kanaly   
+                for k = 1:size(A,2) %over second dim, usualy channels 
                    if paired %pri parovem testu musim porovnavat stejny kanal, takze musi vyradit epochy parove
                        RjEpChA_k = RjEpChA(k,:) | RjEpChB(k,:); %binarni OR
                        RjEpChB_k = iff(numel(RjEpChB)>1,RjEpChA(k,:) | RjEpChB(k,:),0);
@@ -583,7 +583,7 @@ classdef CStat < handle
                    end    
                    aa = squeeze (A(j,k,~RjEpChA_k)); %jen nevyrazene epochy 
                    bb = squeeze (B( min(j,size(B,1)) , min(k,size(B,2)) , ~RjEpChB_k )); %jen nevyrazene epochy
-                   if numel(aa) >= 2 
+                   if numel(aa) >= 2 && numel(bb) >= 2
                       if paired %the signed rank with a single value bb is one-sample test against this value
                         W(j,k) = signrank(aa,bb); %  Wilcoxon signed rank test  paired, two-sided , Statistics and Machine Learning Toolbox  
                       elseif numel(bb) >= 2  %randsum need two sample vectorss

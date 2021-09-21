@@ -205,17 +205,32 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 end
             end
         end
-        function opak = GetOpakovani(obj)
-            %vraci cislo opakovani obrazku pro kazdou epochu
-            %TODO tohle nefunguje v CHilbertMulti, pokud ruzni pacienti ruzny pocet epoch
+        function [iOpakCh, OpakCh] = GetOpakovani(obj,els,opaktofind)
+            %vraci cislo opakovani obrazku pro kazdou epochu            
             S = obj.P.sloupce;
-            if isfield(S,'opakovani_obrazku')
-                opak = obj.P.data(:,S.opakovani_obrazku); % ppa test
-            elseif isfield(S,'opakovani_obrazku')
-                opak = obj.P.data(:,S.opakovani);  %aedist test
-            else
-                opak = zeros(size(obj.P.data,1),1); %opakovani 0
+            OpakCh = zeros(els(end),obj.GetEpochsMax()); %channels x epochs
+            if ~isa(obj,'CPsyDataMulti') 
+                els = els(end); % only one pacient, the repeat is same for all channels
             end
+            els0 = [1 , els(1:end-1)+1]; %start channel of each subject
+            iSbak = obj.iS; %backup the selected pacient
+            for s = 1:numel(els)
+                obj.SubjectChange(s);
+                if isfield(S,'opakovani_obrazku')
+                    opakovani = obj.P.data(:,S.opakovani_obrazku); % ppa test
+                elseif isfield(S,'opakovani_obrazku')
+                    opakovani = obj.P.data(:,S.opakovani);  %aedist test
+                else
+                    opakovani = zeros(size(obj.P.data,1),1); %opakovani 0
+                end
+                OpakCh(els0(s):els(s),1:numel(opakovani)) = repmat(opakovani',els(s)-els0(s)+1,1);
+            end
+            obj.SubjectChange(iSbak);
+            if exist('opaktofind','var')
+               iOpakCh = ismember(OpakCh , opaktofind); 
+            else
+               iOpakCh = []; 
+            end            
         end
         function obj = Cond2Epochs(obj)
             %predela conditions na epochy, kvuli ITPC
@@ -320,6 +335,10 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             %since 15.12.2017
             test = obj.P.data(:,obj.P.sloupce.zpetnavazba)==0;
             obj.P.data = obj.P.data(test,:);
+        end
+        function epochs = GetEpochsMax(obj)
+            %returns the number of epochs for current subject. Created only for overloading by CPsyDataMulti            
+            epochs=size(obj.P.data,1);
         end
     end
     methods  (Access = protected)
