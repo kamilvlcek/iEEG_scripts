@@ -691,10 +691,16 @@ classdef CBrainPlot < matlab.mixin.Copyable
                 disp('no channels found');
             end
         end
-        function PAC = MNIFind(XYZ,distance,testname,reference,pactodo)
+        function PAC = MNIFind(XYZ,distance,testname,reference,pactodo,distNames)
+            %finds channels across all pacients with a maximal distance to given XYZ MNI coordinates
+            %XYZ and distance can contain multiple (but equal) number of values-positions
+            %reference is the bipolar or other reference
             if ~exist('testname','var') || isempty(testname), testname = 'aedist'; end %defaultni test            
-            if ~exist('reference','var') || isempty(reference), reference = []; end %defaultni test  
-            if ~exist('pactodo','var'), pactodo = 0; end %jestli se maji brat jen pacienti s todo=1
+            if ~exist('reference','var') || isempty(reference), reference = []; end %default is original reference 
+            if ~exist('pactodo','var') || isempty(pactodo), pactodo = 0; end %jestli se maji brat jen pacienti s todo=1
+            if ~exist('distNames','var'), distNames = num2cell(1:numel(distance)); end %optional names for XYZ-distance sets
+            
+            assert(size(XYZ,1)==numel(distance),'the number of xyz coordinates and distances must to be the same');
             [ pacienti, setup ] = pacienti_setup_load( testname );
             PAC = {};
             iPAC = 1;
@@ -703,7 +709,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
                     disp(['* ' pacienti(p).folder ' - ' pacienti(p).header ' *']);
                     hfilename = [setup.basedir pacienti(p).folder '\' pacienti(p).header];                
                     if exist(hfilename,'file')==2
-                        load(hfilename);
+                        load(hfilename); %#ok<LOAD> %load the header
                     else
                         disp(['header ' hfilename ' neexistuje']);
                         continue; %zkusim dalsiho pacienta, abych vypsal, ktere vsechny headery neexistujou
@@ -715,41 +721,62 @@ classdef CBrainPlot < matlab.mixin.Copyable
                         H = CH.H;
                     end
 
-                    % VLASTNI HLEDANI KANALU PRO AKTUALNIHO PACIENTA
-                    MNI = [H.channels.MNI_x; H.channels.MNI_y; H.channels.MNI_z]';
-                    V1 = bsxfun(@minus, MNI, XYZ); %odectu hledane souradnice od vektoru tohoto pacienta 
-                    D1 = sqrt(sum(V1.^2, 2)); %vektor vzdalednosti
-                    XYZ2 = [-XYZ(1) XYZ(2)  XYZ(3) ]; %druhy bod na druhe levoprave strane mozku                
-                    V2 = bsxfun(@minus, MNI, XYZ2); %odectu hledane souradnice od vektoru tohoto pacienta 
-                    D2 = sqrt(sum(V2.^2, 2)); %vektor vzdalednosti
+                    % MAIN SEARCH OF CHANNES FOR THIS PACIENT 
+                    MNI = [H.channels.MNI_x; H.channels.MNI_y; H.channels.MNI_z]';                    
+                    [D1,I1] = pdist2(XYZ,MNI,'euclidean','Smallest',1); %vector of smallest distance of each MNI to any of XYZ
+                    XYZ2 = [-XYZ(:,1) XYZ(:,2)  XYZ(:,3) ]; %coordinates on the left brain side 
+                    [D2,I2] = pdist2(XYZ2,MNI,'euclidean','Smallest',1); %vector of distance 
 
-                    index = find(D1<distance | D2<distance); %index nalezenych kanalu v ramci tohoto pacienta
-
+                    iCh = false(1,size(MNI,1)); %index nalezenych kanalu v ramci tohoto pacienta
+                    iChannelDist = cell(1,size(MNI,1));
+                    for iDist = 1:numel(distance)
+                       iIn = find(I1==iDist); %numbers of channels closest to this XYZ-distance set
+                       iCh0 = D1(iIn)<distance(iDist);                       
+                       if(sum(iCh0)>0) %some channels found
+                         iCh(iIn)=iCh(iIn) | iCh0;                        
+                         iChannelDist(iIn(iCh0))=repmat(distNames(iDist),1,numel(iIn(iCh0)));
+                       end
+                       iIn = find(I2==iDist); %numbers of channels closest to this XYZ-distance set
+                       iCh0 = D2(iIn)<distance(iDist);
+                       if(sum(iCh0)>0) %some channels found
+                         iCh(iIn)=iCh(iIn) | iCh0; 
+                         iChannelDist(iIn(iCh0))=repmat(distNames(iDist),1,numel(iIn(iCh0)));
+                       end
+                    end
+                    iCh = find(iCh); 
                     %pokud jsem kanaly nevyradil uz pri zmene reference - vyrazuji se jen pri bipolarni
                     if isempty(reference) || reference ~= 'b' 
-                        indexvyradit = ismember(index, pacienti(p).rjch); %vyrazene kanaly tady nechci
-                        index(indexvyradit)=[]; 
+                        indexvyradit = ismember(iCh, pacienti(p).rjch); %vyrazene kanaly tady nechci
+                        iCh(indexvyradit)=[]; 
                     end
 
                     %vrati indexy radku ze struct array, ktere obsahuji v sloupci neurologyLabel substring struktura
-                    for ii = 1:numel(index)                
+                    for ii = 1:numel(iCh)                
                         PAC(iPAC).pacient = pacienti(p).folder; %#ok<AGROW>
-                        PAC(iPAC).ch = index(ii); %#ok<AGROW>
-                        PAC(iPAC).name = H.channels(index(ii)).name; %#ok<AGROW>
-                        PAC(iPAC).neurologyLabel = H.channels(index(ii)).neurologyLabel; %#ok<AGROW>
-                        PAC(iPAC).ass_brainAtlas = H.channels(index(ii)).ass_brainAtlas;%#ok<AGROW>
-                        PAC(iPAC).ass_cytoarchMap = H.channels(index(ii)).ass_cytoarchMap; %#ok<AGROW>
-                        PAC(iPAC).MNI_x = H.channels(index(ii)).MNI_x; %#ok<AGROW>
-                        PAC(iPAC).MNI_y = H.channels(index(ii)).MNI_y; %#ok<AGROW>
-                        PAC(iPAC).MNI_z = H.channels(index(ii)).MNI_z; %#ok<AGROW>
-                        PAC(iPAC).MNIdist = min(D1(index(ii)),D2(index(ii))); %#ok<AGROW>
+                        PAC(iPAC).ch = iCh(ii); %#ok<AGROW>
+                        PAC(iPAC).name = H.channels(iCh(ii)).name; %#ok<AGROW>
+                        PAC(iPAC).neurologyLabel = H.channels(iCh(ii)).neurologyLabel; %#ok<AGROW>
+                        PAC(iPAC).ass_brainAtlas = H.channels(iCh(ii)).ass_brainAtlas;%#ok<AGROW>
+                        PAC(iPAC).ass_cytoarchMap = H.channels(iCh(ii)).ass_cytoarchMap; %#ok<AGROW>
+                        PAC(iPAC).MNI_x = H.channels(iCh(ii)).MNI_x; %#ok<AGROW>
+                        PAC(iPAC).MNI_y = H.channels(iCh(ii)).MNI_y; %#ok<AGROW>
+                        PAC(iPAC).MNI_z = H.channels(iCh(ii)).MNI_z; %#ok<AGROW>
+                        PAC(iPAC).MNIdist = min(D1(iCh(ii)),D2(iCh(ii))); %#ok<AGROW>
+                        PAC(iPAC).label = iChannelDist{iCh(ii)}; %#ok<AGROW>
                         iPAC = iPAC + 1;
                     end
                 end
             end
             if numel(PAC) > 0
-                xlsname = ['./logs/MNIFind PAC_' testname '_mni' num2str(XYZ,'(%3.1f %3.1f %3.1f)') '_dist' num2str(distance) '.xlsx'];
+                if size(XYZ,1) == 1                    
+                    xlsname = ['./logs/MNIFind PAC_' testname '_mni' num2str(XYZ,'(%3.1f %3.1f %3.1f)') '_dist' num2str(distance) '.xlsx'];
+                else
+                    d = num2str(round(distance),'%x'); %some hexadecimal code for the distance array
+                    d(d==' ')=[]; %strip all spaces
+                    xlsname = ['./logs/MNIFind PAC_' testname '_mni' num2str(size(XYZ,1)) 'x_dist' d '.xlsx'];
+                end
                 writetable(struct2table(PAC), xlsname); %ulozimvysledek taky do xls
+                disp(['table with ' num2str(numel(PAC)) ' channels written to ' xlsname]);
             else
                 disp('no channels found');
             end

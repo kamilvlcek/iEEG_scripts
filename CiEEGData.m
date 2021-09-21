@@ -321,7 +321,9 @@ classdef CiEEGData < matlab.mixin.Copyable
             de = zeros(iepochtime(2)-iepochtime(1), size(obj.d,2), size(ts_events,1)); %nova epochovana data time x channel x epoch  
             tabs = zeros(iepochtime(2)-iepochtime(1),size(ts_events,1)); %#ok<*PROPLC,PROP> %udelam epochovane tabs
             obj.epochData = cell(size(ts_events,1),3); % sloupce kategorie, cislo kategorie, timestamp
+            fprintf('CiEEGData.ExtractEpochs:' );
             for epoch = 1:size(ts_events,1) %pro vsechny eventy
+                fprintf('%i,',epoch );
                 izacatek = find(obj.tabs<=ts_events(epoch), 1, 'last' ); %najdu index podnetu/odpovedi podle jeho timestampu
                     %kvuli downsamplovani Hilberta, kdy se mi muze ztratit presny cas zacatku
                     %epochy, beru posledni nizsi tabs nez je cas zacatku epochy
@@ -343,7 +345,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             [obj.samples,obj.channels, obj.epochs] = obj.DSize();
             obj.DatumCas.Epoched = datestr(now);
             obj.RjEpochCh = false(obj.channels,obj.epochs); %zatim zadne vyrazene epochy
-            disp(['rozdeleno na ' num2str(obj.epochs) ' epoch']); 
+            fprintf('\n%i epochs extracted\n',obj.epochs );
         end
         function obj = ResampleEpochs(obj,newepochtime)
             %resampluje epochy na -0.1 1, pricemz 0-1 je cas odpovedi
@@ -1413,9 +1415,9 @@ classdef CiEEGData < matlab.mixin.Copyable
             if ~exist('kategories','var') || isempty(kategories) 
                 if isfield(obj.plotRCh,'kategories') 
                     kategories = obj.plotRCh.kategories; %hodnoty drive pouzite v grafu, ty maji prednost pred statistikou
-                elseif ~isempty(obj.Wp(WpA)) && isfield(obj.Wp(WpA), 'kats')
+                elseif isprop(obj,'Wp') && ~isempty(obj.Wp(WpA)) && isfield(obj.Wp(WpA), 'kats')
                     kategories = obj.Wp(WpA).kats; %pokud nejsou kategorie v parametru, prvni volba je pouzit je ze statistiky                
-                elseif ~isempty(obj.Wp(WpA)) && isfield(obj.Wp(WpA),'kats')
+                elseif isprop(obj,'Wp') && ~isempty(obj.Wp(WpA)) && isfield(obj.Wp(WpA),'kats')
                     kategories = obj.Wp(WpA).kats; %hodnoty pouzite ve statistice, 0-n, odpovida cislum v oobj.PsyData.P.strings.podminka
                 else
                    if numel(obj.PsyData.Categories())<=4 %uz muzu pouzivat 4 kategorie, kvuli Menrot
@@ -1462,7 +1464,9 @@ classdef CiEEGData < matlab.mixin.Copyable
             else
                 if isprop(obj,'label') && ~isempty(obj.label)
                     figurename = ['PlotResponseCh - ' obj.label];
-                else
+                elseif isprop(obj,'mfilename') && ~isempty(obj.mfilename)
+                    figurename = ['PlotResponseCh - ' basename(obj.mfilename)];
+                else                    
                     figurename = 'PlotResponseCh';
                 end
                 obj.plotRCh.fh = figure('Name',figurename);

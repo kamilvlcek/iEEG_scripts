@@ -229,15 +229,22 @@ classdef ChannelPlot < matlab.mixin.Copyable
             else
                 disp('No MNI data');
             end
-        end
-        
+        end        
         function obj = Plot3DBoundary(obj,plotview)
             %vykresli obrys mozku ve vsech rozmerech do 3d grafu
             %pokud boundary neni vypocitana, spocita ji a ulozi do obj.plotCh3D.BrainBoundaryXYZ
             %netvori graf, kresli do existujiciho a aktivniho ChannelPlot, a predpoklada hold on;
             dimenze = [2 3; 1 3; 2 1]; %xy, xz a yz ,  
             load('GMSurfaceMesh.mat');             %#ok<LOAD>
-            if ~exist('plotview','var'), plotview = obj.plotCh3D.view; end
+            if ~isprop(obj,'plotCh3D') || ~isfield(obj.plotCh3D,'outputstyle')
+               obj.ChannelPlotInit();
+            end
+            if ~exist('plotview','var')                               
+                if ~isfield(obj.plotCh3D,'view') 
+                    obj.plotCh3D.view = [0 90]; %default view
+                end    
+                plotview = obj.plotCh3D.view;
+            end
             if ~obj.plotCh3D.outputstyle
                 dd = 1:3;
             else
@@ -471,9 +478,7 @@ classdef ChannelPlot < matlab.mixin.Copyable
                     
             end
             obj.plotCh3D.sizes = sizes;
-          end
-        
-        
+        end
         function obj = PlotSizeLegend(obj,chnvals,rangeZ)
              %plots the size scale of scatter3 balls 
              positions = struct('x',[],'y',[],'z',[]);
@@ -501,7 +506,6 @@ classdef ChannelPlot < matlab.mixin.Copyable
              scatter3([positions.x],[positions.y],[positions.z],sizes,'k');
               
         end
-        
         function obj = hybejPlot3D(obj,~,eventDat)
               switch eventDat.Key
                   case 's'    %sagital view                                       

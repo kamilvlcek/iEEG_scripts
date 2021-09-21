@@ -29,7 +29,7 @@ classdef  CMorlet < CHilbert
             timer = tic; %zacnu merit cas
             fprintf('kanal ze %i: ', numel(channels) );
             
-            if freq(1) < 10
+            if freq(1) <= 10
                 time = -2:1/obj.fs:2; %pro nizke frekvence pouziju delsi wavelet - +- 2s - % 40 cyklu wavelet pro 10Hz
             else
                 time = -1:1/obj.fs:1; %pro vyssi frekvence staci wv +- 1s %alespon 20 cyklu waveletu pro 10Hz. Neni to zbytecne moc ?
@@ -45,7 +45,7 @@ classdef  CMorlet < CHilbert
                 fprintf('%i,',ch);
                 if sum(obj.d(:,ch))==0, continue; end %pro vyrazene kanaly jsou hodnoty 0 pri jine nez bipol ref. Z tech pak vznikne nan, pri tomhle cyklu, coz vadi dal                                  
                 eegfft = fft(obj.d(:,ch)',n_conv_pow2); %FFT of eeg data, potrebuju to dat do radku aby stejne jak-o wavelet                
-                for fno = 1:numel(freq) %seznam frekvenci                    
+                parfor fno = 1:numel(freq) %seznam frekvenci                    
                     wavelet = fft( sqrt(1/(s(fno)*sqrt(pi))) * exp(1i*2*pi*freq(fno).*time) .* exp(-time.^2./(2*(s(fno)^2))) , n_conv_pow2 );
                     % fft ( (A=frequency band-specific scaling factor) * complex sin * gaussian )
                     

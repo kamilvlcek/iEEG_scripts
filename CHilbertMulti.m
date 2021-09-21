@@ -21,26 +21,47 @@ classdef CHilbertMulti < CHilbert
         end
         
         function FILES = TestExtract(obj,filenames)
-            FILES = cell(size(filenames,1),3);
-            channelsNum = 0;
-             for fileno = 1:size(filenames,1)
+            FILES = cell(size(filenames,1),6);
+            channelsNum = 0; 
+            tic;
+            for fileno = 1:size(filenames,1)
+                fprintf('%i/%i: ',fileno,size(filenames,1));
                 filename = filenames{fileno,1}; %cell array, zatim to musi byt plna cesta                
                 if exist(filename,'file') 
                     disp(obj.basename(filename)); %zobrazim jmeno souboru s pouze koncem 
                     obj.filenames{fileno,1} = filename;
                     clear d;
                     load(filename,'d','P','fs','baseline'); %nacte vsechny promenne
+                    vars = whos('-file',filename);
+                    if ismember('Hfmean', {vars.name}) %7.4.2017
+                        load(filename,'Hfmean');
+                    else
+                        Hfmean = [];
+                    end
+                    if ismember('HFreqEpochs', {vars.name}) %7.4.2017
+                        load(filename,'HFreqEpochs');
+                    else
+                        HFreqEpochs = [];
+                    end                   
+                    if ismember('fphaseEpochs', {vars.name}) %7.4.2017
+                        load(filename,'fphaseEpochs');
+                    else
+                        fphaseEpochs = [];
+                    end
                     test = ~P.data(:,P.sloupce.zpetnavazba); %index testovych epoch
                     d = d(:,:,test);
                     %disp(['  velikost d (samples x channels x epochs):' num2str(size(d))]); 
-                    FILES(fileno,:) = {obj.basename(filename), [ 'd: ' num2str(size(d),'%i ') ', fs: ', num2str(fs)],num2str(baseline,"%.3f-%.3f")};
+                    FILES(fileno,:) = {obj.basename(filename), [ 'd: ' num2str(size(d),'%i ') ', fs: ', num2str(fs)],num2str(baseline,"%.3f-%.3f") ...
+                            ['Hfmean: ' num2str(size(Hfmean),'%i ')], ['HFreqEpochs: ' num2str(size(HFreqEpochs),'%i ')], ...
+                            ['fphaseEpochs: ' num2str(size(fphaseEpochs),'%i ')], };
                     channelsNum = channelsNum + size(d,2);
                 else
                     disp(['soubor neexistuje ' filename]);
-                    FILES(fileno,:) = {obj.basename(filename), 'soubor neexistuje'};
+                    FILES(fileno,1:2) = {obj.basename(filename), 'soubor neexistuje'};
                 end
-             end
-             disp(['Total channels: ' num2str(channelsNum) ]);
+            end             
+            disp(['Total channels: ' num2str(channelsNum) ]);
+            toc;
         end
         function obj = Clear(obj)
             %smaze data objektu, kvuli volani z ImportExtract, jinak je mozna jednodussi znova objekt vytvorit
@@ -51,6 +72,8 @@ classdef CHilbertMulti < CHilbert
             obj.HFreq = [];
             if isprop(obj,'HFreqEpochs')
                 obj.HFreqEpochs = [];
+                obj.fphaseEpochs = [];
+                obj.frealEpochs = [];
             end
             obj.CH = [];
             obj.PsyData = {};
@@ -78,7 +101,8 @@ classdef CHilbertMulti < CHilbert
             obj.DatumCas = {};
             disp('data objektu smazana');
         end
-        function obj = ImportExtract(obj,filenames,label)
+        function obj = ImportExtract(obj,filenames,label,which)
+            %which is cell array of varnames to load: from these: HFreqEpochs, fphaseEpochs, frealEpochs - to spare RAM memory and file size            
             if numel(obj.filenames)>0
                 if obj.filesimported == 0 %nejaky soubor naimportovan castecne kvuli chybe - musim smazat
                     obj.Clear();
@@ -86,15 +110,34 @@ classdef CHilbertMulti < CHilbert
                     disp(['pridavam data k existujicim souborum: ' num2str(obj.filesimported)]);
                 end
             end
-            if exist('label','var'), obj.label = label; end             
+            if exist('label','var'), obj.label = label; end  
+            if ~exist('which','var'), which={}; end    
             for fileno = 1:size(filenames,1)
-                filename = filenames{fileno,1}; %cell array, zatim to musi byt plna cesta                
+                fprintf('%i/%i: ',fileno,size(filenames,1));
+                filename = filenames{fileno,1}; %cell array, zatim to musi byt plna cesta                                
                 if exist(filename,'file') 
                     disp(obj.basename(filename)); %zobrazim jmeno souboru s pouze koncem 
                     obj.filenames{fileno,1} = filename;
-                    load(filename); %#ok<LOAD> %nacte vsechny promenne
-                    if ~exist('baseline','var'), baseline = [epochtime(1) 0]; end %fake baseline, pokud nebyla ulozena                    
-                    if ~exist('HFreqEpochs','var'), HFreqEpochs=[]; end %frekvencni data ze vsech epoch, pokud neexistuji udelam prazdne
+                    load(filename,'P','epochtime','epochData','RjEpoch','RjEpochCh','d','tabs','fs','reference','H','Hf','Hfmean','HFreq','DatumCas');%nacte vsechny promenne
+                    vars = whos('-file',filename);
+                    if ismember('baseline', {vars.name}), load(filename,'baseline'); else, baseline = [epochtime(1) 0]; end %fake baseline, pokud nebyla ulozena                    
+                    if ismember('chnlabels', {vars.name}), load(filename,'chnlabels'); else, chnlabels = cell(1,numel(H.channels)); end %empty channel labels if not saved 
+                    if ismember('HFreqEpochs', {vars.name}) && contains(which,'HFreqEpochs')
+                        load(filename,'HFreqEpochs'); %frekvencni data ze vsech epoch, pokud neexistuji udelam prazdne
+                    else
+                        HFreqEpochs=[]; 
+                    end 
+                    if ismember('fphaseEpochs', {vars.name}) && contains(which,'fphaseEpochs')
+                        load(filename,'fphaseEpochs'); %epoched phase data if not saved  
+                    else
+                        fphaseEpochs=[]; 
+                    end 
+                    if ismember('frealEpochs', {vars.name}) && contains(which,'frealEpochs')
+                        load(filename,'frealEpochs'); %epoched filtered signal if not saved 
+                    else
+                        frealEpochs=[]; 
+                    end                     
+                    
                     test = ~P.data(:,P.sloupce.zpetnavazba); %index testovych epoch
                     
                     obj.GetEpochTime(epochtime,baseline);
@@ -106,7 +149,7 @@ classdef CHilbertMulti < CHilbert
                     obj.GetEpochData(epochData,fileno,test,1); 
                     
                     %d hlavni data
-                    obj.GetD(d,RjEpochCh,HFreqEpochs); %ulozi nova data d, pripadne prehazi epochy
+                    obj.GetD(d,RjEpochCh); %ulozi nova data d, pripadne prehazi epochy
                     
                     %tabs a tabs_orig
                     obj.GetTabs(tabs); %,tabs_orig,fileno                   
@@ -116,13 +159,14 @@ classdef CHilbertMulti < CHilbert
                     
                     %Hammer header
                     obj.GetRef(reference); 
-                    obj.GetHeader(H,fileno,P);
+                    obj.GetHeader(H,fileno,P); 
+                    obj.GetLabels(H,chnlabels);
                     
                     %PsychoPy data
                     obj.GetPsyData(P,fileno);                                                           
                     
                     %frekvencni data                    
-                    obj.GetHfreq(Hf,Hfmean,HFreq,HFreqEpochs);                    
+                    obj.GetHfreq(Hf,Hfmean,HFreq,HFreqEpochs,fphaseEpochs,frealEpochs);                    
                     
                     %obj.GetStat(Wp); %mam funkci, ale statistiku zatim neimportuju
                     %jen kopie - zatim nezpracovavam                                                           
@@ -188,15 +232,12 @@ classdef CHilbertMulti < CHilbert
             end
             
         end
-        function obj = GetD(obj,d,RjEpochCh,HFreqEpochs)
+        function obj = GetD(obj,d,RjEpochCh)
             %ulozi nova eeg data k predchazejicim - prida je do spolecneho pole obj.d  
             if ~isempty(obj.d) && size(obj.d,3) < size(d,3) %pokud v existujicim d je mensi pocet epoch nez v novem
                 nepochs = size(d,3) - size(obj.d,3); %kolik sepoch se ma pridat
                 obj.d = cat(3,obj.d,zeros(size(obj.d,1),size(obj.d,2),nepochs)); %pridam k existujicimu d epochy s praznymi daty
-                obj.RjEpochCh = cat(2,obj.RjEpochCh,true(size(obj.RjEpochCh,1),nepochs)); %prazne epochy v datech ale vyradim 
-                if exist('HFreqEpochs','var') && ~isempty(HFreqEpochs) && isprop(obj,'HFreqEpochs') % time x channel x frequency x epoch
-                    obj.HFreqEpochs = cat(4,obj.HFreqEpochs,zeros(size(obj.HFreqEpochs,1),size(obj.HFreqEpochs,2),size(obj.HFreqEpochs,3),nepochs));
-                end
+                obj.RjEpochCh = cat(2,obj.RjEpochCh,true(size(obj.RjEpochCh,1),nepochs)); %prazne epochy v datech ale vyradim                 
             end
             obj.d = cat(2,obj.d,d); %spojim pres channels - jen data z testovych epoch            
             if isempty(obj.els)
@@ -211,7 +252,7 @@ classdef CHilbertMulti < CHilbert
 %                 obj.HFreqEpochs = cat(2,obj.HFreqEpochs,HFreqEpochs);
 %             end
         end
-        function GetHfreq(obj,Hf,Hfmean,HFreq,HFreqEpochs)
+        function GetHfreq(obj,Hf,Hfmean,HFreq,HFreqEpochs,fphaseEpochs,frealEpochs)
             %spoji frekvencni data z predchozich a noveho souboru
             if isempty(obj.Hf)
                 obj.Hf = Hf; % napr 50:5:150 pro high gamma, jen prvni soubor
@@ -228,11 +269,41 @@ classdef CHilbertMulti < CHilbert
             end
             if exist('HFreqEpochs','var') && ~isempty(HFreqEpochs)
                 if isempty(obj.HFreqEpochs)
-                    obj.HFreqEpochs = HFreqEpochs;
+                    obj.HFreqEpochs = HFreqEpochs; %time x channel x freq x epoch
                 else
+                    if size(obj.HFreqEpochs,4) < size(HFreqEpochs,4) %pokud v existujicim d je mensi pocet epoch nez v novem
+                        nepochs = size(HFreqEpochs,4) - size(obj.HFreqEpochs,4); %kolik sepoch se ma pridat
+                        obj.HFreqEpochs = cat(4,obj.HFreqEpochs,zeros(size(obj.HFreqEpochs,1),size(obj.HFreqEpochs,2),size(obj.HFreqEpochs,3),nepochs));
+                        %these additional epochs is existing data were already excluded in obj.GetD
+                    else
+                        nepochs = 0; %no need to add epochs
+                    end
                     obj.HFreqEpochs = cat(2,obj.HFreqEpochs,HFreqEpochs); % time x channel x frequency x epochs
                 end
+            end            
+            if exist('fphaseEpochs','var') && ~isempty(fphaseEpochs)
+                if isempty(obj.fphaseEpochs)
+                    obj.fphaseEpochs = fphaseEpochs; %time x channels x freq x eepochs
+                else
+                    if size(obj.fphaseEpochs,4) < size(fphaseEpochs,4) 
+                        nepochs = size(fphaseEpochs,4) - size(obj.fphaseEpochs,4); %kolik sepoch se ma pridat
+                        obj.fphaseEpochs = cat(4,obj.fphaseEpochs,zeros(size(obj.fphaseEpochs,1),size(obj.fphaseEpochs,2),size(obj.fphaseEpochs,3),nepochs));
+                    end
+                    obj.fphaseEpochs = cat(2,obj.fphaseEpochs,fphaseEpochs); % time x channel x frequency x epochs
+                end
             end
+            if exist('frealEpochs','var') && ~isempty(frealEpochs)
+                if isempty(obj.frealEpochs)
+                    obj.frealEpochs = frealEpochs; %time x channels x freq x eepochs
+                else
+                    if size(obj.frealEpochs,4) < size(frealEpochs,4) 
+                        nepochs = size(frealEpochs,4) - size(obj.frealEpochs,4); %kolik sepoch se ma pridat
+                        obj.frealEpochs = cat(4,obj.frealEpochs,zeros(size(obj.frealEpochs,1),size(obj.frealEpochs,2),size(obj.frealEpochs,3),nepochs));
+                    end
+                    obj.frealEpochs = cat(2,obj.frealEpochs,frealEpochs); % time x channel x frequency x epochs
+                end
+            end
+            %non epoched properties, like fphase cant be imported as they have different length
         end
         function GetRef(obj,reference)
             if isempty(obj.reference)
@@ -323,7 +394,8 @@ classdef CHilbertMulti < CHilbert
                 obj.CH.chgroups = {1:numel(H.channels)};
                 obj.CH.els = numel(H.channels);                
             else
-                obj.CH.H.subjName = [obj.CH.H.subjName ',' H.subjName]; %spojim jmena subjektu                
+                assert(fileno>1,'obj.CH must be empty for first file to be imported');
+                obj.CH.H.subjName = [obj.CH.H.subjName ',' H.subjName]; %spojim jmena subjektu
                 CHfields = fieldnames(obj.CH.H.channels); %headers already loaded
                 Hfields = fieldnames(H.channels); %new header from the current file (being loaded)
                 rozdilCurr = setdiff(CHfields,Hfields); %field names missing in Hfields in the current header
@@ -351,9 +423,19 @@ classdef CHilbertMulti < CHilbert
                 obj.CH.H.selCh_H = [obj.CH.H.selCh_H  (1:numel(H.channels))+obj.CH.H.selCh_H(end) ];                
                 obj.CH.chgroups{fileno} = (1:numel(H.channels)) + obj.CH.els(fileno-1);
                 obj.CH.els(fileno) = numel(H.channels)+obj.CH.els(fileno-1);                
+                obj.CH.sortorder = 1:numel(obj.CH.H.channels);  %default sortorder             
+                obj.CH.plotCh2D.chshow = 1:numel(obj.CH.H.channels); %show all channels
             end
             obj.subjNames{fileno,1} = H.subjName;
             obj.orig(fileno).H = H; %orignalni header ulozim, v kazdem pripade
+        end
+        function obj = GetLabels(obj,H,label)
+            %imports cell array label (one column) into obj.CH.brainlabels, others columns leaving empty
+            brainlbs = cell(numel(H.channels),4); %brainlbs should be cellarray and have four columns -   brainclass, brainlabel, lobe, channelname. 
+            brainlbs(:,[1 3]) = repmat({' '},size(brainlbs,1),2); %class and lobe
+            brainlbs(:,2) = label; %label field
+            brainlbs(:,4) = {H.channels(:).name};            
+            obj.CH.BrainLabelsImport(brainlbs);
         end
         function obj = GetEpochTime(obj,epochtime,baseline)
             %epochtime - cas epochy, napriklad -0.2 - 1.2, taky musi byt pro vsechny soubory stejne
@@ -416,6 +498,22 @@ classdef CHilbertMulti < CHilbert
             els = [els ch];  %konec posledniho pacienta chci taky
             obj.els = els;
             obj.CH.els = els;
+        end
+        function obj = ReduceFreqs(obj,reductionf)
+            %reduce all frequency data to every reductionf freq band
+            numf = numel(obj.Hf);
+            obj.Hf = obj.Hf(1:reductionf:numf);
+            obj.Hfmean = obj.Hfmean(1:reductionf:numf);
+            obj.HFreq = obj.HFreq(:,:,1:reductionf:numf,:);
+            if ~isempty(obj.HFreqEpochs)
+                obj.HFreqEpochs = obj.HFreqEpochs(:,:,1:reductionf:numf,:);
+            end
+            if ~isempty(obj.fphaseEpochs)
+                obj.fphaseEpochs = obj.fphaseEpochs(:,:,1:reductionf:numf,:);
+            end
+            if ~isempty(obj.frealEpochs)
+                obj.frealEpochs = obj.frealEpochs(:,:,1:reductionf:numf,:);
+            end
         end
         
         %% SAVE AND LOAD FILE
@@ -483,30 +581,37 @@ classdef CHilbertMulti < CHilbert
             %vrati seznam filenames, ktery se pak da primo pouzit ve funkcich TestExtract a ImportExtract
             %overwrite urcuje, jestli se maji prepisovat existujici soubory
             if ~exist('overwrite','var'), overwrite = 0; end %defaultne se nemaji prepisovat existujici soubory
-            if ~exist('loadall','var'), loadall = 0; end %by default we dont want to load HFreqEpochs,fphaseEpochs,frealEpochs
+            if ~exist('loadall','var'), loadall = 1; end %by default we want to load HFreqEpochs,fphaseEpochs,frealEpochs
             
-            pacienti = unique({PAC.pacient}); %trik po delsim usili vygooglovany, jak ziskat ze struct jedno pole
+            pacienti = unique({PAC.pacient},'stable'); %trik po delsim usili vygooglovany, jak ziskat ze struct jedno pole
             filenames = cell(numel(pacienti),1);
             nextr = 0;
             nenalezeno = {};
-            
+            preskoceno = 0; %how many files were skipped and not saved (e.g. because of overwrite=0)
+            batchtimer = tic;
             for p = 1:numel(pacienti)                                
                 ipacienti = strcmp({PAC.pacient}, pacienti{p})==1; %indexy ve strukture PAC pro tohoto pacienta
                 E = pacient_load(pacienti{p},testname,filename,[],[],[],loadall);  %pokud spatny testname, zde se vrati chyba
                 if ~isempty(E) %soubor muze neexistovat, chci pokracovat dalsim souborem
-                    [filename_extract,basefilename_extract] = E.ExtractData([PAC(ipacienti).ch],label,overwrite);
+                    [filename_extract,basefilename_extract,skipped] = E.ExtractData(PAC(ipacienti),label,overwrite);
                     filenames{p,1} = filename_extract;
-                    disp(['*** OK: ' pacienti{p} ': chns ' num2str([PAC(ipacienti).ch],'%i ') ', ' basefilename_extract]);
-                    fprintf('\n'); 
+                    disp(['*** OK: ' pacienti{p} ': chns ' num2str([PAC(ipacienti).ch],'%i ') ', ' basefilename_extract]);                     
                     nextr = nextr + 1;
+                    preskoceno = preskoceno + skipped;
                 else
                     disp(['*** nenalezen: ' pacienti{p} ]);
                     nenalezeno = [nenalezeno; pacienti{p}]; %#ok<AGROW>
-                end                  
+                end  
+                cas = toc(batchtimer);
+                odhadcelehocasu = numel(pacienti)/p * cas;
+                fprintf(' %i/%i : cas zatim: %.1f min, zbyvajici cas %.1f min\n\n',p,numel(pacienti),cas/60,(odhadcelehocasu - cas)/60); %vypisu v kolikatem jsem cyklu a kolik zbyva sekund do konce
             end
             disp(['extrahovano ' num2str(nextr) ' souboru z ' num2str(numel(pacienti))]);
             if numel(nenalezeno) > 0 
                 disp(['nenalezeno :' cell2str(nenalezeno)]);
+            end
+            if numel(preskoceno) > 0 
+                disp(['skipped :' num2str(preskoceno)]);
             end
         end
         function filenames = FindExtract(testname,filename,label)
