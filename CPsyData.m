@@ -9,6 +9,7 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         warning_rt=false; %jestli uz byl warning o reakcnich casech
         testname; %jmeno testu, ze ktereho jsou data
         blocks; %struktura, ktera uklada vysledky GetBlocks, kvuli uspore casu
+        trialtypes; %table with trialtypes specific for a tset
     end
     
     methods (Access = public)
@@ -205,31 +206,47 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 end
             end
         end
-        function [iOpakCh, OpakCh] = GetOpakovani(obj,els,opaktofind)
-            %vraci cislo opakovani obrazku pro kazdou epochu            
+        function [iTrialTypeCh, TrialTypeCh] = GetTrialType(obj,els,trialtype)
+            %els is copy of E.els from CiEEGData
+            %returns stimulus repetition number for each epoch in TrialTypeCh           
+            %trialtype: cellarray e.g. {'tt' [2 0]} or {'rep' 1}
+            assert(numel(trialtype)>=2,'GetTrialType: trialtype needs to be cell array with 2 values');
+            if strcmp(trialtype{1}, 'tt')
+                assert(~isempty(obj.trialtypes),'no trialtypes loaded');                    
+                assert(size(obj.trialtypes,2)>= trialtype{2}(1) & isa(obj.trialtypes{1,trialtype{2}(1)},'double'), 'wrong trialtype column number or column type');
+            end
             S = obj.P.sloupce;
-            OpakCh = zeros(els(end),obj.GetEpochsMax()); %channels x epochs
+            TrialTypeCh = zeros(els(end),obj.GetEpochsMax()); %channels x epochs
             if ~isa(obj,'CPsyDataMulti') 
                 els = els(end); % only one pacient, the repeat is same for all channels
             end
-            els0 = [1 , els(1:end-1)+1]; %start channel of each subject
+            els0 = [1 , els(1:end-1)+1]; %start channel of each subject, or only [1] when there is only one subject
             iSbak = obj.iS; %backup the selected pacient
-            for s = 1:numel(els)
+            for s = 1:numel(els) %over all subjects
                 obj.SubjectChange(s);
-                if isfield(S,'opakovani_obrazku')
-                    opakovani = obj.P.data(:,S.opakovani_obrazku); % ppa test
-                elseif isfield(S,'opakovani_obrazku')
-                    opakovani = obj.P.data(:,S.opakovani);  %aedist test
-                else
-                    opakovani = zeros(size(obj.P.data,1),1); %opakovani 0
-                end
-                OpakCh(els0(s):els(s),1:numel(opakovani)) = repmat(opakovani',els(s)-els0(s)+1,1);
+                if strcmp(trialtype{1},'rep')
+                    if isfield(S,'opakovani_obrazku')
+                        opakovani = obj.P.data(:,S.opakovani_obrazku); % ppa test - array of repetitions number for each epoch
+                    elseif isfield(S,'opakovani')
+                        opakovani = obj.P.data(:,S.opakovani);  %aedist test
+                    else
+                        opakovani = zeros(size(obj.P.data,1),1); %opakovani 0
+                    end
+                    TrialTypeCh(els0(s):els(s),1:numel(opakovani)) = repmat(opakovani',els(s)-els0(s)+1,1);
+                elseif strcmp(trialtype{1}, 'tt')                    
+                    opakovani = obj.trialtypes{:,trialtype{2}(1)};                  
+                    TrialTypeCh(els0(s):els(s),1:numel(opakovani)) = repmat(opakovani',els(s)-els0(s)+1,1);
+                else 
+                    error('GetTrialType: unknown trialtype type');
+                end                
             end
             obj.SubjectChange(iSbak);
-            if exist('opaktofind','var')
-               iOpakCh = ismember(OpakCh , opaktofind); 
+            if strcmp(trialtype{1},'rep') && numel(trialtype)>=2
+               iTrialTypeCh = ismember(TrialTypeCh , trialtype{2}); 
+            elseif strcmp(trialtype{1},'tt') && numel(trialtype{2})>=2   
+               iTrialTypeCh = ismember(TrialTypeCh, trialtype{2}(2)); 
             else
-               iOpakCh = []; 
+               iTrialTypeCh = []; 
             end            
         end
         function obj = Cond2Epochs(obj)
@@ -241,6 +258,17 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 data2(k,:) = [0 0 1 mean(obj.P.data(idata,4)) 0 0 katnum(k) min(obj.P.data(idata,8)) min(obj.P.data(idata,9))];
             end
             obj.P.data = data2;
+        end
+        function obj = LoadTrialTypes(obj)
+            if strcmp(obj.testname,'aedist')
+                T = load('AedistTrialTypes'); %load d:\eeg\motol\scripts\AedistTrialTypes.mat
+                assert(size(T.AedistTrialTypes,1) >= size(obj.P.data,1),['wrong number of epochs in AedistTrialTypes.mat, should be ' num2str(size(obj.P.data,1))]);                                   
+                trialsdiff = size(T.AedistTrialTypes,1) - size(obj.P.data,1); %how larger is trialtype table than trial data table
+                obj.trialtypes = T.AedistTrialTypes(trialsdiff+1:end,:);
+                disp(['last ' num2str(size(obj.P.data,1)) ' trialtypes loaded from AedistTrialTypes.mat']);
+            else
+                disp(['trial types for ' obj.testname 'not defined']);
+            end
         end
         %% PLOT FUNCTIONS
         function [obj, chyby] = PlotResponses(obj)
@@ -340,8 +368,20 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             %returns the number of epochs for current subject. Created only for overloading by CPsyDataMulti            
             epochs=size(obj.P.data,1);
         end
+        function [name] = TrialTypeName(obj,trialtype)
+            %returns name of trialtype/repetition
+            %trialtype is cellarray, e.g. {'tt' [2 0]} or {'rep' 1}
+            if strcmp(trialtype{1},'rep')
+                name = ['Repeat_' num2str(trialtype{2})];
+            elseif strcmp(trialtype{1},'tt')
+                name = ['TT\_' strrep(obj.trialtypes.Properties.VariableNames{trialtype{2}(1)},'_','\_') '=' num2str(trialtype{2}(2))];
+            else
+                name = cell2str(trialtype);
+            end
+        end
+        
     end
-    methods  (Access = protected)
+    methods (Access = protected)
         function [obj] = DoplnZpetnavazba(obj)
             %doplni sloupec zpetnavazba, pokud neexistuje a naplni ho nulama
             if isstruct(obj.P) && ~isfield(obj.P.sloupce,'zpetnavazba')                
@@ -349,13 +389,6 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 obj.P.sloupce.zpetnavazba = size(obj.P.data,2); %pojmenuju ho zpetnavazba
             end
         end
-    end
-    methods (Static,Access = public)
-        function [opakname] = OpakovaniName(opakovani)
-            %vrati jmeno opakovani. predpoklada jako parametr array
-            opakname = ['Opak' num2str(opakovani)];
-        end
-    end
-    
+    end 
 end
 

@@ -399,10 +399,10 @@ classdef CiEEGData < matlab.mixin.Copyable
             obj.RjEpoch = unique([obj.RjEpoch find(rjepoch)]); %pridam dalsi vyrazene epochy k dosud vyrazenym            
             disp(['resampled ' num2str(obj.epochs) ' epochs to ' num2str(newepochtime) ', rejected new epochs: ' num2str(numel(setdiff(find(rjepoch),obj.RjEpoch)))]);
         end
-        function [d,psy_rt,RjEpCh,iEpochs]= CategoryData(obj, katnum,rt,opak,ch)
+        function [d,psy_rt,RjEpCh,iEpochs]= CategoryData(obj, katnum,rt,trialtype,ch)
             %vraci eegdata epoch ve kterych podnet byl kategorie/podminky=katnum + reakcni casy - s uz globalne vyrazenymi epochami
             %Pokud rt>0, vraci epochy serazene podle reakcniho casu 
-            %pokud opak>0, vraci jen jedno opakovani obrazku - hlavne kvuli PPA test 
+            %trialtype: to return only one repetition or trialtype of the stimulus. Cell array e.g. {'rep' 1} or {'tt' [1 0]}
             %iEpochy je seznam validnich epoch pro tento kanal - bez vyrazenych  
             %RjEpCh (Channels x Epochs) - vraci i epochy k vyrazeni pro kazdy kanal (uz s globalne vyrazenymi epochami)
             %  vyradit rovnou je nemuzu, protoze pocet epoch v d pro kazdy kanal musi by stejny
@@ -410,18 +410,18 @@ classdef CiEEGData < matlab.mixin.Copyable
             %  katnum je 1-n cisel kategorii.
             assert(obj.epochs > 1,'data not yet epoched'); %vyhodi chybu pokud data nejsou epochovana            
             assert(obj.channels == size(obj.RjEpochCh,1),'RjEpochCh: spatny pocet kanalu');
-            if exist('opak','var') && ~isempty(opak)
-                [iOpakCh, ~] = obj.PsyData.GetOpakovani(obj.els,opak); %channels x epochs, index of epochs for each channel with this repetition
+            if exist('trialtype','var') && ~isempty(trialtype)
+                iTrialTypeCh = obj.PsyData.GetTrialType(obj.els,trialtype); %channels x epochs, index of epochs for each channel with this repetition
                 %epochyopak = obj.PsyData.GetOpakovani(); %cislo opakovani pro kazdou epochu
                 %iOpak = ismember(epochyopak , opak); %epochy jen s timto opakovanim
             else
-                iOpakCh = true(obj.channels,obj.epochs);  %all epochs                
+                iTrialTypeCh = true(obj.channels,obj.epochs);  %all epochs                
             end
             if ~exist('ch','var'), ch = 1:obj.channels; end 
             iEpCh = obj.GetEpochsExclude(ch); %seznam epoch k vyhodnoceni (bez chyb, treningu a rucniho vyrazeni=obj.RjEpoch),channels x epochs ; pro CM data to bude ruzne pro kazdy kanal, jinak stejne pro kazdy kanal            
             iEpochs = ismember(cell2mat(obj.epochData(:,2)), katnum); %index of epochs for this category - to be analyzed
             d = obj.d(:,:,iEpochs); %epochy z teto kategorie            
-            RjEpCh = obj.RjEpochCh(ch,iEpochs) | ~iEpCh(ch,iEpochs) | ~iOpakCh(ch,iEpochs); %epochs to be excluded for each channel
+            RjEpCh = obj.RjEpochCh(ch,iEpochs) | ~iEpCh(ch,iEpochs) | ~iTrialTypeCh(ch,iEpochs); %epochs to be excluded for each channel
                 % rejected, excluded (errors, training), other repetitions if analyzed
             
             if numel(ch)==1 %get reaction time in psy_rt, when one channel - 8.6.2018 kvuli CPsyDataMulti
@@ -430,7 +430,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 iEpochyP = iEpochs(1:size(psy_rt,1),:); %psy_rt maji rozmer podle puvodniho poctu epoch pred sloucenim v CM. Uz jsou spravne prehazene. 
                 %Kdezto iEpochy obsahuji i vyloucene epochy na konci (pokud u tohohle subjektu nebylo tolik epoch)
                 psy_rt = psy_rt(all(iEpochyP,2)); %reakcni casy jen pro vybrane kategorie a opakovani a nevyrazene
-                iEpochs = iEpochs & ~obj.RjEpochCh(ch,:)' & iEpCh(ch,:)' & iOpakCh(ch,:)'; %jeste pripravim k vystup seznam validnich epoch pro tento kanal - bez vyrazenych 
+                iEpochs = iEpochs & ~obj.RjEpochCh(ch,:)' & iEpCh(ch,:)' & iTrialTypeCh(ch,:)'; %jeste pripravim k vystup seznam validnich epoch pro tento kanal - bez vyrazenych 
                 % epochy podle podminky (jeden sloupec) &~ epochy s epiaktivitou (sloupcu jako kanalu) & epochy bez treningu, chyb a rucniho vyrazeni (RjEpoch) 
             else
                 psy_rt = zeros(size(d,3),1); %nulove reakcni casy
@@ -511,11 +511,11 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
             
         end            
-        function obj = ResponseSearch(obj,timewindow,kats,opakovani,method)
+        function obj = ResponseSearch(obj,timewindow,kats,trialtypes,method)
             %projede vsechny kanaly a hleda signif rozdil proti periode pred podnetem
             %timewindow - pokud dve hodnoty - porovnava prumernou hodnotu mezi nimi - sekundy relativne k podnetu/odpovedi
             % -- pokud jedna hodnota, je to sirka klouzaveho okna - maximalni p z teto delky
-            %opakovani - repetitions of the stimulus to be compared (instead of stimulus categoires)
+            %trialtypes - repetitions/trial types of the stimulus to be compared (instead of stimulus categories). cell array e.g. {'tt' [1 1] [1 0]}
             %TODO - moznost spojit kategorie 
             assert(obj.epochs > 1,'only for epoched data');                       
             if ~exist('method','var') || isempty(method)  %parameters of statistic in EEGStat.WilcoxCat, explained there and below
@@ -533,14 +533,17 @@ classdef CiEEGData < matlab.mixin.Copyable
             EEGStat = CEEGStat(obj.d,obj.fs);
             WpA = obj.WpActive; %jen zkratka
             if ~exist('kats','var'), kats = [];  end
-            if exist('opakovani','var') && ~isempty(opakovani) && iscell(opakovani)
+            if exist('trialtypes','var') && ~isempty(trialtypes) && iscell(trialtypes)
                 %we are evaluating stimulus repetitions, instead of categories. 
-                assert(numel(opakovani)<=3,'there can be 3 categories of repetition at max');
-                KATNUM = kats; %number of categoires, for which to compute the effect of repetition.
-                kats = opakovani;   %ATTENTION kats is used as repetition, for the code below to be the same   
-                disp('analysing repetitions');
+                assert(numel(trialtypes)<=4,'there can be 3 categories of repetition at max');
+                KATNUM = kats; %number of categories, for which to compute the effect of repetition.
+                kats = trialtypes(2:end);   %kats is used for repetition/trialtypes - for trial types give [column number from CPsyData.trialtypes , value ]
+                kats_type = trialtypes{1}; % 'rep' for repetitions, 'tt' for trialtypes, 'kats' is default for stimulus categories
+                assert( strcmp(kats_type,'rep') || strcmp(kats_type,'tt') , 'trialtypes indentifier can be either rep or tt');
+                disp(['analysing ' iff(strcmp(kats_type,'rep'),'repetitions','trialtypes')]);
             else
-                KATNUM = []; % we are evaluating differences between stimulus categoires  
+                KATNUM = []; % we are evaluating differences between stimulus categories  
+                kats_type = 'kats';
             end
             
             %CELKOVA SIGNIFIKANCE VUCI BASELINE - BEZ OHLEDU NA KATEGORIE nebo opakovani
@@ -574,8 +577,8 @@ classdef CiEEGData < matlab.mixin.Copyable
                 baselinekat = cell(numel(kats),1); %baseline for each category separately
                 rjepchkat = cell(numel(kats),1); % {epoch x channels}; to be rejected for each category           
                 for k = 1:numel(kats) %for all categories ( or repetitions )
-                    if ~isempty(KATNUM) %we are analysing repetitions instead of categories 
-                        [katdata,~,RjEpCh] = obj.CategoryData(KATNUM,[],kats{k}); %in kats there are repetitions 
+                    if ~strcmp(kats_type,'kats') %we are analysing repetitions instead of categories 
+                        [katdata,~,RjEpCh] = obj.CategoryData(KATNUM,[],{kats_type, kats{k}}); %in kats there are repetitions 
                     else
                         [katdata,~,RjEpCh] = obj.CategoryData(cellval(kats,k)); % time*channel*epochs for one category, epochs are excluded already?
                     end
@@ -586,18 +589,18 @@ classdef CiEEGData < matlab.mixin.Copyable
                 %provedu statisticke testy  - vuci baseline i mezi kat navzajem                
                 [obj.Wp(WpA).WpKat,obj.Wp(WpA).WpKatBaseline] = EEGStat.WilcoxCat(kats,responsekat,baselinekat,rjepchkat,itimewindow,method);                
                 %ulozim parametry
-                if ~isempty(KATNUM) %analysing stimulus repetitions 
+                if ~strcmp(kats_type,'kats') %analysing stimulus repetitions / trialtypes
                     obj.Wp(WpA).kats = KATNUM;    %puvodni kategorie
-                    obj.Wp(WpA).opakovani = kats; %v kats jsou ted opakovani
+                    obj.Wp(WpA).trialtypes = trialtypes; %v kats jsou ted opakovani                    
                 else
                     obj.Wp(WpA).kats = kats; %ulozim si cisla kategorii kvuli grafu PlotResponseCh
-                    obj.Wp(WpA).opakovani = {}; %opakovani nedelam
+                    obj.Wp(WpA).trialtypes = {}; %opakovani nedelam                    
                 end  
                 obj.Wp(WpA).method = method;
             else
                 obj.Wp(WpA).kats = kats;
                 obj.Wp(WpA).WpKat = cell(0);
-                obj.Wp(WpA).opakovani = {};
+                obj.Wp(WpA).trialtypes = {};
                 obj.Wp(WpA).method = struct;
             end
             obj.DatumCas.ResponseSearch = datestr(now);
@@ -1059,10 +1062,10 @@ classdef CiEEGData < matlab.mixin.Copyable
             if ~exist('WpA','var'), WpA = -1;kstat = -1; end %if I need kstat, necessary to use WpA
             if ~isempty(obj.Wp)
                 if iscell(kategories)
-                    kk = kategories{k}(1)+1;  
+                    kk = kategories{k}(end)+1;  %(end) works for both repetitions eg.[1] and trialtypes eg. [2 0] 
                     if WpA>=0
-                        if isfield(obj.Wp(WpA),'opakovani') && ~isempty(obj.Wp(WpA).opakovani) %if the statistics is computed for repetitions
-                            kstat = find(ismember(cell2mat(obj.Wp(WpA).opakovani'),kategories{k},'rows')); %index of category in statistical results
+                        if isfield(obj.Wp(WpA),'trialtypes') && ~isempty(obj.Wp(WpA).trialtypes) %if the statistics is computed for repetitions/trialtypes
+                            kstat = find(ismember(cell2mat(obj.Wp(WpA).trialtypes(2:end)'),kategories{k},'rows')); %index of category in statistical results
                         else %normal, i.e. statistics for stimulus categories
                             kstat = find(ismember(cell2mat(obj.Wp(WpA).kats'),kategories{k},'rows')); %index of category in statistical results
                         end
@@ -1399,7 +1402,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             plot(obj.RjEpoch,kategorie(obj.RjEpoch),'*r','MarkerSize',5); %vykreslim vyrazene epochy
             responses = [resp rt kategorie test];
         end       
-        function obj = PlotResponseCh(obj,ch,kategories,pvalue,opakovani)
+        function obj = PlotResponseCh(obj,ch,kategories,pvalue,trialtypes)
             %vykresli odpovedi pro jednotlivy kanal
             %opakovani je cell - maximalne tri hodnoty nebo arrays 
             %kategories 
@@ -1452,27 +1455,28 @@ classdef CiEEGData < matlab.mixin.Copyable
                 obj.plotRCh.kategories = kategories;    %hodnoty zadane parametrem, ty maji absolutni prednost
             end
             %stimulus repetitions, for PPA test - 28.9.2016
-            if ~exist('opakovani','var') || isempty(opakovani)     
-                if ~isempty(obj.Wp) && isfield(obj.Wp(WpA),'opakovani')
-                    opakovani = obj.Wp(WpA).opakovani;
-                elseif isfield(obj.plotRCh,'opakovani')  %neni zadne drive ulozene
-                    opakovani = obj.plotRCh.opakovani; %hodnoty drive pouzite v grafu, ty maji prednost pred statistikou    
+            if ~exist('trialtypes','var') || isempty(trialtypes)     
+                if ~isempty(obj.Wp) && isfield(obj.Wp(WpA),'trialtypes')
+                    trialtypes = obj.Wp(WpA).trialtypes;
+                elseif isfield(obj.plotRCh,'trialtypes')  %neni zadne drive ulozene
+                    trialtypes = obj.plotRCh.trialtypes; %hodnoty drive pouzite v grafu, ty maji prednost pred statistikou    
                 else 
-                    opakovani = {};                    
+                    trialtypes = {};                    
                 end
-            elseif ~iscell(opakovani) && opakovani == 0 %nulou vyresetuju opakovani, ze se nebude pouzivat
-                opakovani = {};
-                obj.plotRCh.opakovani = opakovani;  
+            elseif ~iscell(trialtypes) && trialtypes == 0 %nulou vyresetuju opakovani, ze se nebude pouzivat
+                trialtypes = {};
+                obj.plotRCh.opakovani = trialtypes;  
             else
-                assert(numel(opakovani)<=3,'kategorie opakovani mohou byt maximalne tri');
-                if ~isempty(obj.Wp) && ~isempty(obj.Wp(WpA).WpKat) && (isempty(obj.Wp(WpA).opakovani) || ~isequal(obj.Wp(WpA).opakovani, opakovani))
+                assert(numel(trialtypes)<=3,'kategorie opakovani mohou byt maximalne tri');
+                if ~isempty(obj.Wp) && ~isempty(obj.Wp(WpA).WpKat) && (isempty(obj.Wp(WpA).opakovani) || ~isequal(obj.Wp(WpA).opakovani, trialtypes))
                     disp('Statistika spocitana bez opakovani nebo pro jina opakovani')
                 end
-                obj.plotRCh.opakovani = opakovani;    %hodnoty zadane parametrem, ty maji absolutni prednost
+                obj.plotRCh.opakovani = trialtypes;    %hodnoty zadane parametrem, ty maji absolutni prednost
             end
             KATNUM = kategories; % kategorie, ktere chci vykreslovat - vsechny dohromady     
-            if ~isempty(opakovani)                
-                kategories = opakovani; %POZOR - misto kategorii jsou nyni opakovane - cell array
+            if ~isempty(trialtypes)                                
+                kategories = trialtypes(2:end);   %kats is used for repetition/trialtypes - for trial types give [column number from CPsyData.trialtypes , value ]
+                kats_type = trialtypes{1}; % 'rep' for repetitions, 'tt' for trialtypes, 'kats' is default for stimulus categories
             end 
             T = linspace(obj.epochtime(1),obj.epochtime(2),size(obj.d,1)); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
             if isfield(obj.plotRCh,'fh') && (verLessThan('matlab','9.0') || isvalid(obj.plotRCh.fh)) %isvalid je od verze 2016
@@ -1488,7 +1492,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 end
                 obj.plotRCh.fh = figure('Name',figurename);
             end
-            [ymin ymax] = obj.responseChYLim(iff(~isempty(opakovani),KATNUM,kategories));
+            [ymin ymax] = obj.responseChYLim(iff(~isempty(trialtypes),KATNUM,kategories));
             
             %TODO - popisky vic vlevo u zarovnani podle odpovedi
             %TODO vypsat i '( - )' jako neurology label
@@ -1544,13 +1548,13 @@ classdef CiEEGData < matlab.mixin.Copyable
                 h_kat = zeros(numel(kategories),2); 
                
                 for k = 1 : numel(kategories) %index 1-3 (nebo 4)                    
-                    [kk,kstat] = obj.KatIndex(kategories,k,WpA);
+                    [kk,kstat] = obj.KatIndex(kategories,k,WpA); %TODO
                     
                     %to se hodi zvlast, kdyz se delaji jen dve kategorie vuci sobe ane vsechny, nebo dve vuci jedne nebo dve vuci dvema
                     colorkatk = [obj.colorskat{kk} ; colorsErrorBars{kk}]; %dve barvy, na caru a stderr plochu kolem
-                    if exist('opakovani','var') && ~isempty(opakovani)
+                    if exist('trialtypes','var') && ~isempty(trialtypes)
                         katnum = kategories{k}; %now in karegories the repetitions are actually stored, it should be cell array
-                        [katdata,~,RjEpCh] = obj.CategoryData(KATNUM,[],katnum,ch); %eegdata - epochy pro tato opakovani
+                        [katdata,~,RjEpCh] = obj.CategoryData(KATNUM,[],{kats_type, kategories{k}},ch); %eegdata - epochy pro tato opakovani
                     elseif iscell(kategories) %funkce iff tady nefunguje, to by bylo samozrejme lepsi
                         katnum = kategories{k}; %cislo kategorie, muze byt cell, pokud vice kategorii proti jedne
                         [katdata,~,RjEpCh] = obj.CategoryData(katnum,[],[],ch); %eegdata - epochy jedne kategorie
@@ -1587,15 +1591,15 @@ classdef CiEEGData < matlab.mixin.Copyable
                         Tr = linspace(obj.Wp(WpA).baseline(2),obj.Wp(WpA).epochtime(2),size(obj.Wp(WpA).D2,1)); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
                         for l = k+1:numel(kategories) %katnum jde od nuly 
                             if iscell(kategories)
-                                colorkatl = kategories{l}(1)+1; 
-                                if exist('opakovani','var') && ~isempty(opakovani)
-                                    lstat = find(ismember(cell2mat( obj.Wp(WpA).opakovani'),kategories{l},'rows')); % index of category in Stat
+                                colorkatl = kategories{l}(end)+1; 
+                                if exist('trialtypes','var') && ~isempty(trialtypes)
+                                    lstat = find(ismember(cell2mat( obj.Wp(WpA).trialtypes(2:end)'),kategories{l},'rows')); % index of category in WpKat
                                 else
-                                    lstat = find(ismember(cell2mat(obj.Wp(WpA).kats'),kategories{l},'rows')); % index of category in Stat
+                                    lstat = find(ismember(cell2mat(obj.Wp(WpA).kats'),kategories{l},'rows')); % index of category in WpKat
                                 end
                             else
                                 ll = kategories(l); %real number of category
-                                lstat = find(obj.Wp(WpA).kats == ll); % index of category in Stat
+                                lstat = find(obj.Wp(WpA).kats == ll); % index of category in Wp.WpKat
                                 colorkatl = kategories(l)+1; 
                             end
                             
@@ -1622,9 +1626,9 @@ classdef CiEEGData < matlab.mixin.Copyable
                             iWp = WpKat(:,ch)  <= 0.01;                          
                             plot(Tr(iWp),ones(1,sum(iWp))*y,  '*','Color',color); %
                             % jmena kategorii vypisuju vzdy
-                            if exist('opakovani','var') && ~isempty(opakovani)   %pokud vyhodnocuju opakovani
-                                kat1name =  obj.PsyData.OpakovaniName(kategories{l});
-                                kat2name =  obj.PsyData.OpakovaniName(kategories{k});
+                            if exist('trialtypes','var') && ~isempty(trialtypes)   %pokud vyhodnocuju opakovani
+                                kat1name =  obj.PsyData.TrialTypeName({kats_type, kategories{l}}); %TODO
+                                kat2name =  obj.PsyData.TrialTypeName({kats_type, kategories{k}});
                                 kat3name =  [ ' (' obj.PsyData.CategoryName(obj.Wp(WpA).kats) ')' ]; %jmeno kategorie obrazku, ze ktere se opakovani pocitalo
                             elseif iscell(kategories)
                                 kat1name =  obj.PsyData.CategoryName(kategories{l});
@@ -1650,8 +1654,8 @@ classdef CiEEGData < matlab.mixin.Copyable
                             iWpB = obj.Wp(WpA).WpKatBaseline{kstat,1}(:,ch)  <= 0.01; % vyssi signifikance
                             %y = ymin + (ymax-ymin)*(0.28 - (k+2)*0.05)  ;
                             plot(Tr(iWpB),ones(1,sum(iWpB))*y, 'p','Color',colorkatk(1,:),'MarkerSize',5); %                             
-                            if exist('opakovani','var') && ~isempty(opakovani)
-                                kat2name =  obj.PsyData.OpakovaniName(kategories{k}); %pokud vyhodnocuju opakovani
+                            if exist('trialtypes','var') && ~isempty(trialtypes)
+                                kat2name =  obj.PsyData.TrialTypeName({kats_type, kategories{k}}); %pokud vyhodnocuju opakovani
                             elseif iscell(kategories)
                                 kat2name =  obj.PsyData.CategoryName(kategories{k});
                             else
