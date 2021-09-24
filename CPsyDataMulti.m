@@ -76,6 +76,13 @@ classdef CPsyDataMulti < CPsyData
             disp([xlsfilename '.xls, with ' num2str(size(output,1)) ' lines saved']);
             obj.SubjectChange(iS_backup); %activate the orignal subject
         end
+        function epochs = GetEpochsMax(obj)
+            %returns the maximum number of epochs over all subjects
+            epochs = 0;
+            for s=1:obj.nS
+                epochs=max(epochs,size(obj.Pmulti(s).data,1));
+            end
+        end
     end
     
 end

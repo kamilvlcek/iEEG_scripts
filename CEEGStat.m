@@ -53,8 +53,8 @@ classdef CEEGStat
             WpKatBaseline = cell(numel(kats),1);  %differences relative to the baseline, for each category separately
             for k =  1: numel(kats)                
                  baselineall = baselinekat{k};
-                 baselineA = mean(baselineall(1:floor(size(baselineall,1)/2)      ,:,:));
-                 baselineB = mean(baselineall(  floor(size(baselineall,1)/2)+1:end,:,:));
+                 baselineA = mean(baselineall(1:floor(size(baselineall,1)/2)      ,:,:),1); %mean over time
+                 baselineB = mean(baselineall(  floor(size(baselineall,1)/2)+1:end,:,:),1); %mean over time
                  if method.chn == 1 %statistics for each channel separately, signif response relative to baseline
                      WpKatBaseline{k,1} = ones(size(responsekat{k},1), size(responsekat{k},2)); %time x channels
                      fprintf('kat %i vs baseline - Channels Individually - Wilcox2D: 1 ... ',k);
@@ -82,7 +82,7 @@ classdef CEEGStat
                         if method.chn == 1 %statistics for each channel separatele, only the the times with signif response relative to baseline
                             Wr = ones(size(WpKatBaseline{1})); %hi p values by default 
                             fprintf('kat %i vs %i - Channels Individually - Wilcox2D %s: 1 ... ',k,j,pairedstr);
-                            for ch = 1:size(Wr,2)                                
+                            for ch = 1:size(Wr,2)  %over all channels                              
                                 if min(WpKatBaseline{k}(:,ch))<.05 || min(WpKatBaseline{j}(:,ch))<.05 %if at least one kat is significant from baseline
                                     % -------- WILCOX each category with each category:
                                     Wr(:,ch) = CStat.Wilcox2D(responsekat{k}(:,ch,:), responsekat{j}(:,ch,:),0,method.fdr,['kat ' num2str(k) ' vs ' num2str(j)],rjepchkat{k}(ch,:),rjepchkat{j}(ch,:),paired); 

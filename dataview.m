@@ -9,14 +9,14 @@ if size(d,2)==1
 elseif ~exist('channel','var') || isempty(channel) %muzu zadat kanal se synchronizaci - 15.4.2015
     channel = size(d,2)-2; %synchronizace byva 2 kanaly pred koncem - pred EKG
 end  
-if ~exist('start','var') || start == 0
+if ~exist('start','var') || isempty(start) || start == 0
     start = 0;
     iStart = 1; %index v poli tabs
 else
     iStart = round(start*fs); %index v poli tabs
 end
 zaznamvterin = (tabs(end)-tabs(1))*24*3600; %delka zaznamu ve vterinach
-if ~exist('konec','var') || konec == 0
+if ~exist('konec','var') || isempty(konec) || konec == 0
     konec = floor(zaznamvterin); 
     delka = konec -start;  %23.6.2015 - kdyz neudam delku, zobrazuje cely zaznam
     iKonec = size(tabs,1);%index v poli tabs
@@ -49,10 +49,12 @@ figure('Name','Synchronizace');
 %       break; %kdyz uz delkou presahuju konec zaznamu, ukoncim cyklus
 %    end
 x = start;
-data = d(x*fs+1:(x+delka)*fs,channel) .* mults(1,channel);
+data = double(d(x*fs+1:(x+delka)*fs,channel)) .* mults(1,channel);
 ymax = 3000;
+yanot = 2500;
 if sum(data>3000)>5e4
-    ymax = 5e5;
+    ymax = 5e5; %yrange of plot
+    yanot = 4e5; %where timestamp text shoudl be plotted
     disp('range increased to 5e5');
 end
 yrange = [-ymax ymax];
@@ -120,15 +122,18 @@ yrange = [-ymax ymax];
     tabsX = tabs(iSTART:iEND); %tabs odpovidajici ose X=zobrazenym datum 
     for ix = 1:600*fs:numel(tabsX)        
 %         text(xtime(ix),2500,datestr(tabs(ix),'dd-mmm-yyyy HH:MM:SS.FFF'),'Color','black');
-        text(xtime(ix),2500,datestr(tabsX(ix),'dd-mmm-yyyy HH:MM:SS.FFF'),'Color','black');        
+        text(xtime(ix),yanot,datestr(tabsX(ix),'dd-mmm-yyyy HH:MM:SS.FFF'),'Color','black');        
     end
-    text(xtime(end),1000,datestr(tabsX(end),'dd-mmm-yyyy HH:MM:SS.FFF'),'Color','black');
+    text(xtime(end),yanot/3,datestr(tabsX(end),'dd-mmm-yyyy HH:MM:SS.FFF'),'Color','black');
     if numel(pauzyvdatech) > 0
        for ip = 1:size(pauzyvdatech,1)
-           line([pauzyvdatech(ip,2) pauzyvdatech(ip,2)],yrange,'Color','red');
-           text(pauzyvdatech(ip,2),2000-ip*200,datestr(tabs(pauzyvdatech(ip,1)+1),'dd-mmm-yyyy HH:MM:SS.FFF'),'Color','red');
-           text(pauzyvdatech(ip,2),2090-ip*200,datestr(tabs(pauzyvdatech(ip,1)),'dd-mmm-yyyy HH:MM:SS.FFF'),'Color','black');
-           text(pauzyvdatech(ip,2),1000-ip*200,num2str(pauzyvdatech(ip,3),'%.2f sec'),'Color','red');
+           line([pauzyvdatech(ip,2) pauzyvdatech(ip,2)],yrange,'Color','red'); %TODO - tady je chyba, x hodnoty osy nesedi s casem pauz
+           if size(pauzyvdatech,1) <= 10 || mod(ip,floor(size(pauzyvdatech,1)/10))==0 %for many pauses plot only each 10th
+               ytext = yanot*0.8;
+               text(pauzyvdatech(ip,2),ytext-ip/10*ytext/10,datestr(tabs(pauzyvdatech(ip,1)+1),'dd-mmm-yyyy HH:MM:SS.FFF'),'Color','red');
+               text(pauzyvdatech(ip,2),ytext+ytext/10-ip/10*ytext/10,datestr(tabs(pauzyvdatech(ip,1)),'dd-mmm-yyyy HH:MM:SS.FFF'),'Color','black');
+               text(pauzyvdatech(ip,2),ytext/2-ip/10*ytext/10,num2str(pauzyvdatech(ip,3),'%.2f sec'),'Color','red');
+           end
        end       
     end
 %end
