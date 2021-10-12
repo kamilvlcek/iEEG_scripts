@@ -350,7 +350,7 @@ classdef CiEEGData < matlab.mixin.Copyable
         function obj = ResampleEpochs(obj,newepochtime)
             %resampluje epochy na -0.1 1, pricemz 0-1 je cas odpovedi
             %epochy s delsim casem odpovedi nez je puvodni delka epochy vyradi
-            rt = obj.PsyData.ReactionTime(1);
+            rt = obj.PsyData.ReactionTime(-1); %no categories distinguished
             rtnew = 1; %v kolika sec bude reakcni cas            
             if ~exist('newepochtime','var'), newepochtime = [-0.1 1.1]; end %epocha muze koncit po odpovedi
             newepochlength = newepochtime(2)-newepochtime(1); %delka epochy v sec po resamplovani
@@ -579,8 +579,10 @@ classdef CiEEGData < matlab.mixin.Copyable
                 for k = 1:numel(kats) %for all categories ( or repetitions )
                     if ~strcmp(kats_type,'kats') %we are analysing repetitions instead of categories 
                         [katdata,~,RjEpCh] = obj.CategoryData(KATNUM,[],{kats_type, kats{k}}); %in kats there are repetitions 
+                        assert( numel(RjEpCh) > sum(sum(RjEpCh)), ['no nonrejected data in ' cell2str({kats_type, kats{k}})]); 
                     else
                         [katdata,~,RjEpCh] = obj.CategoryData(cellval(kats,k)); % time*channel*epochs for one category, epochs are excluded already?
+                        assert(numel(RjEpCh) > sum(sum(RjEpCh)), ['no nonrejected data in ' cell2str( kats(k))]); 
                     end
                     responsekat{k,1} = katdata( ibaseline(2) - iepochtime(1)+1 :end,:,:); %time only after the stimulus : time x channel x epochs; 
                     baselinekat{k,1} = katdata( ibaseline(1) - iepochtime(1)+1 : ibaseline(2) - iepochtime(1),:,:); 
@@ -624,10 +626,10 @@ classdef CiEEGData < matlab.mixin.Copyable
         function obj = SetStatActive(obj,WpActive)
             WpActive = max(1,min(size(obj.Wp,2)+1,WpActive)); %osetreni na prilis vysoke a nizke cislo            
             if WpActive > numel(obj.Wp)
-                disp(['nastavena nova prazdna statistika ' num2str(WpActive)]);
+                disp(['new empty contrast set: ' num2str(WpActive)]);
             else
-               [katstr, opakstr] = obj.KatOpak2Str(WpActive);                
-                disp(['nastavena statistika ' num2str(WpActive) ' s kats: ' katstr ', opakovani: ' opakstr]);            
+               [katstr, trialtypestr] = obj.KatOpak2Str(WpActive);                
+                disp(['contrast set no ' num2str(WpActive) ' with kats: ' katstr ', trialtypes: ' trialtypestr]);            
             end
             obj.WpActive = WpActive;
             
@@ -743,18 +745,26 @@ classdef CiEEGData < matlab.mixin.Copyable
         function [katsnames,kombinace,kats] = GetKatsNames(obj)
             %vraci nazvy kategorii ve statistice v aktivnim kontrastu a jejich kombinaci, do intervalyResp aj
            if numel(obj.Wp) >= obj.WpActive
-               kats = obj.Wp(obj.WpActive).kats; 
-               [katnum, katstr] = obj.PsyData.Categories();
-               kombinace = combinator(length(kats),2,'p'); %permutace bez opakovani z poctu kategorii
+               if ~isempty(obj.Wp(obj.WpActive).trialtypes)
+                   kats = obj.Wp(obj.WpActive).trialtypes(2:end);
+               else
+                   kats = obj.Wp(obj.WpActive).kats; 
+               end                
+               [katnum, katstr] = obj.PsyData.Categories(0,obj.Wp(obj.WpActive));
+               kombinace = combinator(length(kats),2,'p'); %permutace bez opakovani z poctu kategorii - just indexes in kats, so from 1 to n
                kombinace = kombinace(kombinace(:,1)>kombinace(:,2),:); %vyberu jen permutace, kde prvni cislo je vetsi nez druhe   
                katsnames =  cell(1,numel(kats)+ size(kombinace,1)); %tam jsou kats + jejich kombinace
                for kat = 1: numel(kats) %v PRVNIM cyklu naplnim jmena samotnych kategorii
                     if iscell(kats(kat)) %mame tu vic kategorii proti vice - na jedne strane kontrastu
-                        kknames = cell(1,numel(kats{kat})); %jmena individualnich kategorii na jedne strane kontrastu
-                        for kk = 1: numel(kats{kat})
-                            kknames{kk}=katstr{kats{kat}(kk)+1}; %katnum jsou od 0, katstr indexovany od 1
+                        if ~isempty(obj.Wp(obj.WpActive).trialtypes)
+                            katsnames{kat} = katstr{kat}; %'rep' vs 'tt' is allready in katstr
+                        else    
+                            kknames = cell(1,numel(kats{kat})); %jmena individualnich kategorii na jedne strane kontrastu
+                            for kk = 1: numel(kats{kat})
+                                kknames{kk}=katstr{kats{kat}(kk)+1}; %katnum jsou od 0, katstr indexovany od 1
+                            end
+                            katsnames{kat} = strjoin(kknames,'+'); %vice kategorii
                         end
-                        katsnames{kat} = strjoin(kknames,'+'); %vice kategorii
                     else
                         katsnames{kat} = katstr{katnum==kats(kat)}; %jde to udelat najednou bez for cyklu?
                     end
@@ -763,7 +773,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                    katsnames{kat+numel(kats)} = [katsnames{kombinace(kat,1)} 'X' katsnames{kombinace(kat,2)} ];
                end
            else
-               disp(['neni vypocitana statistika']);
+               disp('no contrast computed');
            end
         end
         function [prumery, MNI,names,intervaly,katsnames,neurologyLabels,pvals] = IntervalyResp(obj, intervaly,channels,signum, dofig,pvals_time)
@@ -1498,7 +1508,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             %TODO vypsat i '( - )' jako neurology label
             %TODO trosku vetsi fonty - i do naseho corelu se bude hodit
             obj.PsyData.SubjectChange(find(obj.els >= ch,1)); %to je tu jen kvuli CHilbertMulti a tedy CPsyDataMulti
-            rt = obj.PsyData.ReactionTime(); %reakcni casy podle kategorii, ve sloupcich
+            rt = obj.PsyData.ReactionTime(KATNUM,trialtypes); %reakcni casy podle kategorii, ve sloupcich
             
             %ZACINAM VYKRESLOVAT - NEJDRIV MEAN VSECH KATEGORII
             %normally not plotted, only when no stimulus categories are given
@@ -1548,7 +1558,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 h_kat = zeros(numel(kategories),2); 
                
                 for k = 1 : numel(kategories) %index 1-3 (nebo 4)                    
-                    [kk,kstat] = obj.KatIndex(kategories,k,WpA); %TODO
+                    [kk,kstat] = obj.KatIndex(kategories,k,WpA); %kk is index 1-n (basically kategories(k)+1), kstat is index in obj.Wp().kats
                     
                     %to se hodi zvlast, kdyz se delaji jen dve kategorie vuci sobe ane vsechny, nebo dve vuci jedne nebo dve vuci dvema
                     colorkatk = [obj.colorskat{kk} ; colorsErrorBars{kk}]; %dve barvy, na caru a stderr plochu kolem
@@ -1670,9 +1680,9 @@ classdef CiEEGData < matlab.mixin.Copyable
                     end
                     %cara reakcnich casu pro tuhle kategorii
                     y=ymax-(ymax-ymin)*0.07*k;
-                    rtkatnum = reshape(rt(:,katnum+1),[],1); %chci vsechny hodnoty z obou kategorii dohromady
+                    rtkatnum = reshape(rt(:,k),[],1); %chci vsechny hodnoty z obou kategorii dohromady
                     line([quantile(rtkatnum,0.25) quantile(rtkatnum,0.75)],[y y],'Color',colorkatk(1,:)); %cara kvantilu 
-                    plot(median(rtkatnum),y,'o','Color',colorkatk(1,:)); %median
+                    plot(nanmedian(rtkatnum),y,'o','Color',colorkatk(1,:)); %median
                 end
                 y = (ymax-ymin)*0.2  ; %pozice na ose y
                 if ~isempty(obj.Wp) %jen pokud je spocitana statistika , vypisu cislo aktivni statistiky a jmena kategorii
@@ -2684,27 +2694,17 @@ classdef CiEEGData < matlab.mixin.Copyable
             RjEpochCh(RjEpochCh >= 2) = 1;
             obj.RjEpochCh = RjEpochCh'; %vyrazeni kazdeho kanalu puvodni reference znamena vyrazeni dvou kanalu bipolarni reference 
         end
-        function [katstr, opakstr] = KatOpak2Str(obj,WpA)
+        function [katstr, trialtypestr] = KatOpak2Str(obj,WpA)
             if ~exist('WpA','var'), WpA = 1; end
-            if isfield(obj.Wp(WpA),'opakovani')
-                opakstr = cell2str(obj.Wp(WpA).opakovani);
-%                 if iscell(obj.Wp(WpA).opakovani)
-%                     strjoin(cellfun(@num2str,obj.Wp(WpA).opakovani,'un',0));  %tohle jsem nejak vygooglil, ale nevypisuje to slozene zavorky
-%                 else
-%                     opakstr = num2str(obj.Wp(WpA).opakovani); 
-%                 end
+            if isfield(obj.Wp(WpA),'trialtypes') && ~isempty(obj.Wp(WpA).trialtypes)
+                trialtypestr = cell2str(obj.Wp(WpA).trialtypes);
             else 
-                opakstr = 'no'; 
+                trialtypestr = 'no'; 
             end
             if isfield(obj.Wp(WpA),'kats')
                katstr = cell2str(obj.Wp(WpA).kats); %moje nova funkce 6.3.2018
-%                if iscell(obj.Wp(WpA).kats)
-%                    katstr = strjoin(cellfun(@num2str,obj.Wp(WpA).kats,'un',0)); %chci nejak vypsat kategorie v cell array
-%                else
-%                    katstr = num2str(obj.Wp(WpA).kats);  
-%                end
             else
-                katstr = 'no';
+               katstr = 'no';
             end
         end        
         function chsignif = ChannelsSignif(obj)

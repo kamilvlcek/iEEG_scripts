@@ -57,14 +57,15 @@ classdef CEEGStat
                  baselineB = mean(baselineall(  floor(size(baselineall,1)/2)+1:end,:,:),1); %mean over time
                  if method.chn == 1 %statistics for each channel separately, signif response relative to baseline
                      WpKatBaseline{k,1} = ones(size(responsekat{k},1), size(responsekat{k},2)); %time x channels
-                     fprintf('kat %i vs baseline - Channels Individually - Wilcox2D: 1 ... ',k);
+                     fprintf('kat %i vs baseline - Channels Individually - Wilcox2D: ch    ',k);
                      for ch = 1:size(responsekat{k},2) %musim baseline signif taky pocitat pro kazdy kanal zvast protoze ji pak zohlednuju mezi kategoriemi
                         WpBA = CStat.Wilcox2D(responsekat{k}(:,ch,:),baselineA(:,ch,:),0,method.fdr,['chn' num2str(ch) ' kat ' num2str(k) ' vs baseline A'],rjepchkat{k}(ch,:),rjepchkat{k}(ch,:));
                         WpBB = CStat.Wilcox2D(responsekat{k}(:,ch,:),baselineB(:,ch,:),0,method.fdr,['chn' num2str(ch) ' kat ' num2str(k) ' vs baseline B'],rjepchkat{k}(ch,:),rjepchkat{k}(ch,:));
                         WpKatBaseline{k,1}(:,ch) = max (WpBA,WpBB);
+                        fprintf('\b\b\b%3i',ch);  %list each channel                      
                      end
                      if method.fdr == 0, fprintf('no fdr ...'); end
-                     fprintf('... %i \n',ch);
+                     fprintf(' ... OK \n');
                  else %puvodni verze, statistika pro vsechny kanaly najednou  
                      WpBA = CStat.Wilcox2D(responsekat{k},baselineA,1,method.fdr,['kat ' num2str(k) ' vs baseline A'],rjepchkat{k},rjepchkat{k});
                      WpBB = CStat.Wilcox2D(responsekat{k},baselineB,1,method.fdr,['kat ' num2str(k) ' vs baseline B'],rjepchkat{k},rjepchkat{k});
@@ -81,16 +82,17 @@ classdef CEEGStat
                     if strcmp(method.test,'wilcox') %non-parametri wilcoxon test 
                         if method.chn == 1 %statistics for each channel separatele, only the the times with signif response relative to baseline
                             Wr = ones(size(WpKatBaseline{1})); %hi p values by default 
-                            fprintf('kat %i vs %i - Channels Individually - Wilcox2D %s: 1 ... ',k,j,pairedstr);
+                            fprintf('kat %i vs %i - Channels Individually - Wilcox2D %s: ch    ',k,j,pairedstr);
                             for ch = 1:size(Wr,2)  %over all channels                              
                                 if min(WpKatBaseline{k}(:,ch))<.05 || min(WpKatBaseline{j}(:,ch))<.05 %if at least one kat is significant from baseline
                                     % -------- WILCOX each category with each category:
                                     Wr(:,ch) = CStat.Wilcox2D(responsekat{k}(:,ch,:), responsekat{j}(:,ch,:),0,method.fdr,['kat ' num2str(k) ' vs ' num2str(j)],rjepchkat{k}(ch,:),rjepchkat{j}(ch,:),paired); 
                                     %fprintf('%i,',ch);
                                 end                                
+                                fprintf('\b\b\b%3i',ch);  %list each channel 
                             end
                             if method.fdr == 0, fprintf('no fdr ...'); end
-                            fprintf('... %i \n',ch);
+                            fprintf(' ... OK \n');
                         else  %statistics for all channels together 
                             %TODO no difference to baseline is required. Is it OK? Inconsistent with the method.chn == 1
                             Wr = CStat.Wilcox2D(responsekat{k}, responsekat{j},1,method.fdr,['kat ' num2str(k) ' vs ' num2str(j)],rjepchkat{k},rjepchkat{j}, paired); % -------- WILCOX kazda kat s kazdou 
