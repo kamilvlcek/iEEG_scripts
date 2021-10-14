@@ -107,7 +107,9 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         end 
         
         function [katnum, katstr] = Categories(obj,tisk,Wp)
-            %return numbers and names of all categoires
+            %return numbers and names of all categories
+            %katnum are category numbers (0-n), equivalent to PsyData.P.strings.podminka
+            %katstr are category names, also from PsyData.P.strings.podminka, in the same order
             %if Wp.trialtypes is not empty, returns trialtypes instead of categories
             
             if ~exist('tisk','var'), tisk = 0; end %dfaultne netisknu kategorie
