@@ -40,20 +40,43 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 testname2 = '';
             end
         end
-        function rt = ReactionTime(obj,nokategories)
-            %return the matrix of all reaction times split to columnts by stimulus category
+        function rt = ReactionTime(obj,kategories,trialtypes)
+            %return the matrix of all reaction times split to columnts by stimulus category (if kategories is empty, ie. default)
             %using NaN where there are less values in a columns, it is therefore necessary to use nanmean or similar functions
             %the RT are from the time of sunchronization pulse (so not from the PsychoPy). 
-            %if nokategories= 1, only one column is returned without considering the category
-            if ~exist('nokategories','var') || nokategories == 0
-                kat = unique(obj.P.data(:,obj.P.sloupce.kategorie)); %ciselne vyjadreni kategorie podnetu 0-n
-                rt = nan(size(obj.P.data,1),numel(kat)); %pole kam budu ukladat reakcni casy v sekundach
-
-                for k = kat' %funguje jen pro radky, kat je sloupec
-                    ikat = obj.P.data(:,obj.P.sloupce.kategorie)==k;
-                    rt(1:sum(ikat),k+1) = 24*3600*(obj.P.data(ikat,obj.P.sloupce.ts_odpoved) - obj.P.data(ikat,obj.P.sloupce.ts_podnet));
+            %if kategories = -1, only one column is returned without considering the category
+            %if kategories is array with numbers of categories, return only these
+            %trialtypes: cellarray e.g. {'tt' [2 0] [2 1]} or {'rep' 1 2}
+            if ~exist('kategories','var') || isempty(kategories)
+                kat = unique(obj.P.data(:,obj.P.sloupce.kategorie))'; % all category numbers - ciselne vyjadreni kategorie podnetu 0-n + transpose to make it row
+            elseif kategories(1) >= 0
+                kat = kategories; %selected categories
+            else
+                kat = -1;
+            end   
+            if kat(1)>=0
+                if ~exist('trialtypes','var') || isempty(trialtypes)                    
+                    rt = nan(size(obj.P.data,1),numel(kat)); %pole kam budu ukladat reakcni casy v sekundach
+                    for k = kat %funguje jen pro radky, kat je sloupec
+                        ikat = obj.P.data(:,obj.P.sloupce.kategorie)==k;
+                        rt(1:sum(ikat),k+1) = 24*3600*(obj.P.data(ikat,obj.P.sloupce.ts_odpoved) - obj.P.data(ikat,obj.P.sloupce.ts_podnet));
+                        %rt: trials x kats - when kategories have different no of trials, the rest for the columnt is NaN
+                    end                               
+                else
+                    rt = nan(size(obj.P.data,1),numel(trialtypes)-1); %pole kam budu ukladat reakcni casy v sekundach
+                    ikat = ismember(obj.P.data(:,obj.P.sloupce.kategorie),kat);
+                    for t = 1:numel(trialtypes)-1
+                        if strcmp(trialtypes{1},'tt')
+                            itt = obj.trialtypes{:,trialtypes{t+1}(1)} == trialtypes{t+1}(2); %eg. {'tt' [1 0] [1 1]}
+                        elseif strcmp(trialtypes{1},'rep')
+                            itt = obj.P.data(:,obj.P.sloupce.opakovani)==trialtypes{t+1}; %eg. {'rep' 1 2} 
+                        else
+                            itt = true(size(ikat));
+                        end
+                        rt(1:sum(itt & ikat),t) = 24*3600*(obj.P.data(itt & ikat,obj.P.sloupce.ts_odpoved) - obj.P.data(itt & ikat,obj.P.sloupce.ts_podnet));                                                    
+                    end
                 end
-                rt = rt(any(~isnan(rt),2),:); % necha jen radky, kde je nejake ~NaN cislo           
+                rt = rt(any(~isnan(rt),2),:); % necha jen radky, kde je nejake ~NaN cislo
             else
                 rt = 24*3600*(obj.P.data(:,obj.P.sloupce.ts_odpoved) - obj.P.data(:,obj.P.sloupce.ts_podnet));
             end
@@ -83,17 +106,29 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             kat = obj.P.strings.podminka{katnum+1};            
         end 
         
-        function [katnum, katstr] = Categories(obj,tisk)
-            %vraci cisla vsech kategorii
+        function [katnum, katstr] = Categories(obj,tisk,Wp)
+            %return numbers and names of all categories
+            %katnum are category numbers (0-n), equivalent to PsyData.P.strings.podminka
+            %katstr are category names, also from PsyData.P.strings.podminka, in the same order
+            %if Wp.trialtypes is not empty, returns trialtypes instead of categories
+            
             if ~exist('tisk','var'), tisk = 0; end %dfaultne netisknu kategorie
-            katnum = cell2mat(obj.P.strings.podminka(:,2))'; %kategorie v radku
-            katstr = cell(size(katnum));
-            for k = 1:numel(katnum)
-                katstr{k} = obj.P.strings.podminka{k};
-                if tisk
-                    disp([ num2str(katnum(k)) ': ' katstr{k}]);
-                end
-            end                
+            if ~exist('Wp','var') || ~isfield(Wp,'trialtypes') || isempty(Wp.trialtypes)
+                katnum = cell2mat(obj.P.strings.podminka(:,2))'; %kategorie v radku
+                katstr = cell(size(katnum));
+                for k = 1:numel(katnum)
+                    katstr{k} = obj.P.strings.podminka{k};
+                    if tisk
+                        disp([ num2str(katnum(k)) ': ' katstr{k}]);
+                    end
+                end     
+            else
+                katnum = 0:numel(Wp.trialtypes)-2; %numbers starting from 0
+                katstr = cell(size(katnum));                    
+                for k = 1:numel(katnum)
+                    katstr{k} = [obj.trialtypes.Properties.VariableNames{Wp.trialtypes{k+1}(1)} '=' num2str(Wp.trialtypes{k+1}(2))];
+                end                                                
+            end
         end
         function [kat] = CategoryName(obj,katnum,concat)
             %vraci jmeno kategorie z cisla, jmeno kategorie se pocita od 0
@@ -192,7 +227,7 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             
             chyby = zeros(size(obj.P.data,1),4); %ctyri sloupce - chybne trials a chybne bloky, trening, prilis rychle reakcni casy
             chyby(:,1) = obj.P.data(:,S.spravne)==0; %pro PPA jsou vsechny ovoce spatne. Sloupec spravne je u ovoce vzdy 0, chyba v PHP asi
-            rt = obj.ReactionTime(1); %reakcni casy podle Sychropulsu
+            rt = obj.ReactionTime(-1); %reakcni casy podle Sychropulsu - do not distinguish stimulus categories
             rtPsy = obj.P.data(:,S.rt); %reakcni cas podle psychopy
             chyby(:,4) = rt(:,1) < 0.1 | (rtPsy(:,1) < 0.1 & rtPsy(:,1) > 0);  %v PPA clovek nereaguje spravne, takze 0 jako cas odpovedi me nezajima 
                     %chyba, pokud je reakcni cas prilis kratky (0 v PsychoPy znamena, ze nereagoval, to je taky chyba)
@@ -244,7 +279,7 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             if strcmp(trialtype{1},'rep') && numel(trialtype)>=2
                iTrialTypeCh = ismember(TrialTypeCh , trialtype{2}); 
             elseif strcmp(trialtype{1},'tt') && numel(trialtype{2})>=2   
-               iTrialTypeCh = ismember(TrialTypeCh, trialtype{2}(2)); 
+               iTrialTypeCh = ismember(TrialTypeCh, trialtype{2}(2));  %channels x epochs
             else
                iTrialTypeCh = []; 
             end            
@@ -325,7 +360,7 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             ylabel('sec');
             
             subplot(1,2,2);
-            rt = obj.ReactionTime(); %ctyri sloupce reakcnich casu podle synchropulsu
+            rt = obj.ReactionTime(); %ctyri sloupce reakcnich casu podle synchropulsu - all categories
             numkatvals = size(rt,1);
             numkats = size(rt,2);
             rt = rt(:);      % jeden sloupec, v poradi ovoce, 
@@ -342,7 +377,7 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             
             %druhy graf - 21.6.2017
             figure('Name','ITI - Synchropuls vs PsychoPy');
-            rt = obj.ReactionTime(1);
+            rt = obj.ReactionTime(-1); %no categories distinguished
             plot(rt,rtPsy,'o');
             xlabel('RT Synchropulse');
             ylabel('RT PsychoPy');
