@@ -6,6 +6,8 @@
 *.log
 *.mat
 !BrainAtlas_zkratky.mat
+!AedistTrialTypes.mat
+!GMSurfaceMesh.mat
 
 *.nii
 *.graphml

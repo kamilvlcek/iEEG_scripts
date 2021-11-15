@@ -386,7 +386,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                            th = text(x_text+m*10,-90,klavesy(m), 'FontSize', 15,'Color',barvy(m,:)); %legenda k barvam kanalu dole pod mozkem
                            th.BackgroundColor = [.6 .6 .6];
                            if ~isempty(selChNames) && ~isempty(selChNames{m})
-                             text(x_text+70,-60-m*7,cell2str(selChNames{m}), 'FontSize', 9,'Color',barvy(m,:)); %popisy znacek f-l                           
+                             text(x_text+70,-60-m*7,cell2str(selChNames{m}), 'FontSize', 9,'Color',barvy(m,:), 'Interpreter', 'none'); %popisy znacek f-l                           
                            end
                        end
                     end
