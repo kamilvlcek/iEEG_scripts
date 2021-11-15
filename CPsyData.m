@@ -122,7 +122,7 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                         disp([ num2str(katnum(k)) ': ' katstr{k}]);
                     end
                 end     
-            else
+            else %Wp trialtypes
                 katnum = 0:numel(Wp.trialtypes)-2; %numbers starting from 0
                 katstr = cell(size(katnum));                    
                 for k = 1:numel(katnum)
@@ -195,29 +195,54 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             
         end
         
-        function [resp,rt,kat,test] = GetResponses(obj)
+        function [resp,rt,kat,test] = GetResponses(obj,trialtypes)
             %returns the subjects responses - correct=1/incorrect=0, reaction time (from PsychoPy), stimulus category, test=1/training=0
+            if ~exist('trialtypes','var'), trialtypes = []; end
             S = obj.P.sloupce;
-            resp = obj.P.data(:,S.spravne); % spravnost odpovedi
-            if strcmp(obj.testname,'ppa')
-                klavesa = obj.P.data(:,S.klavesa); % spravnost odpovedi
-                iovoce = obj.P.data(:,S.kategorie) == 0; %ovoce
-                iklavesa = klavesa == 1; %pressed space bar
-                if sum(iovoce & iklavesa)>0 %if he responded at least ones for ovoce
-                    if mean(resp(iovoce & iklavesa) < 0.5) %if correct response is marked by 0
-                       resp(iovoce) = 1- resp(iovoce); %reverse all ovoce reponses: 1=correct
+            if isempty(trialtypes) || ~iscell(trialtypes)
+                resp = obj.P.data(:,S.spravne); % spravnost odpovedi
+                if strcmp(obj.testname,'ppa') %correction of correct responses for PPA test
+                    klavesa = obj.P.data(:,S.klavesa); % spravnost odpovedi
+                    iovoce = obj.P.data(:,S.kategorie) == 0; %ovoce
+                    iklavesa = klavesa == 1; %pressed space bar
+                    if sum(iovoce & iklavesa)>0 %if he responded at least ones for ovoce
+                        if mean(resp(iovoce & iklavesa) < 0.5) %if correct response is marked by 0
+                           resp(iovoce) = 1- resp(iovoce); %reverse all ovoce reponses: 1=correct
+                        end
+                    else
+                        iklavesa = klavesa == -1; %index of no responses
+                        if mean(resp(iovoce & iklavesa) > 0.5) %if incorrect reps is marked by 1
+                            resp(iovoce) = 1- resp(iovoce); %reverse all ovoce reponses: 1=correct
+                        end
                     end
-                else
-                    iklavesa = klavesa == -1; %index of no responses
-                    if mean(resp(iovoce & iklavesa) > 0.5) %if incorrect reps is marked by 1
-                        resp(iovoce) = 1- resp(iovoce); %reverse all ovoce reponses: 1=correct
-                    end
+                    %tab = [resp(iovoce & iklavesa), klavesa(iovoce & iklavesa)];
                 end
-                tab = [resp(iovoce & iklavesa), klavesa(iovoce & iklavesa)];
+                rt = obj.P.data(:,S.rt); % reakcni casy
+                kat = obj.P.data(:,S.kategorie); %kategorie
+                test = obj.P.data(:,S.zpetnavazba)==0; %vratim index testovych trialu
+            elseif strcmp(trialtypes{1}, 'tt') 
+                assert(~strcmp(obj.testname,'ppa'),'CPsyData.GetResponses cannot now return PPA test trialtypes'); %todo - similar correction as above
+                lines = 0;
+                for t = 2:numel(trialtypes)
+                    itt = obj.trialtypes{:,trialtypes{t}(1)} == trialtypes{t}(2);
+                    lines =  lines + sum(itt); %number of trials/epochs with this trialtype
+                end
+                resp = zeros(numel(lines),1);
+                rt = zeros(numel(lines),1);
+                kat = zeros(numel(lines),1);
+                test = zeros(numel(lines),1);
+                lines = 0;
+                for t = 2:numel(trialtypes)
+                    itt = obj.trialtypes{:,trialtypes{t}(1)} == trialtypes{t}(2);
+                    resp(lines+1:lines+sum(itt)) = obj.P.data(itt,S.spravne); %correcness
+                    rt(lines+1:lines+sum(itt)) = obj.P.data(itt,S.rt); %reaction time
+                    kat(lines+1:lines+sum(itt)) = repmat((t-2),sum(itt),1); %not original stimulus category, but number of trialtype category, should start from 0
+                    test(lines+1:lines+sum(itt)) = obj.P.data(itt,S.zpetnavazba)==0; %feedback 1=training,0=test
+                    lines = lines + sum(itt);
+                end
+            else
+                error(['CPsyData.GetResponses: not defined trialtype ' trialtypes{1}]);
             end
-            rt = obj.P.data(:,S.rt); % reakcni casy
-            kat = obj.P.data(:,S.kategorie); %kategorie
-            test = obj.P.data(:,S.zpetnavazba)==0; %vratim index testovych trialu
         end
         
         function chyby = GetErrorTrials(obj)
@@ -242,9 +267,10 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             end
         end
         function [iTrialTypeCh, TrialTypeCh] = GetTrialType(obj,els,trialtype)
-            %els is copy of E.els from CiEEGData
-            %returns stimulus repetition number for each epoch in TrialTypeCh           
-            %trialtype: cellarray e.g. {'tt' [2 0]} or {'rep' 1}
+            %els is copy of E.els from CiEEGData    
+            %trialtype: cellarray e.g. {'tt' [2 0]} or {'rep' 1}, ignores trialtype{3} 
+            %TrialTypeCh - trialtype or stimulus repetition number for each channels x epoch 
+            %iTrialTypeCh - bool values for trialtype{2} channels x epoch 
             assert(numel(trialtype)>=2,'GetTrialType: trialtype needs to be cell array with 2 values');
             if strcmp(trialtype{1}, 'tt')
                 assert(~isempty(obj.trialtypes),'no trialtypes loaded');                    
@@ -269,8 +295,8 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     end
                     TrialTypeCh(els0(s):els(s),1:numel(opakovani)) = repmat(opakovani',els(s)-els0(s)+1,1);
                 elseif strcmp(trialtype{1}, 'tt')                    
-                    opakovani = obj.trialtypes{:,trialtype{2}(1)};                  
-                    TrialTypeCh(els0(s):els(s),1:numel(opakovani)) = repmat(opakovani',els(s)-els0(s)+1,1);
+                    tt = obj.trialtypes{:,trialtype{2}(1)};                  
+                    TrialTypeCh(els0(s):els(s),1:numel(tt)) = repmat(tt',els(s)-els0(s)+1,1); %repetition of tt for all channels of this pacient
                 else 
                     error('GetTrialType: unknown trialtype type');
                 end                

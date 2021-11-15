@@ -993,8 +993,10 @@ classdef CiEEGData < matlab.mixin.Copyable
                     line([0 numel(channels)],[yKombinace yKombinace],'Color','yellow'); %cara rozdilu kategorii
                     line([0 numel(channels)],[0 0],'Color',[0.8 0.8 0.8]); %cara rozdilu kategorii - grey
                     legend(ploth,legendstr,'Location','best'); %samo to nejak umisti legendu co nejlepe, temi handely dam legendu jen nekam                    
-                    xticks([1:5:numel(channels) numel(channels)]);
-                    xticklabels([channels(1:5:numel(channels)) channels(end)]);
+                    step = round(numel(channels)/20,-1); %rouded to tens of channels
+                    if step < 10, step = round(numel(channels)/20,0); end % option for small number of channels
+                    xticks(unique([1:step:numel(channels) numel(channels)]));
+                    xticklabels(unique([channels(1:step:numel(channels)) channels(end)]));
                 end                
                
             end 
@@ -1801,7 +1803,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             if isfield(obj.plotRCh,'selChNames') && ~isempty(obj.plotRCh.selChNames)  %cislo zobrazeneho vyberu kanalu, viz E.SetSelChActive
                 marks = 'fghjkl';
                 iselChNames = ~cellfun(@isempty,obj.plotRCh.selChNames); %non empty elements
-                text(-0.1,ymax*0.56,[marks(iselChNames) '=' cell2str(obj.plotRCh.selChNames(iselChNames))], 'FontSize', 10);
+                text(-0.1,ymax*0.56,[marks(iselChNames) '=' cell2str(obj.plotRCh.selChNames(iselChNames))], 'FontSize', 10, 'Interpreter', 'none');
             end
             methodhandle = @obj.hybejPlotCh;
             set(obj.plotRCh.fh,'KeyPressFcn',methodhandle);
