@@ -49,6 +49,7 @@ classdef CPsyDataMulti < CPsyData
         function Responses2XLS(obj,xlslabel, Wp)
             %export xls table for responses of all patients in CHilbertMulti file
             %similar to psydataavg(), but this function works over all patients without CHilbertMulti file
+            %Wp - use for trialtypes
             if ~exist('xlslabel','var') || isempty(xlslabel) , xlslabel = ''; end
             if ~exist('Wp','var'), Wp = []; end
             iS_backup =obj.iS; %backup the current active subject
@@ -63,7 +64,7 @@ classdef CPsyDataMulti < CPsyData
             output = cell(obj.nS,numel(varnames)); %xls table data
             for iS=1:obj.nS %#ok<*PROPLC,*PROP> %over all subjects
                 obj.SubjectChange(iS);                
-                [resp,rt,kat,test] = obj.GetResponses(Wp.trialtypes);       
+                [resp,rt,kat,test] = obj.GetResponses(Wp);       
                 %TODO obj.GetTrialType
                 output(iS,1:varn0) = {num2str(iS),obj.P.pacientid};
                 for ikat=1:numel(katnum) %over all categories
@@ -75,7 +76,13 @@ classdef CPsyDataMulti < CPsyData
                     output(iS,varn0+(ikat-1)*katn0+1 : varn0+(ikat-1)*katn0+katn0) = {double2str(means(1),3) , double2str(stderr(1),3),num2str(num(1)) , double2str(means(2),3) , double2str(stderr(1),3),num2str(num(2)) };                    
                 end                
             end
-            xlsfilename = ['./logs/Responses2XLS_' xlslabel '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS')];
+            if isfield(Wp,'trialtypes') && ~isempty(Wp.trialtypes) && iscell(Wp.trialtypes)
+                ttname = strrep(cell2str(Wp(1).trialtypes,1),' ',''); %short strig of the trialtypes               
+            else
+                ttname = '';
+            end
+            katname = ['kats' strrep(cell2str(Wp(1).kats,1),'  ','-')]; %short string of the stimulus kategories
+            xlsfilename = ['./logs/Responses2XLS_' xlslabel '_' katname '_' ttname '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS')];
             xlswrite(xlsfilename ,vertcat(varnames,output)); %write to xls file
             disp([xlsfilename '.xls, with ' num2str(size(output,1)) ' lines saved']);
             obj.SubjectChange(iS_backup); %activate the orignal subject
