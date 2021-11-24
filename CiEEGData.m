@@ -1707,7 +1707,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                             end
                             text(0.04+obj.Wp(WpA).epochtime(1),y, ['\color[rgb]{' num2str(obj.colorskat{colorkatl}) '}' kat1name ...
                                     '\color[rgb]{' num2str(color) '} *X* '  ...
-                                    '\color[rgb]{' num2str(colorkatk(1,:)) '}' kat2name kat3name]); 
+                                    '\color[rgb]{' num2str(colorkatk(1,:)) '}' kat2name kat3name], 'Interpreter', 'none'); 
                               
                         end                                              
                     end

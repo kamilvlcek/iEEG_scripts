@@ -146,9 +146,9 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             % pak se jmena spoji do jednoho retezce pomoci parametru concat (default +)
             % pokud je concat prazdne, vrati se cell array
             
-            if ~exist('concat','var'), concat = '+'; end %defaulte se vice jmen kategorii spojuje pomoci +
-            if numel(katnum) == 1
-                kat = obj.P.strings.podminka{katnum+1};
+            if ~exist('concat','var'), concat = '+'; end %defaulte se vice jmen kategorii spojuje pomoci +            
+            if numel(katnum) == 1               
+               kat = obj.P.strings.podminka{katnum+1};               
             elseif ~isempty(concat)
                 kat = '';
                 for k = katnum
@@ -461,7 +461,7 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             if strcmp(trialtype{1},'rep')
                 name = ['Repeat_' num2str(trialtype{2})];
             elseif strcmp(trialtype{1},'tt')
-                name = ['TT\_' strrep(obj.trialtypes.Properties.VariableNames{trialtype{2}(1)},'_','\_') '=' num2str(trialtype{2}(2))];
+                name = ['TT_' strrep(obj.trialtypes.Properties.VariableNames{trialtype{2}(1)},'_','_') '=' num2str(trialtype{2}(2))];
             else
                 name = cell2str(trialtype);
             end
