@@ -1707,7 +1707,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                             end
                             text(0.04+obj.Wp(WpA).epochtime(1),y, ['\color[rgb]{' num2str(obj.colorskat{colorkatl}) '}' kat1name ...
                                     '\color[rgb]{' num2str(color) '} *X* '  ...
-                                    '\color[rgb]{' num2str(colorkatk(1,:)) '}' kat2name kat3name]); 
+                                    '\color[rgb]{' num2str(colorkatk(1,:)) '}' kat2name kat3name], 'Interpreter', 'none'); 
                               
                         end                                              
                     end
@@ -1870,8 +1870,8 @@ classdef CiEEGData < matlab.mixin.Copyable
             
             plot(evts,'.-');
             hold on;
-            plot(seizureOnset,repmat(40,1,numel(seizureOnset)),'o','Color','red','MarkerFaceColor', 'red'); %cervene o jsou seizure onset
-            plot(interIctal,repmat(40,1,numel(interIctal)),'o','Color','magenta','MarkerSize', 10);
+            plot(seizureOnset,repmat(40,1,numel(seizureOnset)),'o','Color','red','MarkerFaceColor', 'red'); %red are seizure onset channels
+            plot(interIctal,repmat(40,1,numel(interIctal)),'o','Color','magenta','MarkerSize', 10); %violet are interictal often trials
             set(gca,'xtick',obj.CH.H.selCh_H ,'xticklabel',names); %znacky a popisky osy y
             for el = 1:numel(obj.els)-1
                 line([obj.els(el) obj.els(el)]+1,[0 max(evts)],'Color',[0.5 0.5 0.5]);

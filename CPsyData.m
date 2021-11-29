@@ -117,17 +117,27 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 katnum = cell2mat(obj.P.strings.podminka(:,2))'; %kategorie v radku
                 katstr = cell(size(katnum));
                 for k = 1:numel(katnum)
-                    katstr{k} = obj.P.strings.podminka{k};
+                    katstr{k} = obj.P.strings.podminka{k,1};
                     if tisk
                         disp([ num2str(katnum(k)) ': ' katstr{k}]);
                     end
                 end     
             else %Wp trialtypes
-                katnum = 0:numel(Wp.trialtypes)-2; %numbers starting from 0
-                katstr = cell(size(katnum));                    
-                for k = 1:numel(katnum)
-                    katstr{k} = [obj.trialtypes.Properties.VariableNames{Wp.trialtypes{k+1}(1)} '=' num2str(Wp.trialtypes{k+1}(2))];
-                end                                                
+                if numel(Wp.trialtypes) >= 3 %for more than two trialtypes, make contrasts between them
+                    katnum = 0:numel(Wp.trialtypes)-2; %numbers starting from 0
+                    katstr = cell(size(katnum));                    
+                    for k = 1:numel(katnum)
+                        katstr{k} = [obj.trialtypes.Properties.VariableNames{Wp.trialtypes{k+1}(1)} '=' num2str(Wp.trialtypes{k+1}(2))];
+                    end                   
+                else %for only one trialtype, make contrasts according to wp.kats
+                    katnum = Wp.kats; %katnum are numbers in obj.P.strings.podminka{:,2}, not indexes of obj.P.strings.podminka{:,1} !
+                    katstr = cell(size(katnum));
+                    for k = 1:numel(katnum) 
+                        ipodminka = [obj.P.strings.podminka{:,2}] == katnum(k);
+                        assert(sum(ipodminka)==1,['incorrect katnums ' num2str(katnum)]); 
+                        katstr{k} = obj.P.strings.podminka{ipodminka,1};
+                    end
+                end
             end
         end
         function [kat] = CategoryName(obj,katnum,concat)
@@ -136,9 +146,9 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             % pak se jmena spoji do jednoho retezce pomoci parametru concat (default +)
             % pokud je concat prazdne, vrati se cell array
             
-            if ~exist('concat','var'), concat = '+'; end %defaulte se vice jmen kategorii spojuje pomoci +
-            if numel(katnum) == 1
-                kat = obj.P.strings.podminka{katnum+1};
+            if ~exist('concat','var'), concat = '+'; end %defaulte se vice jmen kategorii spojuje pomoci +            
+            if numel(katnum) == 1               
+               kat = obj.P.strings.podminka{katnum+1};               
             elseif ~isempty(concat)
                 kat = '';
                 for k = katnum
@@ -195,11 +205,11 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             
         end
         
-        function [resp,rt,kat,test] = GetResponses(obj,trialtypes)
+        function [resp,rt,category,test] = GetResponses(obj,Wp)
             %returns the subjects responses - correct=1/incorrect=0, reaction time (from PsychoPy), stimulus category, test=1/training=0
-            if ~exist('trialtypes','var'), trialtypes = []; end
+            if ~exist('Wp','var'), Wp = struct(); end
             S = obj.P.sloupce;
-            if isempty(trialtypes) || ~iscell(trialtypes)
+            if ~isfield(Wp,'trialtypes') || isempty(Wp.trialtypes) || ~iscell(Wp.trialtypes)
                 resp = obj.P.data(:,S.spravne); % spravnost odpovedi
                 if strcmp(obj.testname,'ppa') %correction of correct responses for PPA test
                     klavesa = obj.P.data(:,S.klavesa); % spravnost odpovedi
@@ -218,30 +228,46 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     %tab = [resp(iovoce & iklavesa), klavesa(iovoce & iklavesa)];
                 end
                 rt = obj.P.data(:,S.rt); % reakcni casy
-                kat = obj.P.data(:,S.kategorie); %kategorie
+                category = obj.P.data(:,S.kategorie); %kategorie
                 test = obj.P.data(:,S.zpetnavazba)==0; %vratim index testovych trialu
-            elseif strcmp(trialtypes{1}, 'tt') 
+            elseif strcmp(Wp.trialtypes{1}, 'tt') 
                 assert(~strcmp(obj.testname,'ppa'),'CPsyData.GetResponses cannot now return PPA test trialtypes'); %todo - similar correction as above
                 lines = 0;
-                for t = 2:numel(trialtypes)
-                    itt = obj.trialtypes{:,trialtypes{t}(1)} == trialtypes{t}(2);
-                    lines =  lines + sum(itt); %number of trials/epochs with this trialtype
+                if numel(Wp.trialtypes) == 2 %only one trialtype => make contrast between stimulus categoires
+                        kats = Wp.kats; %kategories in rows, for each one cycle below
+                    else  %at least two trials types + 'tt'. It means we are contrasting these trialtypes
+                        kats = Wp.kats'; %kategorie in column, so treat them as one, only one cycle below 
+                end                    
+                for t = 2:numel(Wp.trialtypes)
+                    for kat = 1:size(kats,2) %cycle over columns of kats
+                        itt = obj.trialtypes{:,Wp.trialtypes{t}(1)} == Wp.trialtypes{t}(2); %index of epochs with this trialtype ((column) == val)                    
+                        ikat = ismember(obj.P.data(:,S.kategorie),kats(:,kat));  %index of epochs with any of these categories
+                        lines =  lines + sum(itt & ikat ); %number of trials/epochs with this trialtype
+                    end                    
                 end
                 resp = zeros(numel(lines),1);
                 rt = zeros(numel(lines),1);
-                kat = zeros(numel(lines),1);
+                category = zeros(numel(lines),1);
                 test = zeros(numel(lines),1);
                 lines = 0;
-                for t = 2:numel(trialtypes)
-                    itt = obj.trialtypes{:,trialtypes{t}(1)} == trialtypes{t}(2);
-                    resp(lines+1:lines+sum(itt)) = obj.P.data(itt,S.spravne); %correcness
-                    rt(lines+1:lines+sum(itt)) = obj.P.data(itt,S.rt); %reaction time
-                    kat(lines+1:lines+sum(itt)) = repmat((t-2),sum(itt),1); %not original stimulus category, but number of trialtype category, should start from 0
-                    test(lines+1:lines+sum(itt)) = obj.P.data(itt,S.zpetnavazba)==0; %feedback 1=training,0=test
-                    lines = lines + sum(itt);
+                for t = 2:numel(Wp.trialtypes) 
+                    for kat = 1:size(kats,2) %cycle over columns of kats
+                        itt = obj.trialtypes{:,Wp.trialtypes{t}(1)} == Wp.trialtypes{t}(2);
+                        ikat = ismember(obj.P.data(:,S.kategorie),kats(:,kat));  %index of epochs with any of these categories
+                        resp(lines+1:lines+sum(itt & ikat)) = obj.P.data(itt & ikat,S.spravne); %correcness
+                        rt(lines+1:lines+sum(itt & ikat)) = obj.P.data(itt & ikat,S.rt); %reaction time
+                        if numel(Wp.trialtypes) == 2 %if there is only one trialtype, so contrast categories
+                            categ = kats(kat);
+                        else 
+                            categ = t-2; %contrast trialtypes
+                        end
+                        category(lines+1:lines+sum(itt & ikat)) = repmat(categ,sum(itt & ikat),1); %not original stimulus category, but number of trialtype category, should start from 0
+                        test(lines+1:lines+sum(itt & ikat)) = obj.P.data(itt & ikat,S.zpetnavazba)==0; %feedback 1=training,0=test
+                        lines = lines + sum(itt & ikat);
+                    end
                 end
             else
-                error(['CPsyData.GetResponses: not defined trialtype ' trialtypes{1}]);
+                error(['CPsyData.GetResponses: not defined trialtype ' Wp.trialtypes{1}]);
             end
         end
         
@@ -435,7 +461,7 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             if strcmp(trialtype{1},'rep')
                 name = ['Repeat_' num2str(trialtype{2})];
             elseif strcmp(trialtype{1},'tt')
-                name = ['TT\_' strrep(obj.trialtypes.Properties.VariableNames{trialtype{2}(1)},'_','\_') '=' num2str(trialtype{2}(2))];
+                name = ['TT_' strrep(obj.trialtypes.Properties.VariableNames{trialtype{2}(1)},'_','_') '=' num2str(trialtype{2}(2))];
             else
                 name = cell2str(trialtype);
             end
