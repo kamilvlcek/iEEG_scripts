@@ -46,13 +46,13 @@ classdef CPsyDataMulti < CPsyData
             obj.SubjectChange(obj.iS + 1);
             obj.blocksMulti = [obj.blocksMulti, {[]}]; %pridam dalsi prazdny cell na konec
         end  
-        function Responses2XLS(obj,xlslabel, Wp,makefile)
+        function Responses2XLS(obj,Wp,makefile,xlslabel)
             %export xls table for responses of all patients in CHilbertMulti file
             %similar to psydataavg(), but this function works over all patients without CHilbertMulti file
             %Wp - use for trialtypes
             if ~exist('xlslabel','var') || isempty(xlslabel) , xlslabel = ''; end
             if ~exist('Wp','var'), Wp = []; end
-            assert(isstruct(Wp) && numel(Wp) == 1, 'Wp needs to be struct 1x1');
+            assert(isempty(Wp) || isstruct(Wp) && numel(Wp) == 1, 'Wp needs to be struct 1x1');
             if ~exist('makefile','var'), makefile = 1; end
             iS_backup =obj.iS; %backup the current active subject
             [katnum, katstr] = obj.Categories(0,Wp); %assume same categories in all subjects

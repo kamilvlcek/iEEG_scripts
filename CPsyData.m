@@ -50,19 +50,24 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             if ~exist('kategories','var') || isempty(kategories)
                 kat = unique(obj.P.data(:,obj.P.sloupce.kategorie))'; % all category numbers - ciselne vyjadreni kategorie podnetu 0-n + transpose to make it row
             elseif kategories(1) >= 0
-                kat = kategories; %selected categories
+                kat = kategories; %selected categories                
             else
                 kat = -1;
             end   
             if kat(1)>=0
-                if ~exist('trialtypes','var') || isempty(trialtypes)                    
+                if ~exist('trialtypes','var') || isempty(trialtypes) || numel(trialtypes) <=2 %no or just one trialtype                   
                     rt = nan(size(obj.P.data,1),numel(kat)); %pole kam budu ukladat reakcni casy v sekundach
-                    for k = kat %funguje jen pro radky, kat je sloupec
-                        ikat = obj.P.data(:,obj.P.sloupce.kategorie)==k;
-                        rt(1:sum(ikat),k+1) = 24*3600*(obj.P.data(ikat,obj.P.sloupce.ts_odpoved) - obj.P.data(ikat,obj.P.sloupce.ts_podnet));
+                    for k = 1:numel(kat) %funguje jen pro radky, kat je sloupec
+                        ikat = obj.P.data(:,obj.P.sloupce.kategorie)==kat(k);
+                        if exist('trialtypes','var') && ~isempty(trialtypes) %filter epochs for just this trialtype
+                            itt = obj.GetTrialType(1,trialtypes)'; %1 x epochs, index of epochs with this trialtype/repetition                         
+                        else
+                            itt = true(size(obj.P.data,1),1);  %all epochs , in one column             
+                        end
+                        rt(1:sum(itt & ikat),k) = 24*3600*(obj.P.data(itt & ikat,obj.P.sloupce.ts_odpoved) - obj.P.data(itt & ikat,obj.P.sloupce.ts_podnet));
                         %rt: trials x kats - when kategories have different no of trials, the rest for the columnt is NaN
                     end                               
-                else
+                else % get reaction times for different trialtypes
                     rt = nan(size(obj.P.data,1),numel(trialtypes)-1); %pole kam budu ukladat reakcni casy v sekundach
                     ikat = ismember(obj.P.data(:,obj.P.sloupce.kategorie),kat);
                     for t = 1:numel(trialtypes)-1
@@ -293,11 +298,13 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             end
         end
         function [iTrialTypeCh, TrialTypeCh] = GetTrialType(obj,els,trialtype)
+            %returns index of epochs for each channel with this repetition/trialtype
             %els is copy of E.els from CiEEGData    
             %trialtype: cellarray e.g. {'tt' [2 0]} or {'rep' 1}, ignores trialtype{3} 
             %TrialTypeCh - trialtype or stimulus repetition number for each channels x epoch 
             %iTrialTypeCh - bool values for trialtype{2} channels x epoch 
-            assert(numel(trialtype)>=2,'GetTrialType: trialtype needs to be cell array with 2 values');
+            if ~exist('els','var') || isempty(els), els = 1; end %get trialtypes for only one subject
+            assert(numel(trialtype)>=2,'GetTrialType: trialtype needs to be cell array with 2 values');            
             if strcmp(trialtype{1}, 'tt')
                 assert(~isempty(obj.trialtypes),'no trialtypes loaded');                    
                 assert(size(obj.trialtypes,2)>= trialtype{2}(1) & isa(obj.trialtypes{1,trialtype{2}(1)},'double'), 'wrong trialtype column number or column type');
@@ -310,8 +317,8 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             els0 = [1 , els(1:end-1)+1]; %start channel of each subject, or only [1] when there is only one subject
             iSbak = obj.iS; %backup the selected pacient
             for s = 1:numel(els) %over all subjects
-                obj.SubjectChange(s);
-                if strcmp(trialtype{1},'rep')
+                if numel(els) > 1, obj.SubjectChange(s); end %for one subject use the current one = do not change it
+                if strcmp(trialtype{1},'rep') %repetitions can be different for different subjects
                     if isfield(S,'opakovani_obrazku')
                         opakovani = obj.P.data(:,S.opakovani_obrazku); % ppa test - array of repetitions number for each epoch
                     elseif isfield(S,'opakovani')
