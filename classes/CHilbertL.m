@@ -55,7 +55,7 @@ classdef CHilbertL < CHilbert
             obj.updateplotcategoriespowertime;
         end
         
-        function obj = PlotResponseFreqMean(obj, ch, categories)
+        function obj = PlotResponseFreqMean(obj, categories, zlim, ch)
         % Wrapper around plotresponsefrequency for plotting a response
         % frequencies for multiple channels
         % ch: numeric array definich which channels to plot. If more than
@@ -69,7 +69,18 @@ classdef CHilbertL < CHilbert
         %   obj.PlotResponseFreqMean(1, [0:2])
         %   obj.PlotResponseFreqMean([1, 2:5, 8], [0:2])
         %   obj.PlotResponseFreqMean([1:5], 2)
-            obj.plotresponsefrequency(ch, 'categories', categories);
+            if ~exist('ch','var') || isempty(ch)
+                ch = 1:numel(obj.CH.sortorder); 
+            end %ch is later used as index in obj.CH.sortorder
+            if ~exist('categories','var') || isempty(categories)                
+                categories = obj.Wp(obj.WpActive).kats;
+            end
+            if exist('zlim','var') && numel(zlim) == 2
+                ylim = zlim;
+            else
+                ylim = [];
+            end
+            obj.plotresponsefrequency(ch, 'categories', categories,'ylim', ylim);
         end
         
         %% Getters
