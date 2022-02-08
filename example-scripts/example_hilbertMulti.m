@@ -3,7 +3,7 @@ patient_file = 'd:\EEG\motol\CHilbertMulti\PPA\CM PPA AnyResp 50-150Hz refBipo -
 
 % origFile = open(patient_file);
 % file has no information about referencing
-CM = CHilbertMultiL(patient_file);
+CM = CHilbertL(patient_file);
 CM.PlotResponseCh;
 
 %% 
