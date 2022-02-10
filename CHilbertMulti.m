@@ -122,17 +122,17 @@ classdef CHilbertMulti < CHilbert
                     vars = whos('-file',filename);
                     if ismember('baseline', {vars.name}), load(filename,'baseline'); else, baseline = [epochtime(1) 0]; end %fake baseline, pokud nebyla ulozena                    
                     if ismember('chnlabels', {vars.name}), load(filename,'chnlabels'); else, chnlabels = cell(1,numel(H.channels)); end %empty channel labels if not saved 
-                    if ismember('HFreqEpochs', {vars.name}) && contains(which,'HFreqEpochs')
+                    if ismember('HFreqEpochs', {vars.name}) && any(contains(which,'HFreqEpochs')) 
                         load(filename,'HFreqEpochs'); %frekvencni data ze vsech epoch, pokud neexistuji udelam prazdne
                     else
                         HFreqEpochs=[]; 
                     end 
-                    if ismember('fphaseEpochs', {vars.name}) && contains(which,'fphaseEpochs')
+                    if ismember('fphaseEpochs', {vars.name}) && any(contains(which,'fphaseEpochs'))
                         load(filename,'fphaseEpochs'); %epoched phase data if not saved  
                     else
                         fphaseEpochs=[]; 
                     end 
-                    if ismember('frealEpochs', {vars.name}) && contains(which,'frealEpochs')
+                    if ismember('frealEpochs', {vars.name}) && any(contains(which,'frealEpochs'))
                         load(filename,'frealEpochs'); %epoched filtered signal if not saved 
                     else
                         frealEpochs=[]; 
@@ -618,10 +618,14 @@ classdef CHilbertMulti < CHilbert
             %filenames = FindExtract(testname,label,filename) 
             %najde existujici extrakty dat podle label            
             if ~exist('filename','var') || isempty(filename) , filename = '*'; end %filename nemusim zadat, pak hledam cokoliv s timto label
-            if ~exist('label','var') || isempty(label) , label = '*'; end 
+            if ~exist('label','var') || isempty(label) 
+                label = '*'; 
+            else
+                label = [' ' label];
+            end 
             [pacienti,setup] = pacienti_setup_load( testname );
             filename = strrep(filename,'_CHilb.mat',''); %odstranim tuhle priponu pokud je nakonci          
-            filenameExtract = [filename ' ' label '_Extract.mat'];
+            filenameExtract = [filename label '_Extract.mat'];
             filenames = cell(0,4); %budu vrace vsechny nalezene udaje, nejen filename, kvuli prehledu
             for p = 1:numel(pacienti)
                path = [setup.basedir pacienti(p).folder filesep setup.subfolder filesep 'Extracts' filesep];               

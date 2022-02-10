@@ -750,7 +750,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             %kats are category numbers (0-n), equivalent to PsyData.P.strings.podminka or obj.epochData, but selected and ordered by current contrast in obj.Wp.kats
             %katnames are category names and their combinations, selected and order by current contrast in Wp.kats
            if numel(obj.Wp) >= obj.WpActive
-               if isfield(obj.Wp,'trialtypes') && ~isempty(obj.Wp(obj.WpActive).trialtypes)
+               if isfield(obj.Wp,'trialtypes') && ~isempty(obj.Wp(obj.WpActive).trialtypes) && numel(obj.Wp(obj.WpActive).trialtypes) >= 3
                    kats = obj.Wp(obj.WpActive).trialtypes(2:end);
                else
                    kats = obj.Wp(obj.WpActive).kats; 
@@ -794,10 +794,16 @@ classdef CiEEGData < matlab.mixin.Copyable
             if ~exist('dofig','var'), dofig = 1; end %defaultne delam obrazek
             if ~exist('pvals_time','var'), pvals_time = 1; end %defaultne sbiram vsechny hodnoty ze vsech kanalu i casu 
             [katsnames,kombinace,kats] = obj.GetKatsNames();    %kombinace maji v kazdem radku vyssi cislo kategorie driv
-            if isfield(obj.Wp,'trialtypes') && ~isempty(obj.Wp(obj.WpActive).trialtypes)
-               kats_type = obj.Wp(obj.WpActive).trialtypes{1};
+            if isfield(obj.Wp,'trialtypes') && ~isempty(obj.Wp(obj.WpActive).trialtypes) 
+                if numel(obj.Wp(obj.WpActive).trialtypes) >= 3
+                    kats_type = obj.Wp(obj.WpActive).trialtypes{1};
+                else
+                    kats_type = [];
+                end
+                trialtypes = obj.Wp(obj.WpActive).trialtypes;
             else
-               kats_type = [];
+                trialtypes = {};
+                kats_type = [];
             end
             iintervalyData = obj.Wp(obj.WpActive).iepochtime(2,:); %16.1.2019 - indexy statistiky ulozene v ResponseSearch 
             iintervalyStat = [1 diff(iintervalyData)+1];                
@@ -828,7 +834,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                     if ~isempty(kats_type)
                        [katdata,~,RjEpCh] = obj.CategoryData(obj.Wp(obj.WpActive).kats, [],{kats_type, cellval(kats,kat)}); %time x channels x epochs
                     else
-                       [katdata,~,RjEpCh] = obj.CategoryData(cellval(kats,kat)); %time x channels x epochs
+                       [katdata,~,RjEpCh] = obj.CategoryData(cellval(kats,kat),[],trialtypes); %time x channels x epochs
                     end
                     WpB = obj.Wp(obj.WpActive).WpKatBaseline{kat,1}(iintervalyStat(1):iintervalyStat(2),channels); %time x channels - p-values relative to baseline for this category
                     dataK = zeros(diff(iintervalyData)+1,numel(channels)); %time x channels - tam budu data prumery za epochy
@@ -897,8 +903,8 @@ classdef CiEEGData < matlab.mixin.Copyable
                         [katdata1, ~, RjEpCh1] = obj.CategoryData(obj.Wp(obj.WpActive).kats,[],{kats_type, cellval(kats,kombinace(kat,1))}); %time x channels x epochs - prvni hlavni kategorie s vyssim cislem (diky poradi v kombinace)
                         [katdata2, ~, RjEpCh2] = obj.CategoryData(obj.Wp(obj.WpActive).kats,[],{kats_type, cellval(kats,kombinace(kat,2))}); %druha vyssi kategorie, ktera se bude odecitat od te prvni
                     else
-                        [katdata1, ~, RjEpCh1] = obj.CategoryData(cellval(kats,kombinace(kat,1))); %time x channels x epochs - prvni hlavni kategorie s vyssim cislem (diky poradi v kombinace)
-                        [katdata2, ~, RjEpCh2] = obj.CategoryData(cellval(kats,kombinace(kat,2))); %druha vyssi kategorie, ktera se bude odecitat od te prvni
+                        [katdata1, ~, RjEpCh1] = obj.CategoryData(cellval(kats,kombinace(kat,1)),[],trialtypes); %time x channels x epochs - prvni hlavni kategorie s vyssim cislem (diky poradi v kombinace)
+                        [katdata2, ~, RjEpCh2] = obj.CategoryData(cellval(kats,kombinace(kat,2)),[],trialtypes); %druha vyssi kategorie, ktera se bude odecitat od te prvni
                     end
                     WpK = obj.Wp(obj.WpActive).WpKat{kombinace(kat,2),kombinace(kat,1)}(iintervalyStat(1):iintervalyStat(2),channels); %time x channels - p values kat1 <> kat2
                     WpB = obj.Wp(obj.WpActive).WpKatBaseline{kombinace(kat,1),1}(iintervalyStat(1):iintervalyStat(2),channels); %time x channels - p values kat1>baseline 
@@ -1017,7 +1023,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             if ~exist('kategorie','var') || isempty(kategorie) , kategorie = 1:6; end %ktere kategorie chci oznacit
             if ~exist('marks','var') || isempty(marks) , marks = 1:numel(kategorie); end %kterym maji kategorie odpovidat znackam
             if ~exist('add','var') || isempty(add) , add = 0; end %defaultne prepise stare znaceni 
-            assert(numel(kategorie)==numel(marks), 'CiEEGData.SelChannelStat: pocet kategorie a marks musi byt stejny');
+            assert(numel(kategorie)==numel(marks), 'CiEEGData.SelChannelStat: number of categories and marks has to be the same');
             [prumery, ~,~,~,katsnames,~] = obj.IntervalyResp([],[],signum, 0); %prumery are channels x 1 x kategorie; all non-significant values are 0, other are averages over time
             selCh = zeros(size(prumery,1),6); %selCh je channels x 6 oznaceni fghjkl
             pocty = zeros(1,numel(kategorie)); %pocty vybranych kanalu v kategoriich, jen kvuli vypisu na obrazovku
@@ -1075,6 +1081,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                       end                     
                       while isempty(str2double(katnum)) && numel(katnum)>0, katnum = katnum(2:end); end
                       katnum = str2double(katnum);
+                      assert(katnum<=size(prumery,3),['katnum ' num2str(katnum) ' is larger than number of categories in data']);
                       iP = prumery(:,1,katnum)~=0;
                       if Not, iP = ~iP; end
                       if And && iK > 1
@@ -1543,7 +1550,8 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
             if numel(trialtypes)<3 %if we are contrasting categories (not trialtypes), they must agree with the statistics
                 katnum = obj.PsyData.Categories([],obj.Wp(WpA));
-                assert (sum(ismember(kategories,katnum))==numel(kategories), ['some categories unknown: ' num2str(kategories) ]);
+                kategoriesVector = cell2double(kategories); %kategories in one vector, even for combined categories
+                assert (sum(ismember(kategoriesVector,katnum))==numel(kategoriesVector), ['some categories unknown: ' num2str(kategoriesVector) ]);
             end
             
             KATNUM = kategories; % stimulus categories
@@ -1755,8 +1763,9 @@ classdef CiEEGData < matlab.mixin.Copyable
                 end
                 y = (ymax-ymin)*0.2  ; %pozice na ose y
                 if ~isempty(obj.Wp) %jen pokud je spocitana statistika , vypisu cislo aktivni statistiky a jmena kategorii
+                    if isfield(obj.Wp(obj.WpActive),'trialtypes'), trialtypestext= [' - trialtypes: ' cell2str(obj.Wp(obj.WpActive).trialtypes)]; else, trialtypestext= ''; end
                     text(0.04+obj.Wp(WpA).epochtime(1),y,['stat ' num2str(obj.WpActive) '/' num2str(numel(obj.Wp)) '-'  cell2str(obj.PsyData.CategoryName(obj.Wp(obj.WpActive).kats,[])) ...
-                        ' - trialtypes: ' cell2str(obj.Wp(obj.WpActive).trialtypes) ]); 
+                         trialtypestext ]); 
                 end
                 for k= 1 : numel(kategories) %index 1-3
                     uistack(h_kat(k,1), 'top'); %dam krivky prumeru kategorii uplne dopredu

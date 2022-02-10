@@ -49,8 +49,8 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             %trialtypes: cellarray e.g. {'tt' [2 0] [2 1]} or {'rep' 1 2}
             if ~exist('kategories','var') || isempty(kategories)
                 kat = unique(obj.P.data(:,obj.P.sloupce.kategorie))'; % all category numbers - ciselne vyjadreni kategorie podnetu 0-n + transpose to make it row
-            elseif kategories(1) >= 0
-                kat = kategories; %selected categories                
+            elseif cell2double(kategories(1)) >= 0
+                kat = cell2double(kategories); %selected categories                
             else
                 kat = -1;
             end   
