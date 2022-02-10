@@ -46,11 +46,11 @@ classdef CHilbertL < CHilbert
             p = obj.addcategoriesparameter(p);
             addParameter(p, 'ylim', obj.getplotylimit, ...
                 @(x)(numel(x) == 2 && isnumeric(x)));
-            parse(p, varargin{:});
+            parse(p, varargin{:}); %p.Parameters contains names of arguments and p.Results contains their values
             
             if ~exist('channels', 'var'), channels = []; end
             obj.plotFrequency = struct;
-            obj.prepareplotcategoriespowertime(channels, p.Results.categories);
+            obj.prepareplotcategoriespowertime(channels, p.Results.categories); %creates figure, stores args in obj.plotFrequency
             obj.plotFrequency.ylim = p.Results.ylim;
             obj.updateplotcategoriespowertime;
         end
@@ -74,6 +74,9 @@ classdef CHilbertL < CHilbert
             end %ch is later used as index in obj.CH.sortorder
             if ~exist('categories','var') || isempty(categories)                
                 categories = obj.Wp(obj.WpActive).kats;
+            elseif ~isempty(obj.Wp) && isfield(obj.Wp,'kats')
+                katnum = obj.Wp(obj.WpActive).kats(categories); %use numbers from currect contrast if available                
+                categories = katnum;                
             end
             if exist('zlim','var') && numel(zlim) == 2
                 ylim = zlim;
@@ -182,10 +185,10 @@ classdef CHilbertL < CHilbert
             frequencies = obj.getfrequencyindices(p.Results.frequencies);
             categories = obj.getaveragecategoryindices(p.Results.categories);
 
-            envelopes = obj.HFreq(:, p.Results.channels, frequencies, categories);
+            envelopes = obj.HFreq(:, p.Results.channels, frequencies, categories); %all samples, selected channels, frequencies and categories
             
-            if numel(p.Results.channels) >= 2, envelopes = mean(envelopes, 2); end
-            if numel(categories) >= 2, envelopes = mean(envelopes, 4);end
+            if numel(p.Results.channels) >= 2, envelopes = mean(envelopes, 2); end %mean over channels
+            if numel(categories) >= 2, envelopes = mean(envelopes, 4);end %mean over categories
             envelopes = squeeze(envelopes);
         end
         
@@ -680,19 +683,17 @@ classdef CHilbertL < CHilbert
                 % and are not correlated to obj.PsyData.Category name.
                 % Neither here, nor in PlotLabels. They are merely taken in
                 % their order - this should be DEPRECATED
-                if iscell(categories(k))                  
-                    dd = zeros(size(obj.HFreq, 1), obj.nfrequencies, ...
-                        numel(categories{k}));
-                    for ikat = 1:numel(categories{k})
-                        dd(:, :, ikat) = obj.getaverageenvelopes(...
-                            'channels', channels, ...
-                            'categories', categories{k}(ikat));
+                if iscell(categories(k))               
+                    %cell array is used here for combined categories
+                    dd = zeros(size(obj.HFreq, 1), obj.nfrequencies, numel(categories{k})); %time samples x epochs x categories
+                    for ikat = 1:numel(categories{k}) 
+                        %for one of combined categories
+                        dd(:, :, ikat) = obj.getaverageenvelopes('channels', channels, 'categories', categories{k}(ikat));
                     end
                     % QUESTION - WHY IS THIS AVERAGING?
-                    D = mean(dd, 3);
-                else
-                    D = obj.getaverageenvelopes('channels', channels, ...
-                        'categories', categories(k));
+                    D = mean(dd, 3); %mean over combined categories , result is time sample x epochs
+                else                    
+                    D = obj.getaverageenvelopes('channels', channels, 'categories', categories(k)); %time sample x epochs
                 end
                 subplot(1, numel(categories), k);
                 T = obj.epochtime(1):0.1:obj.epochtime(2);
@@ -714,15 +715,12 @@ classdef CHilbertL < CHilbert
             for k = 1:numel(categories)
                 subplot(1, numel(categories), k);
                 caxis([miny, maxy]);
-                title(obj.PsyData.CategoryName(cellval(categories, k)));
+                title(obj.PsyData.CategoryName(cellval(categories, k))); %works also for combined categories
                 if k == 1
-                    channelStrings = iff(numel(channels) > 5,...
-                        [num2str(numel(channels)) ' channels'],...
+                    channelStrings = iff(numel(channels) > 5, [num2str(numel(channels)) ' channels'],...
                         ['channels ' num2str(channels)]);
-                    ylabChannels = iff(isempty(obj.CH.sortedby), ...
-                        channelStrings, ... % if empty obj.CH.sortedby
-                        [channelStrings, '(', obj.CH.sortedby, ...
-                            num2str(obj.plotFrequency.ch), ')']);
+                    ylabChannels = iff(isempty(obj.CH.sortedby), channelStrings, ... % if empty obj.CH.sortedby
+                        [channelStrings, '(', obj.CH.sortedby, num2str(obj.plotFrequency.ch), ')']);
                     ylabel([ylabChannels ' - freq [Hz]']);
                 end
                 if k == numel(categories)
