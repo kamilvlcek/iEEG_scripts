@@ -1789,14 +1789,17 @@ classdef CiEEGData < matlab.mixin.Copyable
                 chstr = num2str(ch);
             end
             title(['channel ' chstr '/' num2str(obj.channels) ' - ' obj.PacientID()], 'Interpreter', 'none'); % v titulu obrazku bude i pacientID napriklad p132-VT18
-            text(-0.1,ymax*.95,[ obj.CH.H.channels(1,ch).name ' : ' obj.CH.H.channels(1,ch).neurologyLabel ',' obj.CH.H.channels(1,ch).ass_brainAtlas]);
+            if ~isfield(obj.plotRCh,'xinfo') || isempty(obj.plotRCh.xinfo)
+                obj.plotRCh.xinfo = -0.1;
+            end
+            text(obj.plotRCh.xinfo,ymax*.95,[ obj.CH.H.channels(1,ch).name ' : ' obj.CH.H.channels(1,ch).neurologyLabel ',' obj.CH.H.channels(1,ch).ass_brainAtlas]);
             if  isfield(obj.CH.H.channels,'MNI_x') %vypisu MNI souradnice
-                text(-0.1,ymax*.90,[ 'MNI: ' num2str(round(obj.CH.H.channels(1,ch).MNI_x)) ', ' num2str(round(obj.CH.H.channels(1,ch).MNI_y)) ', ' num2str(round(obj.CH.H.channels(1,ch).MNI_z))]);
+                text(obj.plotRCh.xinfo,ymax*.90,[ 'MNI: ' num2str(round(obj.CH.H.channels(1,ch).MNI_x)) ', ' num2str(round(obj.CH.H.channels(1,ch).MNI_y)) ', ' num2str(round(obj.CH.H.channels(1,ch).MNI_z))]);
             else
-                text(-0.1,ymax*.90,'no MNI');
+                text(obj.plotRCh.xinfo,ymax*.90,'no MNI');
             end
             if  ~isempty(obj.CH.brainlabels) && ~isempty(obj.CH.brainlabels(ch))
-                text(0.2,ymax*.90,[obj.CH.brainlabels(ch).class ', ' obj.CH.brainlabels(ch).label ', ' obj.CH.brainlabels(ch).lobe]);
+                text(obj.plotRCh.xinfo + 0.3,ymax*.90,[obj.CH.brainlabels(ch).class ', ' obj.CH.brainlabels(ch).label ', ' obj.CH.brainlabels(ch).lobe]);
             end
             if isfield(obj.CH.H.channels,'seizureOnset') %vypisu epilepticke info
                 seizureOnset    = iff(isempty(obj.CH.H.channels(1,ch).seizureOnset),'[]',iff(obj.CH.H.channels(1,ch).seizureOnset==1,'seizureOnset','-'));
@@ -1806,27 +1809,27 @@ classdef CiEEGData < matlab.mixin.Copyable
                 else
                     rejected = '';
                 end
-                text(-0.1,ymax*.85,['epiinfo: ' seizureOnset ',' interictalOften ',' rejected ]);
+                text(obj.plotRCh.xinfo,ymax*.85,['epiinfo: ' seizureOnset ',' interictalOften ',' rejected ]);
             else
-                text(-0.1,ymax*.85,['no epiinfo']);
+                text(obj.plotRCh.xinfo,ymax*.85,['no epiinfo']);
             end
             if isprop(obj,'plotRCh') && isfield(obj.plotRCh,'selCh') && any(obj.plotRCh.selCh(ch,:),2)==1                
                 klavesy = 'fghjkl'; %abych mohl vypsat primo nazvy klaves vedle hvezdicky podle selCh
-                text(-0.18,ymax*.95,['*' klavesy(logical(obj.plotRCh.selCh(ch,:)))], 'FontSize', 12,'Color','red');
+                text(obj.plotRCh.xinfo - 0.08,ymax*.95,['*' klavesy(logical(obj.plotRCh.selCh(ch,:)))], 'FontSize', 12,'Color','red');
             end
             if isprop(obj,'label') && ~isempty(obj.label)
-                text(-0.1,ymax*.78,strrep(obj.label,'_','\_'), 'FontSize', 10,'Color','blue'); 
+                text(obj.plotRCh.xinfo,ymax*.78,strrep(obj.label,'_','\_'), 'FontSize', 10,'Color','blue'); 
             end            
             if isfield(obj.CH.plotCh2D,'chshow') && isfield(obj.CH.plotCh2D,'chshowstr') && ~isempty(obj.CH.plotCh2D.chshow) && ~isempty(obj.CH.plotCh2D.chshowstr) %% plot chshow
-                text(-0.1,ymax*.72, ['ChShow:  ' obj.CH.plotCh2D.chshowstr], 'FontSize', 10);
+                text(obj.plotRCh.xinfo,ymax*.72, ['ChShow:  ' obj.CH.plotCh2D.chshowstr], 'FontSize', 10);
             end
             if isfield(obj.plotRCh,'selChN') && ~isempty(obj.plotRCh.selChN)  %cislo zobrazeneho vyberu kanalu, viz E.SetSelChActive
-                text(-0.1,ymax*0.64,['SetSelChActive: ' num2str(obj.plotRCh.selChN)], 'FontSize', 10);
+                text(obj.plotRCh.xinfo,ymax*0.64,['SetSelChActive: ' num2str(obj.plotRCh.selChN)], 'FontSize', 10);
             end
             if isfield(obj.plotRCh,'selChNames') && ~isempty(obj.plotRCh.selChNames)  %cislo zobrazeneho vyberu kanalu, viz E.SetSelChActive
                 marks = 'fghjkl';
                 iselChNames = ~cellfun(@isempty,obj.plotRCh.selChNames); %non empty elements
-                text(-0.1,ymax*0.56,[marks(iselChNames) '=' cell2str(obj.plotRCh.selChNames(iselChNames))], 'FontSize', 10, 'Interpreter', 'none');
+                text(obj.plotRCh.xinfo,ymax*0.56,[marks(iselChNames) '=' cell2str(obj.plotRCh.selChNames(iselChNames))], 'FontSize', 10, 'Interpreter', 'none');
             end
             methodhandle = @obj.hybejPlotCh;
             set(obj.plotRCh.fh,'KeyPressFcn',methodhandle);
@@ -2559,12 +2562,24 @@ classdef CiEEGData < matlab.mixin.Copyable
         function obj = hybejPlotCh(obj,~,eventDat)  
             %reaguje na udalosti v grafu PlotResponseCh            
             switch eventDat.Key
-                case {'rightarrow','c'} %dalsi kanal                    
-                    obj.PlotResponseCh( min( [obj.plotRCh.ch + 1 , numel(obj.CH.sortorder)]));                    
+                case {'rightarrow','c'}  
+                    if ~isempty(eventDat.Modifier) && strcmp(eventDat.Modifier{:},'shift')
+                        obj.plotRCh.xinfo = obj.plotRCh.xinfo + 0.05; %by shift -> you move the info to the right
+                        obj.PlotResponseCh();
+                    else                        
+                        %next channel by ->
+                        obj.PlotResponseCh( min( [obj.plotRCh.ch + 1 , numel(obj.CH.sortorder)]));                    
+                    end
                 case 'pagedown' %skok o 10 kanalu dopred
                     obj.PlotResponseCh( min( [obj.plotRCh.ch + 10 , numel(obj.CH.sortorder)]));                    
-                case {'leftarrow','z'} %predchozi kanal
-                    obj.PlotResponseCh( max( [obj.plotRCh.ch - 1 , 1]));                    
+                case {'leftarrow','z'} 
+                    if ~isempty(eventDat.Modifier) && strcmp(eventDat.Modifier{:},'shift')
+                        obj.plotRCh.xinfo = obj.plotRCh.xinfo - 0.05; %by shift -> you move the info to the right
+                        obj.PlotResponseCh();
+                    else
+                        %previous channel by <-
+                        obj.PlotResponseCh( max( [obj.plotRCh.ch - 1 , 1]));                    
+                    end
                 case 'pageup' %skok 10 kanalu dozadu
                     obj.PlotResponseCh( max( [obj.plotRCh.ch - 10 , 1]));                    
                 case 'home' %skok na prvni kanal
@@ -2684,6 +2699,12 @@ classdef CiEEGData < matlab.mixin.Copyable
                     end
                 case 'p' % scatterplot - t max response and patient's RT with rho and pvalue  % Sofiia
                     obj.PlotCorrelChan(obj.CH.sortorder(obj.plotRCh.ch));
+                case 'uparrow'
+                    obj.plotRCh.ylim = obj.plotRCh.ylim - 0.05; %shift x axis up
+                    obj.PlotResponseCh(); %prekreslim grafy
+                case 'downarrow'
+                    obj.plotRCh.ylim = obj.plotRCh.ylim + 0.05; %shift x axis up
+                    obj.PlotResponseCh(); %prekreslim grafy    
                 otherwise
                     %disp(['You just pressed: ' eventDat.Key]);
             end

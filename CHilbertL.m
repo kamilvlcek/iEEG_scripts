@@ -70,7 +70,7 @@ classdef CHilbertL < CHilbert
         %   obj.PlotResponseFreqMean([1, 2:5, 8], [0:2])
         %   obj.PlotResponseFreqMean([1:5], 2)
             if ~exist('ch','var') || isempty(ch)
-                ch = 1:numel(obj.CH.sortorder); 
+                ch = obj.CH.sortorder; %currently filtered channels
             end %ch is later used as index in obj.CH.sortorder
             if ~exist('categories','var') || isempty(categories)                
                 categories = obj.Wp(obj.WpActive).kats;
@@ -78,12 +78,12 @@ classdef CHilbertL < CHilbert
                 katnum = obj.Wp(obj.WpActive).kats(categories); %use numbers from currect contrast if available                
                 categories = katnum;                
             end
-            if exist('zlim','var') && numel(zlim) == 2
-                ylim = zlim;
+            if exist('zlim','var') && numel(zlim) == 2                
+                obj.plotresponsefrequency(ch, 'categories', categories,'ylim', zlim);
             else
-                ylim = [];
+                obj.plotresponsefrequency(ch, 'categories', categories);
             end
-            obj.plotresponsefrequency(ch, 'categories', categories,'ylim', ylim);
+            
         end
         
         %% Getters
