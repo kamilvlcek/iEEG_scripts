@@ -1482,6 +1482,9 @@ classdef CiEEGData < matlab.mixin.Copyable
             %opakovani je cell - maximalne tri hodnoty nebo arrays 
             %kategories 
             assert(obj.epochs > 1,'only for epoched data');
+            if ~isfield(obj.plotRCh,'outputstyle')  % 14.02.2022 Sofiia                                                                                                
+                 obj.plotRCh.outputstyle = 0; % stores the default value, which can be changed by pressing keys 'numpad1' or '1'                                                                                    
+            end
             if ~exist('pvalue','var') || isempty(pvalue) || numel(pvalue)>1 %0 neni isempty
                 if isfield(obj.plotRCh,'pvalue'), pvalue = obj.plotRCh.pvalue;
                 else, pvalue = 0; obj.plotRCh.pvalue = pvalue; end %defaulne se NEzobrazuje krivka p value, ale je mozne ji zobrazit
@@ -1575,7 +1578,10 @@ classdef CiEEGData < matlab.mixin.Copyable
                 obj.plotRCh.fh = figure('Name',figurename);
             end
             [ymin ymax] = obj.responseChYLim(KATNUM,iff(~isempty(trialtypes),trialtypes,[]));
-            
+            if obj.plotRCh.outputstyle && ymax < 10 % 14.02.2022 for output version; ymax < 10 - checks this in case of previously stored ylimits are already in percents
+                ymin = ymin * 100; % the ylimits in percents
+                ymax = ymax * 100;
+            end
             %TODO - popisky vic vlevo u zarovnani podle odpovedi
             %TODO vypsat i '( - )' jako neurology label
             %TODO trosku vetsi fonty - i do naseho corelu se bude hodit
@@ -1626,9 +1632,8 @@ classdef CiEEGData < matlab.mixin.Copyable
                 hue = 0.8;
                 colorsErrorBars = cellfun(@(a) min(a+hue, 1), obj.colorskat, 'UniformOutput', false);
                 yposkat = [3 0 0 0; 4 5 0 0; 6 7 8 0]; %pozice y pro kombinaci k a l - k v radcich a l-1 ve sloupcich
-                ybottom = iff(numel(kategories)>3,0.4,0.3); %odkud se maji umistovat kontrasty mezi kategoriemi - parametr vypoctu y                
-                h_kat = zeros(numel(kategories),2); 
-               
+                ybottom = iff(numel(kategories)>3,0.4,0.3); %odkud se maji umistovat kontrasty mezi kategoriemi - parametr vypoctu y   
+                h_kat = zeros(numel(kategories),2);               
                 for k = 1 : numel(kategories) %index 1-3 (nebo 4)                    
                     [kk,kstat] = obj.KatIndex(kategories,k,WpA); %kk is index 1-n (basically kategories(k)+1), kstat is index in obj.Wp().kats
                     
@@ -1658,13 +1663,16 @@ classdef CiEEGData < matlab.mixin.Copyable
                     else
                        M = mean(katdata(:,ch,~RjEpCh(1,:)),3);
                        E = std(katdata(:,ch,~RjEpCh(1,:)),[],3)/sqrt(Nvals); %std err of mean
+                       if obj.plotRCh.outputstyle % 14.02.2022 Sofiia
+                           M = M * 100; % in percent
+                           E = E * 100;
+                       end
                        %h_kat(k,2) = errorbar(T,M,E,'.','color',colorskat{2,k}); %nejdriv vykreslim errorbars aby byly vzadu[.8 .8 .8]
                        %h_kat(k,2) = plotband(T, M, E, colorskat{2,k}); %nejlepsi, je pruhledny, ale nejde kopirovat do corelu
                        h_kat(k,2) = ciplot(M+E, M-E, T, colorkatk(2,:)); %funguje dobre pri kopii do corelu, ulozim handle na barevny pas                       
                        obj.plotRCh.range = [ min(obj.plotRCh.range(1),min(M)-max(E)) max(obj.plotRCh.range(2),max(M)+max(E))]; %pouziju to pak pri stlaceni / z obrazku                                           
-                    end                   
-                    
-                    
+                    end                                       
+                  
                     xlim(obj.epochtime(1:2)); 
                     hold on;
                     h_kat(k,1) = plot(T,M,'LineWidth',katlinewidth,'Color',colorkatk(1,:));  %prumerna odpoved,  ulozim si handle na krivku                      
@@ -1672,9 +1680,9 @@ classdef CiEEGData < matlab.mixin.Copyable
                     %PLOT significance between categories
                     if ~isempty(obj.Wp) && isfield(obj.Wp(WpA),'WpKat')                         
                         Tr = linspace(obj.Wp(WpA).baseline(2),obj.Wp(WpA).epochtime(2),size(obj.Wp(WpA).WpKatBaseline{k},1)); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
-                        for l = k+1:numel(kategories) %katnum jde od nuly 
+                        for l = k+1:numel(kategories) %katnum jde od nuly
                             if iscell(kategories)
-                                colorkatl = kategories{l}(end)+1; 
+                                colorkatl = kategories{l}(end)+1;
                                 if exist('trialtypes','var') && ~isempty(trialtypes)
                                     lstat = find(ismember(cell2mat( obj.Wp(WpA).trialtypes(2:end)'),kategories{l},'rows')); % index of category in WpKat
                                 else
@@ -1683,7 +1691,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                             else
                                 ll = kategories(l); %real number of category
                                 lstat = find(obj.Wp(WpA).kats == ll); % index of category in Wp.WpKat
-                                colorkatl = kategories(l)+1; 
+                                colorkatl = kategories(l)+1;
                             end
                             
                             y = ymin + (ymax-ymin)*(ybottom - (yposkat(l-1,k))*0.05)  ; %pozice na ose y
@@ -1693,43 +1701,46 @@ classdef CiEEGData < matlab.mixin.Copyable
                             else
                                 WpKat = obj.Wp(WpA).WpKat{lstat,kstat};
                             end
-                            if pvalue %pokud chci zobrazovat hodnotu p value jako krivku                                
+                            if pvalue %pokud chci zobrazovat hodnotu p value jako krivku
                                 plot(Tr,WpKat(:,ch), ':','Color',color); %carkovana cara oznacuje signifikanci kategorie vuci jine kategorii
                             end
-                            %nejdriv p < 0.05                            
-                            iWp = WpKat(:,ch)  <= 0.05; 
-                            plot(Tr(iWp),ones(1,sum(iWp))*y, '*','Color',color); %                        
-                            iWpfirst = find(iWp,1,'first');                       
-                            if(numel(iWpfirst)>0)                                
-                                text(-0.025+Tr(1),y,[ num2str(round(Tr(iWpfirst)*1000)) 'ms']);  %cas zacatku signifikance 
-                                text(-0.16+Tr(1),y,[ 'p=' num2str(CStat.round(min(WpKat(:,ch)),3))]);  %cas zacatku signifikance 
-                                line([Tr(iWpfirst) Tr(iWpfirst)],obj.plotRCh.ylim,'Color',color); %modra svisla cara u zacatku signifikance                                
-                            end                            
-                            %potom jeste p < 0.01
-                            iWp = WpKat(:,ch)  <= 0.01;                          
-                            plot(Tr(iWp),ones(1,sum(iWp))*y,  '*','Color',color); %
-                            % jmena kategorii vypisuju vzdy
-                            if  ~isempty(trialtypes) && numel(trialtypes)>=3 %if plotting different trialtypes
-                                kat1name =  obj.PsyData.TrialTypeName({kats_type, kategories{l}}); %TODO
-                                kat2name =  obj.PsyData.TrialTypeName({kats_type, kategories{k}});
-                                kat3name =  [ ' (' obj.PsyData.CategoryName(obj.Wp(WpA).kats) ')' ]; %jmeno kategorie obrazku, ze ktere se opakovani pocitalo
-                            elseif iscell(kategories)
-                                kat1name =  obj.PsyData.CategoryName(kategories{l});
-                                kat2name =  obj.PsyData.CategoryName(kategories{k});
-                                kat3name = '';
-                            else
-                                kat1name =  obj.PsyData.CategoryName(kategories(l));
-                                kat2name =  obj.PsyData.CategoryName(kategories(k));
-                                kat3name = '';
+                            %nejdriv p < 0.05
+                            iWp = WpKat(:,ch)  <= 0.05;
+                            plot(Tr(iWp),ones(1,sum(iWp))*y, '*','Color',color); %
+                            iWpfirst = find(iWp,1,'first');
+                            if ~obj.plotRCh.outputstyle % 14.02.2022 Sofiia, no text in the output version
+                                if(numel(iWpfirst)>0)
+                                    text(-0.025+Tr(1),y,[ num2str(round(Tr(iWpfirst)*1000)) 'ms']);  %cas zacatku signifikance
+                                    text(-0.16+Tr(1),y,[ 'p=' num2str(CStat.round(min(WpKat(:,ch)),3))]);  %cas zacatku signifikance
+                                    line([Tr(iWpfirst) Tr(iWpfirst)],obj.plotRCh.ylim,'Color',color); %modra svisla cara u zacatku signifikance
+                                end
                             end
-                            kat1name=strrep(kat1name,'_','\_');
-                            kat2name=strrep(kat2name,'_','\_');
-                            kat3name=strrep(kat3name,'_','\_');
-                            text(0.04+obj.Wp(WpA).epochtime(1),y, ['\color[rgb]{' num2str(obj.colorskat{colorkatl}) '}' kat1name ...
+                            %potom jeste p < 0.01
+                            iWp = WpKat(:,ch)  <= 0.01;
+                            plot(Tr(iWp),ones(1,sum(iWp))*y,  '*','Color',color); %
+                            % jmena kategorii vypisuju vzdy 
+                            if ~obj.plotRCh.outputstyle % 14.02.2022 Sofiia, no text in the output version
+                                if  ~isempty(trialtypes) && numel(trialtypes)>=3 %if plotting different trialtypes
+                                    kat1name =  obj.PsyData.TrialTypeName({kats_type, kategories{l}}); %TODO
+                                    kat2name =  obj.PsyData.TrialTypeName({kats_type, kategories{k}});
+                                    kat3name =  [ ' (' obj.PsyData.CategoryName(obj.Wp(WpA).kats) ')' ]; %jmeno kategorie obrazku, ze ktere se opakovani pocitalo
+                                elseif iscell(kategories)
+                                    kat1name =  obj.PsyData.CategoryName(kategories{l});
+                                    kat2name =  obj.PsyData.CategoryName(kategories{k});
+                                    kat3name = '';
+                                else
+                                    kat1name =  obj.PsyData.CategoryName(kategories(l));
+                                    kat2name =  obj.PsyData.CategoryName(kategories(k));
+                                    kat3name = '';
+                                end
+                                kat1name=strrep(kat1name,'_','\_');
+                                kat2name=strrep(kat2name,'_','\_');
+                                kat3name=strrep(kat3name,'_','\_');
+                                text(0.04+obj.Wp(WpA).epochtime(1),y, ['\color[rgb]{' num2str(obj.colorskat{colorkatl}) '}' kat1name ...
                                     '\color[rgb]{' num2str(color) '} *X* '  ...
-                                    '\color[rgb]{' num2str(colorkatk(1,:)) '}' kat2name kat3name]); 
-                              
-                        end                                              
+                                    '\color[rgb]{' num2str(colorkatk(1,:)) '}' kat2name kat3name]);                               
+                            end
+                        end                       
                     end
                    
                     %PLOT significance relative to baseline
@@ -1739,33 +1750,39 @@ classdef CiEEGData < matlab.mixin.Copyable
                             plot(Tr(iWpB),ones(1,sum(iWpB))*y, '.','Color',colorkatk(1,:),'MarkerSize',5); % 
                             iWpB = obj.Wp(WpA).WpKatBaseline{kstat,1}(:,ch)  <= 0.01; % vyssi signifikance
                             %y = ymin + (ymax-ymin)*(0.28 - (k+2)*0.05)  ;
-                            plot(Tr(iWpB),ones(1,sum(iWpB))*y, 'p','Color',colorkatk(1,:),'MarkerSize',5); %                             
-                            if  ~isempty(trialtypes) && numel(trialtypes)>=3 %if plotting different trialtypes
-                                kat2name =  obj.PsyData.TrialTypeName({kats_type, kategories{k}}); %pokud vyhodnocuju opakovani
-                            elseif iscell(kategories)
-                                kat2name =  obj.PsyData.CategoryName(kategories{k});
-                            else
-                                kat2name =  obj.PsyData.CategoryName(kategories(k));
-                            end
-                            kat2name=strrep(kat2name,'_','\_');
-                            text(0.04+obj.Wp(WpA).epochtime(1), y, ['\color[rgb]{' num2str(colorkatk(1,:)) '}' kat2name ' vs.baseline (' num2str(Nvals) ')'] );                            
-                            line([Tr(1) Tr(end)],[y y]+(ymax-ymin)*0.03 ,'Color',[0.5 0.5 0.5]); 
+                            plot(Tr(iWpB),ones(1,sum(iWpB))*y, 'p','Color',colorkatk(1,:),'MarkerSize',5); % 
+                            if ~obj.plotRCh.outputstyle % 14.02.2022 Sofiia
+                                if  ~isempty(trialtypes) && numel(trialtypes)>=3 %if plotting different trialtypes
+                                    kat2name =  obj.PsyData.TrialTypeName({kats_type, kategories{k}}); %pokud vyhodnocuju opakovani
+                                elseif iscell(kategories)
+                                    kat2name =  obj.PsyData.CategoryName(kategories{k});
+                                else
+                                    kat2name =  obj.PsyData.CategoryName(kategories(k));
+                                end
+                                kat2name=strrep(kat2name,'_','\_');
+                                text(0.04+obj.Wp(WpA).epochtime(1), y, ['\color[rgb]{' num2str(colorkatk(1,:)) '}' kat2name ' vs.baseline (' num2str(Nvals) ')'] );
+                                line([Tr(1) Tr(end)],[y y]+(ymax-ymin)*0.03 ,'Color',[0.5 0.5 0.5]);
                                 %kazde jmeno kategorie jinou barvou
-                            if pvalue %pokud chci zobrazovat hodnotu p value jako krivku
-                               plot(Tr,obj.Wp(WpA).WpKatBaseline{kstat,1}(:,ch), '-.','Color',colorkatk(1,:)); %teckovana cara oznacuje signifikanci kategorie vuci baseline
+                                if pvalue %pokud chci zobrazovat hodnotu p value jako krivku
+                                    plot(Tr,obj.Wp(WpA).WpKatBaseline{kstat,1}(:,ch), '-.','Color',colorkatk(1,:)); %teckovana cara oznacuje signifikanci kategorie vuci baseline
+                                end
                             end
                     end
-                    %cara reakcnich casu pro tuhle kategorii
-                    y=ymax-(ymax-ymin)*0.07*k;
-                    rtkatnum = reshape(rt(:,k),[],1); %chci vsechny hodnoty z obou kategorii dohromady
-                    line([quantile(rtkatnum,0.25) quantile(rtkatnum,0.75)],[y y],'Color',colorkatk(1,:)); %cara kvantilu 
-                    plot(nanmedian(rtkatnum),y,'o','Color',colorkatk(1,:)); %median
+                    if ~obj.plotRCh.outputstyle % 14.02.2022 Sofiia
+                        %cara reakcnich casu pro tuhle kategorii
+                        y=ymax-(ymax-ymin)*0.07*k;
+                        rtkatnum = reshape(rt(:,k),[],1); %chci vsechny hodnoty z obou kategorii dohromady
+                        line([quantile(rtkatnum,0.25) quantile(rtkatnum,0.75)],[y y],'Color',colorkatk(1,:)); %cara kvantilu
+                        plot(nanmedian(rtkatnum),y,'o','Color',colorkatk(1,:)); %median
+                    end
                 end
                 y = (ymax-ymin)*0.2  ; %pozice na ose y
-                if ~isempty(obj.Wp) %jen pokud je spocitana statistika , vypisu cislo aktivni statistiky a jmena kategorii
-                    if isfield(obj.Wp(obj.WpActive),'trialtypes'), trialtypestext= [' - trialtypes: ' cell2str(obj.Wp(obj.WpActive).trialtypes)]; else, trialtypestext= ''; end
-                    text(0.04+obj.Wp(WpA).epochtime(1),y,['stat ' num2str(obj.WpActive) '/' num2str(numel(obj.Wp)) '-'  cell2str(obj.PsyData.CategoryName(obj.Wp(obj.WpActive).kats,[])) ...
-                         trialtypestext ]); 
+                if ~obj.plotRCh.outputstyle % 14.02.2022 Sofiia
+                    if ~isempty(obj.Wp) %jen pokud je spocitana statistika , vypisu cislo aktivni statistiky a jmena kategorii
+                        if isfield(obj.Wp(obj.WpActive),'trialtypes'), trialtypestext= [' - trialtypes: ' cell2str(obj.Wp(obj.WpActive).trialtypes)]; else, trialtypestext= ''; end
+                        text(0.04+obj.Wp(WpA).epochtime(1),y,['stat ' num2str(obj.WpActive) '/' num2str(numel(obj.Wp)) '-'  cell2str(obj.PsyData.CategoryName(obj.Wp(obj.WpActive).kats,[])) ...
+                            trialtypestext ]);
+                    end
                 end
                 for k= 1 : numel(kategories) %index 1-3
                     uistack(h_kat(k,1), 'top'); %dam krivky prumeru kategorii uplne dopredu
@@ -1789,47 +1806,56 @@ classdef CiEEGData < matlab.mixin.Copyable
                 chstr = num2str(ch);
             end
             title(['channel ' chstr '/' num2str(obj.channels) ' - ' obj.PacientID()], 'Interpreter', 'none'); % v titulu obrazku bude i pacientID napriklad p132-VT18
-            if ~isfield(obj.plotRCh,'xinfo') || isempty(obj.plotRCh.xinfo)
-                obj.plotRCh.xinfo = -0.1;
-            end
-            text(obj.plotRCh.xinfo,ymax*.95,[ obj.CH.H.channels(1,ch).name ' : ' obj.CH.H.channels(1,ch).neurologyLabel ',' obj.CH.H.channels(1,ch).ass_brainAtlas]);
-            if  isfield(obj.CH.H.channels,'MNI_x') %vypisu MNI souradnice
-                text(obj.plotRCh.xinfo,ymax*.90,[ 'MNI: ' num2str(round(obj.CH.H.channels(1,ch).MNI_x)) ', ' num2str(round(obj.CH.H.channels(1,ch).MNI_y)) ', ' num2str(round(obj.CH.H.channels(1,ch).MNI_z))]);
-            else
-                text(obj.plotRCh.xinfo,ymax*.90,'no MNI');
-            end
-            if  ~isempty(obj.CH.brainlabels) && ~isempty(obj.CH.brainlabels(ch))
-                text(obj.plotRCh.xinfo + 0.3,ymax*.90,[obj.CH.brainlabels(ch).class ', ' obj.CH.brainlabels(ch).label ', ' obj.CH.brainlabels(ch).lobe]);
-            end
-            if isfield(obj.CH.H.channels,'seizureOnset') %vypisu epilepticke info
-                seizureOnset    = iff(isempty(obj.CH.H.channels(1,ch).seizureOnset),'[]',iff(obj.CH.H.channels(1,ch).seizureOnset==1,'seizureOnset','-'));
-                interictalOften = iff(isempty(obj.CH.H.channels(1,ch).interictalOften),'[]',iff(obj.CH.H.channels(1,ch).interictalOften==1,'interictalOften','-'));
-                if isfield(obj.CH.H.channels,'rejected')
-                    rejected = iff( ~isempty(obj.CH.H.channels(1,ch).rejected==1),'rejected','-');
-                else
-                    rejected = '';
+            if ~obj.plotRCh.outputstyle % 14.02.2022 Sofiia, no text in the output version
+                if ~isfield(obj.plotRCh,'xinfo') || isempty(obj.plotRCh.xinfo)
+                    obj.plotRCh.xinfo = -0.1;
                 end
-                text(obj.plotRCh.xinfo,ymax*.85,['epiinfo: ' seizureOnset ',' interictalOften ',' rejected ]);
+                text(obj.plotRCh.xinfo,ymax*.95,[ obj.CH.H.channels(1,ch).name ' : ' obj.CH.H.channels(1,ch).neurologyLabel ',' obj.CH.H.channels(1,ch).ass_brainAtlas]);
+                if  isfield(obj.CH.H.channels,'MNI_x') %vypisu MNI souradnice
+                    text(obj.plotRCh.xinfo,ymax*.90,[ 'MNI: ' num2str(round(obj.CH.H.channels(1,ch).MNI_x)) ', ' num2str(round(obj.CH.H.channels(1,ch).MNI_y)) ', ' num2str(round(obj.CH.H.channels(1,ch).MNI_z))]);
+                else
+                    text(obj.plotRCh.xinfo,ymax*.90,'no MNI');
+                end
+                if  ~isempty(obj.CH.brainlabels) && ~isempty(obj.CH.brainlabels(ch))
+                    text(obj.plotRCh.xinfo + 0.3,ymax*.90,[obj.CH.brainlabels(ch).class ', ' obj.CH.brainlabels(ch).label ', ' obj.CH.brainlabels(ch).lobe]);
+                end
+                if isfield(obj.CH.H.channels,'seizureOnset') %vypisu epilepticke info
+                    seizureOnset    = iff(isempty(obj.CH.H.channels(1,ch).seizureOnset),'[]',iff(obj.CH.H.channels(1,ch).seizureOnset==1,'seizureOnset','-'));
+                    interictalOften = iff(isempty(obj.CH.H.channels(1,ch).interictalOften),'[]',iff(obj.CH.H.channels(1,ch).interictalOften==1,'interictalOften','-'));
+                    if isfield(obj.CH.H.channels,'rejected')
+                        rejected = iff( ~isempty(obj.CH.H.channels(1,ch).rejected==1),'rejected','-');
+                    else
+                        rejected = '';
+                    end
+                    text(obj.plotRCh.xinfo,ymax*.85,['epiinfo: ' seizureOnset ',' interictalOften ',' rejected ]);
+                else
+                    text(obj.plotRCh.xinfo,ymax*.85,['no epiinfo']);
+                end
+                if isprop(obj,'plotRCh') && isfield(obj.plotRCh,'selCh') && any(obj.plotRCh.selCh(ch,:),2)==1
+                    klavesy = 'fghjkl'; %abych mohl vypsat primo nazvy klaves vedle hvezdicky podle selCh
+                    text(obj.plotRCh.xinfo - 0.08,ymax*.95,['*' klavesy(logical(obj.plotRCh.selCh(ch,:)))], 'FontSize', 12,'Color','red');
+                end
+                if isprop(obj,'label') && ~isempty(obj.label)
+                    text(obj.plotRCh.xinfo,ymax*.78,strrep(obj.label,'_','\_'), 'FontSize', 10,'Color','blue');
+                end
+                if isfield(obj.CH.plotCh2D,'chshow') && isfield(obj.CH.plotCh2D,'chshowstr') && ~isempty(obj.CH.plotCh2D.chshow) && ~isempty(obj.CH.plotCh2D.chshowstr) %% plot chshow
+                    text(obj.plotRCh.xinfo,ymax*.72, ['ChShow:  ' obj.CH.plotCh2D.chshowstr], 'FontSize', 10);
+                end
+                if isfield(obj.plotRCh,'selChN') && ~isempty(obj.plotRCh.selChN)  %cislo zobrazeneho vyberu kanalu, viz E.SetSelChActive
+                    text(obj.plotRCh.xinfo,ymax*0.64,['SetSelChActive: ' num2str(obj.plotRCh.selChN)], 'FontSize', 10);
+                end
+                if isfield(obj.plotRCh,'selChNames') && ~isempty(obj.plotRCh.selChNames)  %cislo zobrazeneho vyberu kanalu, viz E.SetSelChActive
+                    marks = 'fghjkl';
+                    iselChNames = ~cellfun(@isempty,obj.plotRCh.selChNames); %non empty elements
+                    text(obj.plotRCh.xinfo,ymax*0.56,[marks(iselChNames) '=' cell2str(obj.plotRCh.selChNames(iselChNames))], 'FontSize', 10, 'Interpreter', 'none');
+                end
             else
-                text(obj.plotRCh.xinfo,ymax*.85,['no epiinfo']);
-            end
-            if isprop(obj,'plotRCh') && isfield(obj.plotRCh,'selCh') && any(obj.plotRCh.selCh(ch,:),2)==1                
-                klavesy = 'fghjkl'; %abych mohl vypsat primo nazvy klaves vedle hvezdicky podle selCh
-                text(obj.plotRCh.xinfo - 0.08,ymax*.95,['*' klavesy(logical(obj.plotRCh.selCh(ch,:)))], 'FontSize', 12,'Color','red');
-            end
-            if isprop(obj,'label') && ~isempty(obj.label)
-                text(obj.plotRCh.xinfo,ymax*.78,strrep(obj.label,'_','\_'), 'FontSize', 10,'Color','blue'); 
-            end            
-            if isfield(obj.CH.plotCh2D,'chshow') && isfield(obj.CH.plotCh2D,'chshowstr') && ~isempty(obj.CH.plotCh2D.chshow) && ~isempty(obj.CH.plotCh2D.chshowstr) %% plot chshow
-                text(obj.plotRCh.xinfo,ymax*.72, ['ChShow:  ' obj.CH.plotCh2D.chshowstr], 'FontSize', 10);
-            end
-            if isfield(obj.plotRCh,'selChN') && ~isempty(obj.plotRCh.selChN)  %cislo zobrazeneho vyberu kanalu, viz E.SetSelChActive
-                text(obj.plotRCh.xinfo,ymax*0.64,['SetSelChActive: ' num2str(obj.plotRCh.selChN)], 'FontSize', 10);
-            end
-            if isfield(obj.plotRCh,'selChNames') && ~isempty(obj.plotRCh.selChNames)  %cislo zobrazeneho vyberu kanalu, viz E.SetSelChActive
-                marks = 'fghjkl';
-                iselChNames = ~cellfun(@isempty,obj.plotRCh.selChNames); %non empty elements
-                text(obj.plotRCh.xinfo,ymax*0.56,[marks(iselChNames) '=' cell2str(obj.plotRCh.selChNames(iselChNames))], 'FontSize', 10, 'Interpreter', 'none');
+                set(gca,'linewidth',1.5)  % 14.02.2022 Sofiia, to make line and text thicker
+                set(gca,'FontSize',20)
+                plot([Tr(1) Tr(1)], ylim, ':', 'Color',[0.5 0.5 0.5], 'LineWidth', 1.75) % line of stimulus
+                % yticks(round(ymin,-1) : 20 : ymax);
+                yticks(0 : 20 : ymax);
+                box(gca,'off')
             end
             methodhandle = @obj.hybejPlotCh;
             set(obj.plotRCh.fh,'KeyPressFcn',methodhandle);
@@ -2708,7 +2734,10 @@ classdef CiEEGData < matlab.mixin.Copyable
                     obj.PlotResponseCh(); %prekreslim grafy
                 case 'downarrow'
                     obj.plotRCh.ylim = obj.plotRCh.ylim + 0.05; %shift x axis up
-                    obj.PlotResponseCh(); %prekreslim grafy    
+                    obj.PlotResponseCh(); %prekreslim grafy  
+                case {'numpad1','1'}
+                    obj.plotRCh.outputstyle = 1 - obj.plotRCh.outputstyle;
+                    obj.PlotResponseCh();
                 otherwise
                     %disp(['You just pressed: ' eventDat.Key]);
             end
