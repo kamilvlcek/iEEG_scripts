@@ -340,6 +340,8 @@ classdef CBrainPlot < matlab.mixin.Copyable
             end   
             if isstruct(cfg) && isfield(cfg,'colorScale')
                 obj.plotBrain3Dcfg.colorScale = cfg.colorScale;            
+            else
+                obj.plotBrain3Dcfg.colorScale = [];            
             end   
            %barevna skala od Nadi
            %default colors
@@ -619,7 +621,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
             if ~exist('testname','var') || isempty(testname), testname = 'aedist'; end %defaultni test
             if ~exist('reference','var') || isempty(reference), reference = []; end %defaultni test
             if ~exist('labelnot','var'),    labelnot = {}; end %defaultni test
-            if ~exist('pactodo','var'), pactodo = 0; end %jestli se maji brat jen pacienti s todo=1
+            if ~exist('pactodo','var'), pactodo = 0; end % when numerical 1/0 - it tell if to analyze only pacients with todo=1; when cellarray, it uses it as list of pacients to analyse
             if ischar(struktura), struktura = {struktura}; end %prevedu na cell array
             if ischar(label), label = {label}; end %prevedu na cell array
             [ pacienti, setup ] = pacienti_setup_load( testname );
@@ -628,7 +630,12 @@ classdef CBrainPlot < matlab.mixin.Copyable
             ChNum = nan(numel(pacienti),2); %number of channels for each pacient, columns pacient no, num of channels             
             for p = 1:numel(pacienti)
                 index = [];
-                if pacienti(p).todo == 1 || ~pactodo %pokud je u pacienta todo, nebo se nema pouzivat
+                if pacienti(p).todo == 1 || (isnum(pactodo) && ~pactodo) %it todo=1 or it should ne be used (as pactodo == 0)
+                    if iscell(pactodo) %if the pactodo contains list of pacients to include
+                       if isempty(find( cellfun(@(x) ~isempty(strfind(pacienti(p).folder,x)), pactodo), 1 )) %anonymous function with argument x
+                           continue; %the current pacient is not in the pactodo cellarray
+                       end
+                    end
                     disp(['* ' pacienti(p).folder ' - ' pacienti(p).header ' *']);
                     hfilename = [setup.basedir pacienti(p).folder '\' pacienti(p).header];                
                     if exist(hfilename,'file')==2
