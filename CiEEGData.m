@@ -1139,7 +1139,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 if iscell(kategories)
                     kk = kategories{k}(end)+1;  %(end) works for both repetitions eg.[1] and trialtypes eg. [2 0] 
                     if WpA>=0
-                        if isfield(obj.Wp(WpA),'trialtypes') && ~isempty(obj.Wp(WpA).trialtypes) %if the statistics is computed for repetitions/trialtypes
+                        if isfield(obj.Wp(WpA),'trialtypes') && ~isempty(obj.Wp(WpA).trialtypes) && numel(obj.Wp(WpA).trialtypes) >= 3 %if the statistics is computed for repetitions/trialtypes
                             kstat = find(ismember(cell2mat(obj.Wp(WpA).trialtypes(2:end)'),kategories{k},'rows')); %index of category in statistical results
                         else %normal, i.e. statistics for stimulus categories
                             kstat = find(ismember(cell2mat(obj.Wp(WpA).kats'),kategories{k},'rows')); %index of category in statistical results
@@ -1551,7 +1551,8 @@ classdef CiEEGData < matlab.mixin.Copyable
             if numel(trialtypes)<3 %if we are contrasting categories (not trialtypes), they must agree with the statistics
                 katnum = obj.PsyData.Categories([],obj.Wp(WpA));
                 kategoriesVector = cell2double(kategories); %kategories in one vector, even for combined categories
-                assert (sum(ismember(kategoriesVector,katnum))==numel(kategoriesVector), ['some categories unknown: ' num2str(kategoriesVector) ]);
+                katnumVector =  cell2double(katnum);
+                assert (sum(ismember(kategoriesVector,katnumVector))==numel(kategoriesVector), ['some categories unknown: ' num2str(kategoriesVector) ]);
             end
             
             KATNUM = kategories; % stimulus categories
@@ -1675,7 +1676,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                         for l = k+1:numel(kategories) %katnum jde od nuly 
                             if iscell(kategories)
                                 colorkatl = kategories{l}(end)+1; 
-                                if exist('trialtypes','var') && ~isempty(trialtypes)
+                                if exist('trialtypes','var') && ~isempty(trialtypes) && numel(trialtypes)>=3 
                                     lstat = find(ismember(cell2mat( obj.Wp(WpA).trialtypes(2:end)'),kategories{l},'rows')); % index of category in WpKat
                                 else
                                     lstat = find(ismember(cell2mat(obj.Wp(WpA).kats'),kategories{l},'rows')); % index of category in WpKat

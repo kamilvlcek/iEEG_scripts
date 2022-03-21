@@ -137,10 +137,8 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 else %for only one trialtype, make contrasts according to wp.kats
                     katnum = Wp.kats; %katnum are numbers in obj.P.strings.podminka{:,2}, not indexes of obj.P.strings.podminka{:,1} !
                     katstr = cell(size(katnum));
-                    for k = 1:numel(katnum) 
-                        ipodminka = [obj.P.strings.podminka{:,2}] == katnum(k);
-                        assert(sum(ipodminka)==1,['incorrect katnums ' num2str(katnum)]); 
-                        katstr{k} = obj.P.strings.podminka{ipodminka,1};
+                    for k = 1:numel(katnum)                                                
+                        katstr{k} = obj.CategoryName(cellval(katnum,k));
                     end
                 end
             end
