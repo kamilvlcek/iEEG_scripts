@@ -695,10 +695,6 @@ classdef CPlots < matlab.mixin.Copyable
             % correlation between t of max response and patient's RT in all channels are saved in CM.CH.correlChan (struct array)
             % nofile - if 0, saves the xls file with correlation coeff, pvalue, name of channel, patient
             
-            %kamil 23.11.2020 - I changed the code in the PlotCorrelChan function, Sofiia could you please change the code here accordingly?
-            %this function should have the values fraction, pval_limit,rho_limit as parameters, to be more flexible. With the values that you used now as defaults.
-            %if we really store the computed values to the structure correlChan, they should be used again during next xls table generation ... otherwise they seem to me to be useless property of the class.
-            
             assert(obj.Eh.epochs > 1,'only for epoched data');
             if ~exist('nofile','var'), nofile = 0; end % save the xls table by default
             if ~exist('fraction','var'), fraction = 0.9; end % time of 90% of maximum
@@ -749,74 +745,167 @@ classdef CPlots < matlab.mixin.Copyable
                 disp(['xls table ' xlsfilename ' was exported']);
             end
         end        
-        function obj = PlotCorrelChan(obj,ch,fraction) % Sofiia since 11.2020
-            % creates scatterplot between t of max neural response and
-            % patient's RT for one specific channel across all trials
+        function obj = PlotCorrelChan(obj,ch,tmax,fraction,conditions, nofile) % Sofiia since 11.2020
+            % creates scatterplot between t of max neural response (or max size of response) and
+            % patient's RT for one specific channel either across all trials together or for each category independently
+            % also can export xls table with all epochs data of each condition
             
             assert(obj.Eh.epochs > 1,'only for epoched data');
             if ~exist('ch','var') || isempty(ch), ch = obj.Eh.CH.sortorder(1); end
-            if ~exist('fraction','var'), fraction = 0.9; end % time of 90% of maximum
+            if ~exist('fraction','var') || isempty(fraction), fraction = 0.9; end % time of 90% of maximum
+            if ~exist('tmax','var') || isempty(tmax), tmax = 1; end % by default computes time of maximum, if 0 - computes valmax (max size of response)
+            if ~exist('conditions','var') || isempty(conditions), conditions = 0; end % by default computes for all epochs together, without division to conditions
+            if ~exist('nofile','var') || isempty(nofile), nofile = 1; end % by default doesn't export xls table with all epochs of each condition (beh RT and max eeg value)
             
             % return the name of the patient of this channel
             patId = obj.Eh.CH.PacientTag(ch);
-            
-            % find index of that patient in PsyData            
+            % find index of that patient in PsyData
             obj.Eh.PsyData.SubjectChange(find(obj.Eh.els >= ch,1)); %change current subjet in CPsyDataMulti (but if called from PlotResponseCh it was changed alread) or do nothing if the file contains only one patient
             
-            % get his RT
-            [resp,RT,~,test] = obj.Eh.PsyData.GetResponses();    %its better to use existing functions where available          
-            correctRT = RT(resp==1 & test==1); % get RT only for correct test trials - in CHilbertMulti files the traning is excluded, but in CHilbert files for one patient only not.             
-           
-            [rho,pval,maxTrials] = obj.ComputeCorrelChan(ch,fraction,correctRT,resp==1 & test==1);  %  
-            
-            % save values in the structure obj.plotCorrelChanData
-            obj.plotCorrelChanData.fraction = fraction;
-            obj.plotCorrelChanData.pval = pval;
-            obj.plotCorrelChanData.rho = rho;
-            obj.plotCorrelChanData.chan = ch;
+            if conditions == 1 % if we want to get data for each condition separately
+                kats = obj.Eh.Wp(obj.Eh.WpActive).kats; % define categories
+                maxTrialsKats = cell(numel(kats),1); %  maxtrials and RT  x categories
+                corrKats = zeros(numel(kats), 2); % to store rho and pval for each category (for futher plotting)
+                legendStr = cell(1,numel(kats)); % strings for legend and xls table
+                
+                for k=1:numel(kats)
+                    katnum = cellval(kats,k);
+                    [katdata,psy_rt, RjEpCh] = obj.Eh.CategoryData(katnum,[],[],ch); % katdata - time points x channel x trials
+                    katdata = squeeze(katdata(:,ch,~RjEpCh));   % exclude incorrect and bad epochs, time points x trials
+                    correctRT = psy_rt(~RjEpCh); % also exclude them from RT
+                    [rho,pval,maxTrials] = obj.ComputeCorrelChan(ch,tmax,fraction,correctRT,[], conditions, katdata);  % get corr and max value for all epochs of this kat
+                    maxTrialsKats{k} = [maxTrials correctRT]; % to put data of each kat in one cell
+                    corrKats(k,:) = [rho pval];
+                    legendStr{k} = obj.Eh.PsyData.CategoryName(katnum); % array of names of categories for a legend
+                end
+                
+            else  % if we want to get data of all epochs together
+                % get patient's RT for all trials
+                [resp,RT,~,test] = obj.Eh.PsyData.GetResponses();    %its better to use existing functions where available
+                correctRT = RT(resp==1 & test==1); % get RT only for correct test trials - in CHilbertMulti files the traning is excluded, but in CHilbert files for one patient only not.
+                [rho,pval,maxTrials] = obj.ComputeCorrelChan(ch,tmax,fraction,correctRT,resp==1 & test==1,conditions);  % get corr and max value for all correct epochs
+                
+                % save values in the structure obj.plotCorrelChanData
+                obj.plotCorrelChanData.fraction = fraction;
+                obj.plotCorrelChanData.pval = pval;
+                obj.plotCorrelChanData.rho = rho;
+                obj.plotCorrelChanData.chan = ch;
+            end
             
             % ploting
             if isfield(obj.plotCorrelChanData,'h') && ~isempty(obj.plotCorrelChanData.h) && ishandle(obj.plotCorrelChanData.h)
-                figure(obj.plotCorrelChanData.h) % use the existing plot 
-                %kamil - TODO: this is handle to PlotElectrode plot. different handle should be used
-                %even better would be to use a structure like obj.plotCorrelChanData to store more values to the plot:
-                % handle, the fraction number, the pval_limit,rho_limit, and also data that are now stored in obj.CH.correlChan. If they really need to be stored.
+                figure(obj.plotCorrelChanData.h) % use the existing plot
             else
-                obj.plotCorrelChanData.h = figure('Name','PlotCorrelChan scatterplot','Position', [20, 100, 600, 400]);
+                obj.plotCorrelChanData.h = figure('Name','PlotCorrelChan scatterplot'); % or new plot
+            end
+            fig = gcf; % current figure handle
+            
+            if conditions == 1 % if we want to plot data for each condition separately
+                ploth = zeros(1,numel(kats)); % handles of subplots
+                if numel(kats)>3 % to get colours for all categories
+                    colors = distinguishable_colors(numel(kats));
+                else
+                    colors = cell2mat(obj.Eh.colorskat(1:end)');
+                end
+                for k=1:numel(kats) % for each category
+                    kk = obj.Eh.KatIndex(kats,k);
+                    ploth(k) = subplot(1,numel(kats),k);
+                    scatter(maxTrialsKats{k}(:,1),maxTrialsKats{k}(:,2), 25, colors(kk,:),'filled'); % chart
+                    title([legendStr{k} ', rho = ' num2str(corrKats(k,1),2) ', p value = ' num2str(corrKats(k,2),3)])
+                end
+                linkaxes(ploth, 'xy') % link axes of all subplots to specify their limits later
+                fig.Position = [20, 300, 1800, 500];
+            else
+                scatter(maxTrials, correctRT, 25,'m','filled') % to plot data of all epochs
+                title(['All epochs, rho = ' num2str(rho,2) ', p value = ' num2str(pval,3)])
             end
             
-            scatter(maxTrials, correctRT, 25,'m','filled')
-            title(['channel ' num2str(ch) ', patient ' patId ', rho = ' num2str(rho) ', p value = ' num2str(pval) ', fraction = ' num2str(fraction)])
-            xlabel(['t of ' num2str(fraction) ' max response [s]'])
-            ylabel('patients RT [s]')
-            set(gca, 'Xlim', [0 (max(maxTrials)+0.1)], 'Ylim', [0 (max(correctRT)+0.1)]);            
+            if tmax == 1
+                xname = ['t of ' num2str(fraction) ' max response [s], fraction = ' num2str(fraction)];
+            else
+                xname = 'max BGA response';
+            end
+            
+            ax = findobj(fig,'Type','Axes');
+            ylabel(ax(length(ax)),'patients RT [s]') % ylabel only for the first subplot
+            xlabel(ax(length(ax)),xname)
+            set(ax,'FontSize',12)
+            set(gca, 'Xlim', [(min(maxTrials)-0.1) (max(maxTrials)+0.1)], 'Ylim', [0 (max(correctRT)+0.1)]);
             xrange = get(gca,'XLim');
             yrange = get(gca,'YLim');
-            text(xrange(2)/2-0.2,yrange(2)-0.1,[obj.Eh.CH.H.channels(ch).name ', ' obj.Eh.CH.H.channels(ch).neurologyLabel])
-        end
+            text(xrange(1)+0.2,yrange(1)+0.1,['channel ' num2str(ch) ', ' obj.Eh.CH.H.channels(ch).name ', ' obj.Eh.CH.H.channels(ch).neurologyLabel], 'FontSize', 13)
             
-        function [rho,pval,maxTrials,obj] = ComputeCorrelChan(obj,ch,fraction,correctRT,correctTrials)
-            %function to compute correlation between behavioural RT and time of eeg resp maximum for one channel
-            % to remove duplicite code in PlotCorrelChan and GetCorrelChan
-            % initialize matrix for all trials
-            maxTrials = zeros (length(correctRT),1); %time of maximum eeg response
-            assert(isfield(obj.Eh.Wp,'iepochtime'),'the statistics needs to be computed');
-            iintervalyData = obj.Eh.Wp(obj.Eh.WpActive).iepochtime(2,:); %indexes of from what was the statistics computed , saved in function ResponseSearch 
-            imaxTrials = 1; %index in maxTrials                        
-            
-            for iTrial = 1:size(obj.Eh.d,3)  % over all trials
-                if correctTrials(iTrial)
-                    d = squeeze(obj.Eh.d(iintervalyData(1):iintervalyData(2), ch, iTrial)); % obj.d - time points x channels x trials (128 x 424 x 384) - without the time before stimulus
-                    [~, idxMax, idxFrac] = cMax(d, fraction);                                                         
-                    if fraction >= 1 %if we are interested in the real maximum
-                        maxTrials(imaxTrials) = idxMax/obj.Eh.fs;  % put it in matrix for all trials, in seconds
-                    else %if we are interested for a frection of maximum (i.e. fraction < 1)
-                        maxTrials(imaxTrials) = idxFrac/obj.Eh.fs;  % put it in matrix for all trials, in seconds
-                    end
-                    imaxTrials = imaxTrials +1;
+            % export epochs data of each condition to xls table 
+            if nofile == 0 && conditions == 1                
+                allData = cell2mat(maxTrialsKats); % join all cats (max value and RT) in one array
+                conditionCol = strings(size(allData,1),1); % string array for categories column
+                kInd = 1; % index for each cat
+                
+                for k=1:numel(kats) % for each category
+                    conditionCol(kInd :(kInd-1+length(maxTrialsKats{k}(:,1)))) = string(repmat(legendStr{k}, length(maxTrialsKats{k}(:,1)), 1)); % repeat category name for all corresponding epochs
+                    kInd = kInd + length(maxTrialsKats{k}(:,1));
                 end
-            end            
+                
+                % put all data in cell array
+%                 output = num2cell([allData, conditionCol]);
+%                 output{1,4} = ch;  % n of channel
+%                 output{1,5} = patId; % name of patient
+%                 output{1,6} = obj.Eh.CH.H.channels(ch).name; % name of channel
+%                 output{1,7} = obj.Eh.CH.H.channels(ch).neurologyLabel; % neurology label of channel                
+%                 columnNames = {'max_eeg' 'patients_RT' 'condition' 'channel' 'patient' 'channelName' 'NeurologyLabel'};
+%                 
+                outputTable = table(allData(:,1), allData(:,2), conditionCol,'VariableNames',{'max_eeg' 'patients_RT' 'condition'});
+                logfilename = ['Epoch data for channel ' num2str(ch) '_' obj.Eh.CH.H.channels(ch).name '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') ];
+                xlsfilename = fullfile('logs', [logfilename '.xls']);
+                %xlswrite(xlsfilename, outputTable); % write to xls file
+                writetable(outputTable, xlsfilename)
+                disp(['xls table ' xlsfilename ' was exported']);
+            end
+        end
+        
+        function [rho,pval,maxTrials,obj] = ComputeCorrelChan(obj,ch,tmax,fraction,correctRT,correctTrials, conditions, katdata)
+            %function to compute correlation between behavioural RT and time of eeg resp maximum (or valmax) for one channel
+            % to remove duplicite code in PlotCorrelChan and GetCorrelChan
             
+            if ~exist('tmax','var') || isempty(tmax), tmax = 1; end % by default computes time of maximum, if 0 - computes valmax
+            % initialize matrix for all trials
+            maxTrials = zeros (length(correctRT),1); %time of maximum eeg response or valmax
+            assert(isfield(obj.Eh.Wp,'iepochtime'),'the statistics needs to be computed');
+            iintervalyData = obj.Eh.Wp(obj.Eh.WpActive).iepochtime(2,:); %indexes of from what was the statistics computed , saved in function ResponseSearch
+            
+            if conditions == 1
+                for iTrial = 1:size(katdata,2) % over trials of one category
+                    d = katdata(iintervalyData(1):iintervalyData(2), iTrial); % time points x channel x trials
+                    [valmax, idxMax, idxFrac] = cMax(d, fraction);
+                    if tmax == 1 % if we want to compute corr between behavioural RT and time of maximum eeg resp
+                        if fraction >= 1 %if we are interested in the real maximum
+                            maxTrials(iTrial) = idxMax/obj.Eh.fs;  % put it in matrix for all trials, in seconds
+                        else %if we are interested in a fraction of maximum (i.e. fraction < 1)
+                            maxTrials(iTrial) = idxFrac/obj.Eh.fs;  % put it in matrix for all trials, in seconds
+                        end
+                    else
+                        maxTrials(iTrial) = valmax; % if we want to compute corr between behavioural RT and size of eeg resp
+                    end
+                end
+            else
+                imaxTrials = 1; %index in maxTrials
+                for iTrial = 1:size(obj.Eh.d,3)  % over all trials without division to categories
+                    if correctTrials(iTrial)
+                        d = squeeze(obj.Eh.d(iintervalyData(1):iintervalyData(2), ch, iTrial)); % obj.d - time points x channels x trials (128 x 424 x 384) - without the time before stimulus
+                        [valmax, idxMax, idxFrac] = cMax(d, fraction);
+                        if tmax == 1 % if we want to compute corr between behavioural RT and time of maximum eeg resp
+                            if fraction >= 1 %if we are interested in the real maximum
+                                maxTrials(imaxTrials) = idxMax/obj.Eh.fs;  % put it in matrix for all trials, in seconds
+                            else %if we are interested in a fraction of maximum (i.e. fraction < 1)
+                                maxTrials(imaxTrials) = idxFrac/obj.Eh.fs;  % put it in matrix for all trials, in seconds
+                            end
+                        else
+                            maxTrials(imaxTrials) = valmax; % if we want to compute corr between behavioural RT and size of eeg resp
+                        end
+                        imaxTrials = imaxTrials +1;
+                    end
+                end
+            end
             % compute correlation between max Power and RT
             [rho,pval] = corr(maxTrials, correctRT,'Type', 'Spearman');
         end
