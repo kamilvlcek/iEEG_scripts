@@ -751,7 +751,8 @@ classdef CPlots < matlab.mixin.Copyable
             % also can export xls table with all epochs data of each condition
             
             assert(obj.Eh.epochs > 1,'only for epoched data');
-            if ~exist('ch','var') || isempty(ch), ch = obj.Eh.CH.sortorder(1); end
+            if ~exist('ch','var') || isempty(ch), ch = obj.Eh.CH.sortorder(obj.Eh.plotRCh.ch); end % use current channel from PlotResponseCh plot
+               % ch = obj.Eh.CH.sortorder(1)
             if ~exist('fraction','var') || isempty(fraction), fraction = 0.9; end % time of 90% of maximum
             if ~exist('tmax','var') || isempty(tmax), tmax = 1; end % by default computes time of maximum, if 0 - computes valmax (max size of response)
             if ~exist('conditions','var') || isempty(conditions), conditions = 0; end % by default computes for all epochs together, without division to conditions
