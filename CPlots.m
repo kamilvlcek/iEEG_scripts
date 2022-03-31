@@ -812,6 +812,8 @@ classdef CPlots < matlab.mixin.Copyable
                     kk = obj.Eh.KatIndex(kats,k);
                     ploth(k) = subplot(1,numel(kats),k);
                     scatter(maxTrialsKats{k}(:,1),maxTrialsKats{k}(:,2), 25, colors(kk,:),'filled'); % chart
+                    hold on
+                    plot([(min(maxTrials)-0.1) (max(maxTrials)+0.1)], [median((maxTrialsKats{k}(:,2))) median((maxTrialsKats{k}(:,2)))], ':', 'Color',[0.5 0.5 0.5], 'LineWidth', 1.5); % plot median behav RT of each category
                     title([legendStr{k} ' (' num2str(length(maxTrialsKats{k}(:,1))) '), rho = ' num2str(corrKats(k,1),2) ', p value = ' num2str(corrKats(k,2),3)])
                 end
                 linkaxes(ploth, 'xy') % link axes of all subplots to specify their limits later
