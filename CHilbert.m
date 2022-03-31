@@ -302,7 +302,8 @@ classdef CHilbert < CiEEGData
         end
         
         function obj = PlotResponseFreq(obj,ch,kategories)
-            %uchovani stavu grafu, abych ho mohl obnovit a ne kreslit novy
+            %plot of all frequency bands
+            %which channel
             if ~exist('ch','var')
                 if isfield(obj.plotF,'ch'), ch =  obj.CH.sortorder(obj.plotF.ch); %vytahnu cislo kanalu podle ulozeneho indexu
                 else, obj.plotF.ch = 1; ch =  obj.CH.sortorder(1); end
@@ -310,12 +311,12 @@ classdef CHilbert < CiEEGData
                 obj.plotF.ch = ch; %tady bude ulozeny index sortorder, parametr ch urcuje index v sortorder
                 ch =  obj.CH.sortorder(ch); %promenna ch uz urcuje skutecne cislo kanalu
             end
-            
+            %stimulus/response categories
             if ~exist('kategories','var')
-                if isfield(obj.Wp(obj.WpActive), 'kats')
-                    kategories = obj.Wp(obj.WpActive).kats; 
-                elseif isfield(obj.plotF,'kategories')
+                if isfield(obj.plotF,'kategories') 
                     kategories = obj.plotF.kategories;
+                elseif isfield(obj.Wp(obj.WpActive), 'kats')
+                    kategories = obj.Wp(obj.WpActive).kats;                 
                 else
                     kategories = obj.PsyData.Categories(); 
                     obj.plotF.kategories = kategories;
@@ -323,31 +324,32 @@ classdef CHilbert < CiEEGData
             else
                 obj.plotF.kategories = kategories;
             end
-            
+            %how to plot
             if isfield(obj.plotF,'fh') && ishandle(obj.plotF.fh)
                 figure(obj.plotF.fh); %pouziju uz vytvoreny graf
                 %clf(obj.plotF.fh); %graf vycistim
             else
                 obj.plotF.fh = figure('Name','ResponseFreq','Position', [20, 500, 1200, 300]);
-                colormap jet; %aby to bylo jasne u vsech verzi matlabu - i 2016
+                colormap jet; %aby to bylo jasne u vsech verzi matlabu - i 2016            
             end   
+           
+            T = linspace(obj.epochtime(1),obj.epochtime(2),size(obj.d,1)); %time scale - all samples
             
-            maxy = 0;
+            maxy = 0; %scale of the power (z or y axis), over all categories
             miny = 0;
-            for k = 1:numel(kategories)
+            for k = 1:numel(kategories) %cycle over categories
                 subplot(1,numel(kategories),k);
-                T = obj.epochtime(1):0.1:obj.epochtime(2);
-                F =  obj.Hfmean;
+                                 
                 if iscell(kategories(k))                    
                     dd = zeros(size(obj.HFreq,1),size(obj.HFreq,3),numel(kategories{k}));
                     for ikat = 1:numel(kategories{k})
                         dd(:,:,ikat) = squeeze(obj.HFreq(:,ch,:,kategories{k}(ikat)+1));
                     end
-                    D = mean(dd,3);
+                    D = mean(dd,3); %mean over combined categories
                 else
                     D = squeeze(obj.HFreq(:,ch,:,kategories(k)+1));
                 end
-                imagesc(T,F, D');
+                imagesc(T,obj.Hfmean, D');%middles of the frequency bands
                 maxy = max([maxy max(max( D ))]);
                 miny = min([miny min(min( D ))]);                
                 axis xy;               
@@ -360,7 +362,7 @@ classdef CHilbert < CiEEGData
             end
             for k = 1:numel(kategories)
                 subplot(1,numel(kategories),k);
-                caxis([miny,maxy]);               
+                caxis([miny,maxy]);     %colormap limits          
                 title( obj.PsyData.CategoryName(cellval(kategories,k)));
                 if k == 1
                     chstr = iff(isempty(obj.CH.sortedby),num2str(ch), [ num2str(ch) '(' obj.CH.sortedby  num2str(obj.plotF.ch) ')' ]);

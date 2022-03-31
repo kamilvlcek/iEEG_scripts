@@ -1182,28 +1182,56 @@ classdef CiEEGData < matlab.mixin.Copyable
             colorbar;
         end  
         function obj = PlotEpochs(obj,ch,kategories,sortrt)
-            %uchovani stavu grafu, abych ho mohl obnovit a ne kreslit novy
+            %plot of all epochs+categoires (average over frequencies) for one channel 
             assert(obj.epochs > 1,'only for epoched data');
-            if ~exist('ch','var')
+            %which channel
+            if ~exist('ch','var') %which channel to show
                 if isfield(obj.plotEp,'ch'), ch =  obj.CH.sortorder(obj.plotEp.ch); %vytahnu cislo kanalu podle ulozeneho indexu
                 else,  obj.plotEp.ch = 1; ch =  obj.CH.sortorder(1); end
             else
                 obj.plotEp.ch = ch; %tady bude ulozeny index sortorder, parametr ch urcuje index v sortorder
                 ch =  obj.CH.sortorder(ch); %promenna ch uz urcuje skutecne cislo kanalu
             end
-            if ~exist('kategories','var')
-                if isfield(obj.plotEp,'kategories'), kategories = obj.plotEp.kategories;
-                else kategories = obj.PsyData.Categories(); obj.plotEp.kategories = kategories; end
+            %stimulus/response categories
+            if ~exist('kategories','var') %which categories to show
+                if isfield(obj.plotEp,'kategories') %if stored categories for this chart
+                    kategories = obj.plotEp.kategories;
+                elseif isfield(obj.Wp(obj.WpActive), 'kats') %if stored categories in computed statistics
+                    kategories = obj.Wp(obj.WpActive).kats;
+                else
+                    kategories = obj.PsyData.Categories(); %otherwise take categorie from behav data
+                    obj.plotEp.kategories = kategories; 
+                end
             else
                 obj.plotEp.kategories = kategories;
             end
-            if ~exist('sortrt','var')
+            %trialtypes
+            if isfield(obj.plotEp,'trialtypes')  %neni zadne drive ulozene
+                trialtypes = obj.plotEp.trialtypes; %hodnoty drive pouzite v grafu, ty maji prednost pred statistikou    
+            elseif ~isempty(obj.Wp) && isfield(obj.Wp(obj.WpActive),'trialtypes')
+                trialtypes = obj.Wp(obj.WpActive).trialtypes;            
+            else 
+                trialtypes = {};                    
+            end
+            obj.plotEp.trialtypes = trialtypes;    
+            if ~isempty(trialtypes)
+                if numel(trialtypes)>=3 % for at least two trialtypes                               
+                    KATNUM = kategories; % stimulus categories
+                    kategories = trialtypes(2:end); %'kategories' is used for repetition/trialtypes - for trial types give [column number from CPsyData.trialtypes , value ]
+                        %kategories now represent what should be contrasted in the plot
+                    kats_type = trialtypes{1}; % 'rep' for repetitions, 'tt' for trialtypes, 'kats' is default for stimulus categories                    
+                else %if we are contrasting categories (not trialtypes), they must agree with the statistics
+                    assert(obj.PsyData.CategoriesAgreeWithStat(kategories,obj.Wp(WpA), ['some categories unknown: ' num2str(kategoriesVector)]));    
+                end
+            end 
+            %how to plot
+            if ~exist('sortrt','var') %if to sort by reaction time
                 if isfield(obj.plotEp,'sortrt'), sortrt = obj.plotEp.sortrt;
                 else, sortrt = 1; obj.plotEp.sortrt = sortrt; end %defaultne radim podle reakcniho casu
             else
                 obj.plotEp.sortrt = sortrt;
             end
-            if isfield(obj.plotEp,'imgsc') %jestli se ma kreslit obrazek pomoci imagesc, bude se menit mezernikem
+            if isfield(obj.plotEp,'imgsc') %if to plot 2D color plot by imagesc, change by pressing space bar
                 if isempty(obj.plotEp.imgsc) || obj.plotEp.imgsc == 0
                     imgsc = 0; 
                     obj.plotEp.imgsc = 0;
@@ -1213,25 +1241,34 @@ classdef CiEEGData < matlab.mixin.Copyable
             else
                 imgsc = 1; %jeste nic nenastaveno, default je imagesc
                 obj.plotEp.imgsc = 1;
-            end
+            end            
             if isfield(obj.plotEp,'fh') && ishandle(obj.plotEp.fh)
-                figure(obj.plotEp.fh); %pouziju uz vytvoreny graf
-                %clf(obj.plotEp.fh); %graf vycistim
+                figure(obj.plotEp.fh); %use the existing figure                
             else
                 obj.plotEp.fh = figure('Name','All Epochs','Position', [20, 100, 1200, 300]);
                 colormap jet; %aby to bylo jasne u vsech verzi matlabu - i 2016
             end
             clf; 
-            T = linspace(obj.epochtime(1),obj.epochtime(2),size(obj.d,1)); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
             
-            maxy = 0; %budu pocitat za vsechny kategorie
+            T = linspace(obj.epochtime(1),obj.epochtime(2),size(obj.d,1)); %time scale - all samples
+            
+            maxy = 0; %scale of the power (z or y axis), over all categories
             miny = 0;
-            for k=1:numel(kategories)
-                katnum = cellval(kategories,k);
+            for k=1:numel(kategories) %cycle over categories
+                katnum = cellval(kategories,k);                
                 subplot(1,numel(kategories),k);
-                [katdata,psy_rt] = obj.CategoryData(katnum,sortrt,[],ch);
-                E = 1:size(katdata,3); %cisla epoch - kazdou kategorii muze byt jine                
-                D = squeeze(katdata(:,ch,:)); %cas x epochs
+                
+                if  ~isempty(trialtypes) && numel(trialtypes) >= 3  %plot different trialtypes for selected kategories in KATNUM
+                     %now in kategories the trialtypes/repetitions are actually stored, it should be cell array
+                    [katdata,psy_rt,RjEpCh] = obj.CategoryData(KATNUM,sortrt,{kats_type, katnum},ch); %samples x channels x epochs - eegdata - epochy pro tato opakovani       
+                else %plot different stimulus cateogires (for selected trialtype/repetition, if not empty)
+                     %katnum can be cell, pokud vice kategorii proti jedne
+                    [katdata,psy_rt,RjEpCh] = obj.CategoryData(katnum,sortrt,trialtypes,ch); %eegdata - epochy jedne kategorie                                         
+                end   %7.8.2018 - RjEpCh obsahuje jen aktualni kanal, takze rozmer 1x samples                                     
+                
+                Nvals = size(katdata(:,ch,~RjEpCh(1,:)),3); %number of epochs to be plotted in text for this category
+                E = 1:size(katdata(:,ch,~RjEpCh(1,:)),3); %epoch number - can be different for each category
+                D = squeeze(katdata(:,ch,~RjEpCh(1,:))); %cas x channel x epochs
                 if imgsc
                     imagesc(T,E,D'); %barevny colormap epoch
                 else
@@ -1239,9 +1276,15 @@ classdef CiEEGData < matlab.mixin.Copyable
                 end
                 maxy = max([maxy max(max( D ))]);
                 miny = min([miny min(min( D ))]);                
-                xlabel('Time [s]');                 
-                title(obj.PsyData.CategoryName(katnum));
+                xlabel('Time [s]');       
+                if ~isempty(trialtypes) && numel(trialtypes)>=3 %if plotting different trialtypes
+                    katname =  obj.PsyData.TrialTypeName({kats_type, katnum}); %TODO
+                else 
+                    katname = obj.PsyData.CategoryName(katnum);
+                end
+                title([ katname ' (' num2str(Nvals) ')'], 'Interpreter', 'none');
                 hold on; 
+                psy_rt = psy_rt(~RjEpCh(1,:));
                 if(max(psy_rt)>0) %pokud jsou nejake reakcni casy, u PPA testu nejsou
                     if numel(obj.epochtime)<3 || obj.epochtime(3)==0
                         plot(psy_rt,E,'-k','LineWidth',1); %cara reakcnich casu, nebo podnetu, pokud zarovnano podle reakce      
@@ -1552,10 +1595,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 obj.plotRCh.opakovani = trialtypes;    %hodnoty zadane parametrem, ty maji absolutni prednost
             end
             if numel(trialtypes)<3 %if we are contrasting categories (not trialtypes), they must agree with the statistics
-                katnum = obj.PsyData.Categories([],obj.Wp(WpA));
-                kategoriesVector = cell2double(kategories); %kategories in one vector, even for combined categories
-                katnumVector =  cell2double(katnum);
-                assert (sum(ismember(kategoriesVector,katnumVector))==numel(kategoriesVector), ['some categories unknown: ' num2str(kategoriesVector) ]);
+                assert(obj.PsyData.CategoriesAgreeWithStat(kategories,obj.Wp(WpA)), ['some categories unknown: ' num2str(cell2double(kategories))]);    
             end
             
             KATNUM = kategories; % stimulus categories
@@ -1640,15 +1680,13 @@ classdef CiEEGData < matlab.mixin.Copyable
                     
                     %to se hodi zvlast, kdyz se delaji jen dve kategorie vuci sobe ane vsechny, nebo dve vuci jedne nebo dve vuci dvema
                     colorkatk = [obj.colorskat{kk} ; colorsErrorBars{kk}]; %dve barvy, na caru a stderr plochu kolem
+                    katnum = cellval(kategories,k);
                     if  ~isempty(trialtypes) && numel(trialtypes) >= 3  %plot different trialtypes for selected kategories in KATNUM
-                        katnum = kategories{k}; %now in kategories the repetitions are actually stored, it should be cell array
+                         %now in kategories the repetitions are actually stored, it should be cell array
                         [katdata,~,RjEpCh] = obj.CategoryData(KATNUM,[],{kats_type, katnum},ch); %samples x channels x epochs - eegdata - epochy pro tato opakovani       
-                    elseif iscell(kategories) %plot different stimulus cateogires (for selected trialtype/repetition, if not empty)
-                        katnum = kategories{k}; %cislo kategorie, muze byt cell, pokud vice kategorii proti jedne
-                        [katdata,~,RjEpCh] = obj.CategoryData(katnum,[],trialtypes,ch); %eegdata - epochy jedne kategorie
-                    else
-                        katnum = kategories(k); %cislo kategorie, muze byt cell, pokud vice kategorii proti jedne
-                        [katdata,~,RjEpCh] = obj.CategoryData(katnum,[],trialtypes,ch); %eegdata - epochy jedne kategorie                       
+                    else %plot different stimulus cateogires (for selected trialtype/repetition, if not empty)
+                         %cislo kategorie, muze byt cell, pokud vice kategorii proti jedne
+                        [katdata,~,RjEpCh] = obj.CategoryData(katnum,[],trialtypes,ch); %eegdata - epochy jedne kategorie                                         
                     end   %7.8.2018 - RjEpCh obsahuje jen aktualni kanal, takze rozmer 1x samples 
                     
                     % 13.12.2019 Sofiia - to compute median, 25th and 75th percentiles and switch between median and mean
@@ -2641,9 +2679,13 @@ classdef CiEEGData < matlab.mixin.Copyable
                     obj.plotRCh.ylim = obj.plotRCh.range; %spocitalo se pri volani PlotResponseCh
                     obj.PlotResponseCh( obj.plotRCh.ch); %prekreslim grafy
                 case 'space' %zobrazi i prumerne krivky - vsechny epochy a vsechny frekvence
-                    if isa(obj,'CHilbert'), obj.PlotResponseFreq(obj.plotRCh.ch,obj.Wp(obj.WpActive).kats); end %vykreslim vsechna frekvencni pasma
-                    obj.PlotEpochs(obj.plotRCh.ch,obj.Wp(obj.WpActive).kats); %vykreslim prumery freq u vsech epoch
+                    if ~isempty(eventDat.Modifier) && strcmp(eventDat.Modifier{:},'shift')
+                        obj.PlotEpochs(obj.plotRCh.ch,obj.Wp(obj.WpActive).kats); %vykreslim prumery freq u vsech epoch                        
+                    else
+                        if isa(obj,'CHilbert'), obj.PlotResponseFreq(obj.plotRCh.ch,obj.Wp(obj.WpActive).kats); end %vykreslim vsechna frekvencni pasma
+                    end
                     figure(obj.plotRCh.fh); %dam puvodni obrazek dopredu
+                    
                 case 'return' %zobrazi obrazek mozku s vybranych kanalem                      
                     if isprop(obj,'label') && ~isempty(obj.label), label = obj.label; else, label = ''; end
                     obj.CH.ChannelPlot2D(obj.plotRCh.ch,obj.plotRCh,@obj.PlotResponseCh,label);  %vykreslim obrazek mozku s vybranym kanalem
@@ -2747,6 +2789,12 @@ classdef CiEEGData < matlab.mixin.Copyable
         function obj = hybejPlotEpochs(obj,~,eventDat)
             %reaguje na klavesy v PlotEpochs
             switch eventDat.Key 
+                case {'rightarrow','c'}                                       
+                    %next channel by ->
+                    obj.PlotEpochs( min( [ obj.plotEp.ch + 1 , numel(obj.CH.sortorder)]));    
+                case {'leftarrow','z'}                     
+                    %previous channel by <-
+                    obj.PlotEpochs( max( [obj.plotEp.ch - 1 , 1]));                                        
                 case 'multiply' %hvezdicka na numericke klavesnici
                    %dialog na vlozeni minima a maxima osy y
                    answ = inputdlg('Enter ymax and min:','Yaxis limits', [1 50],{num2str(obj.plotEp.ylim)});

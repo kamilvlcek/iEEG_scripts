@@ -55,6 +55,11 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 kat = -1;
             end   
             if kat(1)>=0
+                
+                if exist('trialtypes','var') && ~isempty(trialtypes) && size(obj.P.data,1) < size(obj.trialtypes,1) %epochs are missing for this subject due to some error
+                    nepochs =     size(obj.trialtypes,1) -     size(obj.P.data,1);
+                    obj.P.data = cat(1,obj.P.data,repmat(-1, nepochs, size(obj.P.data,2))); %add empty epochs to behavioral data, filled with -1
+                end
                 if ~exist('trialtypes','var') || isempty(trialtypes) || numel(trialtypes) <=2 %no or just one trialtype                   
                     rt = nan(size(obj.P.data,1),numel(kat)); %pole kam budu ukladat reakcni casy v sekundach
                     for k = 1:numel(kat) %funguje jen pro radky, kat je sloupec
@@ -340,6 +345,13 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             else
                iTrialTypeCh = []; 
             end            
+        end
+        function agree = CategoriesAgreeWithStat(obj,kategories,Wp)
+            %return true if the behavioral kategories agree with kategories in stat
+            kategoriesVector = cell2double(kategories); %kategories in one vector, even for combined categories
+            katnum = obj.Categories([],Wp);            
+            katnumVector =  cell2double(katnum);
+            agree = sum(ismember(kategoriesVector,katnumVector))==numel(kategoriesVector);    
         end
         function obj = Cond2Epochs(obj)
             %predela conditions na epochy, kvuli ITPC
