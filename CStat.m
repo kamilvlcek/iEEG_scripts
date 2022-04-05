@@ -547,7 +547,7 @@ classdef CStat < handle
             plot(X,M,'-','LineWidth',3,'Color',[1 0 0]);
             ylim([0 1]);
             line([X(1) X(end)],[.5 .5]);             
-        end
+        end        
     end
     methods (Static,Access = public)        
         function W = Wilcox2D(A,B,print,fdr,msg,RjEpChA,RjEpChB,paired)
@@ -800,20 +800,26 @@ classdef CStat < handle
         function [timeB,timeK]=StatDiffStart(channels,Wp,kategories,plevel,maintain)  
             %vraci casy zacatku signifikantnich rozdilu vuci baseline a kategorii vuci sobe
             %nezohlednuje smer rozdilu, signum, jako ktere se pouziva treba v CiEEGData.SelChannelStat
+            %kategories - numbers of categories, the same as Wp.kats. Or same as Wp.trialtypes if contrasting trialtypes
             if ~exist('kategories','var'), kategories = Wp.kats; end
             if ~exist('plevel','var'), plevel = 0.05; end
             if ~exist('maintain','var'), maintain = 1; end %for how many samples should the significance stay to be detected. 1=1/fs
                 %Bastin 2013jneurosci used maintain=8. But we use already the sliding window in CiEEGStat.WilcoxCat. 
             sigvector = true(1,maintain);
-            timeB = NaN(numel(channels),numel(Wp.kats)); % %casy rozdilu vuci baseline
-            timeK = NaN(numel(channels),numel(Wp.kats),numel(Wp.kats)); % casy rozdilu mezi kat
+            timeB = NaN(numel(channels),numel(kategories)); % %casy rozdilu vuci baseline
+            timeK = NaN(numel(channels),numel(kategories),numel(Wp.kats)); % casy rozdilu mezi kat
             Tr = linspace(Wp.baseline(2),Wp.epochtime(2),size(Wp.D2,1)); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
+            if ~isempty(Wp) && isfield(Wp,'trialtypes') && numel(Wp.trialtypes) > 2
+                kat_list = Wp.trialtypes(2:end);  %the argument kategories now contains trialtype
+            else
+                kat_list = Wp.kats; %default situation: the argument kategories contains categories according to Wp.kats
+            end
             for k = 1:numel(kategories) %pro vsechny zadane kategorie
                 %index where this kategory number is in the list of categories for this stat
                 %ik = find(Wp.kats==kategories(k)); %this does not work for cell arrays
-                for ikats = 1:numel(Wp.kats)
-                    if cellval(Wp.kats,ikats)==cellval(kategories,k)
-                        ik = ikats;
+                for ikats = 1:numel(kat_list) %cycle over categories in computed stat
+                    if cellval(kat_list,ikats)==cellval(kategories,k)
+                        ik = ikats; %ik is index in Wp.kats of category kategories(k)
                         break;
                     end
                 end                
@@ -827,8 +833,8 @@ classdef CStat < handle
                 for l = k+1:numel(kategories)
                     %index where this kategory number is in the list of categories for this stat
                     %il = find(Wp.kats==kategories(l)); %this does not work for cell arrays
-                    for ikats = 1:numel(Wp.kats)
-                        if cellval(Wp.kats,ikats)==cellval(kategories,l)
+                    for ikats = 1:numel(kat_list)
+                        if cellval(kat_list,ikats)==cellval(kategories,l)
                             il = ikats;
                             break;
                         end
@@ -856,6 +862,16 @@ classdef CStat < handle
             %z = 0.5*log((1+r)/(1-r)); %fischer z transform of r - not needed
             t = r.*sqrt((n-2)./(1-r.^2)); %t-statistics
             p = 1-tcdf(abs(t),n-2); %two tailed one-sample t-test            
+        end
+        function txt = StatText(Wp,WpActive,PsyData)
+             %returns the text info about currenty selected statistics
+             if ~isempty(Wp) %jen pokud je spocitana statistika , vypisu cislo aktivni statistiky a jmena kategorii
+                if isfield(Wp(WpActive),'trialtypes'), trialtypestext= [' - trialtypes: ' cell2str(Wp(WpActive).trialtypes)]; else, trialtypestext= ''; end
+                txt = ['stat ' num2str(WpActive) '/' num2str(numel(Wp)) '-'  cell2str(PsyData.CategoryName(Wp(WpActive).kats,[])) ...
+                     trialtypestext ];                 
+             else
+                txt = '';
+             end             
         end
     end
     methods (Access = private)

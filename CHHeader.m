@@ -1034,7 +1034,14 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         function obj = StoreCorrelChan(obj, CorrelChan) % store indexes of channels correlated with RT , call from CiEEGData - GetCorrelChan
             obj.CorrelChan = CorrelChan;
         end
-        
+        function txt = ChShowStr(obj)
+            %returns the text description of channel filter 
+            if isfield(obj.plotCh2D,'chshow') && isfield(obj.plotCh2D,'chshowstr') && ~isempty(obj.plotCh2D.chshow) && ~isempty(obj.plotCh2D.chshowstr) %% plot chshow
+                txt = ['ChShow:  ' obj.plotCh2D.chshowstr];
+            else
+                txt = '';
+            end
+        end
         %% Clustering of channels based on MNI
         function uniqueCounts = ComputeClusters(obj,nClusters,rejectCl,dofig,useseed,repeats)
             %ComputeClusters Computes clusters using k-means for current channel selection
