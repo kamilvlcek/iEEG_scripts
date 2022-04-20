@@ -123,7 +123,7 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             %if Wp.trialtypes is not empty, returns trialtypes instead of categories
             
             if ~exist('tisk','var'), tisk = 0; end %dfaultne netisknu kategorie
-            if ~exist('Wp','var') || ~isfield(Wp,'trialtypes') || isempty(Wp.trialtypes)
+            if ~exist('Wp','var') 
                 katnum = cell2mat(obj.P.strings.podminka(:,2))'; %kategorie v radku
                 katstr = cell(size(katnum));
                 for k = 1:numel(katnum)
@@ -132,14 +132,14 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                         disp([ num2str(katnum(k)) ': ' katstr{k}]);
                     end
                 end     
-            else %Wp trialtypes
+            else %categories accordig to Wp 
                 if numel(Wp.trialtypes) >= 3 %for more than two trialtypes, make contrasts between them
                     katnum = 0:numel(Wp.trialtypes)-2; %numbers starting from 0
                     katstr = cell(size(katnum));                    
                     for k = 1:numel(katnum)
                         katstr{k} = [obj.trialtypes.Properties.VariableNames{Wp.trialtypes{k+1}(1)} '=' num2str(Wp.trialtypes{k+1}(2))];
                     end                   
-                else %for only one trialtype, make contrasts according to wp.kats
+                else %for only one or no trialtype, make contrasts according to wp.kats
                     katnum = Wp.kats; %katnum are numbers in obj.P.strings.podminka{:,2}, not indexes of obj.P.strings.podminka{:,1} !
                     katstr = cell(size(katnum));
                     for k = 1:numel(katnum)                                                
@@ -241,35 +241,43 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             elseif strcmp(Wp.trialtypes{1}, 'tt') 
                 assert(~strcmp(obj.testname,'ppa'),'CPsyData.GetResponses cannot now return PPA test trialtypes'); %todo - similar correction as above
                 lines = 0;
-                if numel(Wp.trialtypes) == 2 %only one trialtype => make contrast between stimulus categoires
+                if numel(Wp.trialtypes) <= 2 %only one trialtype => make contrast between stimulus categoires
                         kats = Wp.kats; %kategories in rows, for each one cycle below
                     else  %at least two trials types + 'tt'. It means we are contrasting these trialtypes
                         kats = Wp.kats'; %kategorie in column, so treat them as one, only one cycle below 
-                end                    
-                for t = 2:numel(Wp.trialtypes)
+                end   
+                if size(obj.P.data,1) < size(obj.trialtypes,1) %epochs are missing for this subject due to some error
+                    nepochs =     size(obj.trialtypes,1) -     size(obj.P.data,1);
+                    obj.P.data = cat(1,obj.P.data,repmat(-1, nepochs, size(obj.P.data,2))); %add empty epochs to behavioral data, filled with -1. They are not used later, as their condition is -1
+                end
+                categnum = 1; %maximal number of categories in each (combined) category
+                for t = 2:numel(Wp.trialtypes) 
                     for kat = 1:size(kats,2) %cycle over columns of kats
                         itt = obj.trialtypes{:,Wp.trialtypes{t}(1)} == Wp.trialtypes{t}(2); %index of epochs with this trialtype ((column) == val)                    
-                        ikat = ismember(obj.P.data(:,S.kategorie),kats(:,kat));  %index of epochs with any of these categories
+                        ikat = ismember(obj.P.data(:,S.kategorie),cellval(kats(:,kat)));  %index of epochs with any of these categories in this column
+                            %is member seems to work with the whole matrix, so independed on columns/rows for second argument
                         lines =  lines + sum(itt & ikat ); %number of trials/epochs with this trialtype
+                        categnum = max(categnum,numel(cellval(kats(:,kat))));
                     end                    
                 end
-                resp = zeros(numel(lines),1);
-                rt = zeros(numel(lines),1);
-                category = zeros(numel(lines),1);
-                test = zeros(numel(lines),1);
+                resp = zeros(lines,1);
+                rt = zeros(lines,1);
+                category = zeros(lines,categnum); %more than one column for combined categories
+                test = zeros(lines,1);
                 lines = 0;
                 for t = 2:numel(Wp.trialtypes) 
                     for kat = 1:size(kats,2) %cycle over columns of kats
+                        %there are only test trials in CM.PsyData.Pmulti
                         itt = obj.trialtypes{:,Wp.trialtypes{t}(1)} == Wp.trialtypes{t}(2);
-                        ikat = ismember(obj.P.data(:,S.kategorie),kats(:,kat));  %index of epochs with any of these categories
+                        ikat = ismember(obj.P.data(:,S.kategorie),cellval(kats(:,kat)));  %index of epochs with any of these categories
                         resp(lines+1:lines+sum(itt & ikat)) = obj.P.data(itt & ikat,S.spravne); %correcness
                         rt(lines+1:lines+sum(itt & ikat)) = obj.P.data(itt & ikat,S.rt); %reaction time
                         if numel(Wp.trialtypes) == 2 %if there is only one trialtype, so contrast categories
-                            categ = kats(kat);
+                            categ = cellval(kats(kat));
                         else 
                             categ = t-2; %contrast trialtypes
                         end
-                        category(lines+1:lines+sum(itt & ikat)) = repmat(categ,sum(itt & ikat),1); %not original stimulus category, but number of trialtype category, should start from 0
+                        category(lines+1:lines+sum(itt & ikat),1:numel(categ)) = repmat(categ,sum(itt & ikat),1); %not original stimulus category, but number of trialtype category, should start from 0
                         test(lines+1:lines+sum(itt & ikat)) = obj.P.data(itt & ikat,S.zpetnavazba)==0; %feedback 1=training,0=test
                         lines = lines + sum(itt & ikat);
                     end
@@ -382,11 +390,11 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             
             S = obj.P.sloupce;
             test = obj.P.data(:,:); %vyberu vsechny trialy
-            if isfield(obj,'fh') && ishandle(obj.fhR) 
+            if isprop(obj,'fhR') && ishandle(obj.fhR) 
                 figure(obj.fhR); %pokud uz graf existuje, nebudu tvorit znova
                 clf; %smazu aktualni figure
             else                
-                obj.fhR = figure('Name','PlotResponses');
+                obj.fhR = figure('Name','PsyData.PlotResponses');
             end
             plot(test(:,S.rt),'-o'); %plot responses time of all trials
             hold on;

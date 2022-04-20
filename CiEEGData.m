@@ -757,25 +757,11 @@ classdef CiEEGData < matlab.mixin.Copyable
                else
                    kats = obj.Wp(obj.WpActive).kats; 
                end                
-               [katnum, katstr] = obj.PsyData.Categories(0,obj.Wp(obj.WpActive));
+               [~, katstr] = obj.PsyData.Categories(0,obj.Wp(obj.WpActive));
                kombinace = combinator(length(kats),2,'p'); %permutace bez opakovani z poctu kategorii - just indexes in kats, so from 1 to n
                kombinace = kombinace(kombinace(:,1)>kombinace(:,2),:); %vyberu jen permutace, kde prvni cislo je vetsi nez druhe   
                katsnames =  cell(1,numel(kats)+ size(kombinace,1)); %tam jsou kats + jejich kombinace
-               for kat = 1: numel(kats) %v PRVNIM cyklu naplnim jmena samotnych kategorii
-                    if iscell(kats(kat)) %mame tu vic kategorii proti vice - na jedne strane kontrastu
-                        if ~isempty(obj.Wp(obj.WpActive).trialtypes)
-                            katsnames{kat} = katstr{kat}; %'rep' vs 'tt' is allready in katstr
-                        else    
-                            kknames = cell(1,numel(kats{kat})); %jmena individualnich kategorii na jedne strane kontrastu
-                            for kk = 1: numel(kats{kat})
-                                kknames{kk}=katstr{kats{kat}(kk)+1}; %katnum jsou od 0, katstr indexovany od 1
-                            end
-                            katsnames{kat} = strjoin(kknames,'+'); %vice kategorii
-                        end
-                    else
-                        katsnames{kat} = katstr{katnum==kats(kat)}; %jde to udelat najednou bez for cyklu?
-                    end
-               end
+               katsnames(1:numel(katstr))=katstr;
                for kat = 1:size(kombinace,1) %v DRUHEM cyklu naplnim kombinace kategorii, jejich jmena uz beru z katsnames
                    katsnames{kat+numel(kats)} = [katsnames{kombinace(kat,1)} 'X' katsnames{kombinace(kat,2)} ];
                end
