@@ -61,8 +61,8 @@ classdef CEEGStat
                      for ch = 1:size(responsekat{k},2) %musim baseline signif taky pocitat pro kazdy kanal zvast protoze ji pak zohlednuju mezi kategoriemi
                         WpBA = CStat.Wilcox2D(responsekat{k}(:,ch,:),baselineA(:,ch,:),0,method.fdr,['chn' num2str(ch) ' kat ' num2str(k) ' vs baseline A'],rjepchkat{k}(ch,:),rjepchkat{k}(ch,:));
                         WpBB = CStat.Wilcox2D(responsekat{k}(:,ch,:),baselineB(:,ch,:),0,method.fdr,['chn' num2str(ch) ' kat ' num2str(k) ' vs baseline B'],rjepchkat{k}(ch,:),rjepchkat{k}(ch,:));
-                        WpKatBaseline{k,1}(:,ch) = max (WpBA,WpBB);
-                        fprintf('\b\b\b%3i',ch);  %list each channel                      
+                        WpKatBaseline{k,1}(:,ch) = max (WpBA,WpBB);                        
+                        fprintf('\b\b\b\b\b%5i',ch);  %list each channel                      
                      end
                      if method.fdr == 0, fprintf('no fdr ...'); end
                      fprintf(' ... OK \n');
@@ -89,7 +89,7 @@ classdef CEEGStat
                                     Wr(:,ch) = CStat.Wilcox2D(responsekat{k}(:,ch,:), responsekat{j}(:,ch,:),0,method.fdr,['kat ' num2str(k) ' vs ' num2str(j)],rjepchkat{k}(ch,:),rjepchkat{j}(ch,:),paired); 
                                     %fprintf('%i,',ch);
                                 end                                
-                                fprintf('\b\b\b%3i',ch);  %list each channel 
+                                fprintf('\b\b\b\b\b%5i',ch);  %list each channel 
                             end
                             if method.fdr == 0, fprintf('no fdr ...'); end
                             fprintf(' ... OK \n');

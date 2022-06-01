@@ -2190,7 +2190,8 @@ classdef CiEEGData < matlab.mixin.Copyable
             
             if ~exist('channels', 'var') || isempty(channels)
                 channels = 1:obj.channels; %vsechny kanaly
-            end            
+            end  
+            assert( ~isempty(obj.Wp), 'computed statistics required');
             if iscell(katnum)   % katnum muze byt cell array               
                 %katnum_orig = katnum; %backup                                
                 if size(katnum,1) == 1 %if only one row

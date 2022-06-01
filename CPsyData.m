@@ -133,7 +133,7 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     end
                 end     
             else %categories accordig to Wp 
-                if numel(Wp.trialtypes) >= 3 %for more than two trialtypes, make contrasts between them
+                if isfield(Wp,'trialtypes') && numel(Wp.trialtypes) >= 3 %for more than two trialtypes, make contrasts between them
                     katnum = 0:numel(Wp.trialtypes)-2; %numbers starting from 0
                     katstr = cell(size(katnum));                    
                     for k = 1:numel(katnum)
@@ -373,14 +373,20 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         end
         function obj = LoadTrialTypes(obj)
             if strcmp(obj.testname,'aedist')
-                T = load('AedistTrialTypes'); %load d:\eeg\motol\scripts\AedistTrialTypes.mat
-                assert(size(T.AedistTrialTypes,1) >= size(obj.P.data,1),['wrong number of epochs in AedistTrialTypes.mat, should be ' num2str(size(obj.P.data,1))]);                                   
-                trialsdiff = size(T.AedistTrialTypes,1) - size(obj.P.data,1); %how larger is trialtype table than trial data table
-                obj.trialtypes = T.AedistTrialTypes(trialsdiff+1:end,:);
-                disp(['last ' num2str(size(obj.P.data,1)) ' trialtypes loaded from AedistTrialTypes.mat']);
+                Tname = 'AedistTrialTypes'; %d:\eeg\motol\scripts\AedistTrialTypes.mat                 
+            elseif strcmp(obj.testname,'menrot')
+                Tname = 'MenrotTrialTypes';                               
             else
-                disp(['trial types for ' obj.testname 'not defined']);
+                disp(['trial types for ' obj.testname 'not defined']);                
+            end    
+            if exist('Tname','var')
+                T = load(Tname);
+                assert(size(T.(Tname),1) >= size(obj.P.data,1),['wrong number of epochs in ' Tname ', should be ' num2str(size(obj.P.data,1))]);                                   
+                trialsdiff = size(T.(Tname),1) - size(obj.P.data,1); %how larger is trialtype table than trial data table
+                obj.trialtypes = T.(Tname)(trialsdiff+1:end,:);
+                disp(['last ' num2str(size(obj.P.data,1)) ' trialtypes loaded from ' Tname]);
             end
+            
         end
         %% PLOT FUNCTIONS
         function [obj, chyby] = PlotResponses(obj)
@@ -390,7 +396,7 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             
             S = obj.P.sloupce;
             test = obj.P.data(:,:); %vyberu vsechny trialy
-            if isprop(obj,'fhR') && ishandle(obj.fhR) 
+            if isprop(obj,'fhR') && ~isempty(obj.fhR) && ishandle(obj.fhR) 
                 figure(obj.fhR); %pokud uz graf existuje, nebudu tvorit znova
                 clf; %smazu aktualni figure
             else                

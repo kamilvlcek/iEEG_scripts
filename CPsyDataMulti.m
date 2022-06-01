@@ -139,7 +139,7 @@ classdef CPsyDataMulti < CPsyData
             % called from Responses2XLS, which collects the data to plot
             % prumery:subjects x kats  x [mean,strerr,p] x [rt,resp]- averages and std errs a ttest pvalues for all subjects, to be plotted 
             % ttname:short string of the trialtypes
-            if isprop(obj,'fhRxls') && ishandle(obj.fhRxls) 
+            if isprop(obj,'fhRxls') && ~isempty(obj.fhRxls) && ishandle(obj.fhRxls) 
                 figure(obj.fhRxls); %pokud uz graf existuje, nebudu tvorit znova
                 clf; %smazu aktualni figure
             else                

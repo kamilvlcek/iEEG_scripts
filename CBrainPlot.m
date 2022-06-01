@@ -292,7 +292,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
                     obj.EpiInfo{int,kat} = nan(numel(BPD.EPI{int,kat}),1); %nan zustanou u tech, ktere nemaji epiinfo v headeru
                     %po kanalech musim kvuli tomu, ze u nekterych kanalu neni ve struct ani 0 ani 1 ale [];
                     for ch = 1:numel(BPD.EPI{int,kat})
-                        if ~isempty(BPD.EPI{int,kat}(ch).seizureOnset) % kanaly u kterych je epiinfo (nechybi v header)
+                        if ~isempty(BPD.EPI{int,kat}(ch).seizureOnset) && ~isnan(BPD.EPI{int,kat}(ch).seizureOnset) % kanaly u kterych je epiinfo (nechybi v header)
                             obj.EpiInfo{int,kat}(ch) = double(BPD.EPI{int,kat}(ch).seizureOnset | BPD.EPI{int,kat}(ch).interictalOften); %vrati 1 pokud je jedno nebo druhe 1   
                         end
                     end                   
