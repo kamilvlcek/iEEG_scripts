@@ -441,7 +441,7 @@ classdef CPlotsN < handle
         
         %ISPC functions
         function [ispc] = ISPCCalculate(obj,channels,fdr)
-            % inter site phase coherence = PLV - according to MikeXCohen
+            % inter site phase clustering = PLV - according to MikeXCohen
             % currently only: ISPC-trial, for one group of channels, for all computed frequencies, for all time points
             % ispc = time x fq
             if ~exist('channels','var') || isempty(channels), channels = 1:obj.E.channels; end %default is all channels
@@ -499,6 +499,79 @@ classdef CPlotsN < handle
             obj.plotISPC.fdr = fdr;
             obj.plotISPC.channels = channels;            
             obj.plotISPC.ispc_p_min = ispc_p_min;             
+        end
+        
+        function chanPair = ISPCFilterChan(obj, ispc_matrix) % Sofia from June 2022
+            % filter pairs of chan which have ISPC values significant vs baseline
+            % ispc_matrix - 2D array - ch x ch with the most significant ispc value for each combination of channels; if value = 0.05, it's considered as non-significant
+            % chanPair - pairs of chan numbers with ISPC signif vs baseline
+            
+             if ~exist('ispc_matrix','var') || isempty(ispc_matrix)
+                 ispc_matrix = obj.plotISPC.ispc_p_min;
+             end
+             [ch1, ch2] = find(ispc_matrix < 0.05 & ~isnan(ispc_matrix)); % find pair of chan with not NaN and pvalue < 0.05
+             chanPair = [ch1, ch2];
+             obj.plotISPC.ispc_bs_chanpair = chanPair;
+        end
+        
+        function [ispc_cats] = ISPCCalculateCats(obj, kats, channels, signChanPair)  % Sofia from June 2022
+            % inter site phase clustering = PLV is computed for each condition
+            % ispc_cats = {kats}(chn x chn x time x fq)
+            
+            if ~exist('channels', 'var') || isempty(channels)
+                channels = 1:obj.E.channels; % defaul - all channels
+            end
+            if ~exist('signChanPair', 'var') || isempty(signChanPair)
+                signChanPair = 0; % default - computes ISPC for all pairs of chan, if 1 computes only for pairs of chan with ISPC signif vs baseline
+            end                    % stored in obj.plotISPC.ispc_bs_chanpair, but to get these values, first call function ISPCFilterChan
+               
+            % define categories = conditions
+            if ~exist('kats', 'var') || isempty(kats)
+                if isfield(obj.E.plotRCh,'kategories') && ~isempty(obj.E.plotRCh.kategories)
+                    kats = obj.E.plotRCh.kategories;
+                else
+                    kats = obj.E.Wp(obj.E.WpActive).kats;
+                end
+            end
+            
+            ispc_cats = cell(numel(kats),1); %{kats}(chn x chn x time x fq)
+            %ispc_cats = nan(numel(channels), numel(channels), size(obj.E.fphaseEpochs,1),size(obj.E.fphaseEpochs,3)); %chn x chn x time x fq
+            
+            fprintf('ISPCCalculateCats:    ');
+            for ichn1 = 1:numel(channels)
+                if sum(obj.E.CH.RjCh==channels(ichn1))>0, continue; end % if the channel is rejected, not compute
+                fprintf('\b\b\b\b\b%5i',ichn1); % delete previous three characters and print the %i in three characters
+                
+                for ichn2 = ichn1+1:numel(channels)
+                    if sum(obj.E.CH.RjCh==channels(ichn2))>0, continue; end
+                    if ~isa(obj.E, 'CHilbertMulti') || find(obj.E.els >= channels(ichn1),1) == find(obj.E.els >= channels(ichn2),1) %find expression to get the pacient number
+                        
+                    if signChanPair==1  % if compute ISPC between conditions only for pairs of chan with ISPC signif vs baseline
+                        if ~(ismember([channels(ichn1), channels(ichn2)],obj.plotISPC.ispc_bs_chanpair,'rows') || ismember([channels(ichn2), channels(ichn1)],obj.plotISPC.ispc_bs_chanpair,'rows')) % if the current pair of chan is not signif vs bs, skip
+                        continue
+                        end                            
+                    end   
+                    
+                        for k = 1:numel(kats) % over all conditions
+                            % correct epochs for chan 1
+                            iEp1 = obj.CorrectEpochs(channels(ichn1), kats(k)); % only correct epochs for each condition (without errors, training and epi epochs)
+                            % correct epochs for chan 2
+                            iEp2 = obj.CorrectEpochs(channels(ichn2), kats(k));
+                            % for computing ISPC, the number of epochs should be the same in both channels
+                            iEpBoth = intersect(iEp1, iEp2);
+                            
+                            fphaseEpochsCh1 = squeeze(obj.E.fphaseEpochs(:,channels(ichn1),:,iEpBoth)); % time x freq x epochs in ch1
+                            fphaseEpochsCh2 = squeeze(obj.E.fphaseEpochs(:,channels(ichn2),:,iEpBoth)); % time x freq x epochs in ch2
+                            
+                            % compute ispc - over all frequencies and time at once 
+                            ispc_all = exp(1i*(fphaseEpochsCh1 - fphaseEpochsCh2)); % time x freq x epochs - complex number
+                            ispc_ch = abs(mean(ispc_all,3)); % abs = lenght of the average vector ,% time x freq , mean over epochs
+                            ispc_cats{k}(ichn1,ichn2,:,:) = ispc_ch; % put in cell array with all conditions                       
+                        end
+                    end
+                end
+            end
+            obj.plotISPC.ispc_cats = ispc_cats; 
         end
         
         function ISPCPlot(obj,chnpair,TimeHf, updateS, ISPCPlotSelection)
