@@ -501,30 +501,42 @@ classdef CPlotsN < handle
             obj.plotISPC.ispc_p_min = ispc_p_min;             
         end
         
-        function chanPair = ISPCFilterChan(obj, ispc_matrix) % Sofia from June 2022
-            % filter pairs of chan which have ISPC values significant vs baseline
+        function chanPair = ISPCFilterChan(obj, byROI) % Sofia from June 2022
+            % filter pairs of chan which have ISPC values significant vs baseline or by ROI - to leave only between ROI pairs of chan (not within)
             % ispc_matrix - 2D array - ch x ch with the most significant ispc value for each combination of channels; if value = 0.05, it's considered as non-significant
-            % chanPair - pairs of chan numbers with ISPC signif vs baseline
+            % chanPair - pairs of chan numbers with ISPC signif vs baseline or between ROI pairs of chan
             
-             if ~exist('ispc_matrix','var') || isempty(ispc_matrix)
-                 ispc_matrix = obj.plotISPC.ispc_p_min;
-             end
-             [ch1, ch2] = find(ispc_matrix < 0.05 & ~isnan(ispc_matrix)); % find pair of chan with not NaN and pvalue < 0.05
-             chanPair = [ch1, ch2];
-             obj.plotISPC.ispc_bs_chanpair = chanPair;
+            if byROI == 0 % filter pairs of chan numbers with ISPC signif vs baseline
+                ispc_matrix = obj.plotISPC.ispc_p_min;
+                [ch1, ch2] = find(ispc_matrix < 0.05 & ~isnan(ispc_matrix)); % find pair of chan with not NaN and pvalue < 0.05
+                chanPair = [ch1, ch2];
+                obj.plotISPC.ispc_bs_chanpair = chanPair;
+            else  % filter only between ROI pairs of chan
+                chanPair = ones(length(obj.plotISPC.channels)); % matrix of all possible pairs
+                for ichn1 = 1:length(obj.plotISPC.channels)
+                    for ichn2 = 1:length(obj.plotISPC.channels)
+                        if strcmp(obj.E.CH.brainlabels(obj.plotISPC.channels(ichn1)).label,obj.E.CH.brainlabels(obj.plotISPC.channels(ichn2)).label)
+                             chanPair(ichn1, ichn2) = 0; % if brain labels of that chan pair are the same, filter that pair out
+                        end
+                    end
+                end
+                [ch1, ch2] = find(triu(chanPair) == 1); % find pairs of chan with 1 (different brain labels), without repetition 
+                chanPair = [ch1, ch2];   
+                obj.plotISPC.roi_chanpair = chanPair;
+            end
         end
         
-        function [ispc_cats] = ISPCCalculateCats(obj, kats, channels, signChanPair)  % Sofia from June 2022
-            % inter site phase clustering = PLV is computed for each condition
+        function [ispc_cats] = ISPCCalculateCats(obj, kats, channels, selectChanPair)  % Sofia from June 2022
+            % inter site phase clustering = PLV is computed for each condition, incorrect and epi epochs are excluded
             % ispc_cats = {kats}(chn x chn x time x fq)
             
             if ~exist('channels', 'var') || isempty(channels)
                 channels = 1:obj.E.channels; % defaul - all channels
             end
-            if ~exist('signChanPair', 'var') || isempty(signChanPair)
-                signChanPair = 0; % default - computes ISPC for all pairs of chan, if 1 computes only for pairs of chan with ISPC signif vs baseline
-            end                    % stored in obj.plotISPC.ispc_bs_chanpair, but to get these values, first call function ISPCFilterChan
-               
+            if ~exist('selectChanPair', 'var') || isempty(selectChanPair)
+                selectChanPair = 0; % default - computes ISPC for all pairs of chan, if 1 computes only for pairs of chan with ISPC signif vs baseline stored in obj.plotISPC.ispc_bs_chanpair, but to get these values, first call function ISPCFilterChan
+            end                    % if 2 computes only for between ROI pairs of chan
+                              
             % define categories = conditions
             if ~exist('kats', 'var') || isempty(kats)
                 if isfield(obj.E.plotRCh,'kategories') && ~isempty(obj.E.plotRCh.kategories)
@@ -533,7 +545,8 @@ classdef CPlotsN < handle
                     kats = obj.E.Wp(obj.E.WpActive).kats;
                 end
             end
-            
+            obj.plotISPC.ispc_cats_names{1} = obj.E.PsyData.CategoryName(kats, []); % save names of conditions for which ISPC was computed
+            obj.plotISPC.ispc_cats_names{2} = kats; % but also their original numbers - needed for ploting then
             ispc_cats = cell(numel(kats),1); %{kats}(chn x chn x time x fq)
             %ispc_cats = nan(numel(channels), numel(channels), size(obj.E.fphaseEpochs,1),size(obj.E.fphaseEpochs,3)); %chn x chn x time x fq
             
@@ -542,36 +555,112 @@ classdef CPlotsN < handle
                 if sum(obj.E.CH.RjCh==channels(ichn1))>0, continue; end % if the channel is rejected, not compute
                 fprintf('\b\b\b\b\b%5i',ichn1); % delete previous three characters and print the %i in three characters
                 
-                for ichn2 = ichn1+1:numel(channels)
+                for ichn2 = 1:numel(channels)
                     if sum(obj.E.CH.RjCh==channels(ichn2))>0, continue; end
                     if ~isa(obj.E, 'CHilbertMulti') || find(obj.E.els >= channels(ichn1),1) == find(obj.E.els >= channels(ichn2),1) %find expression to get the pacient number
                         
-                    if signChanPair==1  % if compute ISPC between conditions only for pairs of chan with ISPC signif vs baseline
-                        if ~(ismember([channels(ichn1), channels(ichn2)],obj.plotISPC.ispc_bs_chanpair,'rows') || ismember([channels(ichn2), channels(ichn1)],obj.plotISPC.ispc_bs_chanpair,'rows')) % if the current pair of chan is not signif vs bs, skip
-                        continue
-                        end                            
-                    end   
-                    
+%                         if selectChanPair==1  % if compute ISPC between conditions only for pairs of chan with ISPC signif vs baseline
+%                             if ~(ismember([channels(ichn1), channels(ichn2)],obj.plotISPC.ispc_bs_chanpair,'rows') || ismember([channels(ichn2), channels(ichn1)],obj.plotISPC.ispc_bs_chanpair,'rows')) % if the current pair of chan is not signif vs bs, skip
+%                                 continue
+%                             end
+%                         elseif selectChanPair==2
+%                             if ~ismember([channels(ichn1), channels(ichn2)], obj.plotISPC.roi_chanpair,'rows') % if the current pair of chan is not between ROI pair, skip it
+%                                 continue
+%                             end
+%                         end
+%                         
                         for k = 1:numel(kats) % over all conditions
-                            % correct epochs for chan 1
-                            iEp1 = obj.CorrectEpochs(channels(ichn1), kats(k)); % only correct epochs for each condition (without errors, training and epi epochs)
-                            % correct epochs for chan 2
-                            iEp2 = obj.CorrectEpochs(channels(ichn2), kats(k));
-                            % for computing ISPC, the number of epochs should be the same in both channels
-                            iEpBoth = intersect(iEp1, iEp2);
-                            
-                            fphaseEpochsCh1 = squeeze(obj.E.fphaseEpochs(:,channels(ichn1),:,iEpBoth)); % time x freq x epochs in ch1
-                            fphaseEpochsCh2 = squeeze(obj.E.fphaseEpochs(:,channels(ichn2),:,iEpBoth)); % time x freq x epochs in ch2
-                            
-                            % compute ispc - over all frequencies and time at once 
-                            ispc_all = exp(1i*(fphaseEpochsCh1 - fphaseEpochsCh2)); % time x freq x epochs - complex number
-                            ispc_ch = abs(mean(ispc_all,3)); % abs = lenght of the average vector ,% time x freq , mean over epochs
-                            ispc_cats{k}(ichn1,ichn2,:,:) = ispc_ch; % put in cell array with all conditions                       
+                            if selectChanPair==1 && ~(ismember([channels(ichn1), channels(ichn2)],obj.plotISPC.ispc_bs_chanpair,'rows') || ismember([channels(ichn2), channels(ichn1)],obj.plotISPC.ispc_bs_chanpair,'rows')) % if compute ISPC between conditions only for pairs of chan with ISPC signif vs baseline
+                                ispc_cats{k}(ichn1,ichn2,:,:) = zeros(size(obj.E.fphaseEpochs,1),size(obj.E.fphaseEpochs,3))-1; % leave this chan pair in matrix, but assign special number (-1) to it
+                            elseif selectChanPair==2 && ~(ismember([channels(ichn1), channels(ichn2)], obj.plotISPC.roi_chanpair,'rows')|| ismember([channels(ichn2), channels(ichn1)], obj.plotISPC.roi_chanpair,'rows')) % if the current pair of chan is not between ROI pair
+                                ispc_cats{k}(ichn1,ichn2,:,:) = zeros(size(obj.E.fphaseEpochs,1),size(obj.E.fphaseEpochs,3))-2; % leave this chan pair in matrix, but assign -2 to it, to distinguish it in the further analysis
+                            else
+                                % correct epochs for chan 1
+                                iEp1 = obj.CorrectEpochs(channels(ichn1), kats(k)); % only correct epochs for each condition (without errors, training and epi epochs)
+                                % correct epochs for chan 2
+                                iEp2 = obj.CorrectEpochs(channels(ichn2), kats(k));
+                                % for computing ISPC, the number of epochs should be the same in both channels
+                                iEpBoth = intersect(iEp1, iEp2);
+                                
+                                fphaseEpochsCh1 = squeeze(obj.E.fphaseEpochs(:,channels(ichn1),:,iEpBoth)); % time x freq x epochs in ch1
+                                fphaseEpochsCh2 = squeeze(obj.E.fphaseEpochs(:,channels(ichn2),:,iEpBoth)); % time x freq x epochs in ch2
+                                
+                                % compute ispc - over all frequencies and time at once
+                                ispc_all = exp(1i*(fphaseEpochsCh1 - fphaseEpochsCh2)); % time x freq x epochs - complex number
+                                ispc_ch = abs(mean(ispc_all,3)); % abs = lenght of the average vector ,% time x freq , mean over epochs
+                                ispc_cats{k}(ichn1,ichn2,:,:) = ispc_ch; % put in cell array with all conditions
+                            end
                         end
                     end
                 end
             end
-            obj.plotISPC.ispc_cats = ispc_cats; 
+            obj.plotISPC.ispc_cats = ispc_cats;
+        end
+        
+        function [ispc_cats_intime] = ISPCAverageFreq(obj, ispc_cats)  % Sofia from June 2022
+            % average time-frequency matrices of ISPC across frequencies for each condition - to obtain one curve in time for each pair of chan
+            if ~exist('ispc_cats', 'var') || isempty(ispc_cats)
+                ispc_cats = obj.plotISPC.ispc_cats;
+            end
+            
+            nchannels = size(ispc_cats{1},1);
+            nkats = size(ispc_cats, 1); % number of conditions
+            ispc_cats_intime = cell(nkats,1); %{kats}(chn1, chn2, time points)
+            i = 1; % index for each chan pair
+            for ichn1 = 1:nchannels
+                for ichn2 = 1:nchannels
+                    if ismember([ichn1, ichn2], obj.plotISPC.roi_chanpair,'rows')
+                        for k = 1:nkats
+                            temp = mean(squeeze(ispc_cats{k}(ichn1,ichn2,:,:)),2); % mean over all frequency bins
+                            ispc_cats_intime{k}(i,:) = [ichn1, ichn2, temp']; % chan pair: ISPC in time 
+                        end
+                    i = i+1;    
+                    end
+                end
+            end            
+            obj.plotISPC.ispc_cats_intime = ispc_cats_intime;
+        end
+        
+        function ispc_cats_roi_mean = ISPCPlotCatROIMean(obj) % plots mean ISPC (which was averaged also across freq) across all pairs of chan between ROI for each condition             
+          
+            % compute mean and std err of mean over pais of chan
+            nkats = size(obj.plotISPC.ispc_cats_intime, 1);  % number of conditions
+            nChanPairs = size(obj.plotISPC.ispc_cats_intime{1},1); % number of pairs of channels
+            ispc_cats_roi_mean = zeros(nkats,size(obj.plotISPC.ispc_cats_intime{1},2)-2); % mean, kats x time (chan pairs will be averaged)
+            ispc_cats_roiE = zeros(nkats,size(obj.plotISPC.ispc_cats_intime{1},2)-2); % std err of mean, kats x time
+            
+            for k = 1:nkats
+                isps_time_k = obj.plotISPC.ispc_cats_intime{k}(:, 3:end); % only time points without number of chan
+                ispc_cats_roi_mean(k,:) = mean(isps_time_k, 1); % average across all pairs of chan, kats x time points
+                ispc_cats_roiE(k,:) = std(isps_time_k,[],1)/sqrt(nChanPairs); % std err of mean
+            end
+            
+            % ploting
+            T = linspace(obj.E.epochtime(1), obj.E.epochtime(2), size(obj.E.fphaseEpochs,1)); % time on x-axis
+            figure('Name','ISPCPlotCatMeanROI')
+            kats = obj.plotISPC.ispc_cats_names{1,2}; % original numbers of categories
+            hue = 0.8;
+            colorsErrorBars = cellfun(@(a) min(a+hue, 1), obj.E.colorskat, 'UniformOutput', false);
+            
+            ploth = zeros(1,nkats); % handles of subplots
+            for k=1:nkats % for each category
+                kk = obj.E.KatIndex(kats,k);
+                colorkatk = [obj.E.colorskat{kk} ; colorsErrorBars{kk}]; %dve barvy, na caru a stderr plochu kolem
+                ploth(k) = subplot(nkats,1, k);
+                ciplot(ispc_cats_roi_mean(k,:)+ispc_cats_roiE(k,:), ispc_cats_roi_mean(k,:)-ispc_cats_roiE(k,:), T, colorkatk(2,:)); % plot std err of mean
+                hold on
+                plot(T,ispc_cats_roi_mean(k,:),'LineWidth',1,'Color',colorkatk(1,:)); % plot mean
+                hold on
+                plot([0 0], [min(min(ispc_cats_roi_mean))-0.01 max(max(ispc_cats_roi_mean))+0.01], ':', 'Color',[0.5 0.5 0.5], 'LineWidth', 1.5); % plot stimulus time
+                title([obj.plotISPC.ispc_cats_names{1,1}{k} ': ISPC mean over ' num2str(nChanPairs) ' pairs of channels'])
+            end           
+            linkaxes(ploth, 'xy') % link axes of all subplots
+            set(gca, 'Ylim', [min(min(ispc_cats_roi_mean))-0.01 max(max(ispc_cats_roi_mean))+0.01]);
+            ylabel('ISPC value')
+            xlabel('time, sec')
+            yrange = get(gca, 'Ylim');
+            xrange = get(gca, 'Xlim');
+            text(xrange(1)+1.3, yrange(1)+0.01, ['mean ISPC over ' num2str(obj.E.Hf(1)) '-' num2str(obj.E.Hf(end)) 'Hz'])  
         end
         
         function ISPCPlot(obj,chnpair,TimeHf, updateS, ISPCPlotSelection)
