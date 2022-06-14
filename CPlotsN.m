@@ -621,6 +621,84 @@ classdef CPlotsN < handle
             obj.plotISPC.ispc_cats_intime = ispc_cats_intime;
         end
         
+        function ISPCPlotChPair(obj, chpair) % plots mean ISPC over frequency bins for each channel pair and condition
+           
+            if ~isfield(obj.plotISPC,'PlotChPair')
+                obj.plotISPC.PlotChPair = struct; % save info about the plot in struct
+            end
+            if ~isfield(obj.plotISPC.PlotChPair,'chpairs')
+                chpairs = obj.plotISPC.ispc_cats_intime{1, 1}(:,[1 2]); % all channel pairs with ISPC computed
+                obj.plotISPC.PlotChPair.chpairs = chpairs;
+            end
+            
+            if ~exist('chpair','var') || isempty(chpair) % selected channel pair
+               if isfield(obj.plotISPC.PlotChPair,'chpair') && ~isempty(obj.plotISPC.PlotChPair.chpair) 
+                   chpair = obj.plotISPC.PlotChPair.chpair; 
+                else                     
+                   chpair = 1; % the fisrt pair of channels
+                   obj.plotISPC.PlotChPair.chpair = chpair; 
+                end
+            else
+                obj.plotISPC.PlotChPair.chpair = chpair;
+            end
+            
+            if ~isfield(obj.plotISPC.PlotChPair,'kats')
+                kats = obj.plotISPC.ispc_cats_names{1,2}; % original numbers of categories
+                obj.plotISPC.PlotChPair.kats = kats;
+            else
+                kats = obj.plotISPC.PlotChPair.kats;
+            end
+            
+            if ~isfield(obj.plotISPC.PlotChPair,'kats_legend')
+                kats_legend = obj.plotISPC.ispc_cats_names{1,1}; % names of categories
+                obj.plotISPC.PlotChPair.kats_legend = kats_legend;
+            else
+                kats_legend = obj.plotISPC.PlotChPair.kats_legend;
+            end
+            
+            T = linspace(obj.E.epochtime(1), obj.E.epochtime(2), size(obj.E.fphaseEpochs,1)); % time on x-axis
+            
+            % ploting
+            if isfield(obj.plotISPC.PlotChPair,'h') && ~isempty(obj.plotISPC.PlotChPair.h) && ishandle(obj.plotISPC.PlotChPair.h)
+                figure(obj.plotISPC.PlotChPair.h) % use the existing plot
+                clf(obj.plotISPC.PlotChPair.h); % clear it
+            else
+                obj.plotISPC.PlotChPair.h = figure('Name',['ISPCPlotChPair mean over frequency ' num2str(obj.E.Hf(1)) '-' num2str(obj.E.Hf(end)) 'Hz']); % or new plot
+            end
+            
+            if numel(kats)>3 % to get colours for all conditions
+                colors = distinguishable_colors(numel(kats));
+            else
+                colors = cell2mat(obj.E.colorskat(1:end)');
+            end
+            
+            h_kat = zeros(numel(kats),1); % handles of plots               
+            for k = 1 : numel(kats)
+                kk = obj.E.KatIndex(kats,k); % index of condition with correct color code
+                ISPCchpair_k = obj.plotISPC.ispc_cats_intime{k}(chpair,3:end); % plot curve
+                h_kat(k,1) = plot(T,ISPCchpair_k,'LineWidth',2,'Color',colors(kk,:));
+                hold on                
+            end
+            set(gca, 'Ylim', [0 max(obj.plotISPC.ispc_cats_intime{1}(chpair,3:end))+0.15]);
+            ylabel('ISPC value')
+            xlabel('time, sec')
+            xrange = get(gca,'XLim');
+            yrange = get(gca,'YLim');
+            plot([0 0], yrange, ':', 'Color',[0.5 0.5 0.5], 'LineWidth', 1.5); % plot stimulus time
+            hold on
+            legend(h_kat, kats_legend,'Location','best')
+            text(xrange(1)+0.1,yrange(2)-0.025, [obj.E.CH.H.channels(obj.plotISPC.PlotChPair.chpairs(chpair,1)).neurologyLabel '-' obj.E.CH.H.channels(obj.plotISPC.PlotChPair.chpairs(chpair,2)).neurologyLabel]) % neurology labels of channels
+            text(xrange(1)+0.1,yrange(2)-0.04, [obj.E.CH.brainlabels(obj.plotISPC.PlotChPair.chpairs(chpair,1)).label '-' obj.E.CH.brainlabels(obj.plotISPC.PlotChPair.chpairs(chpair,2)).label]) % brain labels of channels
+            text(xrange(1)+0.1,yrange(2)-0.01,sprintf(' channels %i, %s - %i, %s', ...
+                    obj.plotISPC.PlotChPair.chpairs(chpair,1),obj.E.CH.H.channels(obj.plotISPC.PlotChPair.chpairs(chpair,1)).name,...
+                    obj.plotISPC.PlotChPair.chpairs(chpair,2),obj.E.CH.H.channels(obj.plotISPC.PlotChPair.chpairs(chpair,2)).name)); % number of channel and its name
+            title(['channel pair ' num2str(chpair) '/' num2str(length(obj.plotISPC.PlotChPair.chpairs))], 'Interpreter', 'none'); % number of chan pair
+            
+            methodhandle = @obj.hybejPlotChPairISPC; % switch chan pairs 
+            set(obj.plotISPC.PlotChPair.h,'KeyPressFcn',methodhandle);
+            figure(obj.plotISPC.PlotChPair.h); %activates this figure again
+        end
+        
         function ispc_cats_roi_mean = ISPCPlotCatROIMean(obj) % plots mean ISPC (which was averaged also across freq) across all pairs of chan between ROI for each condition             
           
             % compute mean and std err of mean over pais of chan
@@ -642,25 +720,22 @@ classdef CPlotsN < handle
             hue = 0.8;
             colorsErrorBars = cellfun(@(a) min(a+hue, 1), obj.E.colorskat, 'UniformOutput', false);
             
-            ploth = zeros(1,nkats); % handles of subplots
+            ploth = zeros(1,nkats); % handles of plots
             for k=1:nkats % for each category
                 kk = obj.E.KatIndex(kats,k);
                 colorkatk = [obj.E.colorskat{kk} ; colorsErrorBars{kk}]; %dve barvy, na caru a stderr plochu kolem
-                ploth(k) = subplot(nkats,1, k);
                 ciplot(ispc_cats_roi_mean(k,:)+ispc_cats_roiE(k,:), ispc_cats_roi_mean(k,:)-ispc_cats_roiE(k,:), T, colorkatk(2,:)); % plot std err of mean
                 hold on
-                plot(T,ispc_cats_roi_mean(k,:),'LineWidth',1,'Color',colorkatk(1,:)); % plot mean
+                ploth(k) = plot(T,ispc_cats_roi_mean(k,:),'LineWidth',1,'Color',colorkatk(1,:)); % plot mean
                 hold on
-                plot([0 0], [min(min(ispc_cats_roi_mean))-0.01 max(max(ispc_cats_roi_mean))+0.01], ':', 'Color',[0.5 0.5 0.5], 'LineWidth', 1.5); % plot stimulus time
-                title([obj.plotISPC.ispc_cats_names{1,1}{k} ': ISPC mean over ' num2str(nChanPairs) ' pairs of channels'])
             end           
-            linkaxes(ploth, 'xy') % link axes of all subplots
-            set(gca, 'Ylim', [min(min(ispc_cats_roi_mean))-0.01 max(max(ispc_cats_roi_mean))+0.01]);
+            set(gca, 'Ylim', [min(min(ispc_cats_roi_mean))-0.01 max(max(ispc_cats_roi_mean))+0.01]);       
             ylabel('ISPC value')
             xlabel('time, sec')
             yrange = get(gca, 'Ylim');
-            xrange = get(gca, 'Xlim');
-            text(xrange(1)+1.3, yrange(1)+0.01, ['mean ISPC over ' num2str(obj.E.Hf(1)) '-' num2str(obj.E.Hf(end)) 'Hz'])  
+            plot([0 0], yrange, ':', 'Color',[0.5 0.5 0.5], 'LineWidth', 1.5); % plot stimulus time
+            legend(ploth,obj.plotISPC.ispc_cats_names{1,1},'Location','best');           
+            title(['ISPC mean over ' num2str(nChanPairs) ' pairs of channels, ' num2str(obj.E.Hf(1)) '-' num2str(obj.E.Hf(end)) ' Hz'])
         end
         
         function ISPCPlot(obj,chnpair,TimeHf, updateS, ISPCPlotSelection)
@@ -1323,6 +1398,34 @@ classdef CPlotsN < handle
             end
             if isempty(next)
                 next = obj.plotData.iEpoch;
+            end
+        end
+        
+        function obj = hybejPlotChPairISPC(obj,~,eventDat)
+            % reacts to events in figure ISPCPlotChPair
+            switch eventDat.Key
+                case {'rightarrow'} % next channel pair by ->
+                    chpair = min([obj.plotISPC.PlotChPair.chpair + 1 , length(obj.plotISPC.PlotChPair.chpairs)]);
+                    obj.ISPCPlotChPair(chpair);
+                case {'leftarrow'} % previous channel pair by <-
+                    chpair = max([obj.plotISPC.PlotChPair.chpair - 1 , 1]);
+                    obj.ISPCPlotChPair(chpair);
+                case 'pagedown' % move by 10 ch pairs forward
+                    chpair = min([obj.plotISPC.PlotChPair.chpair + 10 , length(obj.plotISPC.PlotChPair.chpairs)]);
+                    obj.ISPCPlotChPair(chpair);
+                case 'pageup' % move by 10 ch pairs back
+                    chpair = max([obj.plotISPC.PlotChPair.chpair - 10 , 1]);
+                    obj.ISPCPlotChPair(chpair);
+               case 'home' % choose the first chan pair
+                    obj.ISPCPlotChPair(1);                    
+                case 'end' % choose the last chan pair
+                    obj.ISPCPlotChPair(length(obj.plotISPC.PlotChPair.chpairs)); 
+                case 'o' % specify the chan pair by input number
+                     answ = inputdlg('Enter channel pair number:','Go to channel pair', 1,{num2str(obj.plotISPC.PlotChPair.chpair)});
+                     if numel(answ)>0
+                         chpair = str2double(answ{1}); 
+                         if ~isempty(chpair), obj.ISPCPlotChPair(chpair); end
+                     end
             end
         end
         
