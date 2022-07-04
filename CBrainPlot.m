@@ -292,7 +292,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
                     obj.EpiInfo{int,kat} = nan(numel(BPD.EPI{int,kat}),1); %nan zustanou u tech, ktere nemaji epiinfo v headeru
                     %po kanalech musim kvuli tomu, ze u nekterych kanalu neni ve struct ani 0 ani 1 ale [];
                     for ch = 1:numel(BPD.EPI{int,kat})
-                        if ~isempty(BPD.EPI{int,kat}(ch).seizureOnset) && ~isnan(BPD.EPI{int,kat}(ch).seizureOnset) % kanaly u kterych je epiinfo (nechybi v header)
+                        if ~isempty(BPD.EPI{int,kat}(ch).seizureOnset) && ~isnan(BPD.EPI{int,kat}(ch).seizureOnset) && ~isnan(BPD.EPI{int,kat}(ch).interictalOften) % kanaly u kterych je epiinfo (nechybi v header)
                             obj.EpiInfo{int,kat}(ch) = double(BPD.EPI{int,kat}(ch).seizureOnset | BPD.EPI{int,kat}(ch).interictalOften); %vrati 1 pokud je jedno nebo druhe 1   
                         end
                     end                   
@@ -699,15 +699,26 @@ classdef CBrainPlot < matlab.mixin.Copyable
             end
         end
         function PAC = MNIFind(XYZ,distance,testname,reference,pactodo,distNames)
-            %finds channels across all pacients with a maximal distance to given XYZ MNI coordinates
-            %XYZ and distance can contain multiple (but equal) number of values-positions
+            %finds channels across all pacients with distance smaller than 'distance'  to given XYZ MNI coordinates
+            %XYZ and distance can contain multiple (but equal) number of values-positions. Then it compares distance of each channel to the closest XYZ
+            %distance can be matrix n x 3, with rows corresponding to XYZ rows. Then searches for rectangular distances in all three xyz dimension 
+            % (e.g. channels inside of MNI defined xyz block )
+            % assumes abs(x) MNI and searches also for -x MNI (so left brain side)
             %reference is the bipolar or other reference
+            
             if ~exist('testname','var') || isempty(testname), testname = 'aedist'; end %defaultni test            
             if ~exist('reference','var') || isempty(reference), reference = []; end %default is original reference 
             if ~exist('pactodo','var') || isempty(pactodo), pactodo = 0; end %jestli se maji brat jen pacienti s todo=1
             if ~exist('distNames','var'), distNames = num2cell(1:numel(distance)); end %optional names for XYZ-distance sets
+                    %default is just number of XYZ-distance set
             
-            assert(size(XYZ,1)==numel(distance),'the number of xyz coordinates and distances must to be the same');
+            if isvector(distance)
+                assert(size(XYZ,1)==numel(distance),'the number of xyz coordinates and distances must to be the same');
+                distance = distance(:); %force column
+            else
+                assert(size(XYZ,1)==size(distance,1),'the number of xyz coordinates and distances must to be the same');
+                assert(size(XYZ,2)==3 &&  size(distance,2)==3,' XYZ and distance must have three columns');
+            end
             [ pacienti, setup ] = pacienti_setup_load( testname );
             PAC = {};
             iPAC = 1;
@@ -728,26 +739,37 @@ classdef CBrainPlot < matlab.mixin.Copyable
                         H = CH.H;
                     end
 
-                    % MAIN SEARCH OF CHANNES FOR THIS PACIENT 
-                    MNI = [H.channels.MNI_x; H.channels.MNI_y; H.channels.MNI_z]';                    
-                    [D1,I1] = pdist2(XYZ,MNI,'euclidean','Smallest',1); %vector of smallest distance of each MNI to any of XYZ
+                    % MAIN SEARCH OF CHANNELS FOR THIS PACIENT 
+                    MNI = [H.channels.MNI_x; H.channels.MNI_y; H.channels.MNI_z]';   %MNI coords of all channels                 
+                    [D1,I1] = pdist2(XYZ,MNI,'euclidean','Smallest',1); 
+                     %D1 - vector of smallest distance of each MNI to any of XYZ
+                     %I1 - indices 1-n(XYZ) corresponding to D1 - to which XYZ iz each MNI closest
                     XYZ2 = [-XYZ(:,1) XYZ(:,2)  XYZ(:,3) ]; %coordinates on the left brain side 
                     [D2,I2] = pdist2(XYZ2,MNI,'euclidean','Smallest',1); %vector of distance 
 
-                    iCh = false(1,size(MNI,1)); %index nalezenych kanalu v ramci tohoto pacienta
+                    iCh = false(size(MNI,1),1); %index nalezenych kanalu v ramci tohoto pacienta
                     iChannelDist = cell(1,size(MNI,1));
-                    for iDist = 1:numel(distance)
+                    for iDist = 1:size(distance,1) % ie also size(XYZ,1), cycle over XYZ (and also distance)
                        iIn = find(I1==iDist); %numbers of channels closest to this XYZ-distance set
-                       iCh0 = D1(iIn)<distance(iDist);                       
-                       if(sum(iCh0)>0) %some channels found
-                         iCh(iIn)=iCh(iIn) | iCh0;                        
-                         iChannelDist(iIn(iCh0))=repmat(distNames(iDist),1,numel(iIn(iCh0)));
+                       if isvector(distance)
+                           iCh0 = D1(iIn)<distance(iDist);  %logical indexes (in iIn) of channels closer to this XYZ position than the distance                     
+                       else
+                           iCh0 = CBrainPlot.MNIdist(MNI(iIn,:),XYZ(iDist,:),distance(iDist,:)); %needs to be a horizontal vector
                        end
-                       iIn = find(I2==iDist); %numbers of channels closest to this XYZ-distance set
-                       iCh0 = D2(iIn)<distance(iDist);
                        if(sum(iCh0)>0) %some channels found
-                         iCh(iIn)=iCh(iIn) | iCh0; 
-                         iChannelDist(iIn(iCh0))=repmat(distNames(iDist),1,numel(iIn(iCh0)));
+                           iCh(iIn)=iCh(iIn) | iCh0;   %add these channels to the index of all channels                     
+                           iChannelDist(iIn(iCh0))=repmat(distNames(iDist),1,numel(iIn(iCh0))); %to which XYZ are these channels closer than distance
+                       end
+                       %other side of the brain
+                       iIn = find(I2==iDist); %numbers of channels closest to this XYZ-distance set
+                       if isvector(distance)
+                           iCh0 = D2(iIn)<distance(iDist);
+                       else
+                           iCh0 = CBrainPlot.MNIdist(MNI(iIn,:),XYZ2(iDist,:),distance(iDist,:));
+                       end                        
+                       if(sum(iCh0)>0) %some channels found
+                           iCh(iIn)=iCh(iIn) | iCh0; %add these channels to the index of all channels 
+                           iChannelDist(iIn(iCh0))=repmat(distNames(iDist),1,numel(iIn(iCh0))); %to which XYZ are these channels closer than distance
                        end
                     end
                     iCh = find(iCh); 
@@ -778,8 +800,12 @@ classdef CBrainPlot < matlab.mixin.Copyable
                 if size(XYZ,1) == 1                    
                     xlsname = ['./logs/MNIFind PAC_' testname '_mni' num2str(XYZ,'(%3.1f %3.1f %3.1f)') '_dist' num2str(distance) '.xlsx'];
                 else
-                    d = num2str(round(distance),'%x'); %some hexadecimal code for the distance array
-                    d(d==' ')=[]; %strip all spaces
+                    if isvector(distance)
+                        d = num2str(round(distance),'%x'); %some hexadecimal code for the distance array
+                        d(d==' ')=[]; %strip all spaces
+                    else
+                        d = num2str(size(distance,1));
+                    end
                     xlsname = ['./logs/MNIFind PAC_' testname '_mni' num2str(size(XYZ,1)) 'x_dist' d '.xlsx'];
                 end
                 writetable(struct2table(PAC), xlsname); %ulozimvysledek taky do xls
@@ -833,6 +859,8 @@ classdef CBrainPlot < matlab.mixin.Copyable
 %             end
 %         end
         function MIS = StructFindErr(testname)
+            %finds neurologyLabel across all pacients, which are not in the BrainAtlas_zkratky
+            %does it really work for all columns of BrainAtlas_zkratky ?
             [ pacienti, setup ] = pacienti_setup_load( testname );
             load('BrainAtlas_zkratky.mat');
             MIS = {}; %pacient, ch, zkratka-  z toho bude vystupni xls tabulka s prehledem vysledku            
@@ -908,6 +936,23 @@ classdef CBrainPlot < matlab.mixin.Copyable
             end
         end
     end
-    
+    methods (Static,Access = private)
+        function iChannels = MNIdist(MNI,XYZ,distance)     
+            %MNI nx3- coordinates of channels to check
+            %XYZ 1x3- one MNI point, distance 1x3 - distance in XYZ dimensions
+            %returns index of channels closer to XYZ than distance in all three dimensions 
+            if size(MNI,1) > 0
+                dX = abs(MNI(:,1)-XYZ(1)); %vector of X distances of each channel to XYZ x
+                dY = abs(MNI(:,2)-XYZ(2)); %vector of Y distances of each channel to XYZ y
+                dZ = abs(MNI(:,3)-XYZ(3)); %vector of Z distances of each channel to XYZ z
+                idX = dX<distance(1);
+                idY = dY<distance(2);
+                idZ = dZ<distance(3);            
+                iChannels = idX & idY & idZ;
+            else
+                iChannels = false(0,1);
+            end
+        end
+    end     
 end
 
