@@ -524,15 +524,15 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             obj.BrainAtlas_zkratky = BA.BrainAtlas_zkratky; %ulozim do obj.BrainAtlas_zkratky
             % sloupce plnynazev, structure,region, zkratka, alt zkratka 2-4            
             mozek = cell(numel(obj.sortorder),6);            
-            for ich=1:numel(obj.sortorder)  %kanaly podle aktualniho filtru              
+            for ich=1:numel(obj.sortorder)  %over channels currently filtered 
                 ch = obj.sortorder(ich);
                 mozek{ich,1} = ch;
                 mozek{ich,2} = obj.H.channels(ch).name; %jmeno kanalu
                 mozek{ich,3} = obj.H.channels(ch).neurologyLabel; %neurologyLabel
                 [C,matches] = strsplit(obj.H.channels(ch).neurologyLabel,{'(',')','-','/'},'CollapseDelimiters',false);                
                 structure = cell(numel(C),2);
-                for j = 1:numel(C) %pro kazdou strukturu v neurologylabel
-                    [C{j},structure(j,:)] = obj.brainlabel(C{j});  %predelam zkratku na plny nazev                  
+                for j = 1:numel(C) %over all structures in neurologylabel for this channels
+                    [C{j},structure(j,:)] = obj.brainlabel(C{j});  %return the full name and the higher-order structure names                 
                 end
                 mozek{ich,4} = strjoin(C,matches);  %puvodni label zase slozim, pri pouziti plnych jmen struktur
                 %structure(cellfun(@isempty,C),:) = []; %vymazu ty casti structure, pro ktere nebyl zadny match
@@ -1035,7 +1035,14 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             %Sofiia 25.11.2020
             obj.CorrelChan = CorrelChan;
         end
-        
+        function txt = ChShowStr(obj)
+            %returns the text description of channel filter 
+            if isfield(obj.plotCh2D,'chshow') && isfield(obj.plotCh2D,'chshowstr') && ~isempty(obj.plotCh2D.chshow) && ~isempty(obj.plotCh2D.chshowstr) %% plot chshow
+                txt = ['ChShow:  ' obj.plotCh2D.chshowstr];
+            else
+                txt = '';
+            end
+        end
         %% Clustering of channels based on MNI
         function uniqueCounts = ComputeClusters(obj,nClusters,rejectCl,dofig,useseed,repeats)
             %ComputeClusters Computes clusters using k-means for current channel selection
@@ -1624,7 +1631,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             if isempty(label)
                 bl = ''; structure={'',''}; return; 
             end
-            znak = strfind(label,'?');
+            znak = strfind(label,'?'); %if there is ? at the label end
             if ~isempty(znak)
                 label = label(1:znak-1); % label bez otazniku
             end
@@ -1638,17 +1645,17 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 end
                 iL = find(strcmpi(obj.BrainAtlas_zkratky(:,col),label)); %nezavisle na velikosti pismen
             end
-            if isempty(iL) %zadne label nenalezeno
+            if isempty(iL) %no label found
                 bl = '';  structure={'',''};
-            elseif(numel(iL)>1) % vic nez jedno label nalezeno
-                bl = [num2str(numel(iL)) ' labels'];
+            elseif(numel(iL)>1) % more than one label found
+                bl = [num2str(numel(iL)) ' labels']; %we just return the number of labels found
                 structure={'',''}; 
-            else
+            else %exactly one label found - normal situation
                 bl = obj.BrainAtlas_zkratky{iL,1};            
                 if ~isempty(znak)
-                    bl = [bl '?'];
+                    bl = [bl '?']; %add again ? if it was there originally
                 end
-                structure={obj.BrainAtlas_zkratky{iL,2},obj.BrainAtlas_zkratky{iL,3}}; 
+                structure={obj.BrainAtlas_zkratky{iL,2},obj.BrainAtlas_zkratky{iL,3}}; %return higher order structure names from 2nd and 3rd columns
                 structure(cellfun(@isempty,structure))={''}; %potrebuju mit prvky chararray
             end
           end

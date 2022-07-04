@@ -457,7 +457,7 @@ classdef CPlotsN < handle
             fprintf('ISPCCalculate:    ');
             for ichn1 = 1:numel(channels)
                 if sum(obj.E.CH.RjCh==channels(ichn1))>0, continue; end %if the channel is rejected, co not compute
-                fprintf('\b\b\b%3i',ichn1); %delete previous three characters and print the %i in three characters
+                fprintf('\b\b\b\b\b%5i',ichn1); %delete previous three characters and print the %i in three characters
                 for ichn2 = ichn1+1:numel(channels)    
                     if sum(obj.E.CH.RjCh==channels(ichn2))>0, continue; end
                     if ~isa(obj.E, 'CHilbertMulti') || find(obj.E.els >= channels(ichn1),1) == find(obj.E.els >= channels(ichn2),1) %the find expression get the pacient number

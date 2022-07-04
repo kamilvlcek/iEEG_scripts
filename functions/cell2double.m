@@ -1,6 +1,6 @@
 function [b] = cell2double(a)
 %CELL2DOUBLE converts cell array with intermixed double values and char arrays to double array
-%   also if cell contains multiple double vectors, if explodes them to the main vector, similarly to cell2mat
+%   also if cell contains multiple double vectors, it explodes them to the main vector, similarly to cell2mat
 %   if a is not a cell, it returns the same value
 if iscell(a)
     numa = 0;
