@@ -6,13 +6,21 @@ classdef CPlots < matlab.mixin.Copyable
         Eh; %handle to CiEEGData object       
         PlotRChMean; %data for  PlotResponseChMean        
         plotTimeInt = struct; %stavove udaje o grafu TimeIntervals
-        plotCorrelChanData = struct; % save info about the plot PlotCorelChan
+        plotCorrelChanData = struct; % save info about the plot PlotCorelChan %Sofiia 25.11.2020 originally in CiEEGData
     end
     methods (Access = public)
         function obj = CPlots(E) %constructor
             obj.Eh = E; %save handle to main object
         end 
         function PlotResponseChMean(obj,kategories,ylimits, labels, channels,fdrlevel)
+            %description ... 
+            %arguments: 
+            % kategories ? 
+            % ylimits ?
+            % labels ?
+            % channels ?
+            % fdrlevel ?
+            
             if ~exist('kategories','var') || isempty(kategories)     %stimulus categories to plot            
                 if isfield(obj.Eh.plotRCh,'kategories') && ~isempty(obj.Eh.plotRCh.kategories) %by default use the categories selected in PlotResponseCh
                     kategories = obj.Eh.plotRCh.kategories;                           
@@ -148,7 +156,7 @@ classdef CPlots < matlab.mixin.Copyable
                     Tgaps(~iadj_p) = NaN; % replace non-signif parts by NaN
                     plot(Tgaps(adj_pLims(1):adj_pLims(2)),ones(1,diff(adj_pLims)+1)*y,'LineWidth',5,'Color',[255 99 71]./255); % line between start and end of significance (could be with gaps)
                     
-                    % plot post hoc results only for ANOVA - significance between categories
+                    % plot post hoc results only for ANOVA - significance between categories %15.7.2021 Sofiia
                     if ~isempty(SignPairs)
                         yposkat = [3 0 0 0; 4 5 0 0; 6 7 8 0]; %pozice y pro kombinaci k a l - k v radcich a l-1 ve sloupcich
                         ybottom = iff(numel(kategories)>3,0.4,0.3); %odkud se maji umistovat kontrasty mezi kategoriemi - parametr vypoctu y
@@ -178,7 +186,7 @@ classdef CPlots < matlab.mixin.Copyable
                             end                                
                         end                       
                         
-                        % create names for pairs of categories - columns names for the table
+                        % create names for pairs of categories - columns names for the table %21.9.2021 Sofiia
                         ColNames = cell(1,numel(legendStr)+1);
                         ni = 0;
                         for k = 1:numel(legendStr)
@@ -218,7 +226,7 @@ classdef CPlots < matlab.mixin.Copyable
                 obj.PlotRChMean.filterListener = addlistener(obj.Eh.CH, 'FilterChanged', @obj.filterChangedCallbackPlotResponseChMean);
             end
         end
-        function [adj_p, allTukey] = PlotResponseChMeanStat(obj, CHM, fdrlevel)
+        function [adj_p, allTukey] = PlotResponseChMeanStat(obj, CHM, fdrlevel) %Sofiia since 3.6.2021
             % computes statistic for figure PlotResponseChMean
             % if 2 categories, Wilcoxon signed rank is used; otherwise one-way rm ANOVA with FDR correction is used
             % returns adjusted pvalues after FDR corr and cell array with all Tukey post-hoc results for each time point
@@ -252,12 +260,14 @@ classdef CPlots < matlab.mixin.Copyable
                 [~, ~, adj_p]=fdr_bh(allpvalue,0.05,method,'no'); % 'dep' is more strict                
             end            
         end
-        function TimeIntervals(obj,vch,intervals,ylimits, nofile,store) % Sofiia 2020
+        function TimeIntervals(obj,vch,intervals,ylimits, nofile,store) % Sofiia, Kamil since 14.1.2020 
             %  average time intervals for one channel or for a vector of channels (e.g. across a particular structure)
             %  numbers of channels can be obtained, for example, after applying CM.CH.FilterChannels({'lobe','precun'})
             %  or if it's empty it will use numbers of channels after current filtering (from CM.CH.sortoder)
             %  default intervals = [0 0.2; 0.2 0.4; 0.4 0.6; 0.6 0.8];
             %  nofile - if 1, do not save any xls file, only plot figure
+            
+            %  TODO move stats to a separate function
                         
             %process arguments
             if exist('vch','var') && ~isempty(vch) && isstruct(vch) && ~exist('store','var')
@@ -462,6 +472,7 @@ classdef CPlots < matlab.mixin.Copyable
                 plot(intervals(iWp, 2),ones(1,sum(iWp))*y, '*','Color','red'); %stars
                 
             elseif numel(kats) > 2 && (~isfield(store,'stat') || store.stat ~= 0) && length(vch)>1  % compute 2 rm ANOVA for set of channels
+                %Sofiia since 12.3.2021 
                 [tableX,~] = obj.TimeIntervals2XLSTable(vch,chanMeans,kats,legendStr,intervals); % get data in prepared table
                 data = cell2mat(tableX(:, 7:end)); % only numerical data
                 levelNames = cell(2,1);
@@ -476,7 +487,7 @@ classdef CPlots < matlab.mixin.Copyable
                     levelNames{2}{stri} = strInterv(stri);
                 end                
                 factorNames = {'Category', 'Time'};
-                interact = obj.plotTimeInt.interaction; % 1 - category by time; 2 - time by category (to find duration of response);
+                interact = obj.plotTimeInt.interaction; % 1 - category by time; 2 - time by category (to find duration of response); %Sofiia since 20.5.2021 
                 [ranova_table, Tukey_table] = CStat.ANOVA2rm(data, factorNames, levelNames, interact,1); % compute 2-way repeated measures ANOVA
                 
                 % define y limits for ploting stars
@@ -491,7 +502,7 @@ classdef CPlots < matlab.mixin.Copyable
                 text(intervals(1,2),yrange(2)*0.96,['F(' num2str(ranova_table{7,2}) ', ' num2str(ranova_table{8,2}) ') = ' num2str(ranova_table{7,4}) ', p = ' num2str(ranova_table{7,5})])
                 
                 % find significant pairs for ploting stars              
-                if ~isempty(Tukey_table) 
+                if ~isempty(Tukey_table)  %Sofiia since 20.5.2021  
                     % find significant pairs
                     [~, ipval, ~] = unique(Tukey_table{:,6},'stable'); % only unique pvalue for one pair
                     Tukey_tableUniq = Tukey_table(ipval,:);
@@ -528,6 +539,7 @@ classdef CPlots < matlab.mixin.Copyable
                         text(intervals(1,2),yrange(2)*0.82,['* ' legendStr{3} ' > ' legendStr{1}],'Color',barvy(3,:))
                         
                     elseif interact == 2 % plot stars of significance between 1st time int and all others for each category separately (duration)
+                        %Sofiia 20.5.2021 
                         % leave only sign pairs with the first time interval
                         iSignFirst = strcmp(string(signPairs(:,2)),strInterv(1));
                         SignFirst = signPairs(iSignFirst,:);
@@ -577,7 +589,7 @@ classdef CPlots < matlab.mixin.Copyable
                         
             % export data in xls table
             if length(vch)>1 && numel(kats)>2 && obj.plotTimeInt.nofile==0
-                obj.TimeIntervals2XLS(vch,kats, legendStr, intervals, chanMeans,chshowstr, categories, allmeans,ranova_table, Tukey_table);
+                obj.TimeIntervals2XLS(vch,kats, legendStr, intervals, chanMeans,chshowstr, categories, allmeans,ranova_table, Tukey_table); %Sofiia 12.3.2021 
             elseif obj.plotTimeInt.nofile==0 && isempty(store) 
                 obj.TimeIntervals2XLS(vch,kats, legendStr, intervals, chanMeans,chshowstr, categories, allmeans);
             end
@@ -622,7 +634,7 @@ classdef CPlots < matlab.mixin.Copyable
         end
         function TimeIntervals2XLS(obj,varargin)
             if nargin > 2 %when called directly from TimeIntervals()
-               %vch,kats , legendStr, intervals, chanMeans,chshowstr,categories, allmeans, (ranova_table, Tukey_table)
+               %vch,kats , legendStr, intervals, chanMeans,chshowstr,categories, allmeans, (ranova_table, Tukey_table - Sofiia 12.3.2021 )
                vch = varargin{1}; 
                kats = varargin{2}; 
                legendStr = varargin{3};
@@ -679,7 +691,7 @@ classdef CPlots < matlab.mixin.Copyable
     
             xlsfilename = ['logs\TimeIntervals_' strch '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') '.xls'];
             xlswrite(xlsfilename,[titles4table; tableX]);
-            if nargin>9
+            if nargin>9 % Sofiia 12.3.2021 - additional sheets with ANOVA statistic in xls file
                 ranova_table = varargin{9};
                 Tukey_table = varargin{10};
                 writetable(ranova_table,xlsfilename,'Sheet','rANOVA_result','WriteRowNames',1); % export ANOVA statistic
@@ -759,7 +771,7 @@ classdef CPlots < matlab.mixin.Copyable
             if ~exist('nofile','var') || isempty(nofile), nofile = 1; end % by default doesn't export xls table with all epochs of each condition (beh RT and max eeg value)
             
             % return the name of the patient of this channel
-            patId = obj.Eh.CH.PacientTag(ch);
+            % patId = obj.Eh.CH.PacientTag(ch);
             % find index of that patient in PsyData
             obj.Eh.PsyData.SubjectChange(find(obj.Eh.els >= ch,1)); %change current subjet in CPsyDataMulti (but if called from PlotResponseCh it was changed alread) or do nothing if the file contains only one patient
             
@@ -866,9 +878,16 @@ classdef CPlots < matlab.mixin.Copyable
             end
         end
         
-        function [rho,pval,maxTrials,obj] = ComputeCorrelChan(obj,ch,tmax,fraction,correctRT,correctTrials, conditions, katdata)
+        function [rho,pval,maxTrials,obj] = ComputeCorrelChan(obj,ch,tmax,fraction,correctRT,correctTrials, conditions, katdata) %Sofiia since 11.2020             
             %function to compute correlation between behavioural RT and time of eeg resp maximum (or valmax) for one channel
             % to remove duplicite code in PlotCorrelChan and GetCorrelChan
+            %arguments: ch - index in obj.Eh.d, tmax - 1=returns time of maximum,0=return valmax of maximum
+            % fraction - fraction of maximum, only used for tmax = 1
+            % correctRT - array of behavioural reaction times to correlate - for individual epochs
+            % correctTrials - ?
+            % conditions - ?
+            % katdata - ?
+            %output arguments [rho ? ,pval ?,maxTrials ?]            
             
             if ~exist('tmax','var') || isempty(tmax), tmax = 1; end % by default computes time of maximum, if 0 - computes valmax
             % initialize matrix for all trials
