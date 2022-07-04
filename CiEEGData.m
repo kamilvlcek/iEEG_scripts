@@ -1850,7 +1850,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                     iselChNames = ~cellfun(@isempty,obj.plotRCh.selChNames); %non empty elements
                     text(obj.plotRCh.xinfo,ymax*0.56,[marks(iselChNames) '=' cell2str(obj.plotRCh.selChNames(iselChNames))], 'FontSize', 10, 'Interpreter', 'none');
                 end
-            else
+            else %obj.plotRCh.outputstyle
                 set(gca,'linewidth',1.5)  % 14.02.2022 Sofiia, to make line and text thicker
                 set(gca,'FontSize',20)
                 plot([Tr(1) Tr(1)], ylim, ':', 'Color',[0.5 0.5 0.5], 'LineWidth', 1.75) % line of stimulus
@@ -1971,11 +1971,11 @@ classdef CiEEGData < matlab.mixin.Copyable
             else
                 obj.filename = filename;
             end
-            d = obj.d;                      %#ok<PROP,NASGU>            
-            tabs = obj.tabs;                %#ok<PROP,NASGU>
-            tabs_orig = obj.tabs_orig;      %#ok<PROP,NASGU>
-            fs = obj.fs;                    %#ok<PROP,NASGU>            
-            header = obj.header;            %#ok<PROP,NASGU>
+            d = obj.d;                      %#ok<NASGU>            
+            tabs = obj.tabs;                %#ok<NASGU>
+            tabs_orig = obj.tabs_orig;      %#ok<NASGU>
+            fs = obj.fs;                    %#ok<NASGU>            
+            header = obj.header;            %#ok<NASGU>
             sce = [obj.samples obj.channels obj.epochs]; %#ok<NASGU>
             if isobject(obj.PsyData)
                 if isa(obj.PsyData,'CPsyDataMulti')
@@ -1991,27 +1991,27 @@ classdef CiEEGData < matlab.mixin.Copyable
                 PsyData = []; %#ok<NASGU>
                 testname = ''; %#ok<NASGU>
             end
-            epochtime = obj.epochtime;      %#ok<PROP,NASGU>
-            baseline = obj.baseline;        %#ok<PROP,NASGU>
+            epochtime = obj.epochtime;      %#ok<NASGU>
+            baseline = obj.baseline;        %#ok<NASGU>
             CH_H=obj.CH.H;                  %#ok<NASGU>                                                                      
-            CH_CorrelChan=obj.CH.CorrelChan;
+            CH_CorrelChan=obj.CH.CorrelChan; %#ok<NASGU> %Sofiia 4.2.2021    
             [CH_plots,CS_plots,RCh_plots,PL_Plots] = obj.SaveRemoveFh(obj.plotRCh);  %#ok<ASGLU> %smazu vsechny handely na obrazky             
             CH_filterMatrix = obj.CH.filterMatrix; %#ok<NASGU>  
             CH_brainlabels = obj.CH.brainlabels; %#ok<NASGU>
             CH_clusters = obj.CH.clusters;   %#ok<NASGU> %5.3.2020 TODO - Header data save by CHHeader object
-            els = obj.els;                  %#ok<PROP,NASGU>
-            plotES = obj.plotES;            %#ok<PROP,NASGU>          
-            RjCh = obj.RjCh;                %#ok<PROP,NASGU>
-            RjEpoch = obj.RjEpoch;          %#ok<PROP,NASGU>
-            RjEpochCh = obj.RjEpochCh;      %#ok<PROP,NASGU>
-            epochTags = obj.epochTags;      %#ok<PROP,NASGU>
-            epochLast = obj.epochLast;      %#ok<PROP,NASGU>
-            reference = obj.reference;      %#ok<PROP,NASGU>
-            epochData = obj.epochData;      %#ok<PROP,NASGU>
-            Wp = obj.Wp;                    %#ok<PROP,NASGU>
-            DE = obj.DE;                    %#ok<PROP,NASGU>
-            DatumCas = obj.DatumCas;        %#ok<PROP,NASGU>
-            if isa(obj,'CHilbertMulti'), label = obj.label; else label = []; end %#ok<NASGU>
+            els = obj.els;                  %#ok<NASGU>
+            plotES = obj.plotES;            %#ok<NASGU>          
+            RjCh = obj.RjCh;                %#ok<NASGU>
+            RjEpoch = obj.RjEpoch;          %#ok<NASGU>
+            RjEpochCh = obj.RjEpochCh;      %#ok<NASGU>
+            epochTags = obj.epochTags;      %#ok<NASGU>
+            epochLast = obj.epochLast;      %#ok<NASGU>
+            reference = obj.reference;      %#ok<NASGU>
+            epochData = obj.epochData;      %#ok<NASGU>
+            Wp = obj.Wp;                    %#ok<NASGU>
+            DE = obj.DE;                    %#ok<NASGU>
+            DatumCas = obj.DatumCas;        %#ok<NASGU>
+            if isa(obj,'CHilbertMulti'), label = obj.label; else, label = []; end %#ok<NASGU>
             [pathstr,fname,ext] = CiEEGData.matextension(filename);        
             filename2 = fullfile(pathstr,[fname ext]);
             save(filename2,'d','tabs','tabs_orig','fs','header','sce','PsyDataP','PsyData','testname','epochtime','baseline','CH_H','CH_plots','CH_brainlabels','CH_clusters','CS_plots','els',...
@@ -2091,9 +2091,9 @@ classdef CiEEGData < matlab.mixin.Copyable
                 [~, ~, obj.els] = obj.CH.ChannelGroups([],isa(obj,'CHilbertMulti'));  
             else
                 load(filename,'CH');
-                obj.CH = CH; %#ok<CPROPLC,CPROP,PROP> %  %drive ulozeny objekt, nez jsem zavedl ukladani struct
+                obj.CH = CH; %#ok<CPROPLC> %  %drive ulozeny objekt, nez jsem zavedl ukladani struct
             end 
-            if ismember('CH_CorrelChan', {vars.name})
+            if ismember('CH_CorrelChan', {vars.name}) %Sofiia 4.2.2021 
                 load(filename,'CH_CorrelChan');      obj.CH.CorrelChan = CH_CorrelChan;                              
             end 
             if ismember('CH_filterMatrix', {vars.name})
@@ -2736,7 +2736,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 case 'downarrow'
                     obj.plotRCh.ylim = obj.plotRCh.ylim + 0.05; %shift x axis up
                     obj.PlotResponseCh(); %prekreslim grafy  
-                case {'numpad1','1'}
+                case {'numpad1','1'}  % 14.02.2022 Sofiia
                     obj.plotRCh.outputstyle = 1 - obj.plotRCh.outputstyle;
                     obj.PlotResponseCh();
                 otherwise

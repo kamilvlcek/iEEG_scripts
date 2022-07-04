@@ -613,7 +613,7 @@ classdef CStat < handle
             end
             if print, fprintf('%d .. done\n',j); end
         end
-        function [ranova_table, Tukey_table] = ANOVA2rm(data, factorNames, levelNames, interact, nofile)
+        function [ranova_table, Tukey_table] = ANOVA2rm(data, factorNames, levelNames, interact, nofile) %Sofiia since 12.3.2021 
             %%%% 2 way repeated measures ANOVA, both factors are repeated measures
             % returns the stats table for ANOVA and table with post-hoc comparisons
             % if no signific interaction between 2 factors was found,returns empty Tukey_table
@@ -684,7 +684,7 @@ classdef CStat < handle
                 disp([ 'xls tables saved: ' xlsfilename]);
             end
         end
-        function [pvalue, ranova_tbl, Tukey_tbl] = ANOVA1rm(data)
+        function [pvalue, ranova_tbl, Tukey_tbl] = ANOVA1rm(data)  %Sofiia since 3.6.2021 
             %%%% computes one way repeated measures ANOVA
             % returns pvalue, the stats table for ANOVA and table with post-hoc comparisons (Tukey test)
             %%%% Input: matrix in the format: data = [ data1 data2 data3 ]; each column - one level of the rm factor

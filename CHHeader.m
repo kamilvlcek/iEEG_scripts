@@ -20,7 +20,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         hull; %data for convex hull
         clusters; %cluster data {popis,C,idx,channels}
         plotClusters; %info to the PlotClusters figure
-        CorrelChan; % correlated/uncorrelated (1/0) channels with RT
+        CorrelChan; % correlated/uncorrelated (1/0) channels with RT %Sofiia 25.11.2020
     end
     %#ok<*PROPLC>
     
@@ -753,11 +753,11 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     chshowstr = horzcat(chshowstr, {'Epi'}); 
                     filtered = true;
                 end 
-                if contains(selCh, '~c') % no correlation between t max response and patient's RT, use sign '~c' %Sofiia
+                if contains(selCh, '~c') % no correlation between t max response and patient's RT, use sign '~c' %Sofiia 12.11.2020
                     chshow = intersect(chshow,find(~obj.CorrelChan));
                     chshowstr = horzcat(chshowstr, {'~Correlated with RT'}); 
                     filtered = true;
-                elseif contains(selCh, 'c') % 'c' with correlation
+                elseif contains(selCh, 'c') % 'c' with correlation %Sofiia 12.11.2020
                     chshow = intersect(chshow,find(obj.CorrelChan));
                     chshowstr = horzcat(chshowstr, {'Correlated with RT'}); 
                     filtered = true;
@@ -1032,6 +1032,7 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             end
         end
         function obj = StoreCorrelChan(obj, CorrelChan) % store indexes of channels correlated with RT , call from CiEEGData - GetCorrelChan
+            %Sofiia 25.11.2020
             obj.CorrelChan = CorrelChan;
         end
         
