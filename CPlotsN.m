@@ -501,10 +501,11 @@ classdef CPlotsN < handle
             obj.plotISPC.ispc_p_min = ispc_p_min;             
         end
         
-        function chanPair = ISPCFilterChan(obj, byROI) % Sofia from June 2022
+        function chanPair = ISPCFilterChan(obj, byROI) % Sofia from 6.6.2022 
             % filter pairs of chan which have ISPC values significant vs baseline or by ROI - to leave only between ROI pairs of chan (not within)
             % ispc_matrix - 2D array - ch x ch with the most significant ispc value for each combination of channels; if value = 0.05, it's considered as non-significant
             % chanPair - pairs of chan numbers with ISPC signif vs baseline or between ROI pairs of chan
+            % byROI ? possible values?             
             
             if byROI == 0 % filter pairs of chan numbers with ISPC signif vs baseline
                 ispc_matrix = obj.plotISPC.ispc_p_min;
@@ -526,9 +527,11 @@ classdef CPlotsN < handle
             end
         end
         
-        function [ispc_cats] = ISPCCalculateCats(obj, kats, channels, selectChanPair)  % Sofia from June 2022
+        function [ispc_cats] = ISPCCalculateCats(obj, kats, channels, selectChanPair)  % Sofia from 6.6.2022 
             % inter site phase clustering = PLV is computed for each condition, incorrect and epi epochs are excluded
             % ispc_cats = {kats}(chn x chn x time x fq)
+            % arguments kats, channels, selectChanPair ?
+            % TODO merge with ISPCCalculate ?
             
             if ~exist('channels', 'var') || isempty(channels)
                 channels = 1:obj.E.channels; % defaul - all channels
@@ -597,8 +600,10 @@ classdef CPlotsN < handle
             obj.plotISPC.ispc_cats = ispc_cats;
         end
         
-        function [ispc_cats_intime] = ISPCAverageFreq(obj, ispc_cats)  % Sofia from June 2022
+        function [ispc_cats_intime] = ISPCAverageFreq(obj, ispc_cats)  % Sofia from 13.6.2022 
             % average time-frequency matrices of ISPC across frequencies for each condition - to obtain one curve in time for each pair of chan
+            % arguments ispc_cats ?
+            % output argument ispc_cats_intime ?
             if ~exist('ispc_cats', 'var') || isempty(ispc_cats)
                 ispc_cats = obj.plotISPC.ispc_cats;
             end
@@ -622,6 +627,9 @@ classdef CPlotsN < handle
         end
         
         function ISPCPlotChPair(obj, chpair) % plots mean ISPC over frequency bins for each channel pair and condition
+            %Sofiia 14.6.2022
+            %what does the function do?
+            %argument - chpair - ?
            
             if ~isfield(obj.plotISPC,'PlotChPair')
                 obj.plotISPC.PlotChPair = struct; % save info about the plot in struct
@@ -656,7 +664,7 @@ classdef CPlotsN < handle
                 kats_legend = obj.plotISPC.PlotChPair.kats_legend;
             end
             
-            T = linspace(obj.E.epochtime(1), obj.E.epochtime(2), size(obj.E.fphaseEpochs,1)); % time on x-axis
+            T = linspace(obj.E.epochtime(1), obj.E.epochtime(2), size(obj.E.fphaseEpochs,1)); % time on x-axis            
             
             % ploting
             if isfield(obj.plotISPC.PlotChPair,'h') && ~isempty(obj.plotISPC.PlotChPair.h) && ishandle(obj.plotISPC.PlotChPair.h)
@@ -699,7 +707,9 @@ classdef CPlotsN < handle
             figure(obj.plotISPC.PlotChPair.h); %activates this figure again
         end
         
-        function ispc_cats_roi_mean = ISPCPlotCatROIMean(obj) % plots mean ISPC (which was averaged also across freq) across all pairs of chan between ROI for each condition             
+        function ispc_cats_roi_mean = ISPCPlotCatROIMean(obj) %Sofiia since 13.6.2022 
+            % plots mean ISPC (which was averaged also across freq) across all pairs of chan between ROI for each condition             
+            % output argument ispc_cats_roi_mean  ?
           
             % compute mean and std err of mean over pais of chan
             nkats = size(obj.plotISPC.ispc_cats_intime, 1);  % number of conditions
@@ -1401,7 +1411,7 @@ classdef CPlotsN < handle
             end
         end
         
-        function obj = hybejPlotChPairISPC(obj,~,eventDat)
+        function obj = hybejPlotChPairISPC(obj,~,eventDat) %Sofiia 14.6.2022
             % reacts to events in figure ISPCPlotChPair
             switch eventDat.Key
                 case {'rightarrow'} % next channel pair by ->
