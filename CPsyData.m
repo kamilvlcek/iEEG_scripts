@@ -102,11 +102,12 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         end
         
         function ts_podnety = TimeStimuli(obj,response)
-            %vraci matici timestampu vsech podnetu/odpovedi, pokud response=1 vracim odpovedi
+            %returns the array of timestamps of all stimuli, if response=1 returns array of responses
+            %ts_podnety, size n_epochs x 1
             if exist('response','var') && response==1
-                ts_podnety = obj.P.data(:,obj.P.sloupce.ts_odpoved); %vratim timestampy odpovedi
+                ts_podnety = obj.P.data(:,obj.P.sloupce.ts_odpoved); %responses
             else
-                ts_podnety = obj.P.data(:,obj.P.sloupce.ts_podnet); %vratim timestampy podnetu
+                ts_podnety = obj.P.data(:,obj.P.sloupce.ts_podnet); %stimuli
             end
         end
                        
@@ -353,6 +354,18 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             else
                iTrialTypeCh = []; 
             end            
+        end
+        function filtered = FilteredIn(obj,epochs, filter)      
+            %returns 1 if each epochs meet the filter condition, ie there is looked for value in a given column
+            %epochs - numberes of epochs to be checked
+            %filter - cellarray filter{1} - column number in obj.P.data, filter{2} - looked for values in this column
+            %filtered - array numel(epochs) x 1;
+            filtered = 0;
+            if isempty(filter)
+                filtered = ones(size(epochs)); %when no filter given, all epochs are filtered in 
+            elseif max(epochs) <= size(obj.P.data,1) && filter{1} > 0 && filter{1}<=size(obj.P.data,2)
+                filtered = ismember(obj.P.data(epochs,filter{1}),filter{2});                    
+            end
         end
         function agree = CategoriesAgreeWithStat(obj,kategories,Wp)
             %return true if the behavioral kategories agree with kategories in stat

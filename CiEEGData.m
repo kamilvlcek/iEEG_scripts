@@ -300,51 +300,57 @@ classdef CiEEGData < matlab.mixin.Copyable
             disp([marks(1:numel(selChNames)) '=' cell2str(selChNames)]);
             obj.CH.SetSelCh(obj.plotRCh.selCh,obj.plotRCh.selChNames);           
         end
-        function obj = ExtractEpochs(obj, psy,epochtime,baseline)
-            % psy je struct dat z psychopy, 
-            % epochtime je array urcujici delku epochy v sec pred a po podnetu/odpovedi: [pred pod podnet=0/odpoved=1]
-            % epochuje data v poli d, pridava do objektu: 1. cell array epochData, 2. double(3) epochtime v sekundach, 3. struct psy na tvorbu PsyData
-            % upravuje obj.mults, samples channels epochs
+        function obj = ExtractEpochs(obj, psy,epochtime,baseline,filter)
+            % psy is a struct from psychopoy, 
+            % epochtime is an array determining epoch length in sec before and after a stimulus/response: [before after stimulust=0/response=1]
+            % it epochs data in d property, and adds to the object: 1. cell array epochData, 2. double(3) epochtime in secs, 3. struct PsyData
+            % changes obj.mults, samples channels epochs
+            % filter - cellarray: filter{1} - column number in obj.P.data, filter{2} - looked for values in this column
             if obj.epochs > 1
                 disp('already epoched data');
                 return;
             end
-            assert(isa(psy,'struct'),'prvni parametry musi by struktura s daty z psychopy');
+            assert(isa(psy,'struct'),'the first parameter needs to be struct with behavioral data (from psychopy)');
             if ~exist('baseline','var') || isempty(baseline), baseline = [epochtime(1) 0]; end %defaultni baseline je do 0 sec
+            if ~exist('filter','var'), filter = []; end %default filter is empty                       
+            
             obj.PsyData = CPsyData(psy); %vytvorim objekt CPsyData
-            if numel(epochtime)==2, epochtime(3) = 0; end %defaultne epochuji podle podnetu
-            obj.epochtime = epochtime; %v sekundach cas pred a po udalosti, prvni cislo je zaporne druhe kladne
-            obj.baseline = baseline; %v sekundach
-            iepochtime = round(epochtime(1:2).*obj.fs); %v poctu vzorku cas pred a po udalosti
-            ibaseline =  round(baseline.*obj.fs); %v poctu vzorku cas pred a po udalosti
-            ts_events = obj.PsyData.TimeStimuli(epochtime(3)); %timestampy vsech podnetu/odpovedi
-            de = zeros(iepochtime(2)-iepochtime(1), size(obj.d,2), size(ts_events,1)); %nova epochovana data time x channel x epoch  
-            tabs = zeros(iepochtime(2)-iepochtime(1),size(ts_events,1)); %#ok<*PROPLC,PROP> %udelam epochovane tabs
-            obj.epochData = cell(size(ts_events,1),3); % sloupce kategorie, cislo kategorie, timestamp
-            fprintf('CiEEGData.ExtractEpochs:' );
-            for epoch = 1:size(ts_events,1) %pro vsechny eventy
-                fprintf('%i,',epoch );
-                izacatek = find(obj.tabs<=ts_events(epoch), 1, 'last' ); %najdu index podnetu/odpovedi podle jeho timestampu
+            if numel(epochtime)==2, epochtime(3) = 0; end %epoched by stimuli, by default
+            obj.epochtime = epochtime; %in sec, start and end time of epoch , negative means before event, positive after event
+            obj.baseline = baseline; %in sec, the time interval, which mean should be substracted from each epoch data individualy
+            iepochtime = round(epochtime(1:2).*obj.fs); %epochtime in samples 
+            ibaseline =  round(baseline.*obj.fs); %baseline in samples 
+            ts_events = obj.PsyData.TimeStimuli(epochtime(3)); %nepochs x 1 - timestamps of stimuli/responses from all epochs
+            iepochs = obj.PsyData.FilteredIn(1:numel(ts_events),filter); %to be processed epochs according to the filter
+            iepochs_abs = find(iepochs); %absolute numbers of epochs 1:all epochs
+            de = zeros(iepochtime(2)-iepochtime(1), size(obj.d,2), numel(ts_events(iepochs))); %new epoched data time x channel x epoch  
+            tabs = zeros(iepochtime(2)-iepochtime(1),numel(ts_events(iepochs))); %#ok<*PROPLC> %new epoched tabs
+            obj.epochData = cell(numel(ts_events(iepochs)),3); % cellarray, columns: category name, category num, timestamp
+            fprintf('CiEEGData.ExtractEpochs: ' );
+            for epochrel = 1:numel(ts_events(iepochs)) %for all to be processed events              
+                epochabs = iepochs_abs(epochrel); %epochrel is a relative number 1:number of to be processed epochs, epochsasb is absolute number 1:all epochs
+                fprintf('%i,',epochabs);
+                izacatek = find(obj.tabs<=ts_events(epochabs), 1, 'last' ); %index of the largest tabs before this epoch' timestamp
                     %kvuli downsamplovani Hilberta, kdy se mi muze ztratit presny cas zacatku
                     %epochy, beru posledni nizsi tabs nez je cas zacatku epochy
-                assert(~isempty(izacatek), ['epocha podle psychopy' num2str(epoch) ' nenalezena v tabs']);
-                [Kstring Knum] = obj.PsyData.Category(epoch);    %#ok<*NCOMMA> %jmeno a cislo kategorie
-                obj.epochData(epoch,:)= {Kstring Knum obj.tabs(izacatek)}; %zacatek podnetu beru z tabs aby sedel na tabs pri downsamplovani
-                for ch = 1:obj.channels %pro vsechny kanaly                    
+                assert(~isempty(izacatek), ['epoch timestamp ' num2str(epochabs) ' did not found in tabs']);
+                [Kstring Knum] = obj.PsyData.Category(epochabs);    %#ok<*NCOMMA> %jmeno a cislo kategorie
+                obj.epochData(epochrel,:)= {Kstring Knum obj.tabs(izacatek)}; %the stimulus time is one of tabs values (largest before stimulus timestamp)
+                for ch = 1:obj.channels %over all channels                    
                     if ibaseline(1)==ibaseline(2)
-                        baseline_mean = 0; %baseline nebudu pouzivat, pokud jsem zadal stejny cas jejiho zacatku a konce
+                        baseline_mean = 0; %baseline not used if there is the same start and end time
                     else
-                        baseline_mean = mean(obj.d(izacatek+ibaseline(1) : izacatek+ibaseline(2)-1, ch)); %baseline toho jednoho kanalu, jedne epochy
+                        baseline_mean = mean(obj.d(izacatek+ibaseline(1) : izacatek+ibaseline(2)-1, ch)); %average baseline for this channel, this epoch
                     end
-                    de(:,ch,epoch) = obj.d( izacatek+iepochtime(1) : izacatek+iepochtime(2)-1,ch) - baseline_mean; 
-                    tabs(:,epoch) = obj.tabs(izacatek+iepochtime(1) : izacatek+iepochtime(2)-1); %#ok<PROP>
+                    de(:,ch,epochrel) = obj.d( izacatek+iepochtime(1) : izacatek+iepochtime(2)-1,ch) - baseline_mean; 
+                    tabs(:,epochrel) = obj.tabs(izacatek+iepochtime(1) : izacatek+iepochtime(2)-1); 
                 end
             end
-            obj.d = de; %puvodni neepochovana budou epochovana            
-            obj.tabs = tabs; %#ok<PROP>
+            obj.d = de; %original non-epoched data will be epoched           
+            obj.tabs = tabs; 
             [obj.samples,obj.channels, obj.epochs] = obj.DSize();
             obj.DatumCas.Epoched = datestr(now);
-            obj.RjEpochCh = false(obj.channels,obj.epochs); %zatim zadne vyrazene epochy
+            obj.RjEpochCh = false(obj.channels,obj.epochs); %no rejected epochs for now
             fprintf('\n%i epochs extracted\n',obj.epochs );
         end
         function obj = ResampleEpochs(obj,newepochtime)
