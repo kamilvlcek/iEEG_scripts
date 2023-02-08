@@ -637,7 +637,9 @@ classdef CHilbert < CiEEGData
             obj.RjCh = obj.CH.RjCh;      
             
             for j = 1:numel(obj.Wp)
-                obj.Wp(j).D2 = obj.Wp(j).D2(:,keepch);
+                if isfield(obj.Wp(j),'D2')
+                    obj.Wp(j).D2 = obj.Wp(j).D2(:,keepch);
+                end
                 obj.Wp(j).DiEpCh = obj.Wp(j).DiEpCh(keepch,:);
                 for k = 1:numel(obj.Wp(j).WpKat)
                     if numel(obj.Wp(j).WpKat{k}) > 0

@@ -296,6 +296,26 @@ pacienti(p).rjepoch = 'p222_ppa_rjepoch.mat';
 pacienti(p).epievents = 'p222_ppa_epievents.mat'; 
 pacienti(p).rjch = [85 125];
 
+p=p+1; %3.10.2022 Kamil - connectivity between ROI3 and ROI6 (=S3 and S6)
+pacienti(p).todo = 1;
+pacienti(p).folder = 'VT53 Kra p1236540';
+pacienti(p).data = 'VT53_2020-01-10_17-14_399_512hz_11_concat_ppa.mat';
+pacienti(p).header = 'p1236540_header2.mat'; %incorrectly 215 channels instead 214
+pacienti(p).psychopy = 'p1236540_ppa.mat';
+pacienti(p).rjepoch = 'p1236540_ppa_rjepoch.mat';
+pacienti(p).epievents = 'p1236540_ppa_epievents.mat'; 
+pacienti(p).rjch = [125 126 127 128];
+
+p=p+1; %3.10.2022 Kamil - connectivity between ROI3 and ROI6 (=S3 and S6)
+pacienti(p).todo = 1;
+pacienti(p).folder = 'VT56 Kus p1967470';
+pacienti(p).data = 'VT56_2020-05-23_10-47_374_512hz_10_concat_ppa.mat';
+pacienti(p).header = 'p1967470_header_ppa.mat'; %incorrectly 219 channels instead 218
+pacienti(p).psychopy = 'p1967470_ppa.mat';  
+pacienti(p).rjepoch = 'p1967470_ppa_rjepoch.mat';
+pacienti(p).epievents = 'p1967470_ppa_epievents.mat'; 
+pacienti(p).rjch = [89 90 104 125 126 127 128];
+
 pacienti = pacientFolderSelect(pacienti,setup_ppa());
 end
 

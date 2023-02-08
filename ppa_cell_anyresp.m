@@ -1,10 +1,15 @@
-%find responding channels 
+%script to creat CHilbertMulti file from channels responding to scene or objects
+%performs fdr on those channels with a significant response without fdr. 
+%probably not correct approach
+%see ppa_cell_anyresp2.m for a better one
+
+%% find channels responding to first contrast ([2 3 1]), without any fdr corretion
 CB = CBrainPlot;
 filename = 'PPA CHilbert 50-150Hz -0.2-0.8 refBipo Ep2019-11_CHilb.mat';
-CB.IntervalyResp('ppa',[0 0.8],filename,1,1,1); %contrast,signum,pvals_time
+CB.IntervalyResp('ppa',[0 0.8],filename,1,1,1); %args: testname,intervals,filename,contrast (n of stat),signum,pvals_time
 
-%% fdr correction
-CB.FdrVALS(1,'fdr0-1');
+%% fdr correction - removes channels not signifinant after it
+CB.FdrVALS(1,'fdr0-1'); %performs fdr correction on obj.PVALS and filters the channels in obj.VALS according to results=
 % number of removed/left channels in 7 categories (across all patients):
 % Face:	 78/207,
 % Object:	 74/285,
@@ -23,6 +28,7 @@ filenames = CM.ExtractData(PAC,'ppa','PPA CHilbert 50-150Hz -0.2-0.8 refBipo Ep2
 
 CMlabel = ['PPA_AnyResp08_50-150Hz']; %choose label for CHilbertMulti file
 CM.ImportExtract(filenames,CMlabel);
+
 %% compute statistics
 setup = setup_ppa();
 CM.ResponseSearchMulti(0.1,setup.stat_kats,[],struct('chn',2, 'fdr',1)); 
