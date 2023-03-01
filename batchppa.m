@@ -6,8 +6,8 @@ podilcasuodpovedi =0;
 %% nejdriv normalni analyzu s razenim podle podnetu
 if podnet
     disp(' ++++ ANALYZA 1 - RAZENI PODLE PODNETU ++++');
-    pacienti = {'VT53','VT56'}; %
-    cfg = struct('hybernovat',0,'suffix','Ep2022-10','freqepochs',0);
+    pacienti = {'VT55'}; %'VT53','VT56','VT57','VT58','VT59'
+    cfg = struct('hybernovat',0,'suffix','Ep2023-02','freqepochs',0);
     cfg.pacienti = pacienti; %kdyz to tam vlozim rovnou, tak se mi udela struct array
     cfg.overwrite=0; %vyjimecne
     %cfg.normalization='db'; %use different normalization than orig (=divide by mean)
