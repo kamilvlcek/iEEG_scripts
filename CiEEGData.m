@@ -502,11 +502,11 @@ classdef CiEEGData < matlab.mixin.Copyable
             for ch = 1:numel(channels) 
                 if isa(obj.PsyData,'CPsyDataMulti') || ch==1 %pokud je to prvni kanal nebo se jedna o data CHilbertMulti s ruznymi subjektu a tedy ruznymi pocty chyb aj                                        
                     PsyData.SubjectChange(find(obj.els >= channels(ch),1)); 
-                    chyby = PsyData.GetErrorTrials();  % columns:  individual trials with errors, blocks < 75% correct, training trials, too short reaction time                  
+                    chyby = PsyData.GetErrorTrials();  % rows: trials, columns:  individual trials with errors, blocks < 75% correct, training trials, too short reaction time                  
                     epochsEx = [chyby , zeros(size(chyby,1),1) ]; %pridam dalsi prazdny sloupec
                     epochsEx(obj.RjEpoch,5)=1; %rucne vyrazene epochy podle EEG  - pro tento kanal 
                     if size(epochsEx,1) < size(iEpCh,2) %pokud ruzny pocet epoch u ruznych subjektu
-                        epochsEx = cat(1,epochsEx,ones(size(iEpCh,2) - size(epochsEx,1),5));
+                        epochsEx = cat(1,epochsEx,ones(size(iEpCh,2) - size(epochsEx,1),5)); %pridam dalsi epochy jako vyrazene 
                     end
                     iEpCh(channels(ch),:) = all(epochsEx==0,2)'; %index epoch k pouziti                 
                     

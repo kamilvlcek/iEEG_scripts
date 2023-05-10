@@ -289,7 +289,8 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         end
         
         function chyby = GetErrorTrials(obj)
-            %vrati pole indikujici chybu/vyrazeni pro kazdy trial=radky - sloupce: jednotlive chyby, chybne bloky, treningovy trial, prilis kratky reakcni cas
+            %vrati pole indikujici chybu/vyrazeni pro kazdy trial=radky
+            %sloupce: jednotlive chyby, chybne bloky, treningovy trial, prilis kratky reakcni cas
             %chybny blok ma < 75% uspesnost
             S = obj.P.sloupce;          
             
@@ -355,9 +356,9 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                iTrialTypeCh = []; 
             end            
         end
-        function filtered = FilteredIn(obj,epochs, filter)      
-            %returns 1 if each epochs meet the filter condition, ie there is looked for value in a given column
-            %epochs - numberes of epochs to be checked
+        function filtered = FilteredIn(obj, filter,epochs)      
+            %returns array of 0/1 for each epoch: 1 means the epochs meets the filter condition, ie there is the looked for value in a given column
+            %epochs - numbers of epochs to be checked
             %filter - cellarray filter{1} - column number in obj.P.data, filter{2} - looked for values in this column
             %filtered - array numel(epochs) x 1;
             filtered = 0;
@@ -366,6 +367,7 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             elseif max(epochs) <= size(obj.P.data,1) && filter{1} > 0 && filter{1}<=size(obj.P.data,2)
                 filtered = ismember(obj.P.data(epochs,filter{1}),filter{2});                    
             end
+            
         end
         function agree = CategoriesAgreeWithStat(obj,kategories,Wp)
             %return true if the behavioral kategories agree with kategories in stat

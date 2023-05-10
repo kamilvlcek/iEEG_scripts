@@ -156,32 +156,42 @@ classdef CHilbert < CiEEGData
             fprintf('... finished\n');
         end
         
-        function obj = ExtractEpochs(obj, PsyData,epochtime,baseline,freqepochs)
+        function obj = ExtractEpochs(obj, PsyData,epochtime,baseline,freqepochs,filter)
             % rozdeli hilbertovu obalku podle epoch
             % i u ni odecte baseline pred podnetem
             % freqepochs - urcuje jestli ukladat freq pasma pro vsechny epochy do pole obj.HFreqEpochs
+            % filter - cellarray: filter{1} - column number in obj.P.data, filter{2} - looked for values in this column
             if ~exist('baseline','var') || isempty(baseline), baseline = [epochtime(1) 0]; end %defaultni baseline je do 0 sec
             if ~exist('freqepochs','var') || isempty(freqepochs), freqepochs = 0; end %defaultne se neukladaji frekvencni pasma pro vsechny epochy
-            ExtractEpochs@CiEEGData(obj,PsyData, epochtime,baseline); %to mi zepochuje prumernou obalku za frekvencni pasma v poli d
+            if ~exist('filter','var') || isempty(filter), filter = []; end %default filter is empty  
+            
+            ExtractEpochs@CiEEGData(obj,PsyData, epochtime,baseline,filter); %to mi zepochuje prumernou obalku za frekvencni pasma v poli d
             fprintf('CHilbert.ExtractEpochs: category ' );
             if(numel(obj.HFreq)>0)
                 %ted epochace vsech frekvencnich pasem zvlast, hlavne kvuli obrazkum
                 %prumer za kazdou kategorii, statistiku z toho delat nechci
                  iepochtime = round(epochtime(1:2).*obj.fs); %v poctu vzorku cas pred a po udalosti, prvni cislo je zaporne druhe kladne             
                  ibaseline =  round(baseline.*obj.fs); %v poctu vzorku cas pred a po udalosti
-                 kategorie = cell2mat(obj.PsyData.P.strings.podminka(:,2)); %cisla karegorii ve sloupcich
+                 kategorie = cell2mat(obj.PsyData.P.strings.podminka(:,2)); %cisla kayegorii ve sloupcich
+                 %TODO here 
+                 %- jak je to s treningem - mel bych spis pracovat s AEDist datama
+                 % kde se odstranuej trening? Chci ho tady odstranit?
+                 iepochs = obj.PsyData.FilteredIn(1:numel(ts_events),filter); %to be processed epochs according to the filter
                  Hfreq2 = zeros(iepochtime(2)-iepochtime(1), size(obj.d,2), numel(obj.Hfmean),size(kategorie,1)); %new epoched power data: time x channel x freq x kategorie=podminka
                  if freqepochs
                      obj.HFreqEpochs = zeros(iepochtime(2)-iepochtime(1),size(obj.HFreq,2),size(obj.HFreq,3),obj.epochs); % time x channel x frequency x epoch
                      obj.fphaseEpochs = zeros(iepochtime(2)-iepochtime(1),size(obj.HFreq,2),size(obj.HFreq,3),obj.epochs); % time x channel x frequency x epoch
                      obj.frealEpochs = zeros(iepochtime(2)-iepochtime(1),size(obj.HFreq,2),size(obj.HFreq,3),obj.epochs); % time x channel x frequency x epoch
-                 else
+                 else                   
                      obj.HFreqEpochs = [];
                      obj.fphaseEpochs = [];
-                     obj.frealEpochs = [];
+                     obj.frealEpochs = [];                  
                  end
                  %cyklus po kategoriich ne po epochach
-                 for katnum = kategorie' %categories in rows
+                 for katnum = kategorie' %categories in rows 
+                     %TODO here - mame ted min kategorii, pri pouziti filter. 
+                     % Kdyz zredukujeme pocet kategorii v HFreq2, bude se to dal v kodu spravne indexovat?
+                     % zmenit kategorie = na jen vyber kategorii podle obj.epochData?
                      fprintf('%i,', katnum);  	 	
                      Epochy = find(cell2mat(obj.epochData(:,2))==katnum);  %epochs x 1: epochs numbers for this category
                      for epoch = Epochy' %epochs in row
