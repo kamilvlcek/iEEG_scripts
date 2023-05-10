@@ -132,6 +132,19 @@ classdef CPsyDataMulti < CPsyData
                 epochs=max(epochs,size(obj.Pmulti(s).data,1));
             end
         end
+        function chybyMulti = GetErrorTrialsMulti(obj)
+            iSbak = obj.iS;
+            chybyMulti = zeros(obj.nS,6); %sums of error for subjects rows = subjects, columns = types of errorsa
+                %individual errors, error blocks, training trials, too short reaction times, any reason except training, num of trials
+            for iS = 1:obj.nS
+                obj.SubjectChange(iS);
+                chyby = obj.GetErrorTrials();
+                chybyMulti(iS,1:4) = sum(chyby);                
+                chybyMulti(iS,5) = sum(any(chyby(:,[1 2 4]),2)); %new fifth columnt - trial excluded for any reason, except training
+                chybyMulti(iS,6) = size(chyby,1) - sum(isnan(chyby(:,1))); %new sixth columnt - num of trials
+            end
+            obj.SubjectChange(iSbak);
+        end
     end
     methods (Access = private)
         function Responses2Plot(obj,prumery,Wp,katname,ttname,katnum,katstr)
