@@ -50,7 +50,7 @@ for p = 1:numel(pacienti)
     if pacienti(p).todo        
         if(exist([basedir pacienti(p).folder '\' pacienti(p).data],'file')~=2)
             if(exist([basedir pacienti(p).folder '\' subfolder '\'  pacienti(p).data],'file')~=2)
-                msg = ['Data neexistuji: ' pacienti(p).folder '\\' pacienti(p).data];
+                msg = ['Data neexistuji: ' pacienti(p).folder '\' pacienti(p).data];
                 disp(msg); fprintf(fileID,[msg '\n']);
                 chybasoubor = true; 
             else

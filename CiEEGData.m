@@ -11,6 +11,7 @@ classdef CiEEGData < matlab.mixin.Copyable
         samples; %pocet vzorku v zaznamu = rozmer v case
         channels; %pocet kanalu v zaznamu
         epochs;   %pocet epoch
+        epochsFilter = {}; %struct saving info about the filter for epochs if used
         epochData; %cell array informaci o epochach; epochy v radcich, sloupce: jmeno a cislo kategorie, tab(pondet/odpoved)
         PsyData; %objekt ve formatu CPsyData (PPA, AEDist aj) podle prezentace KISARG
             %pole PsyData.P.data, sloupce, strings, interval, eegfile, pacientid
@@ -38,6 +39,7 @@ classdef CiEEGData < matlab.mixin.Copyable
         CS = {}; %objekt CStat
         colorskat = {[0 0 0],[0 1 0],[1 0 0],[0 0 1],[1 1 0],[0 1 1],[1 0 1]}; % black, green, red, blue, yellow, aqua, fuchsia
         OR = {}; %object CRefOrigVals        
+        
     end
     
     properties(SetObservable)
@@ -203,18 +205,18 @@ classdef CiEEGData < matlab.mixin.Copyable
             %ulozi cisla vyrazenych epoch - kvuli prevodu mezi touto tridou a CHilbert
             if RjEpoch ~= 0  %muzu takhle vynechat vlozeni vyrazenych epoch              
                 obj.RjEpoch = RjEpoch; 
-                disp(['globalne vyrazeno ' num2str(numel(RjEpoch)) ' epoch']); 
+                disp(['globally (over all channels) rejected ' num2str(numel(RjEpoch)) ' epochs']); 
             end
             if exist('RjEpochCh','var') 
-                if ~isempty(RjEpochCh)                 
-                    obj.RjEpochCh = RjEpochCh;                                                                         
+                if ~isempty(RjEpochCh)    
+                    obj.RjEpochCh = RjEpochCh(:,obj.epochsFilter.iepochs); %if only some epochs were used, use only these here as well
                     if ~strcmp(obj.reference,'original') && ~isempty(obj.CH.filterMatrix)  %pokud to neni originalni reference                      
                         obj.ChangeReferenceRjEpochCh(obj.CH.filterMatrix); %prepocitam na jinou referenci i RjEpochCh
                     end
-                    assert( size(obj.RjEpochCh,1)== size(obj.d,2), ['RjEpochCh ma jiny pocet kanalu (' num2str(size(obj.RjEpochCh,1)) ') nez data (' num2str(size(obj.d,2)) ')']);
-                    assert( size(obj.RjEpochCh,2)== size(obj.d,3), ['RjEpochCh ma jiny pocet epoch (' num2str(size(obj.RjEpochCh,2)) ') nez data (' num2str(size(obj.d,3)) ')']);
+                    assert( size(obj.RjEpochCh,1)== size(obj.d,2), ['RjEpochCh has different channel number (' num2str(size(obj.RjEpochCh,1)) ') than data (' num2str(size(obj.d,2)) ')']);
+                    assert( size(obj.RjEpochCh,2)== size(obj.d,3), ['RjEpochCh has different epoch number (' num2str(size(obj.RjEpochCh,2)) ') than data (' num2str(size(obj.d,3)) ')']);
                     
-                    disp(['+ vyrazeno ' num2str(sum(max(RjEpochCh,[],1))) ' epoch s epi udalostmi podle jednotlivych kanalu']);   
+                    disp(['+ rejected ' num2str(sum(max(obj.RjEpochCh,[],1))) ' epochs with epi events for individual channels']);   
                 else %takhle muzu vyrazene epochy vymazat
                     obj.RjEpochCh = false(obj.channels,obj.epochs); %zadne vyrazene epochy
                 end
@@ -351,6 +353,8 @@ classdef CiEEGData < matlab.mixin.Copyable
             [obj.samples,obj.channels, obj.epochs] = obj.DSize();
             obj.DatumCas.Epoched = datestr(now);
             obj.RjEpochCh = false(obj.channels,obj.epochs); %no rejected epochs for now
+            obj.epochsFilter.filter = filter;
+            obj.epochsFilter.iepochs = iepochs;
             fprintf('\n%i epochs extracted\n',obj.epochs );
         end
         function obj = ResampleEpochs(obj,newepochtime)
