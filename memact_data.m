@@ -42,16 +42,16 @@ data(:,10)=U2(:,2); % timestamp of sync pulses of responses
 
 % column names in the table
 sloupce = {};
-sloupce.delay=1;   % instead of soubor - time of delay in delayed conditions
-sloupce.klavesa=2; % answer_button response (to the question in diff conditions)
-sloupce.spravne=3;
-sloupce.rt = 4;
-sloupce.opakovani=5;
-sloupce.zpetnavazba=6;
-sloupce.kategorie=7;
-sloupce.t_encod_del=8;
-sloupce.ts_podnet=9;
-sloupce.ts_odpoved=10;
+sloupce.delay=1;   % instead of soubor - time of delay in delayed conditions (variable: 3.9 - 4.1 s)
+sloupce.klavesa=2; % answer_button response (to the question in diff conditions): 0 - incorrect, 1 - correct response, NaN - conditions without a question
+sloupce.spravne=3; % accuracy for the joystick response: -1 - incorrect, 0 - missed, 1 - correct
+sloupce.rt = 4; % RT of reaching the correct object or RT of start moving joystick according to the parameter RT_corr
+sloupce.opakovani=5; % number of block
+sloupce.zpetnavazba=6; % if feedback was given (only in the training)
+sloupce.kategorie=7; % condition: 'immed_same' - 0; 'immed_diff' - 1; 'del_same' - 2; 'del_diff' - 3
+sloupce.t_encod_del=8; % exact duration of encoding phase in delayed trials (it's always 2 sec, but here the exact duration is given with numbers after comma)
+sloupce.ts_podnet=9; % timestamp of sync pulses of stimuli (in delayed trials - after delay, when a green cross and a word 'te?' are presented)  
+sloupce.ts_odpoved=10; % timestamp of sync pulses of responses, when subject hits the correct object 
 
 % text code for button response and test conditions
 klavesa = cell(3,2);
