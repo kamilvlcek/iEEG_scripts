@@ -557,6 +557,7 @@ classdef CStat < handle
             %B muze mit jeden nebo oba prvni rozmer = 1 - pak se porovnava se vsemi hodnotami v A
             %pokud fdr=1,2 nebo prazne, provadi fdr korekci
             %pokud print = 0 nebo prazne, netiskne nic
+            %RjEpChA and RjEpChB are both channels x epochs 
             if ~exist('print','var'), print = 0; end
             if ~exist('fdr','var') || isempty(fdr), fdr = 1; end %min striktni je default           
             if ~exist('msg','var') || isempty(msg), msg = ''; end
@@ -613,7 +614,14 @@ classdef CStat < handle
             end
             if print, fprintf('%d .. done\n',j); end
         end
-        function [ranova_table, Tukey_table] = ANOVA2rm(data, factorNames, levelNames, interact, nofile) %Sofiia since 12.3.2021 
+        function W = Wilcox3D(A,B,print,fdr,msg,RjEpChA,RjEpChB)
+            %returns 3D matrix of p values, FDR corrected. A and B are 4D matrices, samples x channels x epochs x repetitions
+            %wilcox test is performed on the last dimension, repetitions. 
+            %B can have some dimensions of size 1, then all values of A are compared with this 
+            %RjEpChA and RjEpChB are both channels x epochs 
+            W = ones(size(A,1), size(A,2), size(A,3)) * 0.5; %fake to return something for now
+        end
+        function [ranova_table, Tukey_table] = ANOVA2rm(data, factorNames, levelNames, interact, nofile) %Sofiia since 12.3.2021
             %%%% 2 way repeated measures ANOVA, both factors are repeated measures
             % returns the stats table for ANOVA and table with post-hoc comparisons
             % if no signific interaction between 2 factors was found,returns empty Tukey_table
