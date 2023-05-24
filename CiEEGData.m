@@ -650,7 +650,8 @@ classdef CiEEGData < matlab.mixin.Copyable
             [katnum] = obj.PsyData.Categories(1);
         end
         function Fourier(obj,channels,freq,epochs,method)
-           % perform FFT and plot, freq should be max and min to plot
+           % perform spectral analysis and plot, freq should be [min max] to plot
+           % method can be fft (default for epoched), pwelch (default of non epoched) or periodogram
             if ~exist('epochs','var') || isempty(epochs),  epochs = 1:obj.epochs;        end  
             if ~exist('method','var') 
                 if numel(epochs) > 1 %'pwelch' nebo 'fft'
@@ -675,7 +676,11 @@ classdef CiEEGData < matlab.mixin.Copyable
     %             semilogy(frequencies,fft_d_abs); % log linearni plot - y = log10 
                 hold all;
             end
-            xlim(freq);
+            if freq(2) > frequencies(end) %if the range of diplayed freqs does not overlap with computed frequencies
+                warning([' frequiencies computed only up to ' num2str(frequencies(end)) 'Hz because of sampling frequency ' num2str(obj.fs) 'Hz'] ); 
+            else
+                xlim(freq);
+            end
             %set(gca,'xlim',[0 max(frex)*2])
             title(['Power spectral density by ' method ' in channels ' num2str(channels)]);
             ylabel('PSD [ 10*log10(uV ^{2} / Hz) ]');
@@ -684,32 +689,42 @@ classdef CiEEGData < matlab.mixin.Copyable
                 legend(legendCell);
             end
         end
-        function Filter(obj,freq,channels,epoch,vykresli)            
-            if ~exist('channels','var') || isempty(channels), channels  = 1:obj.channels;        end 
-            if ~exist('epoch','var') || isempty(epoch)     ,  epoch = 1;        end 
-            if ~exist('vykresli','var'),  vykresli = 1;        end  %defaultne se dela obrazek
+        function Filter(obj,freq,channels,epochs,makefigure)   
+            %perfoms filtering of the dat, either bandpass or notch
+            %if freq is array of two values, eg. [0 60], bandpass is done between freq1 and freq2
+            %if freq is cell array eg. {0.5,[50 100 150]}, notch is done, filtering out +-freq{1} band around all freq{2} 
             
-            fprintf('channels to filter (z %i):',numel(channels));
-            for ch = channels
-                fprintf('%i, ',ch);
-                dd = squeeze(obj.d(:,ch,epoch));
-                dd2 = CStat.FIR(freq,dd,obj.fs); %vyfiltruju data
-                obj.d(:,ch,epoch) = dd2;  %ulozim vysledek filtrovani do puvodnich dat              
-                if vykresli %vykreslim jenom prvni kanal
-                    %charakteristika kanalu pred filtrovanim
-                    [frequencies,fft_d_abs] = CStat.Fourier(dd,obj.fs);  
-                    figure('Name','Filter effects');   
-                    plot(frequencies(2:end),fft_d_abs(2:end),'k.'); %neplotuju prvni frekvenci, cili DC
-                    xlim([0 250]);            
-                    hold on;                
-                    %charakterisika kanalu po filtrovani
-                    [frequencies,fft_d_abs] = CStat.Fourier(dd2,obj.fs);   %spocitam znova frekvencni charakteristiku
-                    plot(frequencies(2:end),fft_d_abs(2:end),'b.'); %vykreslim modre
-                    vykresli = 0;
-                    title(['Channel ' num2str(ch)]);
+            if ~exist('channels','var') || isempty(channels), channels  = 1:obj.channels;        end  %all channels by default
+            if ~exist('epoch','var') || isempty(epochs)     ,  epochs = 1:obj.epochs;        end  %all epochs by default
+            if ~exist('makefigure','var'),  makefigure = 1;        end  %plot figure by default
+            
+            if iscell(freq) %notch filter
+                dd = obj.d(:,channels, epochs);
+                dd2 = CStat.NotchFilter(freq{1},freq{2},dd,obj.fs);
+                obj.d(:,channels, epochs) = dd2;               
+            else %band pass filter
+                fprintf('channels to filter (z %i):',numel(channels));
+                for ch = channels
+                    fprintf('%i, ',ch);
+                    dd = squeeze(obj.d(:,ch,epochs));
+                    dd2 = CStat.FIR(freq,dd,obj.fs); %vyfiltruju data
+                    obj.d(:,ch,epochs) = dd2;  %ulozim vysledek filtrovani do puvodnich dat                                  
                 end
+                fprintf('... done\n');
             end
-            fprintf('... done\n');
+            if makefigure %just first channel and first epoch
+                %before filtering
+                [frequencies,fft_d_abs] = CStat.Fourier(dd(:,1,1),obj.fs);  
+                figure('Name','Filter effects');   
+                plot(frequencies(2:end),fft_d_abs(2:end),'k.'); %neplotuju prvni frekvenci, cili DC
+                xlim([0 250]);            
+                hold on;                
+                %after filtering
+                [frequencies,fft_d_abs] = CStat.Fourier(dd2(:,1,1),obj.fs);   %spocitam znova frekvencni charakteristiku
+                plot(frequencies(2:end),fft_d_abs(2:end),'b.'); %vykreslim modre                
+                title(['Channel ' num2str(channels(1))]);
+                legend({'before','after'});
+            end
         end 
         function [obj]= Decimate(obj,podil,rtrim)
             %zmensi data na nizsi vzorkovaci frekvenci podle urceneho podilu, naprilkad 4x 512-128Hz, pokud podil=4

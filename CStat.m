@@ -785,8 +785,7 @@ classdef CStat < handle
             %predpoklada data s casem v prvnim rozmeru, ostatni rozmery nejsou nebo 1
             % 4.5.2017 kopie z CiEEGdata.Fourier
             if ~exist('method','var'), method = 'pwelch'; end 
-            switch method   
-                
+            switch method                   
                 case 'fft'
             %1. varianta podle MikeXCohen
             frequencies       = linspace(0,fs/2,length(dd)/2+1); %maximalni frekvence je fs/2, ale frekvencni rozliseni je N/2+1
@@ -813,6 +812,8 @@ classdef CStat < handle
         function [filter_result] = FIR(freq,dd,fs,firtype)
             %[filter_result] = FIR(freq,dd,fs) 
             % provede FIR filter podle Cohen Ch 14.  
+            % dd is data matrix, the first dimension should be time (samples)
+            % fs is sampling frequency
             % 4.5.2017   
             if ~exist('firtype','var'), firtype = 'fir1'; end
             assert(strcmp(firtype,'fir1') || strcmp(firtype,'firls'), ['neznamy typ kernelu ' firtype]);
@@ -845,8 +846,22 @@ classdef CStat < handle
                 idealresponse = [ 0 0 1 1 0 0 ];
                 filterweights = firls(filter_order,ffrequencies,idealresponse); %vytvorim filter kernel                          
             end
-            filter_result = filtfilt(filterweights,1,dd);
-            
+            filter_result = filtfilt(filterweights,1,dd);            
+        end
+        function dd = NotchFilter(bandwidth,freqs,dd,fs)
+            %bandwith is the size of the freqency band to be filtered out (x +- bandwidth)
+            %freqs are frequencies around which to perform the notch (e.g. 50,100,150)
+            %dd are the eeg data, with time in the first dimension, fs is their sampling frequency
+            %method by Jiri Hammer, May 2023
+            n = 4;   %4th order Butterworth filter
+            fprintf('notch filter +- %.1fHz for %i channels and %i epochs :',bandwidth, size(dd,2),size(dd,3));
+            for f=1:numel(freqs)
+                fprintf('%i, ',freqs(f));
+                Wn = [freqs(f)-bandwidth, freqs(f)+bandwidth]./(fs/2); % fs = sampling rate in [Hz]
+                [b,a] = butter(n, Wn, 'stop'); % filter design
+                dd = filtfilt(b, a, dd); % filtering
+            end
+            fprintf('... done\n');
         end
         function [AUC,X,Y] = ROCKrivka(epochData,dd,katnames,kresli)
             %11/2018 - spocita a vykresli roc krivku
