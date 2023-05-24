@@ -614,12 +614,44 @@ classdef CStat < handle
             end
             if print, fprintf('%d .. done\n',j); end
         end
-        function W = Wilcox3D(A,B,print,fdr,msg,RjEpChA,RjEpChB)
+        function [W,iW] = Wilcox3D(A,B,print,fdr,msg,RjEpCh)
             %returns 3D matrix of p values, FDR corrected. A and B are 4D matrices, samples x channels x epochs x repetitions
             %wilcox test is performed on the last dimension, repetitions. 
             %B can have some dimensions of size 1, then all values of A are compared with this 
-            %RjEpChA and RjEpChB are both channels x epochs 
-            W = ones(size(A,1), size(A,2), size(A,3)) * 0.5; %fake to return something for now
+            %RjEpCh is channels x epochs 
+            if ~exist('print','var'), print = 0; end
+            if ~exist('fdr','var') || isempty(fdr), fdr = 1; end %less strict as default       
+            if ~exist('msg','var') || isempty(msg), msg = ''; end %no message by default
+            if ~exist('RjEpCh','var') || isempty(RjEpCh), RjEpCh = false(size(A,2),size(A,3)); end %no epoch excluded by default
+            assert(size(A,4)>1 && size(B,4)>1,'both matrices need to be 4 dimensional');
+            W = ones(size(A,1),size(A,2),size(A,3)); 
+            iW = false(size(A,1),size(A,2),size(A,3)); %index of what should be fdr corrected 
+            if print, fprintf(['Wilcox Test 3D - ' msg ' (samples of ' num2str(size(A,1)) '): ']); end
+            for ts = 1:size(A,1) %time samples
+                if print , fprintf('%d ', ts); end %tisknu jen cele padesatky, && mod(ts,50)==0
+                for ch = 1:size(A,2) %channels
+                    parfor ep = 1:size(A,3) %epochs
+                        if ~RjEpCh(ch,ep) %only not exluded epochs
+                            tsB = min(ts,size(B,1)); %if B has only 1 time sample (it has now)
+                            chB = min(ch,size(B,2)); %if B has only 1 time channel
+                            epB = min(ch,size(B,3)); %if B has only 1 epoch
+                            W(ts,ch,ep) = ranksum(squeeze(A(ts,ch,ep,:)),squeeze(B(tsB,chB,epB,:))); %just non-paired for now
+                            iW(ts,ch,ep)=1;
+                        end
+                    end
+                end
+            end
+            if fdr > 0
+                 if print, fprintf('... fdr'); end
+                 if fdr == 2, method = 'dep'; else method = 'pdep'; end %#ok<SEPEX>    %dep is more strict than pdep               
+                 W1 = reshape(W,[size(A,1) * size(A,2) *size(A,3) , 1]); %we need the in one dimension only, for fdr_bh to work
+                 iW1 = reshape(iW,[size(A,1) * size(A,2) *size(A,3) , 1]); %index in W of what to fdr correct
+                 [~, ~, adj_p]=fdr_bh(W1(iW1),0.05,method,'no'); % adj_p contain only the corrected values
+                 W1(iW1) = adj_p;
+                 W = reshape(W1,size(W)); %get the original 3D matrix
+                 iW = reshape(iW1,size(iW));                             
+            end
+            if print, fprintf(' ... done\n'); end            
         end
         function [ranova_table, Tukey_table] = ANOVA2rm(data, factorNames, levelNames, interact, nofile) %Sofiia since 12.3.2021
             %%%% 2 way repeated measures ANOVA, both factors are repeated measures

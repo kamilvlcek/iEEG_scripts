@@ -47,7 +47,7 @@ classdef CEEGStat
                 P = Wp; %%pole 1D signifikanci - jedna hodnota pro kazdy kanal                
             end
         end
-        function [P,ibaseline,iepochtime,itimewindow] = WilcoxBaselineST(obj,epochtime,baseline,timewindow,iEp,RjEpCh,method)
+        function [P,iP,ibaseline,iepochtime,itimewindow] = WilcoxBaselineST(obj,epochtime,baseline,timewindow,iEp,RjEpCh,method)
             % calculates the significance with respect to the baseline, for each epoch independently
             % single trial analysis analogy of WilcoxBaseline
             % uses obj.d and obj.fs
@@ -68,8 +68,8 @@ classdef CEEGStat
                     %for even itimewindow it teakes one less sample before than after iW
                 responses(iW-iresponse(1)+1,:,:,1:numel(iwindow)) = permute(obj.d(iwindow,:,iEp),[2 3 1]); %channes x epochs x window size after permute
             end
-            baselines(1,:,:,:) = permute(obj.d(ibaseline(1):ibaseline(2),:,iEp),[2 3 1]); %channes x epochs x window size after permute
-            P = CStat.Wilcox3D(responses,baselines,1,method.fdr,'single-trial: moving window vs baseline',RjEpCh(:,iEp),RjEpCh(:,iEp)); 
+            baselines(1,:,:,:) = permute(obj.d(ibaseline(1):ibaseline(2),:,iEp),[2 3 1]); %channes x epochs x window size after permute            
+            [P,iP] = CStat.Wilcox3D(responses,baselines,1,method.fdr,'single-trial: moving window vs baseline',RjEpCh(:,iEp)); 
         end
     end
     methods (Static,Access = public)
