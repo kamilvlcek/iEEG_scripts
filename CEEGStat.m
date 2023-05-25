@@ -47,7 +47,7 @@ classdef CEEGStat
                 P = Wp; %%pole 1D signifikanci - jedna hodnota pro kazdy kanal                
             end
         end
-        function [P,iP,ibaseline,iepochtime,itimewindow] = WilcoxBaselineST(obj,epochtime,baseline,timewindow,iEp,RjEpCh,method)
+        function [P,iP,ibaseline,iresponse,itimewindow] = WilcoxBaselineST(obj,epochtime,baseline,timewindow,iCh,iEp,RjEpCh,method)
             % calculates the significance with respect to the baseline, for each epoch independently
             % single trial analysis analogy of WilcoxBaseline
             % uses obj.d and obj.fs
@@ -60,16 +60,16 @@ classdef CEEGStat
             ibaseline = round(baseline0.*obj.fs); %in samples, negative is before stimulus
             iresponse = [ abs(iepochtime(1)-ibaseline(2))+1 diff(iepochtime)]; %all values after the end of the baseline
             ibaseline = [ abs(iepochtime(1)-ibaseline(1))+1 abs(iepochtime(1)-ibaseline(2))]; %in samples, but now 1 means start of whole epoch
-            responses = NaN(diff(iresponse) +1 , size(RjEpCh,1) , sum(iEp), itimewindow); %samples (number of timewindows) x channels x epochs x timewindow size
-            baselines = NaN(1, size(RjEpCh,1) , sum(iEp), itimewindow); %samples x channels x epochs x timewindow size
+            responses = NaN(diff(iresponse) +1 , numel(iCh) , numel(iEp), itimewindow); %samples (number of timewindows) x channels x epochs x timewindow size
+            baselines = NaN(1, numel(iCh) , numel(iEp), itimewindow); %samples x channels x epochs x timewindow size
             for iW = iresponse(1) : iresponse(2) %iW is middle of the moving time window
                 iwindow = iW - floor((itimewindow-1)/2) : min(iW + floor(itimewindow/2),size(obj.d,1));
                     %for odd itimewindow it takes same number of samples before and after iW
                     %for even itimewindow it teakes one less sample before than after iW
-                responses(iW-iresponse(1)+1,:,:,1:numel(iwindow)) = permute(obj.d(iwindow,:,iEp),[2 3 1]); %channes x epochs x window size after permute
+                responses(iW-iresponse(1)+1,:,:,1:numel(iwindow)) = permute(obj.d(iwindow,iCh,iEp),[2 3 1]); %channes x epochs x window size after permute
             end
-            baselines(1,:,:,:) = permute(obj.d(ibaseline(1):ibaseline(2),:,iEp),[2 3 1]); %channes x epochs x window size after permute            
-            [P,iP] = CStat.Wilcox3D(responses,baselines,1,method.fdr,'single-trial: moving window vs baseline',RjEpCh(:,iEp)); 
+            baselines(1,:,:,:) = permute(obj.d(ibaseline(1):ibaseline(2),iCh,iEp),[2 3 1]); %channes x epochs x window size after permute            
+            [P,iP] = CStat.Wilcox3D(responses,baselines,1,method.fdr,'single-trial: moving window vs baseline',RjEpCh(iCh,iEp)); 
         end
     end
     methods (Static,Access = public)

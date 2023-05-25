@@ -30,8 +30,9 @@ classdef CiEEGData < matlab.mixin.Copyable
         filename;
         reference; %slovni popis reference original, avg perHeadbox, perElectrode, Bipolar
         yrange = [10 10 50 50]; %minimum y, krok y0, hranice y1, krok y1, viz funkce - a + v hybejPlot
-        Wp = {}; %pole signifikanci pro jednotlive kanaly vuci baseline, vysledek  ResponseSearch     
-        WpActive=1; %cislo aktivniho pole signifikanci - muze byt spocitano vic statistik
+        Wp = {}; %struct of statistical results and parameters of the trial-averaged wilcox test for each time sample independently, the result  ResponseSearch     
+        STp = {}; %struct for statistical results and parameters of single-trial stat - for each epoch independently, the results of ResponseSearchST
+        WpActive=1; %index of active statistical result in Wp and STp - more statistics can be calculated
         DE = {}; %trida objektu CEpiEvents - epilepticke eventy ziskane pomoci skriptu spike_detector_hilbert_v16_byISARG
         DatumCas = {}; %ruzne casove udaje, kdy bylo co spocitano. Abych mel historii vypoctu pro zpetnou referenci
         PL = {}; %objekt CPlots
@@ -494,8 +495,8 @@ classdef CiEEGData < matlab.mixin.Copyable
             disp(['reference zmenena: ' obj.reference]); 
         end
         function [iEpCh]=GetEpochsExclude(obj,channels)
-            %vraci iEpCh (ch x epoch) = index epoch k vyhodnoceni - bez chyb, treningu a rucniho vyrazeni - pro kazdy kanal zvlast            
-            %muzu pouzit parametr channels, pokud chci jen nektere kanaly - ostatni jsou pak prazdne
+            %returns iEpCh (ch x epoch) = index of epochs for analysis - without error, training, manual exclusion - for each channel independently            
+            %channels - if we want only specific channels - others are then empty 
             if ~exist('channels','var'), channels = 1:obj.channels; end
             iEpCh = zeros(obj.channels,obj.epochs);             
             PsyData = obj.PsyData.copy();  %nechci menit puvodni tridu
@@ -617,6 +618,37 @@ classdef CiEEGData < matlab.mixin.Copyable
                 obj.Wp(WpA).method = struct;
             end
             obj.DatumCas.ResponseSearch = datestr(now);
+        end
+        function ResponseSearchST(obj,timewindow,channels,epochs,method,iSTp)
+            %computes single-trial wilcox test of response relative to baseline
+            %for all nonrejected epochs (or selected epochs in argument epochs), independent of categories 
+            %for all channels (or selected epochs in argument channels)
+            assert(obj.epochs > 1,'only for epoched data'); 
+            if ~exist('channels','var'), channels = 1:obj.channels;  end
+            if ~exist('epochs','var'), epochs = 1:obj.epochs;  end
+            if ~exist('method','var') || isempty(method)  %parameters of statistic in EEGStat.WilcoxBaselineST, explained there and below
+                method = struct('fdr',1); %default values                         
+            elseif isstruct(method)                
+                if ~isfield(method,'fdr'), method.fdr = 1; end %default is fdr pdep - less strict, 2= dep - more strict
+            else
+                error('argument method needs to be struct');
+            end 
+            if ~exist('iSTp','var'), iSTp = 1;  end %we are not interested in categories here. But can save results of several computations if we need
+            iChEp = obj.GetEpochsExclude(); %index of epochs for analysis - without errors, training, manual exclusion - for each channel independently                         
+            EEGStat = CEEGStat(obj.d,obj.fs);            
+            baseline = EEGStat.Baseline(obj.epochtime,obj.baseline); %time of the baseline for statistics - from epochtime(1)
+            [P,iP,ibaseline,iresponse,itimewindow] = EEGStat.WilcoxBaselineST(obj.epochtime,baseline,timewindow,channels,epochs,obj.RjEpochCh | ~iChEp,method); %performs the statistics       
+            obj.STp(iSTp).P=P; %p values samples x channels x epochs
+            obj.STp(iSTp).iP=iP; %index of p values computed , samples x channels x epochs
+            obj.STp(iSTp).timewindow = timewindow; %timewindow       in sec    
+            obj.STp(iSTp).itimewindow = itimewindow; %timewindow     in samples
+            obj.STp(iSTp).channels = channels; %index of processed channels
+            obj.STp(iSTp).epochs = epochs; %index of processed epochs
+            obj.STp(iSTp).iChEp = iChEp & ~obj.RjEpochCh; %index of processed channels x epochs
+            obj.STp(iSTp).epochtime = obj.epochtime;
+            obj.STp(iSTp).baseline = obj.baseline; 
+            obj.STp(iSTp).iepochtime = [ibaseline; iresponse ]; %samples of baseline and all response timewindow positions
+            %TODO -  is [59 64;65 160] correct for epochtime -1 1.5? 
         end
         function obj = ResponseSearchMulti(obj,timewindow,stat_kats,opakovani,method)
             %vola ResponseSearch pro kazdy kontrast, nastavi vsechny statistiky
