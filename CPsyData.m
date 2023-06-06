@@ -28,7 +28,7 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         end
         function [testname2] = GetTestName(obj,testname)  
             %zjisti jmeno testu, ze ktereho jsou data            
-            if strcmp(testname,'aedist') || strcmp(testname,'menrot') || strcmp(testname,'ppa')
+            if strcmp(testname,'aedist') || strcmp(testname,'menrot') || strcmp(testname,'ppa') || strcmp(testname,'memact')
                 testname2 = testname;
             elseif strcmp(obj.P.strings.podminka{1,1},'cervena')
                 testname2 = 'aedist';
@@ -36,6 +36,8 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 testname2 = 'menrot';
             elseif strcmp(obj.P.strings.podminka{1,1},'Ovoce')
                 testname2 = 'ppa';
+            elseif strcmp(obj.P.strings.podminka{1,1},'immed_same')
+                testname2 = 'memact';                
             else
                 testname2 = '';
             end

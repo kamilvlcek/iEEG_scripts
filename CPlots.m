@@ -880,14 +880,17 @@ classdef CPlots < matlab.mixin.Copyable
         
         function [rho,pval,maxTrials,obj] = ComputeCorrelChan(obj,ch,tmax,fraction,correctRT,correctTrials, conditions, katdata) %Sofiia since 11.2020             
             %function to compute correlation between behavioural RT and time of eeg resp maximum (or valmax) for one channel
-            % to remove duplicite code in PlotCorrelChan and GetCorrelChan
-            %arguments: ch - index in obj.Eh.d, tmax - 1=returns time of maximum,0=return valmax of maximum
-            % fraction - fraction of maximum, only used for tmax = 1
+            % to remove duplicite code in PlotCorrelChan and GetCorrelChan; now calls from PlotCorrelChan
+            %%% arguments: ch - index in obj.Eh.d, tmax - 1=returns time of maximum,0=return valmax of maximum
+            % fraction - fraction of maximum (e.g. 0.9 = 90% of maximum),used for both tmax(1) and valmax (tmax=0)
             % correctRT - array of behavioural reaction times to correlate - for individual epochs
-            % correctTrials - ?
-            % conditions - ?
-            % katdata - ?
-            %output arguments [rho ? ,pval ?,maxTrials ?]            
+            % correctTrials - logical indexes to include only trials with correct behav response (if correctRT still includes incorrect trials)
+            % conditions - 0 = to compute for all epochs together, 1 = to compute for each condition separately
+            % katdata - data for one particular condition and one channel: time points x trials (could be returned from the function obj.Eh.CategoryData(katnum,[],[],ch))          
+            %%% output arguments 
+            % rho - correlation coefficient between max EEG response (or time of maximum) and RT
+            % pval - pvalue of that correlation (uses Spearman's Rank correlation)
+            % maxTrials - array of tmax or valmax for individual epochs          
             
             if ~exist('tmax','var') || isempty(tmax), tmax = 1; end % by default computes time of maximum, if 0 - computes valmax
             % initialize matrix for all trials
@@ -897,7 +900,7 @@ classdef CPlots < matlab.mixin.Copyable
             
             if conditions == 1
                 for iTrial = 1:size(katdata,2) % over trials of one category
-                    d = katdata(iintervalyData(1):iintervalyData(2), iTrial); % time points x channel x trials
+                    d = katdata(iintervalyData(1):iintervalyData(2), iTrial); % time points x trials
                     [valmax, idxMax, idxFrac] = cMax(d, fraction);
                     if tmax == 1 % if we want to compute corr between behavioural RT and time of maximum eeg resp
                         if fraction >= 1 %if we are interested in the real maximum
