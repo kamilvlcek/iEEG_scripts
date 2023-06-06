@@ -33,7 +33,7 @@ else
 end
 data(:,5) = dataS(:,3); % opakovani = block
 data(:,6) = dataS(:,2); % feedback = zpetnavazba
-data(:,7) = dataS(:,1); % condition = kategorie
+data(:,7) = dataS(:,1); % condition = kategorie 0,1 = immed; 2,3=delayed; 0,2=same(=circle); 1,3=different(=square,triangle)
 data(:,8) = dataS(:,9); % t_encod_del = exact duration of encoding phase in delayed trials
 
 if size(U1,1) ~= size(data,1) || size(U2,1) ~= size(data,1)
