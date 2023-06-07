@@ -159,8 +159,10 @@ for f=1:numel(frekvence)
                                 psychopy = aedist; clear aedist;
                             elseif strcmp(prefix ,'Menrot')
                                 psychopy = menrot; clear menrot;
+                            elseif strcmp(prefix ,'MemAct')
+                                psychopy = memact; clear memact;
                             else
-                                msg = ['neznamy typ testu ' prefix];
+                                msg = ['BatchHilbert: unknown test name ' prefix];
                                 fprintf(fileID,[msg '\n']);
                                 error(msg);
                             end

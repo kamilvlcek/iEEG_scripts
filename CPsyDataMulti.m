@@ -47,6 +47,18 @@ classdef CPsyDataMulti < CPsyData
             obj.SubjectChange(obj.iS + 1);
             obj.blocksMulti = [obj.blocksMulti, {[]}]; %pridam dalsi prazdny cell na konec
         end  
+        function [obj]= FilterEpochs(obj,iepochs)
+            assert(isempty(obj.iepochs),'epochs are already filtered');             
+            for iS=1:obj.nS %#ok<*PROPLC,*PROP> %over all subjects
+                %obj.SubjectChange does not write to obj.Pmulti, so it cannot be used for this purpose
+                obj.Pmulti(iS).data = obj.Pmulti(iS).data(iepochs,:); %filter directly
+                %leave only the epochs matching the filter 
+            end
+            if ~isempty(obj.trialtypes)
+                obj.trialtypes = obj.trialtypes(iepochs,:);%leave only the trialtypes for epochs matching the filter 
+            end
+            obj.iepochs = iepochs;
+        end
         function Responses2XLS(obj,Wp,makefile,xlslabel)
             %export xls table for responses of all patients in CHilbertMulti file
             %similar to psydataavg(), but this function works over all patients without CHilbertMulti file

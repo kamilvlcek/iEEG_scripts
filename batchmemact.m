@@ -6,8 +6,8 @@ podilcasuodpovedi =0; %response time percentage
 %% a normal analysis with a stimulus-based align of epochs
  if podnet
     disp(' ++++ ANALYZA 1 - RAZENI PODLE PODNETU ++++');
-    pacienti = {'VT59'}; 
-    cfg = struct('hybernovat',0,'suffix','Ep2023-05'); %'Ep2018-04', 'Ep2018-06'
+    pacienti = {'VT59','VT61'}; 
+    cfg = struct('hybernovat',0,'suffix','Ep2023-06'); %'Ep2018-04', 'Ep2018-06'
     cfg.pacienti = pacienti; %which patients to analyse - has to be added after struct creation
     %cfg.overwrite=1; %overwrite old output files?
     %cfg.freqepochs=1; %save all frequencies from all epochs?

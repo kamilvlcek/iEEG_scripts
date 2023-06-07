@@ -151,10 +151,10 @@ classdef CiEEGData < matlab.mixin.Copyable
            if exist('DE','var') && isstruct(DE)
                obj.DE = CEpiEvents(DE, obj.tabs_orig, obj.fs);
            else
-               assert(obj.epochs <= 1, 'nelze pouzit, data jiz jsou epochovana');
+               assert(obj.epochs <= 1, 'GetEpiEvents: cannot seach for epievents, data already epoched');
                obj.DE = CEpiEvents(obj.d, obj.tabs_orig, obj.fs);    %vytvorim instanci tridy      
            end
-           disp(['nacteno ' num2str(size(obj.DE.d,1)) ' epileptickych udalosti']);
+           disp(['read ' num2str(size(obj.DE.d,1)) ' epileptic events']);
         end
         function obj = RejectChannels(obj,RjCh,noprint,add)
             %ulozi cisla vyrazenych kanalu - kvuli pocitani bipolarni reference 
@@ -208,8 +208,13 @@ classdef CiEEGData < matlab.mixin.Copyable
                 disp(['globally (over all channels) rejected ' num2str(numel(RjEpoch)) ' epochs']); 
             end
             if exist('RjEpochCh','var') 
-                if ~isempty(RjEpochCh)    
-                    obj.RjEpochCh = RjEpochCh(:,obj.epochsFilter.iepochs); %if only some epochs were used, use only these here as well
+                if ~isempty(RjEpochCh)   
+                    %we do not know if RjEpochs contains all or only filtered epochs. Therefore, check for both variants
+                    if size(RjEpochCh,2)==numel(obj.epochsFilter.iepochs)
+                        obj.RjEpochCh = RjEpochCh(:,obj.epochsFilter.iepochs); %if only some epochs were used, use only these here as well
+                    elseif size(RjEpochCh,2)~=sum(obj.epochsFilter.iepochs)
+                        error('RejectEpochs: incorrect size of RjEpochCh: neither all epochs nor filtered ones');
+                    end
                     if ~strcmp(obj.reference,'original') && ~isempty(obj.CH.filterMatrix)  %pokud to neni originalni reference                      
                         obj.ChangeReferenceRjEpochCh(obj.CH.filterMatrix); %prepocitam na jinou referenci i RjEpochCh
                     end
@@ -230,13 +235,13 @@ classdef CiEEGData < matlab.mixin.Copyable
             assert(~isempty(obj.DE),'nejsou zadna epi data');
             if ~exist('NEpi','var'), NEpi = []; end
             if ~exist('obrazek','var'), obrazek = 1; end %vykreslim obrazek o poctu vyrazenych epoch v kanalech
-            [RjEpoch,RjEpochCh,vyrazeno] =  obj.DE.RejectEpochsEpi(NEpi,obj.CH,obj.epochs,obj.tabs,obj.tabs_orig); %#ok<PROP> 
+            [RjEpoch,RjEpochCh,vyrazeno] =  obj.DE.RejectEpochsEpi(NEpi,obj.CH,obj.epochs,obj.tabs,obj.tabs_orig);
             
             if isempty(NEpi) %jen pokud jsem RjEpochCh pocital
-                obj.RjEpochCh = RjEpochCh; %#ok<PROP>  %prepisu puvodni epochy
+                obj.RjEpochCh = RjEpochCh;  %prepisu puvodni epochy
                 disp(['vyrazeno ' num2str(vyrazeno) ' epoch s epi udalostmi podle jednotlivych kanalu']);
             else
-                obj.RjEpoch = unique( [obj.RjEpoch RjEpoch]); %#ok<PROP> %pridam k puvodnim epocham
+                obj.RjEpoch = unique( [obj.RjEpoch RjEpoch]); %pridam k puvodnim epocham
                 disp(['vyrazeno ' num2str(vyrazeno) ' epoch s vice epi udalostmi nez ' num2str(NEpi)]);
             end
             
@@ -355,6 +360,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             obj.RjEpochCh = false(obj.channels,obj.epochs); %no rejected epochs for now
             obj.epochsFilter.filter = filter;
             obj.epochsFilter.iepochs = iepochs;
+            obj.PsyData.FilterEpochs(iepochs);
             fprintf('\n%i of %i epochs  extracted\n',obj.epochs, numel(iepochs) );
         end
         function obj = ResampleEpochs(obj,newepochtime)
@@ -512,7 +518,13 @@ classdef CiEEGData < matlab.mixin.Copyable
                     if size(epochsEx,1) < size(iEpCh,2) %if different number of epochs for different subjects
                         epochsEx = cat(1,epochsEx,ones(size(iEpCh,2) - size(epochsEx,1),5)); %we will add other epochs as excluded 
                     end
-                    iEpCh(channels(ch),:) = all(epochsEx(obj.epochsFilter.iepochs,:)==0,2)'; %index of epochs to use - from the selected epochs by filter - not excluded from any reason                
+                    %we do not know if epochsEx contains all or only filtered epochs. Therefore, check for both variants
+                    if size(epochsEx,1)==numel(obj.epochsFilter.iepochs)
+                        epochsEx = epochsEx(obj.epochsFilter.iepochs,:);
+                    elseif size(epochsEx,1)~=sum(obj.epochsFilter.iepochs)
+                        error('GetEpochsExclude: incorrect size of epochsEx: neither all epochs nor filtered ones');
+                    end
+                    iEpCh(channels(ch),:) = all(epochsEx==0,2)'; %index of epochs to use - from the selected epochs by filter - not excluded from any reason                
                     
                 else
                     iEpCh(channels(ch),:) = iEpCh(channels(ch-1),:); %pokud se jedna o CPsyData s jednim subjektem, pro vsechny kanaly to bude stejne
@@ -1821,7 +1833,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                     if ~isempty(obj.Wp) %jen pokud je spocitana statistika , vypisu cislo aktivni statistiky a jmena kategorii
                         if isfield(obj.Wp(obj.WpActive),'trialtypes'), trialtypestext= [' - trialtypes: ' cell2str(obj.Wp(obj.WpActive).trialtypes)]; else, trialtypestext= ''; end
                         text(0.04+obj.Wp(WpA).epochtime(1),y,['stat ' num2str(obj.WpActive) '/' num2str(numel(obj.Wp)) '-'  cell2str(obj.PsyData.CategoryName(obj.Wp(obj.WpActive).kats,[])) ...
-                            trialtypestext ]);
+                            trialtypestext ]); %, 'Interpreter', 'none'
                     end
                 end
                 for k= 1 : numel(kategories) %index 1-3

@@ -9,7 +9,8 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         warning_rt=false; %jestli uz byl warning o reakcnich casech
         testname; %jmeno testu, ze ktereho jsou data
         blocks; %struktura, ktera uklada vysledky GetBlocks, kvuli uspore casu
-        trialtypes; %table with trialtypes specific for a tset
+        trialtypes; %table (epochs x n>=2) with trialtypes specific for a tset. 
+        iepochs; %logical array of epochs used because of epochs filter. set up in FilterEpochs()
     end
     
     methods (Access = public)
@@ -358,18 +359,27 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                iTrialTypeCh = []; 
             end            
         end
-        function filtered = FilteredIn(obj,epochs, filter)      
+        function iepochs = FilteredIn(obj,epochs, filter)      
             %returns array of 0/1 for each epoch: 1 means the epochs meets the filter condition, ie there is the looked for value in a given column
             %epochs - numbers of epochs to be checked
             %filter - cellarray filter{1} - column number in obj.P.data, filter{2} - looked for values in this column
-            %filtered - array numel(epochs) x 1;
-            filtered = 0;
+            %iepochs - array numel(epochs) x 1;
+            iepochs = 0;
             if isempty(filter)
-                filtered = ones(size(epochs)); %when no filter given, all epochs are filtered in 
+                iepochs = ones(size(epochs)); %when no filter given, all epochs are filtered in 
             elseif max(epochs) <= size(obj.P.data,1) && filter{1} > 0 && filter{1}<=size(obj.P.data,2)
-                filtered = ismember(obj.P.data(epochs,filter{1}),filter{2});                    
+                iepochs = ismember(obj.P.data(epochs,filter{1}),filter{2});                    
             end
             
+        end
+        function FilterEpochs(obj,iepochs)
+            %iepochs - output from obj.FilteredIn() - logigal array of epochs that should be left
+            assert(isempty(obj.iepochs),'epochs are already filtered');
+            obj.P.data = obj.P.data(iepochs,:); %leave only the epochs matching the filter 
+            if ~isempty(obj.trialtypes)
+                obj.trialtypes = obj.trialtypes(iepochs,:);%leave only the trialtypes for epochs matching the filter 
+            end
+            obj.iepochs = iepochs;
         end
         function agree = CategoriesAgreeWithStat(obj,kategories,Wp)
             %return true if the behavioral kategories agree with kategories in stat
@@ -398,6 +408,9 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             end    
             if exist('Tname','var')
                 T = load(Tname);
+                if ~isempty(obj.iepochs)
+                    T = T(obj.iepochs,:);
+                end
                 assert(size(T.(Tname),1) >= size(obj.P.data,1),['wrong number of epochs in ' Tname ', should be ' num2str(size(obj.P.data,1))]);                                   
                 trialsdiff = size(T.(Tname),1) - size(obj.P.data,1); %how larger is trialtype table than trial data table
                 obj.trialtypes = T.(Tname)(trialsdiff+1:end,:);
