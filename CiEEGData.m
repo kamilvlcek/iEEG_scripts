@@ -355,7 +355,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             obj.RjEpochCh = false(obj.channels,obj.epochs); %no rejected epochs for now
             obj.epochsFilter.filter = filter;
             obj.epochsFilter.iepochs = iepochs;
-            fprintf('\n%i epochs extracted\n',obj.epochs );
+            fprintf('\n%i of %i epochs  extracted\n',obj.epochs, numel(iepochs) );
         end
         function obj = ResampleEpochs(obj,newepochtime)
             %resampluje epochy na -0.1 1, pricemz 0-1 je cas odpovedi
@@ -498,21 +498,21 @@ classdef CiEEGData < matlab.mixin.Copyable
             disp(['reference zmenena: ' obj.reference]); 
         end
         function [iEpCh]=GetEpochsExclude(obj,channels)
-            %vraci iEpCh (ch x epoch) = index epoch k vyhodnoceni - bez chyb, treningu a rucniho vyrazeni - pro kazdy kanal zvlast            
-            %muzu pouzit parametr channels, pokud chci jen nektere kanaly - ostatni jsou pak prazdne
+            %returns iEpCh (ch x epoch) = index of epochs to analyze - without errors, training and manual rejection - for each channel separately            
+            %I can use the channels parameter if I want only some channels - the others are then empty
             if ~exist('channels','var'), channels = 1:obj.channels; end
             iEpCh = zeros(obj.channels,obj.epochs);             
-            PsyData = obj.PsyData.copy();  %nechci menit puvodni tridu
+            PsyData = obj.PsyData.copy();  %I don't want to change the original class
             for ch = 1:numel(channels) 
                 if isa(obj.PsyData,'CPsyDataMulti') || ch==1 %pokud je to prvni kanal nebo se jedna o data CHilbertMulti s ruznymi subjektu a tedy ruznymi pocty chyb aj                                        
                     PsyData.SubjectChange(find(obj.els >= channels(ch),1)); 
-                    chyby = PsyData.GetErrorTrials();  % rows: trials, columns:  individual trials with errors, blocks < 75% correct, training trials, too short reaction time                  
-                    epochsEx = [chyby , zeros(size(chyby,1),1) ]; %pridam dalsi prazdny sloupec
-                    epochsEx(obj.RjEpoch,5)=1; %rucne vyrazene epochy podle EEG  - pro tento kanal 
-                    if size(epochsEx,1) < size(iEpCh,2) %pokud ruzny pocet epoch u ruznych subjektu
-                        epochsEx = cat(1,epochsEx,ones(size(iEpCh,2) - size(epochsEx,1),5)); %pridam dalsi epochy jako vyrazene 
+                    chyby = PsyData.GetErrorTrials();  % rows: epochs, 4 columns:  individual trials with errors, blocks < 75% correct, training trials, too short reaction time                  
+                    epochsEx = [chyby , zeros(size(chyby,1),1) ]; %index of excluded epochs - epochs x 5 - add another blank column to the errors matrix (chyby)
+                    epochsEx(obj.RjEpoch,5)=1; %add manually excluded epochs by EEG - for this channel 
+                    if size(epochsEx,1) < size(iEpCh,2) %if different number of epochs for different subjects
+                        epochsEx = cat(1,epochsEx,ones(size(iEpCh,2) - size(epochsEx,1),5)); %we will add other epochs as excluded 
                     end
-                    iEpCh(channels(ch),:) = all(epochsEx==0,2)'; %index epoch k pouziti                 
+                    iEpCh(channels(ch),:) = all(epochsEx(obj.epochsFilter.iepochs,:)==0,2)'; %index of epochs to use - from the selected epochs by filter - not excluded from any reason                
                     
                 else
                     iEpCh(channels(ch),:) = iEpCh(channels(ch-1),:); %pokud se jedna o CPsyData s jednim subjektem, pro vsechny kanaly to bude stejne
@@ -591,17 +591,19 @@ classdef CiEEGData < matlab.mixin.Copyable
                 baselinekat = cell(numel(kats),1); %baseline for each category separately
                 rjepchkat = cell(numel(kats),1); % {epoch x channels}; to be rejected for each category           
                 for k = 1:numel(kats) %for all categories ( or repetitions )
-                    if ~strcmp(kats_type,'kats') %we are analysing repetitions instead of categories 
-                        [katdata,~,RjEpCh] = obj.CategoryData(KATNUM,[],{kats_type, kats{k}}); %in kats there are repetitions 
-                        assert( numel(RjEpCh) > sum(sum(RjEpCh)), ['no nonrejected data in ' cell2str({kats_type, kats{k}})]); 
-                    else
-                        %still trialtypes can contain one trialtype to select
-                        [katdata,~,RjEpCh] = obj.CategoryData(cellval(kats,k),[],trialtypes); % time*channel*epochs for one category, epochs are excluded already?
-                        assert(numel(RjEpCh) > sum(sum(RjEpCh)), ['no nonrejected data in ' cell2str( kats(k))]); 
+                    if (sum(ismember(cell2mat(obj.epochData(:,2)), cellval(kats,k))) > 0) %if there are some epochs of this kategory
+                        if ~strcmp(kats_type,'kats') %we are analysing repetitions instead of categories 
+                            [katdata,~,RjEpCh] = obj.CategoryData(KATNUM,[],{kats_type, kats{k}}); %in kats there are repetitions 
+                            assert( numel(RjEpCh) > sum(sum(RjEpCh)), ['no nonrejected data in ' cell2str({kats_type, kats{k}})]); 
+                        else
+                            %still trialtypes can contain one trialtype to select
+                            [katdata,~,RjEpCh] = obj.CategoryData(cellval(kats,k),[],trialtypes); % time*channel*epochs for one category, epochs are excluded already?
+                            if(numel(RjEpCh) <= sum(sum(RjEpCh))), warning( ['no nonrejected data in ' cell2str( kats(k))]); end                            
+                        end
+                        responsekat{k,1} = katdata( ibaseline(2) - iepochtime(1)+1 :end,:,:); %time only after the stimulus : time x channel x epochs; 
+                        baselinekat{k,1} = katdata( ibaseline(1) - iepochtime(1)+1 : ibaseline(2) - iepochtime(1),:,:); 
+                        rjepchkat{k,1} = RjEpCh;
                     end
-                    responsekat{k,1} = katdata( ibaseline(2) - iepochtime(1)+1 :end,:,:); %time only after the stimulus : time x channel x epochs; 
-                    baselinekat{k,1} = katdata( ibaseline(1) - iepochtime(1)+1 : ibaseline(2) - iepochtime(1),:,:); 
-                    rjepchkat{k,1} = RjEpCh;
                 end
                 %provedu statisticke testy  - vuci baseline i mezi kat navzajem                
                 [obj.Wp(WpA).WpKat,obj.Wp(WpA).WpKatBaseline] = EEGStat.WilcoxCat(kats,responsekat,baselinekat,rjepchkat,itimewindow,method);                
