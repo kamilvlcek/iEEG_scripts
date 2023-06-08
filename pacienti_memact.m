@@ -37,9 +37,9 @@ pacienti(p).folder = {'p65639 Kam VT63','VT63 Kam p65639'};
 pacienti(p).data = 'VT63_2023-01-25_16-00_100_512hz_24_concat_memact.mat'; 
 pacienti(p).header = 'p65639_headerS.mat';  
 pacienti(p).psychopy = 'p65639_memact.mat';
-pacienti(p).rjepoch = ''; 
-pacienti(p).epievents = '';
-pacienti(p).rjch = [];
+pacienti(p).rjepoch = 'p65639_memact_rjepoch_immed.mat'; 
+pacienti(p).epievents = 'p65639_memact_epievents.mat';
+pacienti(p).rjch = [80, 126:128]; % line noise (80) and empty channels
 
 p=p+1;
 pacienti(p).todo = 1; 
@@ -47,8 +47,8 @@ pacienti(p).folder = {'p1554401 Poz VT64','VT64 Poz p1554401'};
 pacienti(p).data = 'VT64_2023-02-08_15-24_294_512hz_14_concat_memact.mat'; 
 pacienti(p).header = 'p1554401_headerS.mat';  
 pacienti(p).psychopy = 'p1554401_memact.mat';
-pacienti(p).rjepoch = ''; 
-pacienti(p).epievents = '';
+pacienti(p).rjepoch = 'p1554401_memact_rjepoch_immed.mat'; 
+pacienti(p).epievents = 'p1554401_memact_epievents.mat';
 pacienti(p).rjch = [];
 
 p=p+1;
@@ -57,9 +57,9 @@ pacienti(p).folder = {'p2185798 Jel VT65','VT65 Jel p2185798'};
 pacienti(p).data = 'VT65_2023-03-07_16-42_005_512hz_22_concat_memact.mat'; 
 pacienti(p).header = 'p2185798_headerS.mat'; 
 pacienti(p).psychopy = 'p2185798_memact.mat';
-pacienti(p).rjepoch = ''; 
-pacienti(p).epievents = '';
-pacienti(p).rjch = [];
+pacienti(p).rjepoch = 'p2185798_memact_rjepoch_immed.mat'; 
+pacienti(p).epievents = 'p2185798_memact_epievents.mat';
+pacienti(p).rjch = [129]; % noise
 
 pacienti = pacientFolderSelect(pacienti,setup_memact());
 end
