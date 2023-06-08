@@ -602,8 +602,14 @@ classdef CiEEGData < matlab.mixin.Copyable
                 responsekat = cell(numel(kats),1); %EEG response for each category separately
                 baselinekat = cell(numel(kats),1); %baseline for each category separately
                 rjepchkat = cell(numel(kats),1); % {epoch x channels}; to be rejected for each category           
+                kats_existing = kats; %list of existing kategories (in obj.epochData) from given kats
                 for k = 1:numel(kats) %for all categories ( or repetitions )
                     if (sum(ismember(cell2mat(obj.epochData(:,2)), cellval(kats,k))) > 0) %if there are some epochs of this kategory
+                        if iscell(kats_existing)
+                            kats_existing(k) = {intersect(unique(cell2double(obj.epochData(:,2))),cellval(kats,k))'}; %only these categories from kats{k} which exist in epochData
+                        else
+                            kats_existing(k) = intersect(unique(cell2double(obj.epochData(:,2))),cellval(kats,k))'; %only these categories from kats{k} which exist in epochData
+                        end
                         if ~strcmp(kats_type,'kats') %we are analysing repetitions instead of categories 
                             [katdata,~,RjEpCh] = obj.CategoryData(KATNUM,[],{kats_type, kats{k}}); %in kats there are repetitions 
                             assert( numel(RjEpCh) > sum(sum(RjEpCh)), ['no nonrejected data in ' cell2str({kats_type, kats{k}})]); 
@@ -615,7 +621,10 @@ classdef CiEEGData < matlab.mixin.Copyable
                         responsekat{k,1} = katdata( ibaseline(2) - iepochtime(1)+1 :end,:,:); %time only after the stimulus : time x channel x epochs; 
                         baselinekat{k,1} = katdata( ibaseline(1) - iepochtime(1)+1 : ibaseline(2) - iepochtime(1),:,:); 
                         rjepchkat{k,1} = RjEpCh;
+                    else
+                        if iscell(kats_existing),kats_existing(k) = []; else,kats_existing(k) = NaN; end
                     end
+                    
                 end
                 %provedu statisticke testy  - vuci baseline i mezi kat navzajem                
                 [obj.Wp(WpA).WpKat,obj.Wp(WpA).WpKatBaseline] = EEGStat.WilcoxCat(kats,responsekat,baselinekat,rjepchkat,itimewindow,method);                
@@ -624,12 +633,16 @@ classdef CiEEGData < matlab.mixin.Copyable
                     obj.Wp(WpA).kats = KATNUM;    %puvodni kategorie
                     obj.Wp(WpA).trialtypes = trialtypes; %v kats jsou ted opakovani                    
                 else
-                    obj.Wp(WpA).kats = kats; %ulozim si cisla kategorii kvuli grafu PlotResponseCh
+                    if iscell(kats_existing)
+                        obj.Wp(WpA).kats = kats_existing(~cellfun('isempty',kats_existing)); %ulozim si cisla kategorii kvuli grafu PlotResponseCh
+                    else
+                        obj.Wp(WpA).kats = kats_existing(~isnan(kats_existing));
+                    end
                     obj.Wp(WpA).trialtypes = trialtypes; %here can be one trialtype to be selected, but not for a contrast                    
                 end  
                 obj.Wp(WpA).method = method;
             else
-                obj.Wp(WpA).kats = kats;
+                obj.Wp(WpA).kats = []; %no statistics, no categories
                 obj.Wp(WpA).WpKat = cell(0);
                 obj.Wp(WpA).trialtypes = {};
                 obj.Wp(WpA).method = struct;
@@ -1387,15 +1400,15 @@ classdef CiEEGData < matlab.mixin.Copyable
                 elmaxmax = elmin + elsmax -1 ; % horni cislo el v sade, i kdyz bude pripadne prazdne
                 ielmax = find(els2plot <= min(elmaxmax,els2plot(end)) , 1, 'last') ; %horni cislo skutecne elektrody v sade
                 elmax = els2plot(ielmax);
-                els = els2plot( find(els2plot > elmin, 1,'first' )  : ielmax ); %#ok<PROP> %vyber z els2plot takze horni hranice cisel kontaktu
-                els(2,1) = elmin;%#ok<PROP>
-                els(2,2:end) = els(1,1:end-1)+1; %#ok<PROP> %doplnim dolni radku - zacatky kazde elektrody
+                els = els2plot( find(els2plot > elmin, 1,'first' )  : ielmax );  %vyber z els2plot takze horni hranice cisel kontaktu
+                els(2,1) = elmin;
+                els(2,2:end) = els(1,1:end-1)+1;  %doplnim dolni radku - zacatky kazde elektrody
             else
                 if e==1, elmin = 1; else, elmin = els2plot(e-1)+1; end %index prvni elektrody kterou vykreslit
                 while ismember(elmin,triggerCH), elmin = elmin+1; end
                 elmax = els2plot(e);            % index posledni elektrody kterou vykreslit
                 while ismember(elmax,triggerCH), elmax = elmax-1; end
-                els = [elmax; elmin]; %#ok<PROP>
+                els = [elmax; elmin]; 
                 elmaxmax = elmax;
             end
             
@@ -1438,11 +1451,11 @@ classdef CiEEGData < matlab.mixin.Copyable
             shift = repmat(shift,1,size(dd,2));
             colors = [ 'b' 'k'];
             c = 0;
-            h_els = cell(size(els,2)); %#ok<PROP> %budu si uklada handle plotu, abych je pak dal nahoru
+            h_els = cell(size(els,2));  %budu si uklada handle plotu, abych je pak dal nahoru
             iel = 1;
-            for el = els              %#ok<PROP>
-                rozsahel = (el(2):el(1))-els(2,1)+1;  %#ok<PROP>
-                rozsahel1 = setdiff(rozsahel, obj.RjCh-els(2,1)+1); %#ok<PROP> %nerejectovane kanaly  - zde se pocitaji od 1 proto odecitam els               
+            for el = els              
+                rozsahel = (el(2):el(1))-els(2,1)+1;  
+                rozsahel1 = setdiff(rozsahel, obj.RjCh-els(2,1)+1);  %nerejectovane kanaly  - zde se pocitaji od 1 proto odecitam els               
                 h_els{iel} = plot(t, bsxfun(@minus,shift(end,:),shift( rozsahel1,:)) + dd( rozsahel1,:) ,colors(c+1) );  
                 %lepsi bude je nezobrazovat
                 %rozsahel0 = intersect(rozsahel,obj.RjCh); %rejectovane kanaly                
@@ -1461,7 +1474,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             ylim([min(min(shift))-range max(max(shift))+range]); %rozsah osy y
             ylabel(['Electrode ' num2str(e) '/' num2str(numel(els2plot)) ]);
             xlabel(['Seconds of ' num2str( round(obj.samples*obj.epochs/obj.fs)) ]);
-            if allels==1, ty = -shift(4,1); else ty = -shift(2,1); end %jak muze byt size(shift)=[1,2560] - 119Bucko
+            if allels==1, ty = -shift(4,1); else, ty = -shift(2,1); end %jak muze byt size(shift)=[1,2560] - 119Bucko
             text(t(1),ty,[ 'resolution +/-' num2str(range) 'uV']);         
             xlim([t(1) t(end)]);
             
@@ -1518,7 +1531,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
             
 %             tohle uplne nejvic zdrzuje z cele funkce            
-%             for k= 1 : size(els,2) %#ok<PROP> %
+%             for k= 1 : size(els,2)  %
 %                     uistack(h_els{k}, 'top'); %dam krivky eeg ulne dopredu
 %             end
             
@@ -1827,13 +1840,10 @@ classdef CiEEGData < matlab.mixin.Copyable
                         plot(nanmedian(rtkatnum),y,'o','Color',colorkatk(1,:)); %median
                     end
                 end
-                y = (ymax-ymin)*0.2  ; %pozice na ose y 
-                text(0.04+obj.Wp(WpA).epochtime(1),y,obj.CS.StatText(obj.Wp,WpA,obj.PsyData));   %returns the text info about currenty selected statistics               
+                y = (ymax-ymin)*0.2  ; %pozice na ose y                               
                 if ~obj.plotRCh.outputstyle % 14.02.2022 Sofiia
                     if ~isempty(obj.Wp) %jen pokud je spocitana statistika , vypisu cislo aktivni statistiky a jmena kategorii
-                        if isfield(obj.Wp(obj.WpActive),'trialtypes'), trialtypestext= [' - trialtypes: ' cell2str(obj.Wp(obj.WpActive).trialtypes)]; else, trialtypestext= ''; end
-                        text(0.04+obj.Wp(WpA).epochtime(1),y,['stat ' num2str(obj.WpActive) '/' num2str(numel(obj.Wp)) '-'  cell2str(obj.PsyData.CategoryName(obj.Wp(obj.WpActive).kats,[])) ...
-                            trialtypestext ]); %, 'Interpreter', 'none'
+                        text(0.04+obj.Wp(WpA).epochtime(1),y,obj.CS.StatText(obj.Wp,WpA,obj.PsyData), 'Interpreter', 'none');   %returns the text info about currenty selected statistics                                                
                     end
                 end
                 for k= 1 : numel(kategories) %index 1-3
@@ -2063,12 +2073,13 @@ classdef CiEEGData < matlab.mixin.Copyable
             Wp = obj.Wp;                    %#ok<NASGU>
             DE = obj.DE;                    %#ok<NASGU>
             DatumCas = obj.DatumCas;        %#ok<NASGU>
+            epochsFilter = obj.epochsFilter;%#ok<NASGU>
             if isa(obj,'CHilbertMulti'), label = obj.label; else, label = []; end %#ok<NASGU>
             [pathstr,fname,ext] = CiEEGData.matextension(filename);        
             filename2 = fullfile(pathstr,[fname ext]);
             save(filename2,'d','tabs','tabs_orig','fs','header','sce','PsyDataP','PsyData','testname','epochtime','baseline','CH_H','CH_plots','CH_brainlabels','CH_clusters','CS_plots','els',...
                     'plotES','RCh_plots','RjCh','RjEpoch','RjEpochCh','epochTags','epochLast','reference','epochData','Wp','DE','DatumCas', 'label', 'CH_CorrelChan', ...
-                    'CH_filterMatrix','PL_Plots','-v7.3');  
+                    'CH_filterMatrix','PL_Plots','epochsFilter','-v7.3');  
             disp(['saved to ' filename2]); 
         end
         function [CH_plots,CS_plots,RCh_plots, PL_Plots,obj] = SaveRemoveFh(obj,RCh_plots)  %smazu vsechny handely na obrazky 
@@ -2101,14 +2112,14 @@ classdef CiEEGData < matlab.mixin.Copyable
             vars = whos('-file',filename) ;
             assert(ismember('d', {vars.name}), 'soubor neobsahuje promennou d, nejde o data tridy CHilbert?'); 
             load(filename,'d','tabs','tabs_orig','fs','header','sce','epochtime','els','RjCh','RjEpoch','epochTags','epochLast','reference');            
-            obj.d = d;                      %#ok<CPROPLC,CPROP,PROP> 
-            obj.tabs = tabs;                %#ok<CPROPLC,CPROP,PROP> 
-            obj.tabs_orig = tabs_orig;      %#ok<CPROPLC,CPROP,PROP> 
-            obj.fs = fs;                    %#ok<CPROPLC,CPROP,PROP>          
-            obj.mults = ones(1,size(d,2));  %#ok<CPROPLC,CPROP,PROP> 
-            obj.header = header;            %#ok<CPROPLC,CPROP,PROP> 
+            obj.d = d;                      %#ok<CPROPLC> 
+            obj.tabs = tabs;                %#ok<CPROPLC> 
+            obj.tabs_orig = tabs_orig;      %#ok<CPROPLC> 
+            obj.fs = fs;                    %#ok<CPROPLC>          
+            obj.mults = ones(1,size(d,2));  %#ok<CPROPLC> 
+            obj.header = header;            %#ok<CPROPLC> 
             obj.samples = sce(1); obj.channels=sce(2); obj.epochs = sce(3); %sumarni promenna sce
-            if exist('reference','var'),  obj.reference = reference;   else obj.reference = 'original'; end  %#ok<CPROPLC,CPROP,PROP>  %14.6.2016                        
+            if exist('reference','var'),  obj.reference = reference;   else, obj.reference = 'original'; end  %#ok<CPROPLC>  %14.6.2016                        
             vars = whos('-file',filename);
             if ismember('PsyDataP', {vars.name}) %ulozena pouze struktura P z PsyData
                 load(filename,'PsyDataP'); 
@@ -2123,16 +2134,17 @@ classdef CiEEGData < matlab.mixin.Copyable
             if ~isempty(obj.PsyData) %muzu ulozit tridu i bez psydata
                 if ismember('testname', {vars.name})
                     load(filename,'testname');
-                    obj.PsyData.GetTestName(testname); %#ok<CPROPLC> %  %zjisti jmeno testu
+                    obj.PsyData.GetTestName(testname);  %  %zjisti jmeno testu
                 else
-                    obj.PsyData.GetTestName(''); %#ok<CPROPLC> %  %zjisti jmeno testu
+                    obj.PsyData.GetTestName('');  %  %zjisti jmeno testu
                 end
             end
             if obj.epochs > 1
-                if ismember('epochData', {vars.name}), load(filename,'epochData');  obj.epochData = epochData;   end  %#ok<CPROPLC,CPROP,PROP> 
-                if ismember('baseline',  {vars.name}), load(filename,'baseline');   obj.baseline = baseline;   end    %#ok<CPROPLC,CPROP,PROP>      
+                if ismember('epochData', {vars.name}),    load(filename,'epochData');  obj.epochData = epochData;   end  %#ok<CPROPLC> 
+                if ismember('baseline',  {vars.name}),    load(filename,'baseline');   obj.baseline = baseline;   end    %#ok<CPROPLC>      
+                if ismember('epochsFilter', {vars.name}), load(filename,'epochsFilter');  obj.epochsFilter = epochsFilter;   end  %#ok<CPROPLC> 
                 load(filename,'epochtime');                
-                obj.epochtime = epochtime;      %#ok<CPROPLC,CPROP,PROP>               
+                obj.epochtime = epochtime;      %#ok<CPROPLC>               
             else
                 obj.epochtime = [];
                 obj.baseline = [];
@@ -2158,43 +2170,43 @@ classdef CiEEGData < matlab.mixin.Copyable
                 load(filename,'CH_clusters');      obj.CH.clusters = CH_clusters;                              
             end 
             if ismember('Wp', {vars.name})
-                load(filename,'Wp');      obj.Wp = Wp; %#ok<CPROPLC,CPROP,PROP>
+                load(filename,'Wp');      obj.Wp = Wp; %#ok<CPROPLC>
             else
                 obj.Wp = struct;
             end
             if ismember('DE', {vars.name}) %1.9.2016
-                load(filename,'DE');      obj.DE = DE; %#ok<CPROPLC,CPROP,PROP>
+                load(filename,'DE');      obj.DE = DE; %#ok<CPROPLC>
             else
                 obj.Wp = struct;
             end
             if ismember('DatumCas', {vars.name}) %7.4.2017
-                load(filename,'DatumCas');      obj.DatumCas = DatumCas; %#ok<CPROPLC,CPROP,PROP>
+                load(filename,'DatumCas');      obj.DatumCas = DatumCas; %#ok<CPROPLC>
             else
                 obj.DatumCas = {};
             end
             if ismember('RjEpochCh', {vars.name}) %17.7.2017
-                load(filename,'RjEpochCh');      obj.RjEpochCh = RjEpochCh; %#ok<CPROPLC,CPROP,PROP> 
+                load(filename,'RjEpochCh');      obj.RjEpochCh = RjEpochCh; %#ok<CPROPLC> 
             else
                 obj.RjEpochCh = false(obj.channels,obj.epochs); %zatim zadne vyrazene epochy
             end
-            if ~isprop(obj,'els') || isempty(obj.els), obj.els = els;  end   %#ok<CPROPLC,CPROP,PROP> %spis pouziju els sestavane z headeru
+            if ~isprop(obj,'els') || isempty(obj.els), obj.els = els;  end   %#ok<CPROPLC> %spis pouziju els sestavane z headeru
             obj.LoadPlots(filename,vars);
-            %obj.plotH = plotH;             %#ok<CPROPLC,CPROP,PROP> 
-            obj.RejectChannels(RjCh,1);     %#ok<CPROPLC,CPROP,PROP>     
-            obj.RjEpoch = RjEpoch;          %#ok<CPROPLC,CPROP,PROP> 
-            if exist('epochTags','var'),  obj.epochTags = epochTags;   else obj.epochTags = []; end         %#ok<CPROPLC,CPROP,PROP>     
-            if exist('epochLast','var'),  obj.epochLast = epochLast;   else obj.epochLast = []; end         %#ok<CPROPLC,CPROP,PROP>             
+            %obj.plotH = plotH;             %#ok<CPROPLC> 
+            obj.RejectChannels(RjCh,1);     %#ok<CPROPLC>     
+            obj.RjEpoch = RjEpoch;          %#ok<CPROPLC> 
+            if exist('epochTags','var'),  obj.epochTags = epochTags;   else, obj.epochTags = []; end         %#ok<CPROPLC>     
+            if exist('epochLast','var'),  obj.epochLast = epochLast;   else, obj.epochLast = []; end         %#ok<CPROPLC>             
             obj.filename = filename;
-            if isa(obj,'CHilbertMulti') && ismember('label', {vars.name}), load(filename,'label'); obj.label = label; end %#ok<NASGU>
+            if isa(obj,'CHilbertMulti') && ismember('label', {vars.name}), load(filename,'label'); obj.label = label; end 
             disp(['nacten soubor ' filename]); 
         end
         function obj = LoadPlots(obj,filename,vars)          
             if ismember('selCh', {vars.name}) || ismember('selChNames', {vars.name})
                 if ismember('selCh', {vars.name}) %nastaveni grafu PlotResponseCh
-                    load(filename,'selCh'); obj.plotRCh.selCh = selCh;          %#ok<CPROPLC,CPROP,PROP> 
+                    load(filename,'selCh'); obj.plotRCh.selCh = selCh;           
                 end            
                 if ismember('selChNames', {vars.name}) %nastaveni grafu PlotResponseCh - jmena vyberu kanalu fghjkl
-                    load(filename,'selChNames'); obj.plotRCh.selChNames = selChNames;          %#ok<CPROPLC,CPROP,PROP>
+                    load(filename,'selChNames'); obj.plotRCh.selChNames = selChNames;         
                 else
                     obj.plotRCh.selChNames = [];  
                 end
@@ -2214,7 +2226,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 obj.SetSelCh([]); %nastavim prazdne - zadne vybrane kanaly
             end
             if ismember('plotES', {vars.name})
-                load(filename,'plotES'); obj.plotES = plotES;            %#ok<CPROPLC,CPROP,PROP>            
+                load(filename,'plotES'); obj.plotES = plotES;            %#ok<CPROPLC>            
             end
             if ismember('CH_plots', {vars.name}) %nastaveni obou grafu mozku v CHHeader
                 PL = load(filename,'CH_plots'); 
@@ -2697,7 +2709,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                    end               
                case {'add' ,  'equal'}     %signal mensi - vetsi rozliseni %u terezy na notebooku 
                    if obj.plotES(3)>=obj.yrange(3), pricist = obj.yrange(4);
-                   else pricist = obj.yrange(2);                   
+                   else, pricist = obj.yrange(2);                   
                    end
                    obj.PlotElectrode(obj.plotES(1),obj.plotES(2),obj.plotES(3)+pricist,obj.plotES(4));                
                case {'subtract' , 'hyphen'} %signal vetsi - mensi rozliseni   %u terezy na notebooku  

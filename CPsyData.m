@@ -159,7 +159,7 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             % pokud je concat prazdne, vrati se cell array
             
             if ~exist('concat','var'), concat = '+'; end %defaulte se vice jmen kategorii spojuje pomoci +            
-            if numel(katnum) == 1               
+            if numel(katnum) == 1 && isnumeric(katnum)           
                kat = obj.P.strings.podminka{katnum+1};               
             elseif ~isempty(concat)
                 kat = '';
