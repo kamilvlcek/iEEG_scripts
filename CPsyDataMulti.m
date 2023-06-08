@@ -47,6 +47,18 @@ classdef CPsyDataMulti < CPsyData
             obj.SubjectChange(obj.iS + 1);
             obj.blocksMulti = [obj.blocksMulti, {[]}]; %pridam dalsi prazdny cell na konec
         end  
+        function [obj]= FilterEpochs(obj,iepochs)
+            assert(isempty(obj.iepochs),'epochs are already filtered');             
+            for iS=1:obj.nS %#ok<*PROPLC,*PROP> %over all subjects
+                %obj.SubjectChange does not write to obj.Pmulti, so it cannot be used for this purpose
+                obj.Pmulti(iS).data = obj.Pmulti(iS).data(iepochs,:); %filter directly
+                %leave only the epochs matching the filter 
+            end
+            if ~isempty(obj.trialtypes)
+                obj.trialtypes = obj.trialtypes(iepochs,:);%leave only the trialtypes for epochs matching the filter 
+            end
+            obj.iepochs = iepochs;
+        end
         function Responses2XLS(obj,Wp,makefile,xlslabel)
             %export xls table for responses of all patients in CHilbertMulti file
             %similar to psydataavg(), but this function works over all patients without CHilbertMulti file
@@ -131,6 +143,19 @@ classdef CPsyDataMulti < CPsyData
             for s=1:obj.nS
                 epochs=max(epochs,size(obj.Pmulti(s).data,1));
             end
+        end
+        function chybyMulti = GetErrorTrialsMulti(obj)
+            iSbak = obj.iS;
+            chybyMulti = zeros(obj.nS,6); %sums of error for subjects rows = subjects, columns = types of errorsa
+                %individual errors, error blocks, training trials, too short reaction times, any reason except training, num of trials
+            for iS = 1:obj.nS
+                obj.SubjectChange(iS);
+                chyby = obj.GetErrorTrials();
+                chybyMulti(iS,1:4) = sum(chyby);                
+                chybyMulti(iS,5) = sum(any(chyby(:,[1 2 4]),2)); %new fifth columnt - trial excluded for any reason, except training
+                chybyMulti(iS,6) = size(chyby,1) - sum(isnan(chyby(:,1))); %new sixth columnt - num of trials
+            end
+            obj.SubjectChange(iSbak);
         end
     end
     methods (Access = private)

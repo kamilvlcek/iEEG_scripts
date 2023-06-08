@@ -177,6 +177,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
         end
         function [obj] = FdrVALS(obj,fdr,label)
             %performs fdr correction on obj.PVALS and corrects the channels in obj.VALS according to results
+            %removes non significant channels
             if ~exist('fdr','var') || isempty(fdr), fdr = 1; end %default is less strict
             if ~exist('label','var'), label = ''; end %label of the output xls file
             if fdr == 2, fdrmethod = 'dep'; else fdrmethod = 'pdep'; end %#ok<SEPEX> %dep je striktnejsi nez pdep
@@ -208,14 +209,14 @@ classdef CBrainPlot < matlab.mixin.Copyable
                         adj_p = adj_p(ich0,:); %leave only those originally significant
                         ich1 = min(adj_p,[],2)<obj.plevel; %index of now significant from the original ones                    
                         %filter out original values according to fdr corretion
-                        obj.VALS{interval,kat} = obj.VALS{interval,kat}(ich1);
+                        obj.VALS{interval,kat} = obj.VALS{interval,kat}(ich1); %select only now significant channels
                         obj.MNI{interval,kat}  = obj.MNI{interval,kat}(ich1);
                         obj.NAMES{interval,kat} = obj.NAMES{interval,kat}(ich1);
                         obj.NLabels{interval,kat} = obj.NLabels{interval,kat}(ich1);
                         obj.EpiInfo{interval,kat} = obj.EpiInfo{interval,kat}(ich1);
                         obj.PAC{interval,kat} = obj.PAC{interval,kat}(ich1); %PAC table
                         obj.iPAC(interval,kat) = numel(obj.PAC{interval,kat});
-                        chremoved(interval,kat) = sum(min(adj_p,[],2)>=obj.plevel); 
+                        chremoved(interval,kat) = sum(min(adj_p,[],2)>=obj.plevel); %number of removed channels, not significant after fdr
                     else
                         %for kat AllEl with all channels and all pvalues = 1
                         %do not filter out any channels

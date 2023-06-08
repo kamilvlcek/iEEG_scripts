@@ -1,7 +1,7 @@
 function [ pacienti, setup,frekvence,reference ] = pacienti_setup_load( testname,alignresponse )
-%PACIENTI_SETUP_LOAD nacte seznam pacientu a nastaveni pro konkretni test
+%PACIENTI_SETUP_LOAD loads a list of patients and settings for a specific test
 %   [ pacienti, setup,frekvence,reference  ] = pacienti_setup_load( testname )
-%   3.5.2018 kvuli castemu opakovani
+%   3.5.2018 
     if(~exist('alignresponse','var')) || isempty(alignresponse) , alignresponse = 0; end
     if strcmp(testname,'aedist')
         pacienti = pacienti_aedist(); %nactu celou strukturu pacientu   
@@ -15,8 +15,12 @@ function [ pacienti, setup,frekvence,reference ] = pacienti_setup_load( testname
         pacienti = pacienti_menrot(); %nactu celou strukturu pacientu    
         setup = setup_menrot(alignresponse);
         [ frekvence,reference ] = freqref_menrot(); %nactu frekvence a reference k vyhodnoceni 
+    elseif strcmp(testname,'memact')
+        pacienti = pacienti_memact(); %load the entire structure of the patient   
+        setup = setup_memact(alignresponse); %load the setup for this test
+        [ frekvence,reference ] = freqref_memact(); %load frequencies and references
     else
-        error(['neznamy typ testu: ' testname]);
+        error(['unknown test type: ' testname]);
     end
 
 end

@@ -8,7 +8,8 @@ function [out,MARKER,envelope,background,discharges,envelope_pdf]=spike_detector
 % paper: DOI: 10.1007/s10548-014-0379-1
 % "Detection of Interictal Epileptiform Discharges Using Signal Envelope Distribution Modelling: Application to Epileptic and Non-Epileptic Intracranial Recordings"
 %
-% _________________________________________________________________________
+% https://github.com/EpiReC-ISARG  
+%_________________________________________________________________________
 % recomended calling:
 % [...]=spike_detector_hilbert_v16_byISARG(d,fs);
 % 
