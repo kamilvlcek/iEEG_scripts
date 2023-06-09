@@ -100,35 +100,39 @@ classdef CEEGStat
                  end
             end
             
-            %rozdily kategorii vuci sobe
-            paired = 0; %pouziju parovy test
+            %differences of categories in relation to each other
+            paired = 0; %if to use the paired test
             pairedstr = iff(paired,'paired','non-paired'); %text do vypisu
             WpKat = cell(numel(kats)); %rozdily mezi kategorieme
-            for k = 1:numel(kats) %budu statisticky porovnavat kazdou kat s kazdou, bez ohledu na poradi
+            for k = 1:numel(kats) %we will statistically compare each cat to each, regardless of order
                 for j = k+1:numel(kats)
-                    if strcmp(method.test,'wilcox') %non-parametri wilcoxon test 
-                        if method.chn == 1 %statistics for each channel separatele, only the the times with signif response relative to baseline
-                            Wr = ones(size(WpKatBaseline{1})); %hi p values by default 
-                            fprintf('kat %i vs %i - Channels Individually - Wilcox2D %s: ch    ',k,j,pairedstr);
-                            for ch = 1:size(Wr,2)  %over all channels                              
-                                if min(WpKatBaseline{k}(:,ch))<.05 || min(WpKatBaseline{j}(:,ch))<.05 %if at least one kat is significant from baseline
-                                    % -------- WILCOX each category with each category:
-                                    Wr(:,ch) = CStat.Wilcox2D(responsekat{k}(:,ch,:), responsekat{j}(:,ch,:),0,method.fdr,['kat ' num2str(k) ' vs ' num2str(j)],rjepchkat{k}(ch,:),rjepchkat{j}(ch,:),paired); 
-                                    %fprintf('%i,',ch);
-                                end                                
-                                fprintf('\b\b\b\b\b%5i',ch);  %list each channel 
+                    if ~isempty(WpKatBaseline{k}) && ~isempty(WpKatBaseline{j})
+                        if strcmp(method.test,'wilcox') %non-parametric wilcoxon test 
+                            if method.chn == 1 %statistics for each channel separatele, only the the times with signif response relative to baseline
+                                Wr = ones(size(WpKatBaseline{1})); %hi p values by default 
+                                fprintf('kat %i vs %i - Channels Individually - Wilcox2D %s: ch    ',k,j,pairedstr);
+                                for ch = 1:size(Wr,2)  %over all channels                              
+                                    if min(WpKatBaseline{k}(:,ch))<.05 || min(WpKatBaseline{j}(:,ch))<.05 %if at least one kat is significant from baseline
+                                        % -------- WILCOX each category with each category:
+                                        Wr(:,ch) = CStat.Wilcox2D(responsekat{k}(:,ch,:), responsekat{j}(:,ch,:),0,method.fdr,['kat ' num2str(k) ' vs ' num2str(j)],rjepchkat{k}(ch,:),rjepchkat{j}(ch,:),paired); 
+                                        %fprintf('%i,',ch);
+                                    end                                
+                                    fprintf('\b\b\b\b\b%5i',ch);  %list each channel 
+                                end
+                                if method.fdr == 0, fprintf('no fdr ...'); end
+                                fprintf(' ... OK \n');
+                            else  %statistics for all channels together 
+                                %TODO no difference to baseline is required. Is it OK? Inconsistent with the method.chn == 1
+                                Wr = CStat.Wilcox2D(responsekat{k}, responsekat{j},1,method.fdr,['kat ' num2str(k) ' vs ' num2str(j)],rjepchkat{k},rjepchkat{j}, paired); % -------- WILCOX kazda kat s kazdou 
                             end
-                            if method.fdr == 0, fprintf('no fdr ...'); end
-                            fprintf(' ... OK \n');
-                        else  %statistics for all channels together 
-                            %TODO no difference to baseline is required. Is it OK? Inconsistent with the method.chn == 1
-                            Wr = CStat.Wilcox2D(responsekat{k}, responsekat{j},1,method.fdr,['kat ' num2str(k) ' vs ' num2str(j)],rjepchkat{k},rjepchkat{j}, paired); % -------- WILCOX kazda kat s kazdou 
+                        elseif strcmp(method.test,'permut') %non-parametric permutation test
+                            Wr = CStat.PermStat(responsekat{k}, responsekat{j},1,['kat ' num2str(k) ' vs ' num2str(j)],rjepchkat{k},rjepchkat{j}); % -------- Permutacni test kazda kat s kazdou 
+                        else
+                            disp(['unknown statistical method: ' method.test]);
+                            Wr = [];
                         end
-                    elseif strcmp(method.test,'permut') %non-parametric permutation test
-                        Wr = CStat.PermStat(responsekat{k}, responsekat{j},1,['kat ' num2str(k) ' vs ' num2str(j)],rjepchkat{k},rjepchkat{j}); % -------- Permutacni test kazda kat s kazdou 
                     else
-                        disp('neznama metoda statistiky');
-                        Wr = [];
+                        Wr = []; %for at least one categore significance relative to baseline is not computed                    
                     end
                     if numel(itimewindow)==0 
                         WpKat{k,j} = Wr;  % pokud nechci pouzit klouzave okno

@@ -17,6 +17,7 @@ if ~isfield(cfg,'suffix'), cfg.suffix = ['Ep' datestr(now,'YYYY-mm')]; end %defa
 if ~isfield(cfg,'pacienti'), cfg.pacienti = {}; end %muzu analyzovat jen vyber pacientu
 if ~isfield(cfg,'normalization'), cfg.normalization = 'orig'; end %type of normalization after hilbert transform
 if ~isfield(cfg,'statmethod'), cfg.statmethod = struct('test','wilcox','chn',1,'fdr',1); end %for explanation see BatchStat
+if ~isfield(cfg,'epochfilter'), cfg.epochfilter = []; end % I can select only some epochs and include them in the resulting file, e.g. {8,[1 2]}; - epochs with values 1 or 2 in the 8th column of obj.P.data
 if ~isfield(cfg,'decimatefactor'), cfg.decimatefactor = 8; end %decimate factor to use after hilbert tranform. 8 should be enough for trial-average analysis
 
 [ pacienti, setup,frekvence,reference  ] = pacienti_setup_load( testname,cfg.srovnejresp ); %11.1.2018 - 0 = zarovnani podle podnetu, 1=zarovnani podle odpovedi
@@ -50,7 +51,7 @@ for p = 1:numel(pacienti)
     if pacienti(p).todo        
         if(exist([basedir pacienti(p).folder '\' pacienti(p).data],'file')~=2)
             if(exist([basedir pacienti(p).folder '\' subfolder '\'  pacienti(p).data],'file')~=2)
-                msg = ['Data neexistuji: ' pacienti(p).folder '\\' pacienti(p).data];
+                msg = ['Data neexistuji: ' pacienti(p).folder '\' pacienti(p).data];
                 disp(msg); fprintf(fileID,[msg '\n']);
                 chybasoubor = true; 
             else
@@ -59,21 +60,21 @@ for p = 1:numel(pacienti)
         else
             datafolder = '' ;
             fprintf(fileID,[ 'OK: ' pacienti(p).folder '\\' pacienti(p).data  '\n']);
-        end;
+        end
         if(exist([basedir pacienti(p).folder '\' pacienti(p).header],'file')~=2)
             msg = ['Header neexistuje: ' pacienti(p).folder '\\' pacienti(p).header];
             disp(msg); fprintf(fileID,[msg '\n']);
             chybasoubor = true;
         else
             fprintf(fileID,[ 'OK: ' pacienti(p).folder '\\' pacienti(p).header  '\n']);
-        end;
+        end
         if(exist([basedir pacienti(p).folder '\' subfolder '\' pacienti(p).psychopy],'file')~=2)
             msg = ['Psychopy soubor neexistuje: ' pacienti(p).folder '\\' subfolder '\\' pacienti(p).psychopy]; 
             disp(msg); fprintf(fileID,[msg '\n']);
             chybasoubor = true;  
         else
             fprintf(fileID,[ 'OK: ' pacienti(p).folder '\\' pacienti(p).psychopy  '\n']);
-        end;
+        end
         if ~isempty(pacienti(p).rjepoch)  %muze byt prazne, pak se nevyrazuji zadne epochy     
             if(exist([basedir pacienti(p).folder '\' subfolder '\' pacienti(p).rjepoch],'file')~=2)
                 msg = ['rjepoch neexistuje: ' pacienti(p).folder '\\' subfolder '\\' pacienti(p).rjepoch]; 
@@ -81,7 +82,7 @@ for p = 1:numel(pacienti)
                 chybasoubor = true;                 
             else
                 fprintf(fileID,[ 'OK: ' pacienti(p).folder '\\' pacienti(p).rjepoch  '\n']);
-            end;            
+            end         
         end
     end
 end
@@ -150,22 +151,24 @@ for f=1:numel(frekvence)
                             elseif cfg.overwrite == 0
                                 disp(['soubor zatim neexistuje - zpracovavam: ' outfilename suffixclass]); 
                             end
-                            load([basedir pacienti(p).folder datafolder '\' pacienti(p).data]);
-                            load([basedir pacienti(p).folder '\' pacienti(p).header]);
-                            load([basedir pacienti(p).folder '\' subfolder '\' pacienti(p).psychopy]);
+                            load([basedir pacienti(p).folder datafolder '\' pacienti(p).data]); %#ok<LOAD>
+                            load([basedir pacienti(p).folder '\' pacienti(p).header]); %#ok<LOAD>
+                            load([basedir pacienti(p).folder '\' subfolder '\' pacienti(p).psychopy]); %#ok<LOAD>
                             if strcmp(prefix,'PPA')
                                 psychopy = ppa; clear ppa;
                             elseif strcmp(prefix ,'AEdist')
                                 psychopy = aedist; clear aedist;
                             elseif strcmp(prefix ,'Menrot')
                                 psychopy = menrot; clear menrot;
+                            elseif strcmp(prefix ,'MemAct')
+                                psychopy = memact; clear memact;
                             else
-                                msg = ['neznamy typ testu ' prefix];
+                                msg = ['BatchHilbert: unknown test name ' prefix];
                                 fprintf(fileID,[msg '\n']);
                                 error(msg);
                             end
                             if ~isempty(pacienti(p).rjepoch)                         
-                                load([basedir pacienti(p).folder '\' subfolder '\' pacienti(p).rjepoch]);
+                                load([basedir pacienti(p).folder '\' subfolder '\' pacienti(p).rjepoch]); %#ok<LOAD>
                             end
                             if ~exist('mults','var'),  mults = []; end
                             if ~exist('header','var'), header = []; end
@@ -192,7 +195,7 @@ for f=1:numel(frekvence)
                             E.RejectChannels(pacienti(p).rjch);
                             epieventfile = [basedir pacienti(p).folder '\' subfolder '\' pacienti(p).epievents];
                             if exist(epieventfile,'file')==2 %pokud existuji, nactu epieventy
-                                 load(epieventfile);
+                                 load(epieventfile); %#ok<LOAD>
                                  E.GetEpiEvents(DE); 
                             else
                                 disp(['epievent soubor neexistuje: ' epieventfile]);
@@ -213,9 +216,9 @@ for f=1:numel(frekvence)
                             if cfg.extractepochs 
                                 disp('extracting epochs ...');
                                 if ERP
-                                    E.ExtractEpochs(psychopy,epochtime,baseline);                                 
+                                    E.ExtractEpochs(psychopy,epochtime,baseline,cfg.epochfilter);                                 
                                 else
-                                    E.ExtractEpochs(psychopy,epochtime,baseline,cfg.freqepochs);   
+                                    E.ExtractEpochs(psychopy,epochtime,baseline,cfg.freqepochs,cfg.epochfilter);   
                                 end
                                 if exist('RjEpoch','var') %muze byt prazne, pak se nevyrazuji zadne epochy
                                     E.RejectEpochs(RjEpoch); %globalne vyrazene epochy
@@ -249,7 +252,7 @@ for f=1:numel(frekvence)
                             clear E d tabs fs mults header RjEpoch RjEpochCh psychopy H ans; 
                         catch exception 
                             errorMessage = exceptionLog(exception);                         
-                            disp(errorMessage);  fprintf(fileID,[errorMessage '\n']);  %#ok<DSPS> %zobrazim hlasku, zaloguju, ale snad to bude pokracovat dal                            
+                            disp(errorMessage);  fprintf(fileID,[errorMessage '\n']); %zobrazim hlasku, zaloguju, ale snad to bude pokracovat dal                            
                             souborystats(3) = souborystats(3) + 1; %dalsi chybny soubor
                             tablelog(cyklus+1,:) = {['''' frekvence(f).freqname], pacienti(p).folder, num2str(p), reference(r).name, 'error', exception.message , datestr(now)}; 
                             clear E d tabs fs mults header RjEpoch psychopy H ans; 
