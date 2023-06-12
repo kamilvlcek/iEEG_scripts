@@ -626,7 +626,7 @@ classdef CStat < handle
             assert(size(A,4)>1 && size(B,4)>1,'both matrices need to be 4 dimensional');
             W = ones(size(A,1),size(A,2),size(A,3)); 
             iW = false(size(A,1),size(A,2),size(A,3)); %index of what should be fdr corrected 
-            if print, fprintf(['Wilcox Test 3D - ' msg ' (samples of ' num2str(size(A,1)) '): ']); end
+            if print, fprintf('Wilcox Test 3D - %s (samples of %i, %i channels, %i epochs ):\n', msg, size(A,1), size(A,2), size(A,3)); end
             for ts = 1:size(A,1) %time samples
                 if print , fprintf('%d ', ts); end %tisknu jen cele padesatky, && mod(ts,50)==0
                 for ch = 1:size(A,2) %channels

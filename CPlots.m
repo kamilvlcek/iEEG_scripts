@@ -7,6 +7,7 @@ classdef CPlots < matlab.mixin.Copyable
         PlotRChMean; %data for  PlotResponseChMean        
         plotTimeInt = struct; %stavove udaje o grafu TimeIntervals
         plotCorrelChanData = struct; % save info about the plot PlotCorelChan %Sofiia 25.11.2020 originally in CiEEGData
+        plotPlotEpochData = struct; % state info about the plotEpochData chart
     end
     methods (Access = public)
         function obj = CPlots(E) %constructor
@@ -877,7 +878,63 @@ classdef CPlots < matlab.mixin.Copyable
                 disp(['xls table ' xlsfilename ' was exported']);
             end
         end
-        
+        function obj = plotEpochData(obj, epochrel,verthorz, katnum,ch)
+            %plots freq-averaged single epoch data - average of BVA, with response tim and single-trial significance 
+            if isfield(obj.plotPlotEpochData,'fh') && ishandle(obj.plotPlotEpochData.fh)
+                figure(obj.plotPlotEpochData.fh); %use the existing figure                
+            else
+                obj.plotPlotEpochData.fh = figure('Name','plotEpochData');
+            end            
+            if exist('epochrel','var') && ~isempty(epochrel) %relative epoch number in the specific subplot
+                obj.plotPlotEpochData.epochrel = epochrel;
+            else
+                epochrel = obj.plotPlotEpochData.epochrel;
+            end 
+            if exist('verthorz','var') && ~isempty(verthorz)
+                obj.plotPlotEpochData.verthorz = verthorz;
+            else
+                verthorz = obj.plotPlotEpochData.verthorz;
+            end 
+            if exist('katnum','var') && ~isempty(katnum)
+                obj.plotPlotEpochData.katnum = katnum;
+            else
+                katnum = obj.plotPlotEpochData.katnum;
+            end    
+            if exist('ch','var') && ~isempty(ch)
+                obj.plotPlotEpochData.ch = ch;
+            else
+                ch = obj.plotPlotEpochData.ch;
+            end              
+            
+            iEpochs = squeeze(obj.Eh.plotEp.iepochs(1,verthorz(2),:)); %logical index of nonexcluded epochs for this category in all epochs
+            ep = squeeze(obj.Eh.plotEp.iepochs(verthorz(1),verthorz(2),iEpochs)); %logical index of epochs with single trial significance in all nonexcluded epochs            
+            epochsnum = find(ep(obj.Eh.plotEp.isorted{1,verthorz(2)})); %absolute number of the epochs  with single trial significance             
+                %we need absolute indexes because of sorting (plotEp.isorted use above) contains only nonexcluded epochs from this cateogry
+            epoch = epochsnum(epochrel);  % number of epoch in all nonexcluded in this category
+            iEpochsAbs = find(iEpochs); %
+            iEpochsAbs = iEpochsAbs(obj.Eh.plotEp.isorted{1,verthorz(2)}); %
+            epochabs = iEpochsAbs(epoch); %absolute number of epochs in obj.d (i.e. all epochs)
+            STpA = obj.Eh.STpActive; %just shortcut
+            epochP = obj.Eh.STp(STpA).epochs==epochabs; %epoch num inside of P 
+
+            katname = obj.Eh.PsyData.CategoryName(katnum);
+            title(sprintf('epoch %i (%i)(%i) of channel %i, %s',epoch,epochrel,epochabs, ch,katname));
+            T = linspace(obj.Eh.epochtime(1),obj.Eh.epochtime(2),size(obj.Eh.d,1)); %time scale - all samples
+            yyaxis left
+            plot(T,obj.Eh.d(:,ch,epochabs));   
+            ylim(obj.Eh.plotEp.ylim);
+            yyaxis right             
+            iT = obj.Eh.STp(STpA).iepochtime(2,1) : obj.Eh.STp(STpA).iepochtime(2,2);
+            ichannel = false(obj.Eh.channels,1);
+            ichannel(ch) = 1; %logical index of ch in all channels             
+            plot(T(iT),squeeze(obj.Eh.STp(STpA).P(:,ichannel(obj.Eh.STp(STpA).ichannels),epochP)));  %iEpochs(obj.Eh.STp.iepochs)
+            ylim([0 0.5]);
+            set(obj.plotPlotEpochData.fh,'KeyPressFcn',@obj.hybejplotEpochData);
+            line([0 0],[0 0.5],'Color','black','LineWidth',1); %stimulus
+            rt = obj.Eh.PsyData.P.data(epochabs,4);
+            line([rt rt],[0 0.5],'Color','black','LineWidth',1); %stimulus
+            
+        end
         function [rho,pval,maxTrials,obj] = ComputeCorrelChan(obj,ch,tmax,fraction,correctRT,correctTrials, conditions, katdata) %Sofiia since 11.2020             
             %function to compute correlation between behavioural RT and time of eeg resp maximum (or valmax) for one channel
             % to remove duplicite code in PlotCorrelChan and GetCorrelChan; now calls from PlotCorrelChan
@@ -1129,6 +1186,23 @@ classdef CPlots < matlab.mixin.Copyable
             delete(obj.plotTimeInt.filterListener);
             delete(src);
         end 
+        function obj = hybejplotEpochData(obj,~,eventDat)
+            %reacts to key presses in plotEpochData
+            switch eventDat.Key 
+                case 'uparrow'
+                    if obj.plotPlotEpochData.epochrel > 1
+                        obj.plotEpochData(obj.plotPlotEpochData.epochrel-1);
+                    end
+                case 'downarrow'
+                    verthorz = obj.plotPlotEpochData.verthorz;
+                    epochsnum = find(obj.Eh.plotEp.iepochs(verthorz(1),verthorz(2),:)); %absolute number of the epochs
+                    if obj.plotPlotEpochData.epochrel < numel(epochsnum)
+                        obj.plotEpochData(obj.plotPlotEpochData.epochrel+1);
+                    end
+                otherwise
+                   disp(['You just pressed: ' eventDat.Key]);
+            end
+        end
     end
     methods (Static,Access = public)       
         function PlotElectrodeEpiEvents(els,RjCh,DE,objtabs,tabs_orig,epochs,samples,epochtime,timeax,timeaxy,sec,time_n,elmaxmax,shift,iD)
