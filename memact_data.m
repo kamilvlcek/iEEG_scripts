@@ -7,7 +7,7 @@ function [memact] = memact_data(pacientid,RT_corr, U1,U2,tabs,eegfile)
 % tabs - tabs value from data from Motol, possibly truncated with datatrim()
 % eegfile - the original file name with the EEG data
 
-if ~exist('RT_cor','var')  || isempty(RT_cor)
+if ~exist('RT_corr','var')  || isempty(RT_corr)
     RT_corr = 0; % default: RT of start moving joystick, if 1 - RT of hiting the correct object 
 end
 
