@@ -212,7 +212,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             if exist('RjEpochCh','var') 
                 if ~isempty(RjEpochCh)   
                     %we do not know if RjEpochs contains all or only filtered epochs. Therefore, check for both variants
-                    if size(RjEpochCh,2)==numel(obj.epochsFilter.iepochs)
+                    if size(RjEpochCh,2)==numel(obj.epochsFilter.iepochs) %epochsFilter.iepochs is all true if no filter is used
                         obj.RjEpochCh = RjEpochCh(:,obj.epochsFilter.iepochs); %if only some epochs were used, use only these here as well
                     elseif size(RjEpochCh,2)~=sum(obj.epochsFilter.iepochs)
                         error('RejectEpochs: incorrect size of RjEpochCh: neither all epochs nor filtered ones');
@@ -680,7 +680,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             if ~exist('channels','var') || isempty(channels), channels = 1:obj.channels;  end
             if ~exist('epochs','var') || isempty(epochs), epochs = 1:obj.epochs;  end
             if ~exist('method','var') || isempty(method)  %parameters of statistic in EEGStat.WilcoxBaselineST, explained there and below
-                method = struct('fdr',1); %default values                         
+                method = struct('fdr',1); %default value , less strict
             elseif isstruct(method)                
                 if ~isfield(method,'fdr'), method.fdr = 1; end %default is fdr pdep - less strict, 2= dep - more strict
             else
@@ -690,7 +690,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             iChEp = obj.GetEpochsExclude(); %index of epochs for analysis - without errors, training, manual exclusion - for each channel independently                         
             EEGStat = CEEGStat(obj.d,obj.fs);            
             baseline = EEGStat.Baseline(obj.epochtime,obj.baseline); %time of the baseline for statistics - from epochtime(1)
-            [P,iP,ibaseline,iresponse,itimewindow] = EEGStat.WilcoxBaselineST(obj.epochtime,baseline,timewindow,channels,epochs,obj.RjEpochCh | ~iChEp,method); %performs the statistics       
+            [P,iP,ibaseline,iresponse,itimewindow,Var] = EEGStat.WilcoxBaselineST(obj.epochtime,baseline,timewindow,channels,epochs,obj.RjEpochCh | ~iChEp,method); %performs the statistics       
             obj.STp(iSTp).P=P; %p values samples x channels x epochs
             obj.STp(iSTp).iP=iP; %index of p values computed , samples x channels x epochs
             obj.STp(iSTp).timewindow = timewindow; %timewindow       in sec    
@@ -706,6 +706,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             obj.STp(iSTp).baseline = obj.baseline; 
             obj.STp(iSTp).iepochtime = [ibaseline; iresponse ]; %samples of baseline and all response timewindow positions
             obj.STp(iSTp).method = method;
+            obj.STp(iSTp).Var = Var; %variability of the data samples x channels x epochs x [data,baseline] x [min,Q,med,Q,max]
         end
         function obj = ResponseSearchMulti(obj,timewindow,stat_kats,opakovani,method)
             %vola ResponseSearch pro kazdy kontrast, nastavi vsechny statistiky

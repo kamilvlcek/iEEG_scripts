@@ -881,10 +881,11 @@ classdef CPlots < matlab.mixin.Copyable
         function obj = plotEpochData(obj, epochrel,verthorz, katnum,ch)
             %plots freq-averaged single epoch data - average of BVA, with response tim and single-trial significance 
             if isfield(obj.plotPlotEpochData,'fh') && ishandle(obj.plotPlotEpochData.fh)
-                figure(obj.plotPlotEpochData.fh); %use the existing figure                
+                figure(obj.plotPlotEpochData.fh); %use the existing figure                 
             else
                 obj.plotPlotEpochData.fh = figure('Name','plotEpochData');
             end            
+            clf;
             if exist('epochrel','var') && ~isempty(epochrel) %relative epoch number in the specific subplot
                 obj.plotPlotEpochData.epochrel = epochrel;
             else
@@ -920,19 +921,36 @@ classdef CPlots < matlab.mixin.Copyable
             katname = obj.Eh.PsyData.CategoryName(katnum);
             title(sprintf('epoch %i (%i)(%i) of channel %i, %s',epoch,epochrel,epochabs, ch,katname));
             T = linspace(obj.Eh.epochtime(1),obj.Eh.epochtime(2),size(obj.Eh.d,1)); %time scale - all samples
-            yyaxis left
-            plot(T,obj.Eh.d(:,ch,epochabs));   
-            ylim(obj.Eh.plotEp.ylim);
-            yyaxis right             
-            iT = obj.Eh.STp(STpA).iepochtime(2,1) : obj.Eh.STp(STpA).iepochtime(2,2);
+            iT = obj.Eh.STp(STpA).iepochtime(2,1) : obj.Eh.STp(STpA).iepochtime(2,2); %part of the time, where the stat was computed
             ichannel = false(obj.Eh.channels,1);
-            ichannel(ch) = 1; %logical index of ch in all channels             
-            plot(T(iT),squeeze(obj.Eh.STp(STpA).P(:,ichannel(obj.Eh.STp(STpA).ichannels),epochP)));  %iEpochs(obj.Eh.STp.iepochs)
+            ichannel(ch) = 1; %logical index of ch in all channels   
+            
+            %power plot
+            yyaxis left
+            plot(T,obj.Eh.d(:,ch,epochabs),'+-');   
+            ylim(obj.Eh.plotEp.ylim);
+            hold on;
+            for s=1:numel(iT)
+                if obj.Eh.STp(STpA).P(s,ichannel(obj.Eh.STp(STpA).ichannels),epochP) < 0.05
+                    clr = [1 0.2 0.2];
+                else
+                    clr = [0.5 0.5 0.5];
+                end
+                line(repmat(T(iT(s)),2,1),squeeze(obj.Eh.STp(STpA).Var(s,ichannel(obj.Eh.STp(STpA).ichannels),epochP,1,[1 5])),'Color',clr);
+            end
+            baselinemedtime = round(mean(obj.Eh.STp(STpA).iepochtime(:,1))); % time of the middle of the baseline                
+            plot(repmat(T(baselinemedtime),5,1),squeeze(obj.Eh.STp(STpA).Var(1,ichannel(obj.Eh.STp(STpA).ichannels),epochP,2,:)),'.-','Color','red');            
+                    %we assume here, that the baseline is the same for all samples 
+            %p values plot
+            yyaxis right                       
+            plot(T(iT),squeeze(obj.Eh.STp(STpA).P(:,ichannel(obj.Eh.STp(STpA).ichannels),epochP)),'.-','Color',[0.5 0.5 0.5]);  %iEpochs(obj.Eh.STp.iepochs)
             ylim([0 0.5]);
             set(obj.plotPlotEpochData.fh,'KeyPressFcn',@obj.hybejplotEpochData);
+            baselinestart = obj.Eh.STp(STpA).iepochtime(1,1);
+            line([T(baselinestart) T(baselinestart)],[0 0.5],'Color','black','LineWidth',1); %baseline start
             line([0 0],[0 0.5],'Color','black','LineWidth',1); %stimulus
             rt = obj.Eh.PsyData.P.data(epochabs,4);
-            line([rt rt],[0 0.5],'Color','black','LineWidth',1); %stimulus
+            line([rt rt],[0 0.5],'Color','black','LineWidth',1); %response
             
         end
         function [rho,pval,maxTrials,obj] = ComputeCorrelChan(obj,ch,tmax,fraction,correctRT,correctTrials, conditions, katdata) %Sofiia since 11.2020             
