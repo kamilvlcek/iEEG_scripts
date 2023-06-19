@@ -619,6 +619,7 @@ classdef CStat < handle
             %wilcox test is performed on the last dimension, repetitions. 
             %B can have some dimensions of size 1, then all values of A are compared with this 
             %RjEpCh is channels x epochs 
+            %Wvar is variability of the data samples x channels x epochs x [data,baseline] x [min,Q,med,Q,max]
             if ~exist('print','var'), print = 0; end
             if ~exist('fdr','var') || isempty(fdr), fdr = 1; end %less strict as default       
             if ~exist('msg','var') || isempty(msg), msg = ''; end %no message by default
@@ -627,7 +628,7 @@ classdef CStat < handle
             W = ones(size(A,1),size(A,2),size(A,3)); 
             iW = false(size(A,1),size(A,2),size(A,3)); %index of what should be fdr corrected 
             Wvar = zeros(size(A,1),size(A,2),size(A,3),2,5); 
-            if print, fprintf('Wilcox Test 3D - %s (samples of %i, %i channels, %i epochs ):\n', msg, size(A,1), size(A,2), size(A,3)); end
+            if print, fprintf('Wilcox Test 3D - %s (samples of %i, %i channels, %i epochs):\n     ', msg, size(A,1), size(A,2), size(A,3)); end
             for ts = 1:size(A,1) %time samples
                 if print, fprintf('\b\b\b\b\b%5i', ts); end %tisknu jen cele padesatky, && mod(ts,50)==0
                 for ch = 1:size(A,2) %channels

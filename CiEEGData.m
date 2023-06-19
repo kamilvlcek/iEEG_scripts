@@ -676,6 +676,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             %computes single-trial wilcox test of response relative to baseline
             %for all nonrejected epochs (or selected epochs in argument epochs), independent of categories 
             %for all channels (or selected epochs in argument channels)
+            % when timewindow are two numbers, the second is the required size of the baseline
             assert(obj.epochs > 1,'only for epoched data'); 
             if ~exist('channels','var') || isempty(channels), channels = 1:obj.channels;  end
             if ~exist('epochs','var') || isempty(epochs), epochs = 1:obj.epochs;  end
@@ -706,7 +707,10 @@ classdef CiEEGData < matlab.mixin.Copyable
             obj.STp(iSTp).baseline = obj.baseline; 
             obj.STp(iSTp).iepochtime = [ibaseline; iresponse ]; %samples of baseline and all response timewindow positions
             obj.STp(iSTp).method = method;
-            obj.STp(iSTp).Var = Var; %variability of the data samples x channels x epochs x [data,baseline] x [min,Q,med,Q,max]
+            varSize = size(Var);
+            obj.STp(iSTp).VarR = reshape(Var(:,:,:,1,:),[varSize([1 2 3 5]) 1]); %variability of the response data samples x channels x epochs x  [min,Q,med,Q,max]
+            obj.STp(iSTp).VarB = reshape(Var(1,:,:,2,:),[varSize([2 3 5]) 1 1]); %variability of the baseline data channels x epochs x [min,Q,med,Q,max]
+                %we assume here, that the baseline is the same for all samples 
         end
         function obj = ResponseSearchMulti(obj,timewindow,stat_kats,opakovani,method)
             %vola ResponseSearch pro kazdy kontrast, nastavi vsechny statistiky
@@ -1451,6 +1455,11 @@ classdef CiEEGData < matlab.mixin.Copyable
                     subplot(subplotsy,numel(kategories),numel(kategories)+k); 
                     if k == numel(kategories), colorbar; end
                 end
+            end
+            
+            if numel(obj.plotEp.selected)>=2
+                subplot(subplotsy,numel(kategories),obj.plotEp.selected(2));
+                plot(0,obj.plotEp.selected(1),'+','MarkerSize',12,'Color','red');
             end
             methodhandle = @obj.hybejPlotEpochs;
             set(obj.plotEp.fh,'KeyPressFcn',methodhandle); 
@@ -3069,15 +3078,21 @@ classdef CiEEGData < matlab.mixin.Copyable
               xy = get(h, 'currentpoint'); %souradnice v pixelech
               pos = get(gcf, 'Position'); 
               width = pos(3); height = pos(4);
-              vert = iff(xy(2) > height/2,1,2); %if clicked bottom subplot
+              if (size(obj.plotEp.iepochs,1)==2)
+                vert = iff(xy(2) > height/2,1,2); %if clicked bottom subplot
+              else
+                vert = 1;
+              end
               horz  = iff(xy(1) > width/2,2,1); %if clicked right subplot                                    
 %               msg = sprintf('clicked on %.1f x %.1f y, subpl %i, %i, epoch %i',x,y, vert, horz,epoch);                          
 %               msgbox(msg);
-              iEpochs = obj.plotEp.iepochs(1,horz,:); %logical index of nonexcluded epochs for this category in all epochs
+              iEpochs = squeeze(obj.plotEp.iepochs(1,horz,:)); %logical index of nonexcluded epochs for this category in all epochs
               ep = squeeze(obj.plotEp.iepochs(vert,horz,iEpochs)); %logical index of epochs with single trial significance in all nonexcluded epochs
               epochsnum = find(ep(obj.plotEp.isorted{1,horz})); %absolute number of the epochs  with single trial significance 
+              obj.plotEp.selected = [y horz]; %the currently selected epoch
+              obj.PlotEpochs( obj.plotEp.ch); %plot again the figure with the selection
               if ismember(y,epochsnum) %if the selected epoch is one of these with single trial significance 
-                  obj.PL.plotEpochData(find(epochsnum==y),[vert horz],cellval(obj.plotEp.kategories,horz),obj.plotEp.ch);
+                  obj.PL.plotEpochData(find(epochsnum==y),[vert horz],cellval(obj.plotEp.kategories,horz),obj.plotEp.ch); %#ok<FNDSB>
               end
         end
         function obj = AddTag(obj,s)

@@ -52,16 +52,21 @@ classdef CEEGStat
             % single trial analysis analogy of WilcoxBaseline
             % uses obj.d and obj.fs
             % epochtime[a b], baseline[a b] and timewindow are in sec, timewindow is the size of the moving window
+            % when timewindow are two numbers, the second is the required size of the baseline. Argument baseline is then not used
             % iEp - logical index of epochs to be used
-            % RjEpCh - logical index of epochs to be rejected, channels x epochs
-            iepochtime = round(epochtime(1:2).*obj.fs); %iepochtime is in samples before and after the event, before is negative           
-            itimewindow = round(timewindow.*obj.fs); %size of moving windows in samples
-            baseline0 = iff(diff(baseline) < timewindow, baseline, [baseline(2)-timewindow baseline(2)]); %the same size as timewindow if possible
+            % RjEpCh - logical index of epochs to be rejected, channels x epochs            
+            if numel(timewindow)>1
+                baseline0 = [-timewindow(2) 0];                
+            else
+                baseline0 = iff(diff(baseline) < timewindow, baseline, [baseline(2)-timewindow baseline(2)]); %the same size as timewindow if possible
+            end
+            iepochtime = round(epochtime(1:2).*obj.fs); %iepochtime is in samples before and after the event, before is negative                       
+            itimewindow = round(timewindow(1).*obj.fs); %size of moving windows in samples
             ibaseline = round(baseline0.*obj.fs); %in samples, negative is before stimulus
             iresponse = [ abs(iepochtime(1)-ibaseline(2))+1 diff(iepochtime)]; %all values after the end of the baseline
             ibaseline = [ abs(iepochtime(1)-ibaseline(1))+1 abs(iepochtime(1)-ibaseline(2))]; %in samples, but now 1 means start of whole epoch
             responses = NaN(diff(iresponse) +1 , numel(iCh) , numel(iEp), itimewindow); %samples (number of timewindows) x channels x epochs x timewindow size
-            baselines = NaN(1, numel(iCh) , numel(iEp), itimewindow); %samples x channels x epochs x timewindow size
+            baselines = NaN(1, numel(iCh) , numel(iEp), diff(ibaseline)+1); %samples x channels x epochs x timewindow size
             for iW = iresponse(1) : iresponse(2) %iW is middle of the moving time window
                 iwindow = iW - floor((itimewindow-1)/2) : min(iW + floor(itimewindow/2),size(obj.d,1));
                     %for odd itimewindow it takes same number of samples before and after iW

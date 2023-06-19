@@ -916,12 +916,11 @@ classdef CPlots < matlab.mixin.Copyable
             iEpochsAbs = iEpochsAbs(obj.Eh.plotEp.isorted{1,verthorz(2)}); %
             epochabs = iEpochsAbs(epoch); %absolute number of epochs in obj.d (i.e. all epochs)
             STpA = obj.Eh.STpActive; %just shortcut
-            epochP = obj.Eh.STp(STpA).epochs==epochabs; %epoch num inside of P 
+            showSTp = iff(length(obj.Eh.STp)>=STpA && ~isempty(obj.Eh.STp(STpA).P) && ismember(ch,obj.Eh.STp(STpA).channels),1,0); %if to show the the p value of single-trial statistics            
 
             katname = obj.Eh.PsyData.CategoryName(katnum);
             title(sprintf('epoch %i (%i)(%i) of channel %i, %s',epoch,epochrel,epochabs, ch,katname));
-            T = linspace(obj.Eh.epochtime(1),obj.Eh.epochtime(2),size(obj.Eh.d,1)); %time scale - all samples
-            iT = obj.Eh.STp(STpA).iepochtime(2,1) : obj.Eh.STp(STpA).iepochtime(2,2); %part of the time, where the stat was computed
+            T = linspace(obj.Eh.epochtime(1),obj.Eh.epochtime(2),size(obj.Eh.d,1)); %time scale - all samples            
             ichannel = false(obj.Eh.channels,1);
             ichannel(ch) = 1; %logical index of ch in all channels   
             
@@ -929,29 +928,41 @@ classdef CPlots < matlab.mixin.Copyable
             yyaxis left
             plot(T,obj.Eh.d(:,ch,epochabs),'+-');   
             ylim(obj.Eh.plotEp.ylim);
-            hold on;
-            for s=1:numel(iT)
-                if obj.Eh.STp(STpA).P(s,ichannel(obj.Eh.STp(STpA).ichannels),epochP) < 0.05
-                    clr = [1 0.2 0.2];
-                else
-                    clr = [0.5 0.5 0.5];
-                end
-                line(repmat(T(iT(s)),2,1),squeeze(obj.Eh.STp(STpA).Var(s,ichannel(obj.Eh.STp(STpA).ichannels),epochP,1,[1 5])),'Color',clr);
-            end
-            baselinemedtime = round(mean(obj.Eh.STp(STpA).iepochtime(:,1))); % time of the middle of the baseline                
-            plot(repmat(T(baselinemedtime),5,1),squeeze(obj.Eh.STp(STpA).Var(1,ichannel(obj.Eh.STp(STpA).ichannels),epochP,2,:)),'.-','Color','red');            
-                    %we assume here, that the baseline is the same for all samples 
-            %p values plot
-            yyaxis right                       
-            plot(T(iT),squeeze(obj.Eh.STp(STpA).P(:,ichannel(obj.Eh.STp(STpA).ichannels),epochP)),'.-','Color',[0.5 0.5 0.5]);  %iEpochs(obj.Eh.STp.iepochs)
-            ylim([0 0.5]);
-            set(obj.plotPlotEpochData.fh,'KeyPressFcn',@obj.hybejplotEpochData);
-            baselinestart = obj.Eh.STp(STpA).iepochtime(1,1);
-            line([T(baselinestart) T(baselinestart)],[0 0.5],'Color','black','LineWidth',1); %baseline start
-            line([0 0],[0 0.5],'Color','black','LineWidth',1); %stimulus
+            line([0 0],obj.Eh.plotEp.ylim,'Color','black','LineWidth',1); %stimulus
             rt = obj.Eh.PsyData.P.data(epochabs,4);
-            line([rt rt],[0 0.5],'Color','black','LineWidth',1); %response
-            
+            line([rt rt],obj.Eh.plotEp.ylim,'Color','black','LineWidth',1); %response             
+            if showSTp
+                epochP = obj.Eh.STp(STpA).epochs==epochabs; %epoch num inside of P 
+                if sum(epochP)>0
+                    iT = obj.Eh.STp(STpA).iepochtime(2,1) : obj.Eh.STp(STpA).iepochtime(2,2); %part of the time, where the stat was computed
+                    hold on;
+                    for s=1:numel(iT)
+                        if obj.Eh.STp(STpA).P(s,ichannel(obj.Eh.STp(STpA).ichannels),epochP) < 0.05
+                            clr = [1 0.2 0.2];
+                        else
+                            clr = [0.5 0.5 0.5];
+                        end
+                        VarR = squeeze(obj.Eh.STp(STpA).VarR(s,ichannel(obj.Eh.STp(STpA).ichannels),epochP,[1 5]));
+                        line(repmat(T(iT(s)),2,1),VarR,'Color',clr); %response variablity
+                    end                
+                    baselinemedtime = round(mean(obj.Eh.STp(STpA).iepochtime(:,1))); % time of the middle of the baseline                
+                    plot(repmat(T(baselinemedtime),5,1),squeeze(obj.Eh.STp(STpA).VarB(ichannel(obj.Eh.STp(STpA).ichannels),epochP,:)),'.-','Color','red'); %baseline variability           
+                    baselinepower = obj.Eh.STp(STpA).VarB(ichannel(obj.Eh.STp(STpA).ichannels),epochP,3);
+                    line(obj.Eh.STp(STpA).epochtime([1 2]),[baselinepower baselinepower],'Color','red');
+                end
+            end
+                  
+            %p values plot
+            if showSTp && sum(epochP)>0
+                yyaxis right                       
+                plot(T(iT),squeeze(obj.Eh.STp(STpA).P(:,ichannel(obj.Eh.STp(STpA).ichannels),epochP)),'.-','Color',[0.5 0.5 0.5]);  %iEpochs(obj.Eh.STp.iepochs)
+                ylim([0 0.5]);                
+                baselinestart = obj.Eh.STp(STpA).iepochtime(1,1);
+                line([T(baselinestart) T(baselinestart)],[0 0.5],'Color','cyan','LineWidth',1); %baseline start               
+                timewindowend = obj.Eh.STp(STpA).itimewindow + obj.Eh.STp(STpA).iepochtime(2,1);
+                line([T(timewindowend) T(timewindowend)],[0 0.5],'Color','cyan','LineWidth',1); %timewindow size
+            end  
+            set(obj.plotPlotEpochData.fh,'KeyPressFcn',@obj.hybejplotEpochData);
         end
         function [rho,pval,maxTrials,obj] = ComputeCorrelChan(obj,ch,tmax,fraction,correctRT,correctTrials, conditions, katdata) %Sofiia since 11.2020             
             %function to compute correlation between behavioural RT and time of eeg resp maximum (or valmax) for one channel
@@ -1209,13 +1220,19 @@ classdef CPlots < matlab.mixin.Copyable
             switch eventDat.Key 
                 case 'uparrow'
                     if obj.plotPlotEpochData.epochrel > 1
-                        obj.plotEpochData(obj.plotPlotEpochData.epochrel-1);
+                        epochrel=obj.plotPlotEpochData.epochrel-1;
+                        obj.Eh.plotEp.selected(1) = epochrel; %the currently selected epoch
+                        %obj.Eh.PlotEpochs( obj.Eh.plotEp.ch); %plot again the figure with the selection
+                        obj.plotEpochData(epochrel);
                     end
                 case 'downarrow'
                     verthorz = obj.plotPlotEpochData.verthorz;
                     epochsnum = find(obj.Eh.plotEp.iepochs(verthorz(1),verthorz(2),:)); %absolute number of the epochs
                     if obj.plotPlotEpochData.epochrel < numel(epochsnum)
-                        obj.plotEpochData(obj.plotPlotEpochData.epochrel+1);
+                        epochrel=obj.plotPlotEpochData.epochrel+1;
+                        obj.Eh.plotEp.selected(1) = epochrel; %the currently selected epoch
+                        %obj.Eh.PlotEpochs( obj.Eh.plotEp.ch); %plot again the figure with the selection
+                        obj.plotEpochData(epochrel);
                     end
                 otherwise
                    disp(['You just pressed: ' eventDat.Key]);
