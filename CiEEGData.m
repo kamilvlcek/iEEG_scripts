@@ -31,8 +31,10 @@ classdef CiEEGData < matlab.mixin.Copyable
         filename;
         reference; %slovni popis reference original, avg perHeadbox, perElectrode, Bipolar
         yrange = [10 10 50 50]; %minimum y, krok y0, hranice y1, krok y1, viz funkce - a + v hybejPlot
-        Wp = {}; %pole signifikanci pro jednotlive kanaly vuci baseline, vysledek  ResponseSearch     
-        WpActive=1; %cislo aktivniho pole signifikanci - muze byt spocitano vic statistik
+        Wp = {}; %struct of statistical results and parameters of the trial-averaged wilcox test for each time sample independently, the result  ResponseSearch     
+        STp = {}; %struct for statistical results and parameters of single-trial stat - for each epoch independently, the results of ResponseSearchST
+        WpActive=1; %index of active statistical result in Wp - more statistics can be calculated
+        STpActive=1; %index of active statistical result in STp - more statistics can be saved
         DE = {}; %trida objektu CEpiEvents - epilepticke eventy ziskane pomoci skriptu spike_detector_hilbert_v16_byISARG
         DatumCas = {}; %ruzne casove udaje, kdy bylo co spocitano. Abych mel historii vypoctu pro zpetnou referenci
         PL = {}; %objekt CPlots
@@ -210,7 +212,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             if exist('RjEpochCh','var') 
                 if ~isempty(RjEpochCh)   
                     %we do not know if RjEpochs contains all or only filtered epochs. Therefore, check for both variants
-                    if size(RjEpochCh,2)==numel(obj.epochsFilter.iepochs)
+                    if size(RjEpochCh,2)==numel(obj.epochsFilter.iepochs) %epochsFilter.iepochs is all true if no filter is used
                         obj.RjEpochCh = RjEpochCh(:,obj.epochsFilter.iepochs); %if only some epochs were used, use only these here as well
                     elseif size(RjEpochCh,2)~=sum(obj.epochsFilter.iepochs)
                         error('RejectEpochs: incorrect size of RjEpochCh: neither all epochs nor filtered ones');
@@ -415,18 +417,25 @@ classdef CiEEGData < matlab.mixin.Copyable
             obj.RjEpoch = unique([obj.RjEpoch find(rjepoch)]); %pridam dalsi vyrazene epochy k dosud vyrazenym            
             disp(['resampled ' num2str(obj.epochs) ' epochs to ' num2str(newepochtime) ', rejected new epochs: ' num2str(numel(setdiff(find(rjepoch),obj.RjEpoch)))]);
         end
-        function [d,psy_rt,RjEpCh,iEpochs]= CategoryData(obj, katnum,rt,trialtype,ch)
+        function [d,psy_rt,RjEpCh,iEpochs,isorted]= CategoryData(obj, katnum,rt,trialtype,ch)
             %vraci eegdata epoch ve kterych podnet byl kategorie/podminky=katnum + reakcni casy - s uz globalne vyrazenymi epochami
+            %input arguments: 
             %katnum (double or cell containing double) are category numbers (0-n), equivalent to PsyData.P.strings.podminka
+            %  katnum je 1-n cisel kategorii.
             %Pokud rt>0, vraci epochy serazene podle reakcniho casu 
             %trialtype: to return only one repetition or trialtype of the stimulus. Cell array e.g. {'rep' 1} or {'tt' [1 0]}
-            %iEpochy je seznam validnich epoch pro tento kanal - bez vyrazenych  
+            %ch ovlivujen jen RjEpCh (v radcich jsou jen kanaly v ch) , d a psy_rt obsahuje vzdy vsechny kanaly, samply a prislusne epochy
+            %output arguments:
+            %d, psy_rt -contains all epochs for thit category. 
+            %   for more than one channel, psy_rt contains epochs including the excluded ones. For only one channel, it contains only non-excluded epochs
             %RjEpCh (Channels x Epochs) - vraci i epochy k vyrazeni pro kazdy kanal (uz s globalne vyrazenymi epochami)
-            %  vyradit rovnou je nemuzu, protoze pocet epoch v d pro kazdy kanal musi by stejny
-            %  ch ovlivujen jen RjEpCh (v radcich jsou jen kanaly v ch) , d obsahuje vzdy vsechny kanaly, samply a prislusne epochy
-            %  katnum je 1-n cisel kategorii.
+            %  vyradit rovnou je nemuzu, protoze pocet epoch v d pro kazdy kanal musi by stejny  
+            %  sorted similar to d and psy_rt
+            %iEpochs is a logical index of valid=(not rejected, no error, no epileptic activity etc) epochs for this channel (only if ch is one channel)
+            %isorted is index of the same as psy_rt epochs after sorting. Can be used to sort again d and psy_rt again.             
+            
             assert(obj.epochs > 1,'data not yet epoched'); %vyhodi chybu pokud data nejsou epochovana            
-            assert(obj.channels == size(obj.RjEpochCh,1),'RjEpochCh: spatny pocet kanalu');
+            assert(obj.channels == size(obj.RjEpochCh,1),'RjEpochCh: wrong number of channels');
             katnum = cellval(katnum); %we take all categories in an array
             
             if exist('trialtype','var') && ~isempty(trialtype)
@@ -445,12 +454,12 @@ classdef CiEEGData < matlab.mixin.Copyable
             
             if numel(ch)==1 %get reaction time in psy_rt, when one channel - 8.6.2018 kvuli CPsyDataMulti
                 obj.PsyData.SubjectChange(find(obj.els >= ch,1));
-                [~,psy_rt,~,~] = obj.PsyData.GetResponses();
-                iEpochyP = iEpochs(1:size(psy_rt,1),:); %psy_rt maji rozmer podle puvodniho poctu epoch pred sloucenim v CM. Uz jsou spravne prehazene. 
-                %Kdezto iEpochy obsahuji i vyloucene epochy na konci (pokud u tohohle subjektu nebylo tolik epoch)
-                psy_rt = psy_rt(all(iEpochyP,2)); %reakcni casy jen pro vybrane kategorie a opakovani a nevyrazene
+                [~,psy_rt0,~,~] = obj.PsyData.GetResponses();   %returns all epochs across categories                            
+                psy_rt = psy_rt0(iEpochs); %reakcni casy jen pro vybrane kategorie a opakovani a nevyrazene
+                %the psy_rt must contain the same epochs as d, to be able to sort d below
+                %for it to work also for more channels, it must contain same epochs as d also as an output argument
                 iEpochs = iEpochs & ~obj.RjEpochCh(ch,:)' & iEpCh(ch,:)' & iTrialTypeCh(ch,:)'; %jeste pripravim k vystup seznam validnich epoch pro tento kanal - bez vyrazenych 
-                % epochy podle podminky (jeden sloupec) &~ epochy s epiaktivitou (sloupcu jako kanalu) & epochy bez treningu, chyb a rucniho vyrazeni (RjEpoch) 
+                % epochy podle podminky (jeden sloupec) &~ epochy s epiaktivitou (sloupcu jako kanalu) & epochy bez treningu, chyb a rucniho vyrazeni (RjEpoch)                 
             else
                 psy_rt = zeros(size(d,3),1); %nulove reakcni casy
                 iEpochs = [];
@@ -459,7 +468,19 @@ classdef CiEEGData < matlab.mixin.Copyable
             if exist('rt','var') && ~isempty(rt) && rt>0 %chci hodnoty serazene podle reakcniho casu               
                 [psy_rt, isorted] = sort(psy_rt);
                 d = d(:,:,isorted); 
+                RjEpCh = RjEpCh(:,isorted); %ch x epochs
+                if numel(ch)==1 %if there is only one channel, return psy_rt and isorted for only this channel, without any excluded epochs
+                    psy_rt = psy_rt0(iEpochs);
+                    [psy_rt, isorted] = sort(psy_rt);
+                end                
+            else
+                if numel(ch)==1 %if there is only one channel, return psy_rt and isorted for only this channel, without any excluded epochs
+                    psy_rt = psy_rt0(iEpochs);                    
+                end    
+                isorted = 1:size(psy_rt,1);
             end 
+            
+            
         end      
         function obj = ChangeReference(obj,ref)            
             assert(any(ref=='heb'),'neznama reference, mozne hodnoty: h e b');
@@ -504,8 +525,8 @@ classdef CiEEGData < matlab.mixin.Copyable
             disp(['reference zmenena: ' obj.reference]); 
         end
         function [iEpCh]=GetEpochsExclude(obj,channels)
-            %returns iEpCh (ch x epoch) = index of epochs to analyze - without errors, training and manual rejection - for each channel separately            
-            %I can use the channels parameter if I want only some channels - the others are then empty
+            %returns iEpCh (ch x epoch) = index of epochs for analysis - without error, training, manual exclusion - for each channel independently            
+            %channels - if we want only specific channels - others are then empty 
             if ~exist('channels','var'), channels = 1:obj.channels; end
             iEpCh = zeros(obj.channels,obj.epochs);             
             PsyData = obj.PsyData.copy();  %I don't want to change the original class
@@ -519,10 +540,12 @@ classdef CiEEGData < matlab.mixin.Copyable
                         epochsEx = cat(1,epochsEx,ones(size(iEpCh,2) - size(epochsEx,1),5)); %we will add other epochs as excluded 
                     end
                     %we do not know if epochsEx contains all or only filtered epochs. Therefore, check for both variants
-                    if size(epochsEx,1)==numel(obj.epochsFilter.iepochs)
-                        epochsEx = epochsEx(obj.epochsFilter.iepochs,:);
-                    elseif size(epochsEx,1)~=sum(obj.epochsFilter.iepochs)
-                        error('GetEpochsExclude: incorrect size of epochsEx: neither all epochs nor filtered ones');
+                    if ~isempty(obj.epochsFilter) %if we have set any filter for the epochs
+                        if size(epochsEx,1)==numel(obj.epochsFilter.iepochs)
+                            epochsEx = epochsEx(obj.epochsFilter.iepochs,:);
+                        elseif size(epochsEx,1)~=sum(obj.epochsFilter.iepochs)
+                            error('GetEpochsExclude: incorrect size of epochsEx: neither all epochs nor filtered ones');
+                        end
                     end
                     iEpCh(channels(ch),:) = all(epochsEx==0,2)'; %index of epochs to use - from the selected epochs by filter - not excluded from any reason                
                     
@@ -649,6 +672,46 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
             obj.DatumCas.ResponseSearch = datestr(now);
         end
+        function ResponseSearchST(obj,timewindow,channels,epochs,method,iSTp)
+            %computes single-trial wilcox test of response relative to baseline
+            %for all nonrejected epochs (or selected epochs in argument epochs), independent of categories 
+            %for all channels (or selected epochs in argument channels)
+            % when timewindow are two numbers, the second is the required size of the baseline
+            assert(obj.epochs > 1,'only for epoched data'); 
+            if ~exist('channels','var') || isempty(channels), channels = 1:obj.channels;  end
+            if ~exist('epochs','var') || isempty(epochs), epochs = 1:obj.epochs;  end
+            if ~exist('method','var') || isempty(method)  %parameters of statistic in EEGStat.WilcoxBaselineST, explained there and below
+                method = struct('fdr',1); %default value , less strict
+            elseif isstruct(method)                
+                if ~isfield(method,'fdr'), method.fdr = 1; end %default is fdr pdep - less strict, 2= dep - more strict
+            else
+                error('argument method needs to be struct');
+            end 
+            if ~exist('iSTp','var'), iSTp = obj.STpActive; else, obj.STpActive = iSTp;  end %we are not interested in categories here. But can save results of several computations if we need
+            iChEp = obj.GetEpochsExclude(); %index of epochs for analysis - without errors, training, manual exclusion - for each channel independently                         
+            EEGStat = CEEGStat(obj.d,obj.fs);            
+            baseline = EEGStat.Baseline(obj.epochtime,obj.baseline); %time of the baseline for statistics - from epochtime(1)
+            [P,iP,ibaseline,iresponse,itimewindow,Var] = EEGStat.WilcoxBaselineST(obj.epochtime,baseline,timewindow,channels,epochs,obj.RjEpochCh | ~iChEp,method); %performs the statistics       
+            obj.STp(iSTp).P=P; %p values samples x channels x epochs
+            obj.STp(iSTp).iP=iP; %index of p values computed , samples x channels x epochs
+            obj.STp(iSTp).timewindow = timewindow; %timewindow       in sec    
+            obj.STp(iSTp).itimewindow = itimewindow; %timewindow     in samples
+            obj.STp(iSTp).channels = channels; %index of processed channels
+            obj.STp(iSTp).ichannels = false(obj.channels,1); 
+            obj.STp(iSTp).ichannels(channels) = 1; %logical index of the channels
+            obj.STp(iSTp).epochs = epochs; %index of processed epochs
+            obj.STp(iSTp).iepochs = false(obj.epochs,1);
+            obj.STp(iSTp).iepochs(epochs) = 1; %logical index of the epochs, on which the analysis was done sum(iepochs)=size(P,3)
+            obj.STp(iSTp).iChEp = iChEp & ~obj.RjEpochCh; %index of non excluded channels x epochs (for all categorie together)
+            obj.STp(iSTp).epochtime = obj.epochtime;
+            obj.STp(iSTp).baseline = obj.baseline; 
+            obj.STp(iSTp).iepochtime = [ibaseline; iresponse ]; %samples of baseline and all response timewindow positions
+            obj.STp(iSTp).method = method;
+            varSize = size(Var);
+            obj.STp(iSTp).VarR = reshape(Var(:,:,:,1,:),[varSize([1 2 3 5]) 1]); %variability of the response data samples x channels x epochs x  [min,Q,med,Q,max]
+            obj.STp(iSTp).VarB = reshape(Var(1,:,:,2,:),[varSize([2 3 5]) 1 1]); %variability of the baseline data channels x epochs x [min,Q,med,Q,max]
+                %we assume here, that the baseline is the same for all samples 
+        end
         function obj = ResponseSearchMulti(obj,timewindow,stat_kats,opakovani,method)
             %vola ResponseSearch pro kazdy kontrast, nastavi vsechny statistiky
             if ~exist('opakovani','var'), opakovani = []; end
@@ -681,7 +744,8 @@ classdef CiEEGData < matlab.mixin.Copyable
             [katnum] = obj.PsyData.Categories(1);
         end
         function Fourier(obj,channels,freq,epochs,method)
-           % perform FFT and plot, freq should be max and min to plot
+           % perform spectral analysis and plot, freq should be [min max] to plot
+           % method can be fft (default for epoched), pwelch (default of non epoched) or periodogram
             if ~exist('epochs','var') || isempty(epochs),  epochs = 1:obj.epochs;        end  
             if ~exist('method','var') 
                 if numel(epochs) > 1 %'pwelch' nebo 'fft'
@@ -706,7 +770,11 @@ classdef CiEEGData < matlab.mixin.Copyable
     %             semilogy(frequencies,fft_d_abs); % log linearni plot - y = log10 
                 hold all;
             end
-            xlim(freq);
+            if freq(2) > frequencies(end) %if the range of diplayed freqs does not overlap with computed frequencies
+                warning([' frequiencies computed only up to ' num2str(frequencies(end)) 'Hz because of sampling frequency ' num2str(obj.fs) 'Hz'] ); 
+            else
+                xlim(freq);
+            end
             %set(gca,'xlim',[0 max(frex)*2])
             title(['Power spectral density by ' method ' in channels ' num2str(channels)]);
             ylabel('PSD [ 10*log10(uV ^{2} / Hz) ]');
@@ -715,32 +783,42 @@ classdef CiEEGData < matlab.mixin.Copyable
                 legend(legendCell);
             end
         end
-        function Filter(obj,freq,channels,epoch,vykresli)            
-            if ~exist('channels','var') || isempty(channels), channels  = 1:obj.channels;        end 
-            if ~exist('epoch','var') || isempty(epoch)     ,  epoch = 1;        end 
-            if ~exist('vykresli','var'),  vykresli = 1;        end  %defaultne se dela obrazek
+        function Filter(obj,freq,channels,epochs,makefigure)   
+            %perfoms filtering of the dat, either bandpass or notch
+            %if freq is array of two values, eg. [0 60], bandpass is done between freq1 and freq2
+            %if freq is cell array eg. {0.5,[50 100 150]}, notch is done, filtering out +-freq{1} band around all freq{2} 
             
-            fprintf('channels to filter (z %i):',numel(channels));
-            for ch = channels
-                fprintf('%i, ',ch);
-                dd = squeeze(obj.d(:,ch,epoch));
-                dd2 = CStat.FIR(freq,dd,obj.fs); %vyfiltruju data
-                obj.d(:,ch,epoch) = dd2;  %ulozim vysledek filtrovani do puvodnich dat              
-                if vykresli %vykreslim jenom prvni kanal
-                    %charakteristika kanalu pred filtrovanim
-                    [frequencies,fft_d_abs] = CStat.Fourier(dd,obj.fs);  
-                    figure('Name','Filter effects');   
-                    plot(frequencies(2:end),fft_d_abs(2:end),'k.'); %neplotuju prvni frekvenci, cili DC
-                    xlim([0 250]);            
-                    hold on;                
-                    %charakterisika kanalu po filtrovani
-                    [frequencies,fft_d_abs] = CStat.Fourier(dd2,obj.fs);   %spocitam znova frekvencni charakteristiku
-                    plot(frequencies(2:end),fft_d_abs(2:end),'b.'); %vykreslim modre
-                    vykresli = 0;
-                    title(['Channel ' num2str(ch)]);
+            if ~exist('channels','var') || isempty(channels), channels  = 1:obj.channels;        end  %all channels by default
+            if ~exist('epoch','var') || isempty(epochs)     ,  epochs = 1:obj.epochs;        end  %all epochs by default
+            if ~exist('makefigure','var'),  makefigure = 1;        end  %plot figure by default
+            
+            if iscell(freq) %notch filter
+                dd = obj.d(:,channels, epochs);
+                dd2 = CStat.NotchFilter(freq{1},freq{2},dd,obj.fs);
+                obj.d(:,channels, epochs) = dd2;               
+            else %band pass filter
+                fprintf('channels to filter (z %i):',numel(channels));
+                for ch = channels
+                    fprintf('%i, ',ch);
+                    dd = squeeze(obj.d(:,ch,epochs));
+                    dd2 = CStat.FIR(freq,dd,obj.fs); %vyfiltruju data
+                    obj.d(:,ch,epochs) = dd2;  %ulozim vysledek filtrovani do puvodnich dat                                  
                 end
+                fprintf('... done\n');
             end
-            fprintf('... done\n');
+            if makefigure %just first channel and first epoch
+                %before filtering
+                [frequencies,fft_d_abs] = CStat.Fourier(dd(:,1,1),obj.fs);  
+                figure('Name','Filter effects');   
+                plot(frequencies(2:end),fft_d_abs(2:end),'k.'); %neplotuju prvni frekvenci, cili DC
+                xlim([0 250]);            
+                hold on;                
+                %after filtering
+                [frequencies,fft_d_abs] = CStat.Fourier(dd2(:,1,1),obj.fs);   %spocitam znova frekvencni charakteristiku
+                plot(frequencies(2:end),fft_d_abs(2:end),'b.'); %vykreslim modre                
+                title(['Channel ' num2str(channels(1))]);
+                legend({'before','after'});
+            end
         end 
         function [obj]= Decimate(obj,podil,rtrim)
             %zmensi data na nizsi vzorkovaci frekvenci podle urceneho podilu, naprilkad 4x 512-128Hz, pokud podil=4
@@ -1266,13 +1344,18 @@ classdef CiEEGData < matlab.mixin.Copyable
             else
                 imgsc = 1; %jeste nic nenastaveno, default je imagesc
                 obj.plotEp.imgsc = 1;
-            end            
+            end  
+            %create figure or activate existing one
             if isfield(obj.plotEp,'fh') && ishandle(obj.plotEp.fh)
                 figure(obj.plotEp.fh); %use the existing figure                
             else
                 obj.plotEp.fh = figure('Name','All Epochs','Position', [20, 100, 1200, 300]);
                 colormap jet; %aby to bylo jasne u vsech verzi matlabu - i 2016
             end
+            subplotsy = iff(numel(obj.STp)>0 && obj.STpActive <= numel(obj.STp) && ismember(ch,obj.STp(obj.STpActive).channels), 2,1); %1;
+            STpA = obj.STpActive; %only shortcut
+            obj.plotEp.iepochs = false(subplotsy,numel(kategories),obj.epochs); %logical index of epochs plotted, just for the current plot            
+            obj.plotEp.isorted = cell(1,numel(kategories)); %logical index of epochs plotted, just for the current plot, cell, because different for each category
             clf; 
             
             T = linspace(obj.epochtime(1),obj.epochtime(2),size(obj.d,1)); %time scale - all samples
@@ -1281,19 +1364,26 @@ classdef CiEEGData < matlab.mixin.Copyable
             miny = 0;
             for k=1:numel(kategories) %cycle over categories
                 katnum = cellval(kategories,k);                
-                subplot(1,numel(kategories),k);
+                subplot(subplotsy,numel(kategories),k); %plot of power response for each epoch 
                 
                 if  ~isempty(trialtypes) && numel(trialtypes) >= 3  %plot different trialtypes for selected kategories in KATNUM
                      %now in kategories the trialtypes/repetitions are actually stored, it should be cell array
-                    [katdata,psy_rt,RjEpCh] = obj.CategoryData(KATNUM,sortrt,{kats_type, katnum},ch); %samples x channels x epochs - eegdata - epochy pro tato opakovani       
+                    [katdata,psy_rt,RjEpCh,iEpochs,isorted] = obj.CategoryData(KATNUM,sortrt,{kats_type, katnum},ch); %katdata=samples x channels x epochs - eegdata of epochs for this trialtype
                 else %plot different stimulus cateogires (for selected trialtype/repetition, if not empty)
                      %katnum can be cell, pokud vice kategorii proti jedne
-                    [katdata,psy_rt,RjEpCh] = obj.CategoryData(katnum,sortrt,trialtypes,ch); %eegdata - epochy jedne kategorie                                         
-                end   %7.8.2018 - RjEpCh obsahuje jen aktualni kanal, takze rozmer 1x samples                                     
+                    [katdata,psy_rt,RjEpCh,iEpochs,isorted] = obj.CategoryData(katnum,sortrt,trialtypes,ch); %katdata=samples x channels x epochs - eegdata of epochs for this category                                        
+                    %7.8.2018 - RjEpCh contains only the selected channels, 1 x epochs  
+                    %9.6.2023 psy_rt contains all category epochs, numel(psy_rt) = size(d,3)
+                    %iEpochs is logical index of non-rejected epochs in this katnum from all epochs
+                    %sum(iEpochs) = numel(katadata(:,ch,~RjEpCh(1,:))
+                    %isorted - index of how the psy_rt and katdata are sorted
+                end                                      
                 
                 Nvals = size(katdata(:,ch,~RjEpCh(1,:)),3); %number of epochs to be plotted in text for this category
-                E = 1:size(katdata(:,ch,~RjEpCh(1,:)),3); %epoch number - can be different for each category
-                D = squeeze(katdata(:,ch,~RjEpCh(1,:))); %cas x channel x epochs
+                E = 1:size(katdata(:,ch,~RjEpCh(1,:)),3); %1 x epochs - epoch number - can be different for each category
+                D = squeeze(katdata(:,ch,~RjEpCh(1,:))); %samples x epochs;
+                obj.plotEp.iepochs(1,k,:) = iEpochs;                
+                obj.plotEp.isorted{1,k} = isorted; %store the epoch sorting
                 if imgsc
                     imagesc(T,E,D'); %barevny colormap epoch
                 else
@@ -1309,7 +1399,6 @@ classdef CiEEGData < matlab.mixin.Copyable
                 end
                 title([ katname ' (' num2str(Nvals) ')'], 'Interpreter', 'none');
                 hold on; 
-                psy_rt = psy_rt(~RjEpCh(1,:));
                 if(max(psy_rt)>0) %pokud jsou nejake reakcni casy, u PPA testu nejsou
                     if numel(obj.epochtime)<3 || obj.epochtime(3)==0
                         plot(psy_rt,E,'-k','LineWidth',1); %cara reakcnich casu, nebo podnetu, pokud zarovnano podle reakce      
@@ -1320,14 +1409,36 @@ classdef CiEEGData < matlab.mixin.Copyable
                 if imgsc
                     plot(zeros(size(E,2),1),E,'-k','LineWidth',1); %cara podnetu
                 end
+                
+                if subplotsy > 1
+                    %plot of single epoch significance from obj.STp
+                    subplot(subplotsy,numel(kategories),numel(kategories)+k); 
+                    ichannel = false(obj.channels,1);
+                    ichannel(ch) = 1; %logical index of ch in all channels 
+                    P = ones(size(D)); %time x epochs (for this category, not excluded, 110)
+                    ts = obj.STp(STpA).iepochtime(2,1):obj.STp(STpA).iepochtime(2,2); %time samples for of response               
+                    epP = obj.STp(STpA).iepochs(iEpochs); %index of epochs with STp of those in P  
+                    P(ts,epP)=squeeze(obj.STp(STpA).P(:,ichannel(obj.STp(STpA).ichannels),iEpochs(obj.STp(STpA).iepochs)));                                         
+                    if sortrt %if to sort by behavioral reaction time                                                                                             ;                        
+                        P = P(:,isorted);  %sort similarly to d and psy_rt. 
+                        %issorted containts also epochs without single trial stats, similarly to P                       
+                    end
+                    imagesc(T,E,P', [0 0.5]); %barevny colormap epoch 
+                    if max(psy_rt)>0 && obj.epochtime(3)==0
+                        hold on;
+                        plot(psy_rt, E,'-w','LineWidth',1); %cara reakcnich casu, nebo podnetu, pokud zarovnano podle reakce 
+                    end
+                    obj.plotEp.iepochs(2,k,:) = iEpochs & obj.STp(STpA).iepochs;
+                end
             end    
             if isfield(obj.plotEp,'ylim') && numel(obj.plotEp.ylim)>=2 %nactu nebo ulozim hodnoty y
                 miny = obj.plotEp.ylim(1); maxy = obj.plotEp.ylim(2);
             else
                 obj.plotEp.ylim = [miny maxy];
             end
+            %y labels, colobar and color map limits
             for k=1:numel(kategories)
-                subplot(1,numel(kategories),k);
+                subplot(subplotsy,numel(kategories),k);
                 if imgsc
                     caxis([miny,maxy]);
                 else
@@ -1338,10 +1449,21 @@ classdef CiEEGData < matlab.mixin.Copyable
                     chstr = iff(isempty(obj.CH.sortedby),num2str(ch), [ num2str(ch) '(' obj.CH.sortedby  num2str(obj.plotRCh.ch) ')' ]);
                     ylabel([ 'Epochs - channel ' chstr]); 
                 end %ylabel jen u prniho obrazku
-                if k == numel(kategories), colorbar('Position',[0.92 0.1 0.02 0.82]); end
+                if k == numel(kategories), colorbar; end %('Position',[0.92 0.1 0.02 0.82])
+                
+                if subplotsy > 1
+                    subplot(subplotsy,numel(kategories),numel(kategories)+k); 
+                    if k == numel(kategories), colorbar; end
+                end
+            end
+            
+            if numel(obj.plotEp.selected)>=2
+                subplot(subplotsy,numel(kategories),obj.plotEp.selected(2));
+                plot(0,obj.plotEp.selected(1),'+','MarkerSize',12,'Color','red');
             end
             methodhandle = @obj.hybejPlotEpochs;
             set(obj.plotEp.fh,'KeyPressFcn',methodhandle); 
+            set(obj.plotEp.fh, 'WindowButtonDownFcn', @obj.hybejPlotEpochsClick);
         end    
         function PlotCategory(obj,katnum,channel)
             %vykresli vsechny a prumernou odpoved na kategorii podnetu
@@ -2950,6 +3072,29 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
                    
         end
+        function obj = hybejPlotEpochsClick(obj,h,~)
+              mousept = get(gca,'currentPoint');
+              y = round(mousept(1,2)); %souradnice v grafu  x = mousept(1,1);
+              xy = get(h, 'currentpoint'); %souradnice v pixelech
+              pos = get(gcf, 'Position'); 
+              width = pos(3); height = pos(4);
+              if (size(obj.plotEp.iepochs,1)==2)
+                vert = iff(xy(2) > height/2,1,2); %if clicked bottom subplot
+              else
+                vert = 1;
+              end
+              horz  = iff(xy(1) > width/2,2,1); %if clicked right subplot                                    
+%               msg = sprintf('clicked on %.1f x %.1f y, subpl %i, %i, epoch %i',x,y, vert, horz,epoch);                          
+%               msgbox(msg);
+              iEpochs = squeeze(obj.plotEp.iepochs(1,horz,:)); %logical index of nonexcluded epochs for this category in all epochs
+              ep = squeeze(obj.plotEp.iepochs(vert,horz,iEpochs)); %logical index of epochs with single trial significance in all nonexcluded epochs
+              epochsnum = find(ep(obj.plotEp.isorted{1,horz})); %absolute number of the epochs  with single trial significance 
+              obj.plotEp.selected = [y horz]; %the currently selected epoch
+              obj.PlotEpochs( obj.plotEp.ch); %plot again the figure with the selection
+              if ismember(y,epochsnum) %if the selected epoch is one of these with single trial significance 
+                  obj.PL.plotEpochData(find(epochsnum==y),[vert horz],cellval(obj.plotEp.kategories,horz),obj.plotEp.ch); %#ok<FNDSB>
+              end
+        end
         function obj = AddTag(obj,s)
            if ~exist('s','var')
                 s = obj.plotES(2);
@@ -3073,4 +3218,5 @@ classdef CiEEGData < matlab.mixin.Copyable
     end
     
 end
+
 

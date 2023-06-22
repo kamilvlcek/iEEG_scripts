@@ -557,6 +557,7 @@ classdef CStat < handle
             %B muze mit jeden nebo oba prvni rozmer = 1 - pak se porovnava se vsemi hodnotami v A
             %pokud fdr=1,2 nebo prazne, provadi fdr korekci
             %pokud print = 0 nebo prazne, netiskne nic
+            %RjEpChA and RjEpChB are both channels x epochs 
             if ~exist('print','var'), print = 0; end
             if ~exist('fdr','var') || isempty(fdr), fdr = 1; end %min striktni je default           
             if ~exist('msg','var') || isempty(msg), msg = ''; end
@@ -613,7 +614,55 @@ classdef CStat < handle
             end
             if print, fprintf('%d .. done\n',j); end
         end
-        function [ranova_table, Tukey_table] = ANOVA2rm(data, factorNames, levelNames, interact, nofile) %Sofiia since 12.3.2021 
+        function [W,iW,Wvar] = Wilcox3D(A,B,print,fdr,msg,RjEpCh)
+            %returns 3D matrix of p values, FDR corrected. A and B are 4D matrices, samples x channels x epochs x repetitions
+            %wilcox test is performed on the last dimension, repetitions. 
+            %B can have some dimensions of size 1, then all values of A are compared with this 
+            %RjEpCh is channels x epochs 
+            %Wvar is variability of the data samples x channels x epochs x [data,baseline] x [min,Q,med,Q,max]
+            if ~exist('print','var'), print = 0; end
+            if ~exist('fdr','var') || isempty(fdr), fdr = 1; end %less strict as default       
+            if ~exist('msg','var') || isempty(msg), msg = ''; end %no message by default
+            if ~exist('RjEpCh','var') || isempty(RjEpCh), RjEpCh = false(size(A,2),size(A,3)); end %no epoch excluded by default
+            assert(size(A,4)>1 && size(B,4)>1,'both matrices need to be 4 dimensional');
+            W = ones(size(A,1),size(A,2),size(A,3)); 
+            iW = false(size(A,1),size(A,2),size(A,3)); %index of what should be fdr corrected 
+            Wvar = zeros(size(A,1),size(A,2),size(A,3),2,5); 
+            if print, fprintf('Wilcox Test 3D - %s (samples of %i, %i channels, %i epochs):\n     ', msg, size(A,1), size(A,2), size(A,3)); end
+            for ts = 1:size(A,1) %time samples
+                if print, fprintf('\b\b\b\b\b%5i', ts); end %tisknu jen cele padesatky, && mod(ts,50)==0
+                for ch = 1:size(A,2) %channels
+                    parfor ep = 1:size(A,3) %epochs
+                        if ~RjEpCh(ch,ep) %only not exluded epochs
+                            tsB = min(ts,size(B,1)); %if B has only 1 time sample (it has now)
+                            chB = min(ch,size(B,2)); %if B has only 1 time channel
+                            epB = min(ep,size(B,3)); %if B has only 1 epoch
+                            aa = squeeze(A(ts,ch,ep,:));
+                            bb = squeeze(B(tsB,chB,epB,:));
+                            W(ts,ch,ep) = ranksum(aa,bb); %just non-paired for now
+                            iW(ts,ch,ep)=1;
+                            var = [...
+                                    min(aa),quantile(aa,0.25), median(aa),quantile(aa,0.75),max(aa); ...
+                                    min(bb),quantile(bb,0.25), median(bb),quantile(bb,0.75),max(bb) ...
+                            ];
+                            Wvar(ts,ch,ep,:,:)= var;
+                        end
+                    end
+                end
+            end
+            if fdr > 0
+                 if print, fprintf('... fdr'); end
+                 if fdr == 2, method = 'dep'; else method = 'pdep'; end %#ok<SEPEX>    %dep is more strict than pdep               
+                 W1 = reshape(W,[size(A,1) * size(A,2) *size(A,3) , 1]); %we need the in one dimension only, for fdr_bh to work
+                 iW1 = reshape(iW,[size(A,1) * size(A,2) *size(A,3) , 1]); %index in W of what to fdr correct                 
+                 [~, ~, adj_p]=fdr_bh(W1(iW1),0.05,method,'no'); % adj_p contain only the corrected values
+                 W1(iW1) = adj_p;
+                 W = reshape(W1,size(W)); %get the original 3D matrix
+                 iW = reshape(iW1,size(iW));                                               
+            end
+            if print, fprintf(' ... done\n'); end            
+        end
+        function [ranova_table, Tukey_table] = ANOVA2rm(data, factorNames, levelNames, interact, nofile) %Sofiia since 12.3.2021
             %%%% 2 way repeated measures ANOVA, both factors are repeated measures
             % returns the stats table for ANOVA and table with post-hoc comparisons
             % if no signific interaction between 2 factors was found,returns empty Tukey_table
@@ -777,8 +826,7 @@ classdef CStat < handle
             %predpoklada data s casem v prvnim rozmeru, ostatni rozmery nejsou nebo 1
             % 4.5.2017 kopie z CiEEGdata.Fourier
             if ~exist('method','var'), method = 'pwelch'; end 
-            switch method   
-                
+            switch method                   
                 case 'fft'
             %1. varianta podle MikeXCohen
             frequencies       = linspace(0,fs/2,length(dd)/2+1); %maximalni frekvence je fs/2, ale frekvencni rozliseni je N/2+1
@@ -805,6 +853,8 @@ classdef CStat < handle
         function [filter_result] = FIR(freq,dd,fs,firtype)
             %[filter_result] = FIR(freq,dd,fs) 
             % provede FIR filter podle Cohen Ch 14.  
+            % dd is data matrix, the first dimension should be time (samples)
+            % fs is sampling frequency
             % 4.5.2017   
             if ~exist('firtype','var'), firtype = 'fir1'; end
             assert(strcmp(firtype,'fir1') || strcmp(firtype,'firls'), ['neznamy typ kernelu ' firtype]);
@@ -837,8 +887,22 @@ classdef CStat < handle
                 idealresponse = [ 0 0 1 1 0 0 ];
                 filterweights = firls(filter_order,ffrequencies,idealresponse); %vytvorim filter kernel                          
             end
-            filter_result = filtfilt(filterweights,1,dd);
-            
+            filter_result = filtfilt(filterweights,1,dd);            
+        end
+        function dd = NotchFilter(bandwidth,freqs,dd,fs)
+            %bandwith is the size of the freqency band to be filtered out (x +- bandwidth)
+            %freqs are frequencies around which to perform the notch (e.g. 50,100,150)
+            %dd are the eeg data, with time in the first dimension, fs is their sampling frequency
+            %method by Jiri Hammer, May 2023
+            n = 4;   %4th order Butterworth filter
+            fprintf('notch filter for %i channels and %i epochs Hz +- %.1f :', size(dd,2),size(dd,3),bandwidth);
+            for f=1:numel(freqs)
+                fprintf('%i, ',freqs(f));
+                Wn = [freqs(f)-bandwidth, freqs(f)+bandwidth]./(fs/2); % fs = sampling rate in [Hz]
+                [b,a] = butter(n, Wn, 'stop'); % filter design
+                dd = filtfilt(b, a, dd); % filtering
+            end
+            fprintf('... done\n');
         end
         function [AUC,X,Y] = ROCKrivka(epochData,dd,katnames,kresli)
             %11/2018 - spocita a vykresli roc krivku

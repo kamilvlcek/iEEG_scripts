@@ -4,6 +4,11 @@ function filenames = BatchHilbert(testname,cfg)
 %15.9.2016 - AlloEgo zarovnani podle odpovedi
 %25.5.2017 - Pridani reference a ERP
 
+%default configuration - values in cfg.
+default = struct;
+default.decimatefactor = 8;
+default.extractepochs = 1;
+
 if ~exist('cfg','var'), cfg = struct; end %pokud zadnou strukturu neuvedu, pouzivaji se defaultni nastaveni
 if ~isfield(cfg,'hybernovat'), cfg.hybernovat = 0; end %jestli chci po konci skriptu pocitac uspat - ma prednost
 if ~isfield(cfg,'vypnout'), cfg.vypnout = 0; end %jestli chci po konci skriptu pocitac vypnout (a nechci ho hybernovat) 
@@ -11,13 +16,14 @@ if ~isfield(cfg,'pouzetest'), cfg.pouzetest = 0; end %jestli chci jen otestovat 
 if ~isfield(cfg,'overwrite'), cfg.overwrite = 0;  end %jestil se maji prepsat puvodni data, nebo ohlasit chyba a pokracovat v dalsim souboru 
 if ~isfield(cfg,'podilcasuodpovedi'), cfg.podilcasuodpovedi = 0; end  %jestli se maji epochy resamplovat na podil casu mezi podnetem a odpovedi
 if ~isfield(cfg,'freqepochs'), cfg.freqepochs = 0; end %jestli se maji uklada frekvencni data od vsech epoch - velka data!
-if ~isfield(cfg,'extractepochs'), cfg.extractepochs = 1; end %muzu uklada nezepochovana data
+if ~isfield(cfg,'extractepochs'), cfg.extractepochs = default.extractepochs; end %muzu uklada nezepochovana data
 if ~isfield(cfg,'srovnejresp'), cfg.srovnejresp = 0; end %jestli se maji epochy zarovnava podle odpovedi
 if ~isfield(cfg,'suffix'), cfg.suffix = ['Ep' datestr(now,'YYYY-mm')]; end %defaultne automaticka pripona rok-mesic
 if ~isfield(cfg,'pacienti'), cfg.pacienti = {}; end %muzu analyzovat jen vyber pacientu
 if ~isfield(cfg,'normalization'), cfg.normalization = 'orig'; end %type of normalization after hilbert transform
 if ~isfield(cfg,'statmethod'), cfg.statmethod = struct('test','wilcox','chn',1,'fdr',1); end %for explanation see BatchStat
 if ~isfield(cfg,'epochfilter'), cfg.epochfilter = []; end % I can select only some epochs and include them in the resulting file, e.g. {8,[1 2]}; - epochs with values 1 or 2 in the 8th column of obj.P.data
+if ~isfield(cfg,'decimatefactor'), cfg.decimatefactor = default.decimatefactor; end %decimate factor to use after hilbert tranform. 8 should be enough for trial-average analysis
 
 [ pacienti, setup,frekvence,reference  ] = pacienti_setup_load( testname,cfg.srovnejresp ); %11.1.2018 - 0 = zarovnani podle podnetu, 1=zarovnani podle odpovedi
 if numel(cfg.pacienti)>0
@@ -31,6 +37,7 @@ if cfg.podilcasuodpovedi == 1, suffix = [suffix 'PCO']; end %pokud, pridam jeste
 if cfg.srovnejresp,  suffix = [suffix 'RES']; end %pokud zarovnavam podle odpovedi, pridavam priponu
 if cfg.freqepochs == 1, suffix = [suffix ' FE']; end %pokud, pridam jeste na konec priponu
 if cfg.extractepochs == 0, suffix = [suffix ' noEp']; end %pokud, pridam jeste na konec priponu
+if cfg.decimatefactor ~= default.decimatefactor, suffix = [suffix ' D' num2str(cfg.decimatefactor)]; end %pokud, pridam jeste na konec priponu
 
 prefix = setup.prefix;
 stat_kats = setup.stat_kats;
@@ -187,6 +194,8 @@ for f=1:numel(frekvence)
                             if ERP
                                 E.Filter([0 60],[],[],0); %odfiltruju vsechno nad 60Hz, nekreslim obrazek
                                 E.Decimate(4); % ze 512 Hz na 128Hz. To staci na 60Hz signal
+                            else
+                                E.Filter({0.5 [50 100 150] },[],[],0); %notch filter for [50 100 150]+-.5Hz
                             end
                             clear d;                        
                             E.RejectChannels(pacienti(p).rjch);
@@ -206,10 +215,10 @@ for f=1:numel(frekvence)
                                 else
                                     prekryv = 0;  %defaultne je nulovy prekryv pasem                                    
                                 end                                
-                                E.PasmoFrekvence(frekvence(f).freq,[],prekryv,iff(cfg.podilcasuodpovedi,2,[])); 
+                                E.PasmoFrekvence(frekvence(f).freq,[],prekryv,cfg.decimatefactor); % nemuzu  najit puvod: iff(cfg.podilcasuodpovedi,2,[]),
                                     %pokud podilcasu, zdecimuju zatim jen malo, cele se mi ale nevejde do pameti
                                 E.Normalize(cfg.normalization); %normalize the frequency bands
-                            end
+                            end                            
                             if cfg.extractepochs 
                                 disp('extracting epochs ...');
                                 if ERP

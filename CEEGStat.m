@@ -17,12 +17,15 @@ classdef CEEGStat
         end
         
         function [P,ibaseline,iepochtime,itimewindow] = WilcoxBaseline(obj,epochtime,baseline,timewindow,iEp,RjEpCh)
-            % spocita signifikance vuci baseline
-            % prevedeno z CiEEGData.ResponseSearch 18.7.2017
-            iepochtime = round(epochtime(1:2).*obj.fs); %v poctu vzorku cas pred a po udalosti, pred je zaporne cislo           
-            ibaseline = round(baseline.*obj.fs); %zaporna cisla pokud pred synchro eventem
-            ibaselineA =  [ibaseline(1) ,    floor((ibaseline(2)-ibaseline(1))/2)+ibaseline(1)]; %prvni pulka baseline - 28.3.2017
-            ibaselineB =  [ibaselineA(2)+1 , ibaseline(2) ]; %druha pulka baseline
+            % calculates the significance with respect to the baseline, uses obj.d and obj.fs
+            % moved from CiEEGData.ResponseSearch 18.7.2017
+            % epochtime, baseline and timewindow are in sec
+            % iEp - logical index of epochs to be used
+            % RjEpCh - logical index of epochs to be rejected, channels x epochs
+            iepochtime = round(epochtime(1:2).*obj.fs); %iepochtime is in samples before and after the event, before is negative           
+            ibaseline = round(baseline.*obj.fs); %negative numbers if before synchro event
+            ibaselineA =  [ibaseline(1) ,    floor((ibaseline(2)-ibaseline(1))/2)+ibaseline(1)]; %first half of baseline - 28.3.2017
+            ibaselineB =  [ibaselineA(2)+1 , ibaseline(2) ]; %second half of baseline
             itimewindow = round(timewindow.*obj.fs); %
             
             %proc driv?  mean(obj.d( abs(iepochtime(1)-ibaselineA(1))+1 : abs(iepochtime(1)-ibaselineA(2))  - 28.3.2017            
@@ -32,7 +35,7 @@ classdef CEEGStat
             if numel(itimewindow) == 2  %chci prumernou hodnotu eeg odpovedi d od do
                 response = mean(obj.d( (itimewindow(1) : itimewindow(2)) - iepochtime(1) , : , iEp ),1); %prumer v case                
             else %time windows je delka maximalni hodnoty p - takze tady jeste neresim
-                response = obj.d(abs(iepochtime(1)-ibaseline(2))+1 : end , : , iEp ); %vsechny hodnoty po konci baseline                 
+                response = obj.d(abs(iepochtime(1)-ibaseline(2))+1 : end , : , iEp ); %samples x channels x epochs, all values after the end of the baseline                
             end            
             WpA = CStat.Wilcox2D(response,baselineA,1,[],'mean vs baseline A',RjEpCh(:,iEp),RjEpCh(:,iEp));  %1=mene striktni pdep, 2=striktnejsi dep;
             WpB = CStat.Wilcox2D(response,baselineB,1,[],'mean vs baseline B',RjEpCh(:,iEp),RjEpCh(:,iEp));  %1=mene striktni pdep, 2=striktnejsi dep;
@@ -43,6 +46,35 @@ classdef CEEGStat
             else
                 P = Wp; %%pole 1D signifikanci - jedna hodnota pro kazdy kanal                
             end
+        end
+        function [P,iP,ibaseline,iresponse,itimewindow,Var] = WilcoxBaselineST(obj,epochtime,baseline,timewindow,iCh,iEp,RjEpCh,method)
+            % calculates the significance with respect to the baseline, for each epoch independently
+            % single trial analysis analogy of WilcoxBaseline
+            % uses obj.d and obj.fs
+            % epochtime[a b], baseline[a b] and timewindow are in sec, timewindow is the size of the moving window
+            % when timewindow are two numbers, the second is the required size of the baseline. Argument baseline is then not used
+            % iEp - logical index of epochs to be used
+            % RjEpCh - logical index of epochs to be rejected, channels x epochs            
+            if numel(timewindow)>1
+                baseline0 = [-timewindow(2) 0];                
+            else
+                baseline0 = iff(diff(baseline) < timewindow, baseline, [baseline(2)-timewindow baseline(2)]); %the same size as timewindow if possible
+            end
+            iepochtime = round(epochtime(1:2).*obj.fs); %iepochtime is in samples before and after the event, before is negative                       
+            itimewindow = round(timewindow(1).*obj.fs); %size of moving windows in samples
+            ibaseline = round(baseline0.*obj.fs); %in samples, negative is before stimulus
+            iresponse = [ abs(iepochtime(1)-ibaseline(2))+1 diff(iepochtime)]; %all values after the end of the baseline
+            ibaseline = [ abs(iepochtime(1)-ibaseline(1))+1 abs(iepochtime(1)-ibaseline(2))]; %in samples, but now 1 means start of whole epoch
+            responses = NaN(diff(iresponse) +1 , numel(iCh) , numel(iEp), itimewindow); %samples (number of timewindows) x channels x epochs x timewindow size
+            baselines = NaN(1, numel(iCh) , numel(iEp), diff(ibaseline)+1); %samples x channels x epochs x timewindow size
+            for iW = iresponse(1) : iresponse(2) %iW is middle of the moving time window
+                iwindow = iW - floor((itimewindow-1)/2) : min(iW + floor(itimewindow/2),size(obj.d,1));
+                    %for odd itimewindow it takes same number of samples before and after iW
+                    %for even itimewindow it teakes one less sample before than after iW
+                responses(iW-iresponse(1)+1,:,:,1:numel(iwindow)) = permute(obj.d(iwindow,iCh,iEp),[2 3 1]); %channes x epochs x window size after permute
+            end
+            baselines(1,:,:,:) = permute(obj.d(ibaseline(1):ibaseline(2),iCh,iEp),[2 3 1]); %channes x epochs x window size after permute            
+            [P,iP,Var] = CStat.Wilcox3D(responses,baselines,1,method.fdr,'single-trial: moving window vs baseline',RjEpCh(iCh,iEp)); 
         end
     end
     methods (Static,Access = public)
@@ -117,8 +149,8 @@ classdef CEEGStat
             
         end
         function baseline0 = Baseline(epochtime,baseline)
-            %baseline0 je cast epochtime pred koncem baseline nebo pred casem 0
-            baseline0 = [epochtime(1) iff(baseline(2)>epochtime(1),baseline(2),0)]; %zalezi jestli se baselina a epochtime prekryvaj
+            %baseline0 is the part of epochtime before the end of baseline or before time 0
+            baseline0 = [epochtime(1) iff(baseline(2)>epochtime(1),baseline(2),0)]; %it depends if the baseline and epochtime overlap
         end
         function ispc_p = ISPCBaseline(ispc,n,epochtime,baseline,fs,fdr)
             %computes significance of ispc relative to baseline

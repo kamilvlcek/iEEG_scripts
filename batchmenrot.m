@@ -6,10 +6,11 @@ podilcasuodpovedi =0;
 %% nejdriv normalni analyzu s razenim podle podnetu
 if podnet
     disp(' ++++ ANALYZA 1 - RAZENI PODLE PODNETU ++++');
-    pacienti = {'p180','p181'}; 
-    cfg = struct('hybernovat',0,'suffix','Ep2018-01'); %zatim necham puvodni priponu aby stejne soubory
+    pacienti = {'p181'}; 
+    cfg = struct('hybernovat',0,'suffix','Ep2023-06'); %zatim necham puvodni priponu aby stejne soubory
     cfg.pacienti = pacienti; %kdyz to tam vlozim rovnou, tak se mi udela struct array
-    cfg.overwrite=0; %vyjimecne
+    cfg.overwrite=1; %vyjimecne
+    cfg.decimatefactor = 1; %for single trial analysis. We do not want to reduce the sampling frequency
     filenames = BatchHilbert('menrot',cfg);    
 end
 %% potom analyza s razenim podle odpovedi
