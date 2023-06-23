@@ -509,7 +509,9 @@ classdef CHilbert < CiEEGData
                 DatumCas = obj.DatumCas;
                 DatumCas.Extracted = datestr(now);          
                 H = obj.CH.H;
-                H = rmfield(H,'electrodes'); %smazu nepotrebna pole
+                if isfield(H,'electrodes')
+                    H = rmfield(H,'electrodes'); %smazu nepotrebna pole
+                end
                 H = rmfield(H,'selCh_H');
                 H = rmfield(H,'triggerCH');
                 H.channels = H.channels(chns); %vyfiltruju kanaly

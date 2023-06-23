@@ -301,8 +301,13 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             chyby(:,1) = obj.P.data(:,S.spravne)==0; %pro PPA jsou vsechny ovoce spatne. Sloupec spravne je u ovoce vzdy 0, chyba v PHP asi
             rt = obj.ReactionTime(-1); %reakcni casy podle Sychropulsu - do not distinguish stimulus categories
             rtPsy = obj.P.data(:,S.rt); %reakcni cas podle psychopy
-            chyby(:,4) = rt(:,1) < 0.1 | (rtPsy(:,1) < 0.1 & rtPsy(:,1) > 0);  %v PPA clovek nereaguje spravne, takze 0 jako cas odpovedi me nezajima 
-                    %chyba, pokud je reakcni cas prilis kratky (0 v PsychoPy znamena, ze nereagoval, to je taky chyba)
+            if strcmp(obj.testname,'memact')
+                chyby(:,4) = rtPsy(:,1) < 0.1 & rtPsy(:,1) > 0; % in the memact, sychropulses can have very short latencies (less than 0.1 sec if correspond to the start of joystick movement - in case of patient VT59), 
+                %but in Psychopy, RT correponds to the time of hitting the correct object (longer than 0.1 sec); so such trials should not be considered as incorrect
+            else
+                chyby(:,4) = rt(:,1) < 0.1 | (rtPsy(:,1) < 0.1 & rtPsy(:,1) > 0);  %v PPA clovek nereaguje spravne, takze 0 jako cas odpovedi me nezajima
+                %chyba, pokud je reakcni cas prilis kratky (0 v PsychoPy znamena, ze nereagoval, to je taky chyba)
+            end
             [blocks,srate,blocktest]=obj.GetBlocks();            %#ok<PROP>
             for b = 1:size(blocks,1) %#ok<PROP>
                 if srate(b) < 0.75  %chybny blok

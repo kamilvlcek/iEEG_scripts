@@ -205,6 +205,7 @@ classdef CiEEGData < matlab.mixin.Copyable
         end
         function obj = RejectEpochs(obj,RjEpoch,RjEpochCh)
             %ulozi cisla vyrazenych epoch - kvuli prevodu mezi touto tridou a CHilbert
+            %RjEpochCh channels x epochs
             if RjEpoch ~= 0  %muzu takhle vynechat vlozeni vyrazenych epoch              
                 obj.RjEpoch = RjEpoch; 
                 disp(['globally (over all channels) rejected ' num2str(numel(RjEpoch)) ' epochs']); 
@@ -214,9 +215,12 @@ classdef CiEEGData < matlab.mixin.Copyable
                     %we do not know if RjEpochs contains all or only filtered epochs. Therefore, check for both variants
                     if size(RjEpochCh,2)==numel(obj.epochsFilter.iepochs) %epochsFilter.iepochs is all true if no filter is used
                         obj.RjEpochCh = RjEpochCh(:,obj.epochsFilter.iepochs); %if only some epochs were used, use only these here as well
-                    elseif size(RjEpochCh,2)~=sum(obj.epochsFilter.iepochs)
+                    elseif size(RjEpochCh,2)==sum(obj.epochsFilter.iepochs)
+                        obj.RjEpochCh = RjEpochCh; %RjEpochCh probably includes only the filtered epochs
+                    else
                         error('RejectEpochs: incorrect size of RjEpochCh: neither all epochs nor filtered ones');
                     end
+                    %check and correct the reference (i.e. also number of channels)
                     if ~strcmp(obj.reference,'original') && ~isempty(obj.CH.filterMatrix)  %pokud to neni originalni reference                      
                         obj.ChangeReferenceRjEpochCh(obj.CH.filterMatrix); %prepocitam na jinou referenci i RjEpochCh
                     end
