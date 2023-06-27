@@ -292,28 +292,26 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         end
         
         function chyby = GetErrorTrials(obj)
-            %vrati pole indikujici chybu/vyrazeni pro kazdy trial=radky
-            %sloupce: jednotlive chyby, chybne bloky, treningovy trial, prilis kratky reakcni cas
-            %chybny blok ma < 75% uspesnost
-            S = obj.P.sloupce;          
-            
-            chyby = zeros(size(obj.P.data,1),4); %ctyri sloupce - chybne trials a chybne bloky, trening, prilis rychle reakcni casy
-            if strcmp(obj.testname,'memact')
+            %return a matrix indicating an error/trial exclusion for each trial=row
+            %columns: individual errors, wrong blocks, training trial, too short reaction time
+            %the error block has < 75% success rate
+            S = obj.P.sloupce;                      
+            chyby = zeros(size(obj.P.data,1),4); %columns: individual errors, wrong blocks, training trial, too short reaction time                        
+            rt = obj.ReactionTime(-1); %reaction time according to the synchropulse - do not distinguish stimulus categories
+            rtPsy = obj.P.data(:,S.rt); %reaction according to the PsychoPy 
+            if strcmp(obj.testname,'memact') %Memory Action Test, Sofiia 23.6.2023
                 chyby(:,1) = obj.P.data(:,S.spravne)==0 | obj.P.data(:,S.answer_button_corr)==0;
                 % in memact, for conditions with different objects (immed_diff and delayed_diff), we should also consider trials as incorrect in which patient didn't answer correctly to the question about the identity of the object
-            else
-                chyby(:,1) = obj.P.data(:,S.spravne)==0; %pro PPA jsou vsechny ovoce spatne. Sloupec spravne je u ovoce vzdy 0, chyba v PHP asi
-            end
-            
-            rt = obj.ReactionTime(-1); %reakcni casy podle Sychropulsu - do not distinguish stimulus categories
-            rtPsy = obj.P.data(:,S.rt); %reakcni cas podle psychopy
-            if strcmp(obj.testname,'memact')
                 chyby(:,4) = rtPsy(:,1) < 0.1; % in the memact, sychropulses can have very short latencies (less than 0.1 sec if correspond to the start of joystick movement - in case of patient VT59), 
-                %but in Psychopy, RT correponds to the time of hitting the correct object (longer than 0.1 sec); so such trials should not be considered as incorrect
-            else
+                %so such trials should not be considered as incorrect (rt(:,1) < 0.1 cannot be used )             
+                %but in the Psychopy data, RT correponds to the time of hitting the correct object (longer than 0.1 sec);
+            else % all other tests
+                chyby(:,1) = obj.P.data(:,S.spravne)==0;  %missed or incorrect trials
+                %for the PPA test, all fruit/veg are errors. The spravne column is always 0 for fruit/veg, a bug in PHP script probably
                 chyby(:,4) = rt(:,1) < 0.1 | (rtPsy(:,1) < 0.1 & rtPsy(:,1) > 0);  %v PPA clovek nereaguje spravne, takze 0 jako cas odpovedi me nezajima
-                %chyba, pokud je reakcni cas prilis kratky (0 v PsychoPy znamena, ze nereagoval, to je taky chyba)
-            end
+                %error if the reaction time is too short (0 in PsychoPy means subject did not respond, this is error too)
+            end            
+            
             [blocks,srate,blocktest]=obj.GetBlocks();            %#ok<PROP>
             for b = 1:size(blocks,1) %#ok<PROP>
                 if srate(b) < 0.75  %chybny blok

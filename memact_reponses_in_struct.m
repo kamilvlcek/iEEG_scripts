@@ -1,6 +1,7 @@
 % script to produce CM for memact across selected structures
 % computes statistics for all channels, with fdr correction 
 % then removes channels with non-significant responses relative to baseline
+% Sofiia 23.6.2023 
 
 CB=CBrainPlot();
 
