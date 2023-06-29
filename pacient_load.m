@@ -15,7 +15,7 @@ elseif strcmp(testname,'menrot')
 elseif strcmp(testname,'ppa')
     pacienti = pacienti_ppa(); %nactu celou strukturu pacientu
     setup = setup_ppa(0); %nactu nastaveni ppa  
-elseif strcmp(testname,'memact')
+elseif strcmp(testname,'memact') %Sofiia 23.6.2023
     pacienti = pacienti_memact(); % patients in memact test
     setup = setup_memact(0); %
 else

@@ -509,7 +509,7 @@ classdef CHilbert < CiEEGData
                 DatumCas = obj.DatumCas;
                 DatumCas.Extracted = datestr(now);          
                 H = obj.CH.H;
-                if isfield(H,'electrodes')
+                if isfield(H,'electrodes') %Sofiia 23.6.2023
                     H = rmfield(H,'electrodes'); %smazu nepotrebna pole
                 end
                 H = rmfield(H,'selCh_H');
