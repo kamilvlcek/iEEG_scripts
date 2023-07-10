@@ -16,20 +16,18 @@ classdef CEEGStat
             obj.fs = fs;
         end
         
-        function [P,ibaseline,iepochtime,itimewindow] = WilcoxBaseline(obj,epochtime,baseline,timewindow,iEp,RjEpCh)
+        function [P,ibaseline,iepochtime,itimewindow,iEpochs] = WilcoxBaseline(obj,epochtime,baseline,timewindow,iEp,RjEpCh)
             % calculates the significance with respect to the baseline, uses obj.d and obj.fs
             % moved from CiEEGData.ResponseSearch 18.7.2017
             % epochtime, baseline and timewindow are in sec
-            % iEp - logical index of epochs to be used
+            % iEp - logical index of epochs to be used, epochs x 1
             % RjEpCh - logical index of epochs to be rejected, channels x epochs
-            iepochtime = round(epochtime(1:2).*obj.fs); %iepochtime is in samples before and after the event, before is negative           
-            ibaseline = round(baseline.*obj.fs); %negative numbers if before synchro event
+            [ibaseline,iepochtime,itimewindow]=CEEGStat.iEpochTime(obj.fs, epochtime,baseline,timewindow);
             ibaselineA =  [ibaseline(1) ,    floor((ibaseline(2)-ibaseline(1))/2)+ibaseline(1)]; %first half of baseline - 28.3.2017
             ibaselineB =  [ibaselineA(2)+1 , ibaseline(2) ]; %second half of baseline
-            itimewindow = round(timewindow.*obj.fs); %
-            
+                        
             %proc driv?  mean(obj.d( abs(iepochtime(1)-ibaselineA(1))+1 : abs(iepochtime(1)-ibaselineA(2))  - 28.3.2017            
-            baselineA = mean(obj.d( ibaselineA(1)-iepochtime(1)+1 : ibaselineA(2)-iepochtime(1) , : , iEp),1); 
+            baselineA = mean(obj.d( ibaselineA(1)-iepochtime(1)+1 : ibaselineA(2)-iepochtime(1) , : , iEp),1);  %TODO - epochs with errors or manually rejected are not excluded, for each channel independently 
             baselineB = mean(obj.d( ibaselineB(1)-iepochtime(1) : ibaselineB(2)-iepochtime(1) , : , iEp),1); 
                 % cas x kanaly x epochy - prumer za cas pred podnetem, pro vsechny kanaly a vsechny nevyrazene epochy
             if numel(itimewindow) == 2  %chci prumernou hodnotu eeg odpovedi d od do
@@ -46,6 +44,7 @@ classdef CEEGStat
             else
                 P = Wp; %%pole 1D signifikanci - jedna hodnota pro kazdy kanal                
             end
+            iEpochs = repmat(iEp',size(obj.RjEpochCh,1),1) & ~obj.RjEpochCh(:,:); %channels x epochs 
         end
         function [P,iP,ibaseline,iresponse,itimewindow,Var] = WilcoxBaselineST(obj,epochtime,baseline,timewindow,iCh,iEp,RjEpCh,method)
             % calculates the significance with respect to the baseline, for each epoch independently
@@ -78,79 +77,92 @@ classdef CEEGStat
         end
     end
     methods (Static,Access = public)
-        function [WpKat,WpKatBaseline]=WilcoxCat(kats,responsekat,baselinekat,rjepchkat,itimewindow,method)
-            %spocita statistiky pro ruzne kategorie - vuci sobe navzajem a vuci baseline              
+        function [WpKat,WpKatBaseline]=WilcoxCat(kats,responsekat,baselinekat,rjchepkat,itimewindow,method)
+            %spocita statistiky pro ruzne kategorie - vuci sobe navzajem a vuci baseline   
+            %uses data from responsekat{kat}(time x channels x epochs) and baselinekat{kat}(time x channels x epochs) 
             %method struct urcuje parametry statistiky, test = wilcox/permut, chn=1 (over one channel)/2 (fdr over all channels), fdr=1 (less strict) /2 (more strict)
             %rozdily kategorii vuci baseline - 28.3.2017
             WpKatBaseline = cell(numel(kats),1);  %differences relative to the baseline, for each category separately
             for k =  1: numel(kats)                
                  baselineall = baselinekat{k};
-                 baselineA = mean(baselineall(1:floor(size(baselineall,1)/2)      ,:,:),1); %mean over time
-                 baselineB = mean(baselineall(  floor(size(baselineall,1)/2)+1:end,:,:),1); %mean over time
+                 baselineA = mean(baselineall(1:floor(size(baselineall,1)/2)      ,:,:),1); %mean over time - first half of baseline
+                 baselineB = mean(baselineall(  floor(size(baselineall,1)/2)+1:end,:,:),1); %mean over time - second half of baseline
                  if method.chn == 1 %statistics for each channel separately, signif response relative to baseline
                      WpKatBaseline{k,1} = ones(size(responsekat{k},1), size(responsekat{k},2)); %time x channels
                      fprintf('kat %i vs baseline - Channels Individually - Wilcox2D: ch    ',k);
                      for ch = 1:size(responsekat{k},2) %musim baseline signif taky pocitat pro kazdy kanal zvast protoze ji pak zohlednuju mezi kategoriemi
-                        WpBA = CStat.Wilcox2D(responsekat{k}(:,ch,:),baselineA(:,ch,:),0,method.fdr,['chn' num2str(ch) ' kat ' num2str(k) ' vs baseline A'],rjepchkat{k}(ch,:),rjepchkat{k}(ch,:));
-                        WpBB = CStat.Wilcox2D(responsekat{k}(:,ch,:),baselineB(:,ch,:),0,method.fdr,['chn' num2str(ch) ' kat ' num2str(k) ' vs baseline B'],rjepchkat{k}(ch,:),rjepchkat{k}(ch,:));
-                        WpKatBaseline{k,1}(:,ch) = max (WpBA,WpBB);                        
+                        WpBA = CStat.Wilcox2D(responsekat{k}(:,ch,:),baselineA(:,ch,:),0,method.fdr,['chn' num2str(ch) ' kat ' num2str(k) ' vs baseline A'],rjchepkat{k}(ch,:),rjchepkat{k}(ch,:));
+                        WpBB = CStat.Wilcox2D(responsekat{k}(:,ch,:),baselineB(:,ch,:),0,method.fdr,['chn' num2str(ch) ' kat ' num2str(k) ' vs baseline B'],rjchepkat{k}(ch,:),rjchepkat{k}(ch,:));
+                        WpKatBaseline{k,1}(:,ch) = max (WpBA,WpBB);    % maximum of the two p values from baseline A and B = the least significant                    
                         fprintf('\b\b\b\b\b%5i',ch);  %list each channel                      
                      end
                      if method.fdr == 0, fprintf('no fdr ...'); end
                      fprintf(' ... OK \n');
-                 else %puvodni verze, statistika pro vsechny kanaly najednou  
-                     WpBA = CStat.Wilcox2D(responsekat{k},baselineA,1,method.fdr,['kat ' num2str(k) ' vs baseline A'],rjepchkat{k},rjepchkat{k});
-                     WpBB = CStat.Wilcox2D(responsekat{k},baselineB,1,method.fdr,['kat ' num2str(k) ' vs baseline B'],rjepchkat{k},rjepchkat{k});
-                     WpKatBaseline{k,1} = max (WpBA,WpBB);
+                 else %original version, statistics for all channels at once 
+                     WpBA = CStat.Wilcox2D(responsekat{k},baselineA,1,method.fdr,sprintf('kat %i/%i vs baseline A',k,numel(kats)),rjchepkat{k},rjchepkat{k}); %FDR included
+                     WpBB = CStat.Wilcox2D(responsekat{k},baselineB,1,method.fdr,sprintf('kat %i/%i vs baseline B',k,numel(kats)),rjchepkat{k},rjchepkat{k});
+                     WpKatBaseline{k,1} = max (WpBA,WpBB); % maximum of the two p values from baseline A and B = the least significant 
                  end
             end
-            
-            %differences of categories in relation to each other
-            paired = 0; %if to use the paired test
-            pairedstr = iff(paired,'paired','non-paired'); %text do vypisu
-            WpKat = cell(numel(kats)); %rozdily mezi kategorieme
-            for k = 1:numel(kats) %we will statistically compare each cat to each, regardless of order
-                for j = k+1:numel(kats)
-                    if ~isempty(WpKatBaseline{k}) && ~isempty(WpKatBaseline{j})
-                        if strcmp(method.test,'wilcox') %non-parametric wilcoxon test 
-                            if method.chn == 1 %statistics for each channel separatele, only the the times with signif response relative to baseline
-                                Wr = ones(size(WpKatBaseline{1})); %hi p values by default 
-                                fprintf('kat %i vs %i - Channels Individually - Wilcox2D %s: ch    ',k,j,pairedstr);
-                                for ch = 1:size(Wr,2)  %over all channels                              
-                                    if min(WpKatBaseline{k}(:,ch))<.05 || min(WpKatBaseline{j}(:,ch))<.05 %if at least one kat is significant from baseline
-                                        % -------- WILCOX each category with each category:
-                                        Wr(:,ch) = CStat.Wilcox2D(responsekat{k}(:,ch,:), responsekat{j}(:,ch,:),0,method.fdr,['kat ' num2str(k) ' vs ' num2str(j)],rjepchkat{k}(ch,:),rjepchkat{j}(ch,:),paired); 
-                                        %fprintf('%i,',ch);
-                                    end                                
-                                    fprintf('\b\b\b\b\b%5i',ch);  %list each channel 
+            if ~isfield(method,'categorydiff') || method.categorydiff == 1 %if to return differences between categories, when method.categorydiff is not set, do it
+                %differences of categories in relation to each other
+                paired = 0; %if to use the paired test
+                pairedstr = iff(paired,'paired','non-paired'); %text do vypisu
+                WpKat = cell(numel(kats)); %rozdily mezi kategorieme
+                for k = 1:numel(kats) %we will statistically compare each cat to each, regardless of order
+                    for j = k+1:numel(kats)
+                        if ~isempty(WpKatBaseline{k}) && ~isempty(WpKatBaseline{j})
+                            if strcmp(method.test,'wilcox') %non-parametric wilcoxon test 
+                                if method.chn == 1 %statistics for each channel separatele, only the the times with signif response relative to baseline
+                                    Wr = ones(size(WpKatBaseline{1})); %hi p values by default 
+                                    fprintf('kat %i vs %i - Channels Individually - Wilcox2D %s: ch    ',k,j,pairedstr);
+                                    for ch = 1:size(Wr,2)  %over all channels                              
+                                        if min(WpKatBaseline{k}(:,ch))<.05 || min(WpKatBaseline{j}(:,ch))<.05 %if at least one kat is significant from baseline
+                                            % -------- WILCOX each category with each category:
+                                            Wr(:,ch) = CStat.Wilcox2D(responsekat{k}(:,ch,:), responsekat{j}(:,ch,:),0,method.fdr,['kat ' num2str(k) ' vs ' num2str(j)],rjchepkat{k}(ch,:),rjchepkat{j}(ch,:),paired); 
+                                            %fprintf('%i,',ch);
+                                        end                                
+                                        fprintf('\b\b\b\b\b%5i',ch);  %list each channel 
+                                    end
+                                    if method.fdr == 0, fprintf('no fdr ...'); end
+                                    fprintf(' ... OK \n');
+                                else  %statistics for all channels together 
+                                    %TODO no difference to baseline is required. Is it OK? Inconsistent with the method.chn == 1
+                                    Wr = CStat.Wilcox2D(responsekat{k}, responsekat{j},1,method.fdr,['kat ' num2str(k) ' vs ' num2str(j)],rjchepkat{k},rjchepkat{j}, paired); % -------- WILCOX kazda kat s kazdou 
                                 end
-                                if method.fdr == 0, fprintf('no fdr ...'); end
-                                fprintf(' ... OK \n');
-                            else  %statistics for all channels together 
-                                %TODO no difference to baseline is required. Is it OK? Inconsistent with the method.chn == 1
-                                Wr = CStat.Wilcox2D(responsekat{k}, responsekat{j},1,method.fdr,['kat ' num2str(k) ' vs ' num2str(j)],rjepchkat{k},rjepchkat{j}, paired); % -------- WILCOX kazda kat s kazdou 
+                            elseif strcmp(method.test,'permut') %non-parametric permutation test
+                                Wr = CStat.PermStat(responsekat{k}, responsekat{j},1,['kat ' num2str(k) ' vs ' num2str(j)],rjchepkat{k},rjchepkat{j}); % -------- Permutacni test kazda kat s kazdou 
+                            else
+                                disp(['unknown statistical method: ' method.test]);
+                                Wr = [];
                             end
-                        elseif strcmp(method.test,'permut') %non-parametric permutation test
-                            Wr = CStat.PermStat(responsekat{k}, responsekat{j},1,['kat ' num2str(k) ' vs ' num2str(j)],rjepchkat{k},rjepchkat{j}); % -------- Permutacni test kazda kat s kazdou 
                         else
-                            disp(['unknown statistical method: ' method.test]);
-                            Wr = [];
+                            Wr = []; %for at least one categore significance relative to baseline is not computed                    
                         end
-                    else
-                        Wr = []; %for at least one categore significance relative to baseline is not computed                    
-                    end
-                    if numel(itimewindow)==0 
-                        WpKat{k,j} = Wr;  % pokud nechci pouzit klouzave okno
-                    else
-                        WpKat{k,j} = CStat.Klouzaveokno(Wr,itimewindow(1),'max',1); %pri nove signifikanci jen pro jeden kanal chci zase pouzivat klouzave okno
+                        if numel(itimewindow)==0 
+                            WpKat{k,j} = Wr;  % pokud nechci pouzit klouzave okno
+                        else
+                            WpKat{k,j} = CStat.Klouzaveokno(Wr,itimewindow(1),'max',1); %pri nove signifikanci jen pro jeden kanal chci zase pouzivat klouzave okno
+                        end
                     end
                 end
+            else
+                WpKat = []; %to return something
             end
-            
         end
         function baseline0 = Baseline(epochtime,baseline)
             %baseline0 is the part of epochtime before the end of baseline or before time 0
             baseline0 = [epochtime(1) iff(baseline(2)>epochtime(1),baseline(2),0)]; %it depends if the baseline and epochtime overlap
+        end
+        function [ibaseline,iepochtime,itimewindow]=iEpochTime(fs, epochtime,baseline,timewindow)
+            %returns indexes (samples) of epochtime, baselin and any timewindow from time in sec and fs
+            iepochtime = round(epochtime(1:2).*fs); %iepochtime is in samples before and after the event, before is negative           
+            ibaseline = round(baseline.*fs); %negative numbers if before synchro event
+            if exist('timewindow','var')  %any timewindow
+                itimewindow = round(timewindow.*fs); 
+            else
+                itimewindow =[];
+            end 
         end
         function ispc_p = ISPCBaseline(ispc,n,epochtime,baseline,fs,fdr)
             %computes significance of ispc relative to baseline

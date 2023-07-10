@@ -1275,7 +1275,7 @@ classdef CPlotsN < handle
             %vrati indexy vsetkych spravnych epoch pre dany channel a condition
             %napr. aedist condition 0=cervena, 1=vy, 2=znacka, 9=all
 
-            iEp = obj.E.GetEpochsExclude();
+            iEp = obj.E.GetEpochsInclude();
             iEp = find(squeeze(iEp(channel,:))); %indexy nenulovych prvkov na vyradenie
 
             if iconditions(1,1) ~= 9 %ak chceme len jednu konkretnu condition

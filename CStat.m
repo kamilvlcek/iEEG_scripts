@@ -571,10 +571,10 @@ classdef CStat < handle
             end %pokud se ma pouzit parovy neparametricky test, defaulte ne            
             W = zeros(size(A,1),size(A,2));
             
-            if print, fprintf(['Wilcox Test 2D - ' msg ' (' num2str(size(A)) '): ']); end
+            if print, fprintf(['Wilcox Test 2D - ' msg ' (' num2str(size(A)) '):      ']); end
             for j = 1:size(A,1) % over first dimension, usualy time
-                if print && mod(j,50)==0, fprintf('%d ', j); end %tisknu jen cele padesatky
-                for k = 1:size(A,2) %over second dim, usualy channels 
+                if print, fprintf('\b\b\b\b\b%5i', j); end %tisknu jen cele padesatky
+                for k = 1:size(A,2) %over second dim, usualy channels %parfor here is slower than for
                    if paired %pri parovem testu musim porovnavat stejny kanal, takze musi vyradit epochy parove
                        RjEpChA_k = RjEpChA(k,:) | RjEpChB(k,:); %binarni OR
                        RjEpChB_k = iff(numel(RjEpChB)>1,RjEpChA(k,:) | RjEpChB(k,:),0);
@@ -612,7 +612,7 @@ classdef CStat < handle
             else
                 if print, fprintf('no fdr ...'); end
             end
-            if print, fprintf('%d .. done\n',j); end
+            if print, fprintf(' ... done\n'); end
         end
         function [W,iW,Wvar] = Wilcox3D(A,B,print,fdr,msg,RjEpCh)
             %returns 3D matrix of p values, FDR corrected. A and B are 4D matrices, samples x channels x epochs x repetitions
@@ -968,7 +968,9 @@ classdef CStat < handle
         function [timeB,timeK]=StatDiffStart(channels,Wp,kategories,plevel,maintain)  
             %vraci casy zacatku signifikantnich rozdilu vuci baseline a kategorii vuci sobe
             %nezohlednuje smer rozdilu, signum, jako ktere se pouziva treba v CiEEGData.SelChannelStat
-            %kategories - numbers of categories, the same as Wp.kats. Or same as Wp.trialtypes if contrasting trialtypes
+            %kategories - numbers of categories, the same as Wp.kats. 
+            %  Or same as Wp.trialtypes{2:end} if contrasting trialtypes. Then Wp contains p values of difference between trialtypes
+
             if ~exist('kategories','var'), kategories = Wp.kats; end
             if ~exist('plevel','var'), plevel = 0.05; end
             if ~exist('maintain','var'), maintain = 1; end %for how many samples should the significance stay to be detected. 1=1/fs
@@ -991,7 +993,7 @@ classdef CStat < handle
                         break;
                     end
                 end                
-                iWp = Wp.WpKatBaseline{ik,1}(:,channels)  <= plevel; 
+                iWp = Wp.WpKatBaseline{ik,1}(:,channels)  <= plevel; %1/true for significance relative to baseline
                 for ch = 1:numel(channels)
                     iWpfirst = strfind(iWp(:,ch)',sigvector); %index of occurences of sigvector - 8 significant differences in sequence
                     if ~isempty(iWpfirst)

@@ -322,7 +322,7 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 end
             end
         end
-        function [iTrialTypeCh, TrialTypeCh] = GetTrialType(obj,els,trialtype)
+        function iTrialTypeCh = GetTrialType(obj,els,trialtype)
             %returns index of epochs for each channel with this repetition/trialtype
             %els is copy of E.els from CiEEGData    
             %trialtype: cellarray e.g. {'tt' [2 0]} or {'rep' 1}, ignores trialtype{3} 
@@ -332,10 +332,22 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             assert(numel(trialtype)>=2,'GetTrialType: trialtype needs to be cell array with 2 values');            
             if strcmp(trialtype{1}, 'tt')
                 assert(~isempty(obj.trialtypes),'no trialtypes loaded');                    
-                assert(size(obj.trialtypes,2)>= trialtype{2}(1) & isa(obj.trialtypes{1,trialtype{2}(1)},'double'), 'wrong trialtype column number or column type');
+                if isrow(trialtype{2}), trialtype{2}=trialtype{2}'; end %make a column from row, we want trialtypes columns be in columns
+                for col = 1:size(trialtype{2},2)
+                    assert(size(obj.trialtypes,2)>= trialtype{2}(1,col) & isa(obj.trialtypes{1,trialtype{2}(1,col)},'double'), ['GetTrialType: column ' num2str(col) ' should be double']);
+                end                
             end
-            S = obj.P.sloupce;
-            TrialTypeCh = zeros(els(end),obj.GetEpochsMax()); %channels x epochs
+            S = obj.P.sloupce;   
+            if strcmp(trialtype{1},'rep')
+                TrialTypeCh = zeros(els(end),obj.GetEpochsMax()); %channels x epochs
+            elseif strcmp(trialtype{1}, 'tt')
+                TrialTypeCh = cell(1,size(trialtype{2},2)); %each cell for one trialtype column
+                for col = 1:size(trialtype{2},2)
+                  TrialTypeCh{col} = zeros(els(end),obj.GetEpochsMax()); %channels x epochs, for each trialtype columns separately
+                end
+            else
+                 error('GetTrialType: unknown trialtype type');
+            end
             if ~isa(obj,'CPsyDataMulti') 
                 els = els(end); % only one pacient, the repeat is same for all channels
             end
@@ -352,18 +364,25 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                         opakovani = zeros(size(obj.P.data,1),1); %opakovani 0
                     end
                     TrialTypeCh(els0(s):els(s),1:numel(opakovani)) = repmat(opakovani',els(s)-els0(s)+1,1);
-                elseif strcmp(trialtype{1}, 'tt')                    
-                    tt = obj.trialtypes{:,trialtype{2}(1)};                  
-                    TrialTypeCh(els0(s):els(s),1:numel(tt)) = repmat(tt',els(s)-els0(s)+1,1); %repetition of tt for all channels of this pacient
-                else 
-                    error('GetTrialType: unknown trialtype type');
+                elseif strcmp(trialtype{1}, 'tt')
+                    for col = 1:size(trialtype{2},2) %loop over trialtype columns
+                        tt = obj.trialtypes{:,trialtype{2}(1,col)}; %selected column from the trialtype table                 
+                        TrialTypeCh{col}(els0(s):els(s),1:numel(tt)) = repmat(tt',els(s)-els0(s)+1,1); %channels x epochs - repetition of tt for all channels of this pacient
+                    end
                 end                
             end
             obj.SubjectChange(iSbak);
             if strcmp(trialtype{1},'rep') && numel(trialtype)>=2
                iTrialTypeCh = ismember(TrialTypeCh , trialtype{2}); 
             elseif strcmp(trialtype{1},'tt') && numel(trialtype{2})>=2   
-               iTrialTypeCh = ismember(TrialTypeCh, trialtype{2}(2));  %channels x epochs
+               iTrialTypeCh = true(size(TrialTypeCh{1})); %true as we use & AND  later
+               for col = 1:size(trialtype{2},2) %loop of the columns of trialtype
+                    %in each column, first number is the column number, all other values are number which all are included in this trialtype 
+                    iTrialTypeCh = iTrialTypeCh & ismember(TrialTypeCh{col}, trialtype{2}(2:end,col));  %channels x epochs, same size as TrialTypeCh
+                    %works even if there are multiple numbers in trialtype{2}(2:end) - then it works like OR. 
+                    %there is AND between the columns: while any number in the specific column is included, number from all columns make the condition
+                    %values can be even NaNs 
+               end
             else
                iTrialTypeCh = []; 
             end            
@@ -409,6 +428,7 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             obj.P.data = data2;
         end
         function obj = LoadTrialTypes(obj)
+            %loads predefined table of trialtypes for the current test (aedist, or menrot)
             if strcmp(obj.testname,'aedist')
                 Tname = 'AedistTrialTypes'; %d:\eeg\motol\scripts\AedistTrialTypes.mat                 
             elseif strcmp(obj.testname,'menrot')
@@ -421,10 +441,10 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 if ~isempty(obj.iepochs)
                     T = T(obj.iepochs,:);
                 end
-                assert(size(T.(Tname),1) >= size(obj.P.data,1),['wrong number of epochs in ' Tname ', should be ' num2str(size(obj.P.data,1))]);                                   
+                assert(size(T.(Tname),1) >= size(obj.P.data,1),['wrong number of epochs ' num2str(size(T.(Tname),1)) ' in ' Tname ', should be ' num2str(size(obj.P.data,1))]);                                   
                 trialsdiff = size(T.(Tname),1) - size(obj.P.data,1); %how larger is trialtype table than trial data table
                 obj.trialtypes = T.(Tname)(trialsdiff+1:end,:);
-                disp(['last ' num2str(size(obj.P.data,1)) ' trialtypes loaded from ' Tname]);
+                disp([iff(trialsdiff>0,'last ','all ') num2str(size(obj.P.data,1)) ' trialtypes loaded from ' Tname]);
             end
             
         end
