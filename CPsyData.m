@@ -546,15 +546,25 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             %returns the number of epochs for current subject. Created only for overloading by CPsyDataMulti            
             epochs=size(obj.P.data,1);
         end
-        function [name] = TrialTypeName(obj,trialtype)
+        function [strname,cellname] = TrialTypeName(obj,trialtype)
             %returns name of trialtype/repetition
-            %trialtype is cellarray, e.g. {'tt' [2 0]} or {'rep' 1}
+            %trialtype is cellarray, e.g. {'tt' [2 0]} or {'rep' 1} 
+            % for combined trialypes the trialtype{2} is a matrix with column numbers of trialtypes in first row (11.7.2023)
             if strcmp(trialtype{1},'rep')
-                name = ['Repeat_' num2str(trialtype{2})];
+                strname = ['Repeat_' num2str(trialtype{2})];
+                cellname = {'Repeat'; num2str(trialtype{2})};
             elseif strcmp(trialtype{1},'tt')
-                name = ['TT_' strrep(obj.trialtypes.Properties.VariableNames{trialtype{2}(1)},'_','_') '=' num2str(trialtype{2}(2))];
+                tt = trialtype{2};
+                if isrow(tt), tt = tt'; end
+                names = cell(1,size(tt,2));
+                cellname = cell(2,size(tt,2));
+                for col=1:size(tt,2)
+                    names{col} = [strrep(obj.trialtypes.Properties.VariableNames{tt(1,col)},'_','_') '=' strjoin(cellstr(num2str(tt(2:end,col))),',')];
+                    cellname(:,col) = {strrep(obj.trialtypes.Properties.VariableNames{tt(1,col)},'_','_') ; strjoin(cellstr(num2str(tt(2:end,col))),',')}; 
+                end
+                strname = strjoin(names,'&');                
             else
-                name = cell2str(trialtype);
+                strname = cell2str(trialtype);
             end
         end
         

@@ -482,9 +482,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                     psy_rt = psy_rt0(iEpochs);                    
                 end    
                 isorted = 1:size(psy_rt,1);
-            end 
-            
-            
+            end           
         end      
         function obj = ChangeReference(obj,ref)            
             assert(any(ref=='heb'),'neznama reference, mozne hodnoty: h e b');
@@ -563,11 +561,12 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
             
         end            
-        function obj = ResponseSearch(obj,timewindow,kats,trialtypes,method,WpLabel)
+        function obj = ResponseSearch(obj,timewindow,kats,trialtypes,method,label)
             %projede vsechny kanaly a hleda signif rozdil proti periode pred podnetem
             %timewindow - pokud dve hodnoty - porovnava prumernou hodnotu mezi nimi - sekundy relativne k podnetu/odpovedi
             % -- pokud jedna hodnota, je to sirka klouzaveho okna - maximalni p z teto delky
             %trialtypes - repetitions/trial types of the stimulus to be compared (instead of stimulus categories). cell array e.g. {'tt' [1 1] [1 0]} or {'rep' 1 2}
+            %label - optional label to this contrast, displayed in PlotResponseCh and SetStatActive, 10.7.2023
             %TODO - moznost spojit kategorie 
             assert(obj.epochs > 1,'only for epoched data');                       
             if ~exist('method','var') || isempty(method)  %parameters of statistic in EEGStat.WilcoxCat, explained there and below
@@ -581,7 +580,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 error('argument method needs to be struct');
             end                         
             if ~exist('trialtypes','var'), trialtypes = {}; end
-            if ~exist('WpLabel','var'), WpLabel = ''; end
+            if ~exist('label','var'), label = ''; end
                 
             iChEp = obj.GetEpochsInclude(); %ziska seznam Chs x Epochs k vyhodnoceni, neni v tom RjEpochCh            
             DiEpCh = false(size(iChEp)); %to collect analysed epochs for each category/trialtype/repetition
@@ -622,7 +621,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             obj.Wp(WpA).DiEp = iEpochs; %index of analyzed epochs, channels x epochs %TODO iChEp & ~obj.RjEpochCh - in EEGStat.WilcoxBaseline;
         
             obj.Wp(WpA).timewindow = timewindow; %hodnoty pro zpetnou kontrolu                        
-            obj.Wp(WpA).label = WpLabel; %description of this contrast                       
+            obj.Wp(WpA).label = label; %description of this contrast                       
             obj.Wp(WpA).epochtime = obj.epochtime;
             obj.Wp(WpA).baseline = obj.baseline; %pro zpetnou kontrolu, zaloha parametru
             obj.Wp(WpA).iepochtime = [ibaseline; abs(iepochtime(1)-ibaseline(2))+1 obj.samples ; iepochtime ]; %15.1.2019 - pro zpetnou kontrolu - statistika je pocitana podle indexu druheho radku
@@ -746,8 +745,8 @@ classdef CiEEGData < matlab.mixin.Copyable
             if WpActive > numel(obj.Wp)
                 disp(['new empty contrast set: ' num2str(WpActive)]);
             else
-               [katstr, trialtypestr] = obj.KatOpak2Str(WpActive);                
-                disp(['contrast set no ' num2str(WpActive) ' with kats: ' katstr ', trialtypes: ' trialtypestr]);            
+               [katstr, trialtypestr, label] = obj.KatOpak2Str(WpActive);                
+                disp(['contrast set no ' num2str(WpActive) ' with label: ' label ', kats: ' katstr ', trialtypes: ' trialtypestr]);            
             end
             obj.WpActive = WpActive;
             
@@ -1252,12 +1251,15 @@ classdef CiEEGData < matlab.mixin.Copyable
             % the code moved from PlotResponseCh
             if ~exist('WpA','var'), WpA = -1;kstat = -1; end %if I need kstat, necessary to use WpA
             if ~isempty(obj.Wp)
-                if iscell(kategories)
-                    kk = kategories{k}(end)+1;  %(end) works for both repetitions eg.[1] and trialtypes eg. [2 0] 
+                if iscell(kategories)                    
                     if WpA>=0
                         if isfield(obj.Wp(WpA),'trialtypes') && ~isempty(obj.Wp(WpA).trialtypes) && numel(obj.Wp(WpA).trialtypes) >= 3 %if the statistics is computed for repetitions/trialtypes
-                            kstat = find(ismember(cell2mat(obj.Wp(WpA).trialtypes(2:end)'),kategories{k},'rows')); %index of category in statistical results
-                        else %normal, i.e. statistics for stimulus categories
+                            kk = k; %let color index be just the index of category 
+                            A = obj.Wp(WpA).trialtypes(2:end)'; %cell array of trialtypes
+                            R = cellfun(@(x) isequal(x, kategories{k}), A); %finds where in A is kategories{k}
+                            kstat = find(R); %returns index of it - 
+                        else %normal, i.e. statistics for stimulus categories - index of category in statistical results  
+                            kk = kategories{k}(end)+1;  %(end) works for both repetitions eg.[1] and trialtypes eg. [2 0] 
                             kstat = find(ismember(cell2mat(obj.Wp(WpA).kats'),kategories{k},'rows')); %index of category in statistical results
                         end
                     end
@@ -1835,6 +1837,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 yposkat = [3 0 0 0; 4 5 0 0; 6 7 8 0]; %pozice y pro kombinaci k a l - k v radcich a l-1 ve sloupcich
                 ybottom = iff(numel(kategories)>3,0.4,0.3); %odkud se maji umistovat kontrasty mezi kategoriemi - parametr vypoctu y   
                 h_kat = zeros(numel(kategories),2);               
+                Tr = linspace(obj.Wp(WpA).baseline(2),obj.Wp(WpA).epochtime(2),obj.Wp(WpA).iepochtime(3,2)); %from stimulus to epoch length. we do not calculate significance before the stimulus
                 for k = 1 : numel(kategories) %index 1-3 (nebo 4)                    
                     [kk,kstat] = obj.KatIndex(kategories,k,WpA); %kk is index 1-n (basically kategories(k)+1), kstat is index in obj.Wp().kats
                     
@@ -1874,11 +1877,10 @@ classdef CiEEGData < matlab.mixin.Copyable
                   
                     xlim(obj.epochtime(1:2)); 
                     hold on;
-                    h_kat(k,1) = plot(T,M,'LineWidth',katlinewidth,'Color',colorkatk(1,:));  %prumerna odpoved,  ulozim si handle na krivku                      
+                    h_kat(k,1) = plot(T,M,'LineWidth',katlinewidth,'Color',colorkatk(1,:));  %average answer, save the handle on the curve                                          
                     
                     %PLOT significance between categories
-                    if ~isempty(obj.Wp) && isfield(obj.Wp(WpA),'WpKat') && ~isempty( obj.Wp(WpA).WpKat)
-                        Tr = linspace(obj.Wp(WpA).baseline(2),obj.Wp(WpA).epochtime(2),size(obj.Wp(WpA).WpKatBaseline{k},1)); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
+                    if ~isempty(obj.Wp) && isfield(obj.Wp(WpA),'WpKat') && ~isempty( obj.Wp(WpA).WpKat)                        
                         for l = k+1:numel(kategories) %katnum jde od nuly
                             if iscell(kategories)
                                 colorkatl = kategories{l}(end)+1;
@@ -2391,17 +2393,14 @@ classdef CiEEGData < matlab.mixin.Copyable
         end      
         function [valmax, tmax, tfrac, tint,len] = ResponseTriggerTime(obj, val_fraction, int_fraction, katnum, channels,signum)          
             % katnum defines category number:  
-            % horizontal vector or horizontal vector in cell - compute from there categories together, relative to baseline
-            % vertical vector of two numbers or vertical vector in cell - compute contrast between two simple categories
-            % cell in two rows with two vectors - compute contrast between two sets of categories 
-            % one struct - compute this category relative to baseline, considering trialtype
-            % cell in two rows with two structs - computer contrast between two sets of categories, considering trialtypes
+            %  - horizontal vector or horizontal vector in cell - compute from there categories together, relative to baseline
+            %  - vertical vector of two numbers or vertical vector in cell - compute contrast between two simple categories
+            %  - cell in two rows with two vectors - compute contrast between two sets of categories 
+            %  - one struct - compute this category relative to baseline, considering trialtype
+            %  - cell in two rows with two structs - computer contrast between two sets of categories, considering trialtypes
             
-            if ~exist('channels', 'var') || isempty(channels)
-                channels = 1:obj.channels; %vsechny kanaly
-            end              
             assert( ~isempty(obj.Wp), 'computed statistics required');
-            if iscell(katnum)   % katnum muze byt cell array               
+            if iscell(katnum)   % katnum muze byt cell array                 
                 %katnum_orig = katnum; %backup                                
                 if size(katnum,1) == 1 %if only one row
                     katnumSingle = true; % when there is only one category or one rows of categories, we dont want contrast between categories, but rather one (joint) category                   
@@ -2410,11 +2409,14 @@ classdef CiEEGData < matlab.mixin.Copyable
                 end
                 %katnum = cell2mat(katnum);
             elseif isstruct(katnum) %one structure with trialtypes
-                katnumSingle = true; %for contrast between catagories, there should be cell array of two structs
+                katnumSingle = true; %for contrast between categories, there should be cell array of two structs
             else % double vector, horizontal or vertical
                 katnumSingle = iff(size(katnum,1) == 1,true,false); %orignal katnum was numeric array                
                 %to compare two categories against each other, they MUST in be rows! 
             end
+            if ~exist('channels', 'var') || isempty(channels)
+                channels = 1:obj.channels; %vsechny kanaly
+            end 
             if ~exist('signum','var') || isempty(signum)
                 %muzu zadat signum v poslednim parametru, v tom pripade pouziju to
                 if isfield(obj.plotRCh,'selChSignum') && katnumSingle%pokud mam nastavene signum z SelChannelStat, pouziju to, jinak chci odchylky od 0 v obou smerech
@@ -2427,22 +2429,24 @@ classdef CiEEGData < matlab.mixin.Copyable
             iintervalyData = obj.Wp(WpA).iepochtime(2,:); %16.1.2019 - indexy statistiky ulozene v ResponseSearch 
             if katnumSingle                   
                 if isstruct(katnum) %this means, there are some trialtypes to consider
-                     if numel(katnum.trialtypes)>=3 % for at least two trialtypes                                                       
+                     if numel(katnum.trialtypes)>=3 % get data for one TRIALTYPE 'k' across all stimulus categories                                                       
                         categorynum = katnum.trialtypes{katnum.k+1}; %'kategories' is used now for repetition/trialtypes - for trial types give [column number from CPsyData.trialtypes , value ]
                             %kategories now represent what should be contrasted in the plot
                         kats_type = katnum.trialtypes{1}; % 'rep' for repetitions, 'tt' for trialtypes, 'kats' is default for stimulus categories 
-                        [katdata,~,RjEpCh] = obj.CategoryData(katnum.kategories,[],{kats_type, categorynum}); %eegdata time x channels x epochs - epochy jedne kategorie                        
-                        ikatnum1 = ismember(cell2mat(obj.Wp(WpA).trialtypes(2:end)'), categorynum);
-                        ikatnum = find(all(ikatnum1'));
-                     else
+                        [katdata,~,RjChEp] = obj.CategoryData(katnum.kategories,[],{kats_type, categorynum}); %eegdata time x channels x epochs - epochy jedne kategorie                        
+                        A = obj.Wp(WpA).trialtypes(2:end)'; %cell array of trialtypes
+                        R = cellfun(@(x) isequal(x, categorynum), A);%finds where in A is categorynum
+                        ikatnum = find(R); %returns index of it
+                     else %get data for one STIMULUS CATEGORY 'k' across all trialtypes
                         categorynum = katnum.kategories{katnum.k};
                         trialtypes = katnum.trialtypes;
-                        [katdata,~,RjEpCh] = obj.CategoryData(categorynum,[],trialtypes); %eegdata time x channels x epochs - epochy jedne kategorie                        
+                        [katdata,~,RjChEp] = obj.CategoryData(categorynum,[],trialtypes); %eegdata time x channels x epochs - epochy jedne kategorie                        
                      end 
-                else
+                else %get data for given STIMULUS CATEGORY
                     categorynum = katnum;
-                    [katdata,~,RjEpCh] = obj.CategoryData(katnum); %eegdata time x channels x epochs - epochy jedne kategorie
+                    [katdata,~,RjChEp] = obj.CategoryData(katnum); %eegdata time x channels x epochs - epochy jedne kategorie
                 end
+                if(numel(RjChEp) <= sum(sum(RjChEp))), warning( ['no nonrejected data in ' cell2str( categorynum)]); end 
                 if ~exist('ikatnum','var')
                     if iscell(obj.Wp(WpA).kats)  %current contrast contains combined categories
                         % katnum should be one of them, vector or one cell with one vector inside 
@@ -2453,11 +2457,11 @@ classdef CiEEGData < matlab.mixin.Copyable
                     end
                 end
                 katdata = katdata(:,channels,:); %time x channels x epochs- vyberu jen kanaly podle channels
-                RjEpCh = RjEpCh(channels,:); % channels x epochs - vyberu jen kanaly podle channels
+                RjChEp = RjChEp(channels,:); % channels x epochs - vyberu jen kanaly podle channels
                 
                 dataM = zeros(diff(iintervalyData)+1,size(katdata,2)); %time x channels
                 for ch = 1:size(katdata,2) %cycle over channels, mam pocit, ze to nejde udelat bez cyklu, protoze pro kazdy kanal potrebuju vyradit jiny pocet epoch
-                    dataM(:,ch) = mean(katdata(iintervalyData(1):iintervalyData(2), ch, ~RjEpCh(ch,:)), 3); 
+                    dataM(:,ch) = mean(katdata(iintervalyData(1):iintervalyData(2), ch, ~RjChEp(ch,:)), 3); 
                 end
                 kombinace = []; %empty argument for function ResponseTriggerTimeData
             else %contrast of two categories 
@@ -2564,7 +2568,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 tint(ch)  = cIntegrate(T, dataM(:,ch), int_fraction, 2, 0,iTimeCh); % integrace s posunem minima krivky do nuly
             end
         end        
-        function Response2XLS(obj, val_fraction, int_fraction)
+        function Response2XLS(obj, val_fraction, int_fraction,trialtypes2rows)
             %if the 'fraction' parameters are not specified, a dialog is displayed for entering the percentage of the maximum            
             %val_fraction = percents of maximal value
             %int_fraction = percents of the area under curve
@@ -2573,12 +2577,14 @@ classdef CiEEGData < matlab.mixin.Copyable
             else
                 percent = {num2str(round(val_fraction * 100)), num2str(round(int_fraction * 100)) }; %cisla v procentech do hlavicky xls
             end
+            if ~exist('trialtypes2rows','var') || isempty(trialtypes2rows), trialtypes2rows = 0; end %if to have rows for individual trialtypes
             %channels
             channels = obj.CH.H.channels(obj.CH.sortorder); %vyberu kanaly, podle aktualniho razeni a ty ktere jsou zobrazene podle CH.FilterChannels()
-            selChFiltered = obj.plotRCh.selCh(obj.CH.sortorder,:); % channels x 6 - channel markings fghjkl
+                       
             %kategories            
-            if ~isempty(obj.Wp) && isfield(obj.Wp(obj.WpActive), 'kats')               
-                kategories = flip(obj.Wp(obj.WpActive).kats); %dalsi volba je pouzit cisla kategorii z jiz vypocitane aktivni statistiky
+            WpA = obj.WpActive; %only shortcut
+            if ~isempty(obj.Wp) && isfield(obj.Wp(WpA), 'kats')               
+                kategories = flip(obj.Wp(WpA).kats); %dalsi volba je pouzit cisla kategorii z jiz vypocitane aktivni statistiky
                 % ve statistice jsou ty nejdulezitejsi kategorie na konci, tady je chci na zacatku                
             elseif isfield(obj.plotRCh,'kategories') 
                 kategories = obj.plotRCh.kategories; %hodnoty drive pouzite v grafu, ty jsou druhe v poradi po statistice
@@ -2586,8 +2592,8 @@ classdef CiEEGData < matlab.mixin.Copyable
                 kategories = obj.PsyData.Categories();
             end
              %trialtypes
-            if ~isempty(obj.Wp) && isfield(obj.Wp(obj.WpActive),'trialtypes')
-                trialtypes = obj.Wp(obj.WpActive).trialtypes;            
+            if ~isempty(obj.Wp) && isfield(obj.Wp(WpA),'trialtypes')
+                trialtypes = obj.Wp(WpA).trialtypes;            
             else 
                 trialtypes = {};                    
             end
@@ -2598,7 +2604,8 @@ classdef CiEEGData < matlab.mixin.Copyable
                         %kategories now represent what should be contrasted in the plot                   
                     kats_type = trialtypes{1};
                 else %if we are contrasting categories (not trialtypes), they must agree with the statistics
-                    assert(obj.PsyData.CategoriesAgreeWithStat(kategories,obj.Wp(obj.WpActive).kats));                        
+                    assert(obj.PsyData.CategoriesAgreeWithStat(kategories,obj.Wp(WpA).kats));                        
+                    kats_type = 'kats'; %categories
                 end
             end
             
@@ -2608,31 +2615,56 @@ classdef CiEEGData < matlab.mixin.Copyable
            else
                exportBrainlabels = 0;               
            end
-           cellout = cell(numel(channels), 14 + exportBrainlabels*3+ length(obj.plotRCh.selChNames) + 6*numel(kategories) + 6*size(comb,1));  %emtpy cell array     
-           
+                      
            RespVALS = struct; %struct array, kam si predpocitam hodnoty z ResponseTriggerTime
            RespDiffs = struct; %struct array to store values from ResponseTriggerTime for pairs of categories                          
-           [SigTimeBaseline,SigTimeKat]=obj.CS.StatDiffStart(obj.CH.sortorder,obj.Wp(obj.WpActive),kategories,0.05); %casy zacatku signifikanci %channels x kats (x kats           
+           [SigTimeBaseline,SigTimeKat]=obj.CS.StatDiffStart(obj.CH.sortorder,obj.Wp(WpA),kategories,0.05); %casy zacatku signifikanci %channels x kats (x kats           
            %SigTimeKat channels x kats x kats - pro kazdy ch vyplneno jen 12 13 a 23, ostatni nan
            for k = 1:numel(kategories)                
                if ~isempty(trialtypes) 
-                   katnum = struct('kategories',{KATNUM},'trialtypes',{trialtypes},'k',k); %we pass all             
+                   katnum = struct('kategories',{KATNUM},'trialtypes',{trialtypes},'k',k); %we use the whole trialtypes cell array             
                else
                    katnum = cellval(kategories,k); % if kategories is cellarray, the katnum will also be cellarray %cellval(kategories,k); %funkce cellval funguje at je to cell array nebo neni
                end
                [RespVALS(k).valmax, RespVALS(k).tmax,  RespVALS(k).tfrac, RespVALS(k).tint, RespVALS(k).len] = obj.ResponseTriggerTime(val_fraction, int_fraction, katnum, obj.CH.sortorder);                  
-               for l = k+1 : numel(kategories) %difference between categories
-                   if ~isempty(trialtypes) 
-                       katnum2 = struct('kategories',{KATNUM},'trialtypes',{trialtypes},'k',l);              
-                   else
-                       katnum2 = cellval(kategories,l); % if kategories is cellarray, the katnum will also be cellarray  %cellval(kategories,l);
-                   end                   
-                   [RespDiffs(k,l).valmax, RespDiffs(k,l).tmax,  RespDiffs(k,l).tfrac, RespDiffs(k,l).tint,RespDiffs(k,l).len] = obj.ResponseTriggerTime(val_fraction, int_fraction, {katnum2; katnum}, obj.CH.sortorder);                  
+               if ~isfield(obj.Wp(WpA).method,'categorydiff') || obj.Wp(WpA).method.categorydiff > 0 %if we computed contrast between categories
+                   for l = k+1 : numel(kategories) %difference between categories
+                       if ~isempty(trialtypes) 
+                           katnum2 = struct('kategories',{KATNUM},'trialtypes',{trialtypes},'k',l);              
+                       else
+                           katnum2 = cellval(kategories,l); % if kategories is cellarray, the katnum will also be cellarray  %cellval(kategories,l);
+                       end                   
+                       [RespDiffs(k,l).valmax, RespDiffs(k,l).tmax,  RespDiffs(k,l).tfrac, RespDiffs(k,l).tint,RespDiffs(k,l).len] = obj.ResponseTriggerTime(val_fraction, int_fraction, {katnum2; katnum}, obj.CH.sortorder);                  
+                   end
                end
            end
-                      
+           %WHEN WE HAVE ALL THE DATA, NOW CREATE THE OUTPUT TABLE, TODO 11.7.2023 move to another function 
+           %inputs: channels,exportBrainlabels,RespVALS, SigTimeBaseline, SigTimeKat, trialtypes, kategories, kats_type
            BrainNames = obj.CH.GetBrainNames(); %return full names of brain structures, of channels in obj.CH.sortorder, so same to channels variable
-           %pres vsechny kanaly plnim tabulku
+           selChFiltered = obj.plotRCh.selCh(obj.CH.sortorder,:); % channels x 6 - channel markings fghjkl 
+           
+           %output empty cell array 
+           introtxt = horzcat({obj.CH.ChShowStr()},cell(1,7),{obj.CS.StatText(obj.Wp,WpA,obj.PsyData)},cell(1,8), ...
+                    {'f','g','h','j','k','l'}); %first line of xlx with additional info
+           if trialtypes2rows 
+               cellout = cell(numel(channels)*numel(kategories), 14 + exportBrainlabels*3+ length(obj.plotRCh.selChNames) + size(trialtypes{2},2) + 6);  %emtpy cell array,  names of trialtypes columns, 6 values per category,
+               variableNamesKat =  {'valmax','tmax', ['t' percent{1}],['tint' percent{2}], 'len', 'tsig'}; 
+               introtxt = [introtxt, 'trialtypes', repmat({''},1,size(trialtypes{2},2)-1 + 6)];  
+           else
+               cellout = cell(numel(channels), 14 + exportBrainlabels*3+ length(obj.plotRCh.selChNames) + 6*numel(kategories) + 6*size(comb,1));  %all cateogies and their combinations in one row
+               variableNamesKat = cell(1,numel(kategories));
+           end
+            
+           selChNames = obj.plotRCh.selChNames;
+           iV = find(cellfun(@isempty,selChNames)); %bunky nesmi byt prazdne, to se pak neda pouzit jako VariableNames
+           for n = iV
+                selChNames{n} = ['V' num2str(n) ]; %jednotliv promenne ani nesmi mit stejna jmena
+           end
+           blnames = iff(exportBrainlabels,{'mybrainclass','mybrainlabel','mylobe'},cell(0,0)); %uzivatelska jmena struktur ve trech sloupcich                            
+           variableNamesChannel = [{ 'channel' 'name' 'pacient' 'neurologyLabel' 'fullBrainName' 'structure' 'region'} blnames ... 
+                { 'MNI_x'  'MNI_y'  'MNI_z'  'seizureOnset'  'interictalOften' 'rejected' 'RjCh'}, selChNames];  
+
+           %LOOP OVER CHANNEL
            for ch=1:numel(channels)              
                channelHeader = channels(ch);
                RjCh = double(any(obj.RjCh==obj.CH.sortorder(ch))); %vyrazeni kanalu v CiEEGData               
@@ -2646,61 +2678,77 @@ classdef CiEEGData < matlab.mixin.Copyable
                else
                    bl = cell(0,0); 
                end
-               blnames = iff(exportBrainlabels,{'mybrainclass','mybrainlabel','mylobe'},cell(0,0)); %uzivatelska jmena struktur ve trech sloupcich                            
                
-               lineIn = [{ obj.CH.sortorder(ch), channelHeader.name, obj.CH.PacientTag(ch), channelHeader.neurologyLabel, BrainNames{ch,4}, BrainNames{ch,5}, BrainNames{ch,6} } , ...
+               %values specific for the channel
+               lineChannel = [{ obj.CH.sortorder(ch), channelHeader.name, obj.CH.PacientTag(ch), channelHeader.neurologyLabel, BrainNames{ch,4}, BrainNames{ch,5}, BrainNames{ch,6} } , ...
                         bl, ...
                         {channelHeader.MNI_x, channelHeader.MNI_y, channelHeader.MNI_z, channelHeader.seizureOnset, channelHeader.interictalOften, ...
                         mat2str(channelHeader.rejected), RjCh} , ...
                         num2cell(selChFiltered(ch, :))];  %vybery kanalu fghjkl               
-         
-               selChNames = obj.plotRCh.selChNames;
-               iV = find(cellfun(@isempty,selChNames)); %bunky nesmi byt prazdne, to se pak neda pouzit jako VariableNames
-               for n = iV
-                    selChNames{n} = ['V' num2str(n) ]; %jednotliv promenne ani nesmi mit stejna jmena
-               end
-               if ch==1                   
-                   variableNames = [{ 'channel' 'name' 'pacient' 'neurologyLabel' 'fullBrainName' 'structure' 'region'} blnames ... 
-                    { 'MNI_x'  'MNI_y'  'MNI_z'  'seizureOnset'  'interictalOften' 'rejected' 'RjCh'}, selChNames];  
-                   introtxt = horzcat({obj.CH.ChShowStr()},cell(1,7),{obj.CS.StatText(obj.Wp,obj.WpActive,obj.PsyData)},cell(1,8), ...
-                    {'f','g','h','j','k','l'}); %first line of xlx with additional info 
-               end
-               %chci mit kategorie v tabulce vedle sebe, protoze patri k jednomu kanalu. Treba kvuli 2way ANOVA
+               
+               lineKat = cell(1,numel(kategories)); %values specific for category
+               
+               %LOOP OVER CATEGORIES / TRIALTYPES
                for k = 1 : numel(kategories)                     
-                    lineIn = [lineIn,{RespVALS(k).valmax(ch), RespVALS(k).tmax(ch), RespVALS(k).tfrac(ch), RespVALS(k).tint(ch), RespVALS(k).len(ch), SigTimeBaseline(ch,k)}]; %#ok<AGROW>
-                    for l= k+1:numel(kategories)
-                        lineIn = [lineIn,{RespDiffs(k,l).valmax(ch), RespDiffs(k,l).tmax(ch),RespDiffs(k,l).tfrac(ch),RespDiffs(k,l).tint(ch),RespDiffs(k,l).len(ch),SigTimeKat(ch,k,l)}];  %#ok<AGROW>
+                    lineKat{k} = {RespVALS(k).valmax(ch), RespVALS(k).tmax(ch), RespVALS(k).tfrac(ch), RespVALS(k).tint(ch), RespVALS(k).len(ch), SigTimeBaseline(ch,k)}; 
+                    if ~strcmp(kats_type,'kats') % comparing trialtypes
+                        [katname,katcellname] = obj.PsyData.TrialTypeName({kats_type, cellval(kategories,k)});
+                    else
+                        katname = obj.PsyData.CategoryName(cellval(kategories,k));
                     end
-                    if ch==1
-                        if ~isempty(trialtypes) && numel(trialtypes)>=3
-                            katname = obj.PsyData.TrialTypeName({kats_type, cellval(kategories,k)});
-                        else
-                            katname = obj.PsyData.CategoryName(cellval(kategories,k));
-                        end
-                        variableNames = [ variableNames, {[katname '_valmax'],[katname '_tmax'],[katname '_t' percent{1}],[katname '_tint' percent{2}], ...
-                            [katname '_len'], [katname '_tsig']}]; %#ok<AGROW>
-                        introtxt = [introtxt, {'valmax','tmax','t90','tint50','len','tsig'}]; %#ok<AGROW>
-                        for l= k+1:numel(kategories) %casy zacatku rozdilu mezi kategoriemi
-                            if ~isempty(trialtypes) && numel(trialtypes)>=3
-                                katname2 = obj.PsyData.TrialTypeName({kats_type, cellval(kategories,l)});                                
+                    if ~trialtypes2rows 
+                        %compare categories, only when not comparing trialtypes in rows
+                        for l= k+1:numel(kategories)
+                            if ~isempty(fieldnames(RespDiffs)) %if we computed differences between categories
+                                lineKat{k} = [lineKat{k},{RespDiffs(k,l).valmax(ch), RespDiffs(k,l).tmax(ch),RespDiffs(k,l).tfrac(ch),RespDiffs(k,l).tint(ch),RespDiffs(k,l).len(ch),SigTimeKat(ch,k,l)}]; 
                             else
-                                katname2 = obj.PsyData.CategoryName(cellval(kategories,l));    
+                                lineKat{k} = [lineKat{k},{'', '','','','',''}];  
                             end
-                            variableNames = [ variableNames, ...
-                                {[katname  'X' katname2 '_valmax'],[katname 'X' katname2 '_tmax'],[katname 'X' katname2 '_t' percent{1}],[katname 'X' katname2 '_tint' percent{2}], ...
-                                [katname 'X' katname2 '_len' ],[katname 'X' katname2 '_tsig']}]; %#ok<AGROW> %len is the length of significance
-                            introtxt = [introtxt, {'valmaxX','tmaxX','t90X','tint50X','lenX','tsigX'}]; %#ok<AGROW>
+                        end  
+                        %create variable names based on categories, only when not comparing trialtypes in rows
+                        if ch==1 %for the first channel, set variable names in variableNames and introtxt 
+                            variableNamesKat{k} =  {[katname '_valmax'],[katname '_tmax'],[katname '_t' percent{1}],[katname '_tint' percent{2}], [katname '_len'], [katname '_tsig']}; 
+                            for l= k+1:numel(kategories) %casy zacatku rozdilu mezi kategoriemi
+                                if ~isempty(trialtypes) && numel(trialtypes)>=3
+                                    katname2 = obj.PsyData.TrialTypeName({kats_type, cellval(kategories,l)});                                
+                                else
+                                    katname2 = obj.PsyData.CategoryName(cellval(kategories,l));    
+                                end
+                                variableNamesKat{k} = [ variableNamesKat{k}, ...
+                                    {[katname  'X' katname2 '_valmax'],[katname 'X' katname2 '_tmax'],[katname 'X' katname2 '_t' percent{1}],[katname 'X' katname2 '_tint' percent{2}], ...
+                                    [katname 'X' katname2 '_len' ],[katname 'X' katname2 '_tsig']}]; %len is the length of significance
+                                introtxt = [introtxt, {'valmaxX','tmaxX','t90X','tint50X','lenX','tsigX'}]; %#ok<AGROW> %we need this for each category
+                            end
                         end
-                    end                    
+                    else %if kategories in rows, we need one additional column for the category name
+                       lineKat{k} = [katcellname(2,:) lineKat{k}];
+                       if ch==1 && k==1 %categories are here in rows, not in columns. So we want the names of categories only for the first category
+                           variableNamesKat = [katcellname(1,:) variableNamesKat]; %#ok<AGROW>
+                       end 
+                    end
                end
-               cellout(ch, :) =  lineIn;
+               if trialtypes2rows  
+                   lineKat = lineKat'; %we need it in column                  
+                   cellout(1+(ch-1)*numel(kategories):ch*numel(kategories),:)= [repmat(lineChannel,numel(kategories),1)  vertcat(lineKat{:})] ;
+                   if ch==1
+                       variableNames = [variableNamesChannel variableNamesKat];                        
+                   end
+               else
+                   cellout(ch, :) =  [ lineChannel [lineKat{:}]];
+                   if ch==1, variableNames = [variableNamesChannel [variableNamesKat{:}]]; end
+               end
+               
            end 
+            cellout = [ num2cell(1:size(cellout,1))' cellout]; %add first column for row number
+            variableNames = ['n' variableNames];
+            introtxt = [' ' introtxt];
             
-            %export tabulky                        
+            %TABLE EXPORT
             assert(~isempty(obj.hfilename),'the object is not saved, please save the object first');
             [~,mfilename,~] = fileparts(obj.hfilename); %hfilename se naplni az pri ulozeni objektu
             mfilename = strrep(mfilename, ' ', '_');
-            logfilename = ['Response2XLS_' mfilename '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') ];  
+            filenamestart = iff(trialtypes2rows,'Response2XLS-TT','Response2XLS'); %name specific for organization of the table
+            logfilename = [filenamestart '_' mfilename '_' datestr(now, 'yyyy-mm-dd_HH-MM-SS') ];  
             xlsfilename = fullfile('logs', [logfilename '.xls']);             
             introtxt = horzcat(introtxt, cell(1,size(variableNames,2)-size(introtxt,2)) ); %intro line with info
             xlswrite(xlsfilename ,vertcat(introtxt,variableNames,cellout)); %write to xls file
@@ -3191,7 +3239,8 @@ classdef CiEEGData < matlab.mixin.Copyable
             RjEpochCh(RjEpochCh >= 2) = 1;
             obj.RjEpochCh = RjEpochCh'; %vyrazeni kazdeho kanalu puvodni reference znamena vyrazeni dvou kanalu bipolarni reference 
         end
-        function [katstr, trialtypestr] = KatOpak2Str(obj,WpA)
+        function [katstr, trialtypestr, label] = KatOpak2Str(obj,WpA)
+            %returns some optional field of obj.Wp
             if ~exist('WpA','var'), WpA = 1; end
             if isfield(obj.Wp(WpA),'trialtypes') && ~isempty(obj.Wp(WpA).trialtypes)
                 trialtypestr = cell2str(obj.Wp(WpA).trialtypes);
@@ -3199,10 +3248,16 @@ classdef CiEEGData < matlab.mixin.Copyable
                 trialtypestr = 'no'; 
             end
             if isfield(obj.Wp(WpA),'kats')
-               katstr = cell2str(obj.Wp(WpA).kats); %moje nova funkce 6.3.2018
+               katstr = cell2str(obj.Wp(WpA).kats); 
             else
                katstr = 'no';
             end
+            if isfield(obj.Wp(WpA),'label')
+               label = cell2str(obj.Wp(WpA).label); %new field 10.7.2023
+            else
+               label = 'no';
+            end
+            
         end        
         function chsignif = ChannelsSignif(obj)
            %vrati seznam kanalu s nejakou signifikanci z WpKatBaseline nebo WpKat

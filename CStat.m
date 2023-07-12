@@ -976,9 +976,9 @@ classdef CStat < handle
             if ~exist('maintain','var'), maintain = 1; end %for how many samples should the significance stay to be detected. 1=1/fs
                 %Bastin 2013jneurosci used maintain=8. But we use already the sliding window in CiEEGStat.WilcoxCat. 
             sigvector = true(1,maintain);
-            timeB = NaN(numel(channels),numel(kategories)); % %casy rozdilu vuci baseline
-            timeK = NaN(numel(channels),numel(kategories),numel(Wp.kats)); % casy rozdilu mezi kat
-            Tr = linspace(Wp.baseline(2),Wp.epochtime(2),size(Wp.D2,1)); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
+            timeB = NaN(numel(channels),numel(kategories)); %channels x categories %times of difference to baseline
+            timeK = NaN(numel(channels),numel(kategories),numel(Wp.kats)); % times of difference between categories
+            Tr = linspace(Wp.baseline(2),Wp.epochtime(2),Wp.iepochtime(3,2)); %od podnetu do maxima epochy. Pred podnetem signifikanci nepocitam
             if ~isempty(Wp) && isfield(Wp,'trialtypes') && numel(Wp.trialtypes) > 2
                 kat_list = Wp.trialtypes(2:end);  %the argument kategories now contains trialtype
             else
@@ -987,42 +987,46 @@ classdef CStat < handle
             for k = 1:numel(kategories) %pro vsechny zadane kategorie
                 %index where this kategory number is in the list of categories for this stat
                 %ik = find(Wp.kats==kategories(k)); %this does not work for cell arrays
+                %TODO 11.7.2023 use this: R = cellfun(@(x) isequal(x, cellval(kategories,k)), A);
                 for ikats = 1:numel(kat_list) %cycle over categories in computed stat
                     if cellval(kat_list,ikats)==cellval(kategories,k)
                         ik = ikats; %ik is index in Wp.kats of category kategories(k)
                         break;
                     end
                 end                
-                iWp = Wp.WpKatBaseline{ik,1}(:,channels)  <= plevel; %1/true for significance relative to baseline
+                iWp = Wp.WpKatBaseline{ik,1}(:,channels)  <= plevel; %1/true for significance relative to baseline 
+                %TODO 11.7.2023 - this is independent of the direction of difference!
                 for ch = 1:numel(channels)
                     iWpfirst = strfind(iWp(:,ch)',sigvector); %index of occurences of sigvector - 8 significant differences in sequence
                     if ~isempty(iWpfirst)
                         timeB(ch,k) = Tr(iWpfirst(1)); %time of start of significance
                     end
                 end
-                for l = k+1:numel(kategories)
-                    %index where this kategory number is in the list of categories for this stat
-                    %il = find(Wp.kats==kategories(l)); %this does not work for cell arrays
-                    for ikats = 1:numel(kat_list)
-                        if cellval(kat_list,ikats)==cellval(kategories,l)
-                            il = ikats;
-                            break;
+                if ~isempty(Wp.WpKat)
+                    for l = k+1:numel(kategories)
+                        %index where this kategory number is in the list of categories for this stat
+                        %il = find(Wp.kats==kategories(l)); %this does not work for cell arrays
+                        for ikats = 1:numel(kat_list)
+                            if cellval(kat_list,ikats)==cellval(kategories,l)
+                                il = ikats;
+                                break;
+                            end
+                        end                    
+                        if ~isempty(Wp.WpKat{ik,il}) %pro jistotu, nevim v jakem poradi prijdou kategorie
+                            WpKat = Wp.WpKat{ik,il}; 
+                        else 
+                            WpKat = Wp.WpKat{il,ik}; %jestli neni obsazena ta prvni kombinace, tahle bude
                         end
-                    end                    
-                    if ~isempty(Wp.WpKat{ik,il}) %pro jistotu, nevim v jakem poradi prijdou kategorie
-                        WpKat = Wp.WpKat{ik,il}; 
-                    else 
-                        WpKat = Wp.WpKat{il,ik}; %jestli neni obsazena ta prvni kombinace, tahle bude
-                    end
-                    iWp = WpKat(:,channels)  <= plevel;  
-                    for ch = 1:numel(channels)
-                        iWpfirst = strfind(iWp(:,ch)',sigvector); %index of occurences of sigvector - 8 significant differences in sequence
-                        if ~isempty(iWpfirst)
-                            timeK(ch,k,l) = Tr(iWpfirst(1)); %time of start of significance
-                            timeK(ch,l,k) = Tr(iWpfirst(1)); %time of start of significance - currently WpKat is not directional
+                        iWp = WpKat(:,channels)  <= plevel;  
+                        for ch = 1:numel(channels)
+                            iWpfirst = strfind(iWp(:,ch)',sigvector); %index of occurences of sigvector - 8 significant differences in sequence
+                            if ~isempty(iWpfirst)
+                                timeK(ch,k,l) = Tr(iWpfirst(1)); %time of start of significance
+                                timeK(ch,l,k) = Tr(iWpfirst(1)); %time of start of significance - currently WpKat is not directional
+                            end
                         end
+
                     end
-                    
                 end
             end
         end
@@ -1037,7 +1041,8 @@ classdef CStat < handle
              %returns the text info about currenty selected statistics
              if ~isempty(Wp) %jen pokud je spocitana statistika , vypisu cislo aktivni statistiky a jmena kategorii
                 if isfield(Wp(WpActive),'trialtypes'), trialtypestext= [' - trialtypes: ' cell2str(Wp(WpActive).trialtypes)]; else, trialtypestext= ''; end
-                txt = ['stat ' num2str(WpActive) '/' num2str(numel(Wp)) '-'  cell2str(PsyData.CategoryName(Wp(WpActive).kats,[])) ...
+                if isfield(Wp(WpActive),'label'), labeltext= ['-"' cell2str(Wp(WpActive).label) '"']; else, labeltext= ''; end %new field 11.7.2023
+                txt = ['stat ' num2str(WpActive) '/' num2str(numel(Wp)) labeltext '-'  cell2str(PsyData.CategoryName(Wp(WpActive).kats,[])) ...
                      trialtypestext ];                 
              else
                 txt = '';
