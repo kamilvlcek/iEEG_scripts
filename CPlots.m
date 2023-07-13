@@ -786,7 +786,7 @@ classdef CPlots < matlab.mixin.Copyable
                     katnum = cellval(kats,k);
                     [katdata,psy_rt, RjEpCh] = obj.Eh.CategoryData(katnum,[],[],ch); % katdata - time points x channel x trials
                     katdata = squeeze(katdata(:,ch,~RjEpCh));   % exclude incorrect and bad epochs, time points x trials
-                    correctRT = psy_rt(~RjEpCh); % also exclude them from RT
+                    correctRT = psy_rt; %(~RjEpCh)% also exclude them from RT - kamil 12.7.2023 - psy_rt is already without excluded epochs
                     [rho,pval,maxTrials] = obj.ComputeCorrelChan(ch,tmax,fraction,correctRT,[], conditions, katdata);  % get corr and max value for all epochs of this kat
                     maxTrialsKats{k} = [maxTrials correctRT]; % to put data of each kat in one cell
                     corrKats(k,:) = [rho pval];

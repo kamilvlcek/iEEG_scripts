@@ -51,6 +51,9 @@ classdef CHHeader < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
              obj.sortedby = '';
              if exist('reference','var'), obj.reference = reference; else, obj.reference = []; end
              if exist('classname','var'), obj.classname = classname; else, obj.classname = []; end
+             if numel(strfind(obj.H.subjName,',')) && ~strcmp(obj.classname,'CHilbertMulti')
+                 warning('subject name contains commas: possibly CHilbertMulti file opened by CHilbert class');
+             end
              obj.ChannelPlot2DInit(); %some fields we need also in ChannelPlot
         end
         function delete(obj) %destructor of a handle class

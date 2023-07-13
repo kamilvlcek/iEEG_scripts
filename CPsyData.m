@@ -243,7 +243,7 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 category = obj.P.data(:,S.kategorie); %kategorie
                 test = obj.P.data(:,S.zpetnavazba)==0; %vratim index testovych trialu
             elseif strcmp(Wp.trialtypes{1}, 'tt') 
-                assert(~strcmp(obj.testname,'ppa'),'CPsyData.GetResponses cannot now return PPA test trialtypes'); %todo - similar correction as above
+                assert(~strcmp(obj.testname,'ppa'),'CPsyData.GetResponses cannot now return PPA test trialtypes'); %TODO - similar correction as above
                 lines = 0;
                 if numel(Wp.trialtypes) <= 2 %only one trialtype => make contrast between stimulus categoires
                         kats = Wp.kats; %kategories in rows, for each one cycle below
@@ -259,6 +259,7 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                     for kat = 1:size(kats,2) %cycle over columns of kats
                         itt = obj.trialtypes{:,Wp.trialtypes{t}(1)} == Wp.trialtypes{t}(2); %index of epochs with this trialtype ((column) == val)                    
                         ikat = ismember(obj.P.data(:,S.kategorie),cellval(kats(:,kat)));  %index of epochs with any of these categories in this column
+                            %TODO 13.7.2023 - does not work for the current matrix combined trialtypes
                             %is member seems to work with the whole matrix, so independed on columns/rows for second argument
                         lines =  lines + sum(itt & ikat ); %number of trials/epochs with this trialtype
                         categnum = max(categnum,numel(cellval(kats(:,kat))));
@@ -290,7 +291,31 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 error(['CPsyData.GetResponses: not defined trialtype ' Wp.trialtypes{1}]);
             end
         end
-        
+        function [resp,psy_rt]=GetResponsesCh(obj,ch,els)
+            %returns response 1/0 and RT as epochs x channels
+            if numel(ch)==1 %get reaction time in psy_rt, when one channel - 8.6.2018 kvuli CPsyDataMulti                                                                          
+                obj.SubjectChange(find(els >= ch,1));
+                [resp,psy_rt,~,~] = obj.GetResponses();   %returns all epochs across categories 
+                diff = size(obj.Pmulti(end).data,1) - numel(psy_rt);
+                if diff > 0 %if for this subject are less epochs, fill the rest with NaN - kamil 12.7.2023 - TODO this is only fast repair
+                    psy_rt = [psy_rt ; NaN(diff,1)]; 
+                    resp = [resp ; NaN(diff,1)];
+                end
+            else
+                epochs = size(obj.P.data,1);
+                psy_rt = NaN(epochs,els(end)); %epochs x all channels %TODO 12.7.2023 - this is not efficient
+                resp = NaN(epochs,els(end));
+                els_start = [1 els(1:end-1)+1];
+                for e = 1:numel(els) %TODO 13.7.2023 not necessary for CHilbert file with one patient only
+                    obj.SubjectChange(e);
+                    [resp_subj,rt_subj,~,~] = obj.GetResponses();   %returns all epochs across categories  
+                    psy_rt(1:numel(rt_subj),els_start(e):els(e)) = repmat(rt_subj,1,els(e)-els_start(e)+1);
+                    resp(1:numel(rt_subj),els_start(e):els(e)) = repmat(resp_subj,1,els(e)-els_start(e)+1);
+                end
+                psy_rt = psy_rt(:,ch); %select only required channels
+                resp = resp(:,ch);
+            end
+        end
         function chyby = GetErrorTrials(obj)
             %return a matrix indicating an error/trial exclusion for each trial=row
             %columns: individual errors, wrong blocks, training trial, too short reaction time
