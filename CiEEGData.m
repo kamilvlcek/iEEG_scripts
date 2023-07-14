@@ -646,6 +646,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                             if(numel(RjEpCh) <= sum(sum(RjEpCh))), warning( ['no nonrejected data in ' cell2str( kats(k))]); end                            
                         end
                         responsekat{k,1} = katdata( ibaseline(2) - iepochtime(1)+1 :end,:,:); %time only after the stimulus : time x channel x epochs; 
+                        %TODO 14.7.2023 - this does not work for epochtime [0.3 0.8] and baseline [-0.2 0]
                         baselinekat{k,1} = katdata( ibaseline(1) - iepochtime(1)+1 : ibaseline(2) - iepochtime(1),:,:); 
                         rjepchkat{k,1} = RjEpCh;
                     else
@@ -1707,9 +1708,9 @@ classdef CiEEGData < matlab.mixin.Copyable
             if ~exist('kategories','var') || isempty(kategories) 
                 if isfield(obj.plotRCh,'kategories') 
                     kategories = obj.plotRCh.kategories; %hodnoty drive pouzite v grafu, ty maji prednost pred statistikou
-                elseif isprop(obj,'Wp') && ~isempty(obj.Wp(WpA)) && isfield(obj.Wp(WpA), 'kats')
+                elseif isprop(obj,'Wp') && ~isempty(obj.Wp) && ~isempty(obj.Wp(WpA)) && isfield(obj.Wp(WpA), 'kats')
                     kategories = obj.Wp(WpA).kats; %pokud nejsou kategorie v parametru, prvni volba je pouzit je ze statistiky                
-                elseif isprop(obj,'Wp') && ~isempty(obj.Wp(WpA)) && isfield(obj.Wp(WpA),'kats')
+                elseif isprop(obj,'Wp') && ~isempty(obj.Wp) && ~isempty(obj.Wp(WpA)) && isfield(obj.Wp(WpA),'kats')
                     kategories = obj.Wp(WpA).kats; %hodnoty pouzite ve statistice, 0-n, odpovida cislum v oobj.PsyData.P.strings.podminka
                 else
                    if numel(obj.PsyData.Categories())<=4 %uz muzu pouzivat 4 kategorie, kvuli Menrot
@@ -1745,7 +1746,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 end
                 obj.plotRCh.opakovani = trialtypes;    %hodnoty zadane parametrem, ty maji absolutni prednost
             end
-            if numel(trialtypes)<3 %if we are contrasting categories (not trialtypes), they must agree with the statistics
+            if numel(trialtypes)<3 && ~isempty(obj.Wp) %if we are contrasting categories (not trialtypes), they must agree with the statistics
                 assert(obj.PsyData.CategoriesAgreeWithStat(kategories,obj.Wp(WpA)), ['some categories unknown: ' num2str(cell2double(kategories))]);    
             end
             
@@ -2762,6 +2763,35 @@ classdef CiEEGData < matlab.mixin.Copyable
             
             klavesy ='fghjkl';
             disp(['channels same(' klavesy(marks(1)) '): ' num2str(sum(chdif == 1)) ', different(' klavesy(marks(2)) '): ' num2str(sum(chdif == 0)) ]);
+        end
+        function AppendFile(obj,E2)
+            assert(size(obj.d,2)==size(E2.d,2) && size(obj.d,3)==size(E2.d,3),'same number of channels and epochs required');
+            assert(obj.fs == E2.fs,'same sampling frequency required');
+            assert(isequal(obj.epochData(:,1),E2.epochData(:,1)) && isequal(obj.epochData(:,2),E2.epochData(:,2)),'same order of epochs required');
+            assert(isequal(obj.PsyData.P.sloupce, E2.PsyData.P.sloupce),'same columns of PsyData required');
+            assert(isequal(obj.PsyData.P.pacientid, E2.PsyData.P.pacientid),'same pacient required');
+            assert(isequal(obj.CH.H.channels,E2.CH.H.channels),'same channels required');
+            assert(isequal(obj.els,E2.els),'same electrode sizes required');
+            
+            iepochtimeE2 = round(E2.epochtime(1:2).*obj.fs);   
+            if(iepochtimeE2(1) < 0)
+                iD = abs(iepochtimeE2(1)): iepochtimeE2(2)-iepochtimeE2(1);   %import only part after stimulus of the E2 data
+            else
+                iD = 1:size(E2.d,1); %if the epoch starts after 0, we want to start the actual epoch start
+            end
+            
+            obj.d = cat(1,obj.d,E2.d(iD,:,:));            
+            obj.tabs = cat(1,obj.tabs,E2.tabs(iD,:));
+            obj.tabs_orig = {obj.tabs_orig; E2.tabs_orig};
+            obj.samples = size(obj.d,1);
+            obj.epochData = [obj.epochData, E2.epochData(:,3)];
+            obj.epochtime = [obj.epochtime(1) (obj.epochtime(2)+E2.epochtime(2)) E2.epochtime(3)]; %TODO this will need to confirm on real data
+            obj.baseline = [min(obj.baseline(1),E2.baseline(1)) max(obj.baseline(2),E2.baseline(2))]; %TODO this will need to confirm on real data
+            obj.RjEpoch = union(obj.RjEpoch,E2.RjEpoch); %epochs rejected from any file
+            obj.RjEpochCh = obj.RjEpochCh | E2.RjEpochCh; %epochs rejected in any of the two files
+            obj.Wp = {}; %all computed contrasts are removed
+            obj.STp = {};
+            obj.DatumCas.AppendFile = datestr(now);
         end
     end
     %% staticke metody

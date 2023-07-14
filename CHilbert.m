@@ -12,7 +12,7 @@ classdef CHilbert < CiEEGData
         Hfmean; %stredni hodnoty pasem  - pocet = pocet spocitanych pasem
         hfilename; %jmeno souboru CHilbert  
         plotF = struct; %udaje o stavu plotu PlotResponseFreq
-        fphase; %faze vsech zpracovavanych frekvenci - premiestnene z CMorlet pre vykreslenie a porovnanie faz z MW a Hilberta do buducna        
+        fphase; %faze vsech zpracovavanych frekvenci - premiestnene z CMorlet pre vykreslenie a porovnanie faz z MW a Hilberta do buducna    %time x channel x frequency    
         frealEpochs; % epochovane filtrovane eeg
         normalization; %typ normalizace
     end
@@ -40,7 +40,6 @@ classdef CHilbert < CiEEGData
             end
             
         end        
-        
         function obj = PasmoFrekvence(obj,freq,channels,prekryv,decimatefactor)
             %EEG2HILBERT prevede vsechny kanaly na prumer hilbertovych obalek
             %   podle puvodni funkce EEG2Hilbert
@@ -90,7 +89,6 @@ classdef CHilbert < CiEEGData
             obj.DatumCas.HilbertComputed = datestr(now);
             disp(['vytvoreno ' num2str(numel(obj.Hfmean)) ' frekvencnich pasem v case ' num2str(toc(timer)) 's']); 
         end
-        
         function obj = Normalize(obj, type, channels)
          %function for different normalization methods
          %to be used after PasmoFrekvence
@@ -155,7 +153,6 @@ classdef CHilbert < CiEEGData
             obj.normalization = type; %pro zpetnou referenci
             fprintf('... finished\n');
         end
-        
         function obj = ExtractEpochs(obj, PsyData,epochtime,baseline,freqepochs,filter)
             % rozdeli hilbertovu obalku podle epoch
             % i u ni odecte baseline pred podnetem
@@ -306,7 +303,6 @@ classdef CHilbert < CiEEGData
                 end
             end
         end
-        
         function obj = PlotResponseFreq(obj,ch,kategories)
             %plot of all frequency bands
             %which channel
@@ -386,8 +382,6 @@ classdef CHilbert < CiEEGData
             methodhandle = @obj.hybejPlotF;
             set(obj.plotF.fh,'KeyPressFcn',methodhandle);             
         end 
-        
-
         %% SAVE AND LOAD FILE
         %dve funkce na ulozeni a nacteni vypocitane Hilbertovy obalky, protoze to trva hrozne dlouho
         %uklada se vcetne dat parenta CiEEGData
@@ -414,7 +408,6 @@ classdef CHilbert < CiEEGData
                 save(CHilbert.filenameH(filename),'HFreq','Hf','Hfmean','HFreqEpochs','freal','frealEpochs','yrange','fphase','fphaseEpochs','normalization','-v7.3'); %do druheho souboru data z teto tridy
             end
         end
-        
         %pokud je treti parametr 1, nenacitaji se data z nadrazene tridy
         function obj = Load(obj,filename,loadall,onlyself)
             %parametr loadall se hodi pro FE data se vsemi ulozenymi epochami, ktere jsou giganticke
@@ -474,7 +467,6 @@ classdef CHilbert < CiEEGData
             end
             obj.hfilename = filename; 
         end 
-        
         function [filename,basefilename,skipped] = ExtractData(obj,PAC,label,overwrite)
             %vytvori data z vyberu elektrod, pro sdruzeni elektrod pres vsechny pacienty. 
             %pole d, tabs, RjEpochCh a header H
@@ -547,7 +539,6 @@ classdef CHilbert < CiEEGData
             end
                 
         end
-        
         function BPD = ExtractBrainPlotData(obj,kategorie,signum,dofig)
             %vytvori Brain Plot Data, pro CBrainPlot.PlotBrain3D
             %kategorie, hodnoty a jejich signifikance vytahne na zaklade aktualne zvolene statistiky
@@ -662,7 +653,30 @@ classdef CHilbert < CiEEGData
             end
             disp([ num2str(numel(channels)) ' channels removed']);
         end
-        
+        function AppendFile(obj,E2)
+            assert(size(obj.HFreq,2)==size(E2.HFreq,2) && size(obj.HFreq,3)==size(E2.HFreq,3) && size(obj.HFreq,4)==size(E2.HFreq,4),'same number of channels, frequencies and categories are required');
+            assert(isequal(obj.Hf,E2.Hf),'same frequency bands required');
+            assert(size(obj.HFreqEpochs,2)==size(E2.HFreqEpochs,2) && size(obj.HFreqEpochs,3)==size(E2.HFreqEpochs,3) && size(obj.HFreqEpochs,4)==size(E2.HFreqEpochs,4),'same number of channels, frequencies and epochs are required');
+            assert(isequal(obj.normalization,E2.normalization),'same normalization required');
+            AppendFile@CiEEGData(obj,E2); 
+            
+            iepochtimeE2 = round(E2.epochtime(1:2).*obj.fs);   
+            if(iepochtimeE2(1) < 0)
+                iD = abs(iepochtimeE2(1)): iepochtimeE2(2)-iepochtimeE2(1);   %import only part after stimulus of the E2 data
+            else
+                iD = 1:size(E2.d,1); %if the epoch starts after 0, we want to start the actual epoch start
+            end
+            
+            obj.HFreq = cat(1,obj.HFreq,E2.HFreq(iD,:,:,:));
+            if ~isempty(obj.HFreqEpochs)
+                obj.HFreqEpochs = cat(1,obj.HFreqEpochs,E2.HFreqEpochs(iD,:,:,:));
+                obj.fphaseEpochs = cat(1,obj.fphaseEpochs,E2.fphaseEpochs(iD,:,:,:));
+                obj.frealEpochs = cat(1,obj.frealEpochs,E2.frealEpochs(iD,:,:,:));
+            end
+            if ~isempty(obj.fphase)
+                 obj.fphase = cat(1,obj.fphase,E2.fphase(iD,:,:,:));
+            end
+        end
     end 
     methods (Static,Access = public)
         function filename2 = filenameE(filename)

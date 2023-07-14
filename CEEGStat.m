@@ -148,9 +148,12 @@ classdef CEEGStat
             end
             
         end
-        function baseline0 = Baseline(epochtime,baseline)
+        function baseline0 = Baseline(epochtime,baseline) 
             %baseline0 is the part of epochtime before the end of baseline or before time 0
             baseline0 = [epochtime(1) iff(baseline(2)>epochtime(1),baseline(2),0)]; %it depends if the baseline and epochtime overlap
+            %baseline0 = baseline; %14.7.2023 - I do not see any reason for the expression above. 
+                %I what to compute the stats from the baseline given, not any else
+                %How to evaluate epochs, where between baseline and epoch there is a space in time?
         end
         function ispc_p = ISPCBaseline(ispc,n,epochtime,baseline,fs,fdr)
             %computes significance of ispc relative to baseline

@@ -105,8 +105,9 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         end
         
         function ts_podnety = TimeStimuli(obj,response)
-            %returns the array of timestamps of all stimuli, if response=1 returns array of responses
-            %ts_podnety, size n_epochs x 1
+            %returns the array of timestamps (i.e. date serial numbers) of all stimuli;
+            %when response=1, it returns array of responses
+            %ts_podnety size: n_epochs x 1
             if exist('response','var') && response==1
                 ts_podnety = obj.P.data(:,obj.P.sloupce.ts_odpoved); %responses
             else
