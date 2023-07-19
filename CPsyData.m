@@ -104,14 +104,21 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
             isi = 24*3600*(obj.P.data(2:end,obj.P.sloupce.ts_podnet) - obj.P.data(1:end-1,obj.P.sloupce.ts_podnet));
         end
         
-        function ts_podnety = TimeStimuli(obj,response)
+        function ts_podnety = TimeStimuli(obj,alignEpochs)
             %returns the array of timestamps (i.e. date serial numbers) of all stimuli;
-            %when response=1, it returns array of responses
+            %when alignEpochs=0, it returns array of stimuli
+            %when alignEpochs=1, it returns array of responses
+            %when alignEpochs=2, it returns array of stimuli before delay (new; in delayed epochs - in memact)
             %ts_podnety size: n_epochs x 1
-            if exist('response','var') && response==1
-                ts_podnety = obj.P.data(:,obj.P.sloupce.ts_odpoved); %responses
-            else
+            if (~exist('alignEpochs','var')) || isempty(alignEpochs), alignEpochs = 0; end % by default returns array of stimuli
+            if alignEpochs==0
                 ts_podnety = obj.P.data(:,obj.P.sloupce.ts_podnet); %stimuli
+            elseif alignEpochs==1
+                ts_podnety = obj.P.data(:,obj.P.sloupce.ts_odpoved); %responses
+            elseif alignEpochs==2 %stimuli before delay in memact (new)                               
+                dt = datetime(obj.P.data(:,obj.P.sloupce.ts_podnet), 'ConvertFrom', 'datenum'); % convert ts_podnet from obj.P.data to datetime objects
+                val2substract = seconds(obj.P.data(:,obj.P.sloupce.delay) + obj.P.data(:,obj.P.sloupce.t_encod_del)); % convert what's need to be substracted to duration objects in seconds            
+                ts_podnety = datenum(dt - val2substract); % subtract delay and t_encod from ts_podnet (datetime object) and convert obtained values back to serial date numbers
             end
         end
                        

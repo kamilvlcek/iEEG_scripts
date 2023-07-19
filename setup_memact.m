@@ -24,21 +24,21 @@ if typeEpochs == 0  % immediate epochs
     % 0 - 'immed_same'; 1 - 'immed_diff'
     
 elseif typeEpochs == 1 % epochs before delay 
-    setup.epochtime =  [-0.5 3.95 2]; % encoding phase (2 sec) + first part of delay (1.95 sec); % 2 - align to stimuli - delay (new)
+    setup.epochtime =  [-0.5 3.95 2]; % encoding phase (2 sec) + first part of delay (1.95 sec); % 2 - align to stimuli - delay (new)- stimulus which is presented during the encoding phase
     setup.baseline = [-.2 0];
     setup.index = 2;
     setup.suffix = 'bdel';
     setup.filter = {7,[2 3]}; % 2 - 'del_same'; 3 - 'del_diff'
     
 elseif typeEpochs == 2 % epochs after delay
-    setup.epochtime =  [-1.95 2 0];  % second part of delay (1.95 sec) + action phase (2 sec)
+    setup.epochtime =  [-1.95 2 0];  % second part of delay (1.95 sec) + action phase (2 sec); stimulus - start of action phase
     setup.baseline = [-6.3 -6.1]; % baseline activity before encoding phase (ITI)
     setup.index = 3;
     setup.suffix = 'adel';
     setup.filter = {7,[2 3]}; % 2 - 'del_same'; 3 - 'del_diff'
     
 elseif typeEpochs == 3 % epochs within delay   
-    setup.epochtime =  [-3.9 0.3 0];  
+    setup.epochtime =  [-3.9 0.3 0]; % stimulus - start of action phase
     setup.baseline = [-6.3 -6.1]; % baseline activity before encoding phase (ITI)
     setup.index = 4;
     setup.suffix = 'del';

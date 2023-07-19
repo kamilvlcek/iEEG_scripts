@@ -17,6 +17,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             %pole PsyData.P.data, sloupce, strings, interval, eegfile, pacientid
         epochtime; %delka eventu pre a po event v sekundach , treti cislo je 1, pokud podle responses
         baseline; %delka baseline zacatek a konec v sekundach, vzhledem k podnetu/odpovedi podle epochtime(3)
+        testsetup; % stores setup of the test; e.g. in memact, the output of setup_memact()
         CH; %objekt formatu CHHeader s Hammer headerem 
         els; %cisla poslednich kanalu v kazde elektrode
         plotES; % current electrode, second of plot/epoch, range of y values, time range, allels, rangey all els
@@ -314,8 +315,10 @@ classdef CiEEGData < matlab.mixin.Copyable
             obj.CH.SetSelCh(obj.plotRCh.selCh,obj.plotRCh.selChNames);           
         end
         function obj = ExtractEpochs(obj, psy,epochtime,baseline,filter)
-            % psy is a struct from psychopoy, 
+            % psy is a struct from psychopy, 
             % epochtime is an array determining epoch length in sec before and after a stimulus/response: [before after stimulust=0/response=1]
+            % epochtime can also be a struct storing setup for the test (output e.g. from setup_memact() with several fields such as epochtime, baseline, filter and so on)
+            % in this case this struct will be saved in obj.testsetup
             % it epochs data in d property, and adds to the object: 1. cell array epochData, 2. double(3) epochtime in secs, 3. struct PsyData
             % changes obj.mults, samples channels epochs
             % filter - cellarray: filter{1} - column number in obj.P.data, filter{2} - looked for values in this column
@@ -324,8 +327,23 @@ classdef CiEEGData < matlab.mixin.Copyable
                 return;
             end
             assert(isa(psy,'struct'),'the first parameter needs to be struct with behavioral data (from psychopy)');
-            if ~exist('baseline','var') || isempty(baseline), baseline = [epochtime(1) 0]; end %defaultni baseline je do 0 sec
-            if ~exist('filter','var'), filter = []; end %default filter is empty                       
+            if isstruct(epochtime)  % struct stores the setup for the test (output e.g. from setup_memact())
+                obj.testsetup = epochtime; % save the setup in obj for further use 
+                epochtime = obj.testsetup.epochtime; % replace epochtime by values in an array from setup
+                if ~exist('baseline','var') || isempty(baseline)
+                    baseline = obj.testsetup.baseline; % use baseline from test setup if none is given
+                else
+                    obj.testsetup.baseline = baseline; % we can use different baseline than in the setup, e.g [0 0] for no epoch normalization
+                end
+                if ~exist('filter','var') || isempty(filter)
+                    filter = obj.testsetup.filter; % use filter from test setup if none is given
+                else
+                    obj.testsetup.filter = filter; % we can use other filter than used in the test setup and then should replace it by new
+                end
+            else % if epochtime is just an array, e.g. in aedist test [-0.2 1.2]
+                if ~exist('baseline','var') || isempty(baseline), baseline = [epochtime(1) 0]; end %defaultni baseline je do 0 sec
+                if ~exist('filter','var'), filter = []; end %default filter is empty
+            end
             
             obj.PsyData = CPsyData(psy); %vytvorim objekt CPsyData
             if numel(epochtime)==2, epochtime(3) = 0; end %epoched by stimuli, by default
