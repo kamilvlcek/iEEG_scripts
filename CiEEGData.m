@@ -257,10 +257,41 @@ classdef CiEEGData < matlab.mixin.Copyable
             end            
             
         end
-        function [RjEpoch,RjEpochCh]=GetRjEpoch(obj)
-            %jen vraci vyrazene epochy pro jejich ulozeni
-            RjEpoch = obj.RjEpoch;
-            RjEpochCh = obj.RjEpochCh;                      
+        function [RjEpoch,RjEpochCh]=GetRjEpoch(obj, index, filename)
+            % returns rejected epochs to save them separately
+            % index - index corresponding to epoch type (can be used from the test setup)
+            % filename - filename for a structure storing rejected epochs for different epoch types (currently used only in memact; should be the same as in pacienti(p).rjepoch in pacienti_memact())
+            if ~exist('index','var') || isempty(index)
+                if isfield(obj.testsetup, 'index') && ~isempty(obj.testsetup.index)
+                    index = obj.testsetup.index; % use index corresponding to epoch type from the test setup
+                else
+                    index = 1;
+                end
+            end
+            if exist('filename','var') && ~isempty(filename) 
+                % check if the filename is the same as used in pacienti_memact for pacienti(p).rjepoch                
+                [~, filenameShort, ext] = fileparts(filename); % return short filename without path
+                [pacienti] = pacienti_memact(); % return structure with all patients %TODO - it should be probably generalized to all tests
+                dataNamesCell = {pacienti.data}; % extract the 'data' field from each struct which stores the name of eegfile
+                p = find(strcmp(dataNamesCell, obj.PsyData.P.eegfile), 1); % find the index of the current patient in pacienti by comparing his eegfile name
+                if ~isempty(pacienti(p).rjepoch)
+                   assert(strcmp(pacienti(p).rjepoch, strcat(filenameShort,ext)), sprintf('the filename should be the same as used in pacienti_memact for pacienti(p).rjepoch, use the filename: %s', pacienti(p).rjepoch));
+                end
+                if exist(filename, 'file') == 2
+                    loadedData = load(filename); % load file in a struct if it exists already
+                    rjepoch = loadedData.rjepoch;
+                else
+                    rjepoch = struct(); % otherwise create a new struct
+                end
+                rjepoch(index).RjEpoch = obj.RjEpoch; % store new rejected epochs in struct
+                rjepoch(index).RjEpochCh = obj.RjEpochCh;
+                save(filename, 'rjepoch', '-v7.3');
+                RjEpoch = obj.RjEpoch;
+                RjEpochCh = obj.RjEpochCh;
+            else
+                RjEpoch = obj.RjEpoch;
+                RjEpochCh = obj.RjEpochCh;
+            end
         end
         function [selCh,selChNames] = GetSelCh(obj)
             %vraci cisla kanalu vybranych v grafu plotResponseCh, naprikla pro CBrainPLot

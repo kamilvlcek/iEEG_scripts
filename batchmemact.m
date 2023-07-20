@@ -1,30 +1,48 @@
-%% which analyses I want to run
-podnet = 1; %stimulus-based align of epochs
-odpovedi = 0;  %response align
-podilcasuodpovedi =0; %response time percentage
+%% which type of epoch I want to analyze
+immediate = 0; 
+beforedelay = 1;  
+afterdelay = 0; 
+withindelay = 0;
 
-%% a normal analysis with a stimulus-based align of epochs
- if podnet
-    disp(' ++++ ANALYZA 1 - RAZENI PODLE PODNETU ++++');
-    pacienti = {'VT59','VT61'}; 
-    cfg = struct('hybernovat',0,'suffix','Ep2023-06'); %'Ep2018-04', 'Ep2018-06'
+%% an analysis of immediate epochs
+ if immediate
+    disp(' ++++ ANALYSIS 1 - immediate epochs ++++');
+    pacienti = {'VT66'}; 
+    cfg = struct('hybernovat',0,'suffix','Ep2023-07'); 
     cfg.pacienti = pacienti; %which patients to analyse - has to be added after struct creation
     %cfg.overwrite=1; %overwrite old output files?
     %cfg.freqepochs=1; %save all frequencies from all epochs?
     %cfg.normalization='z'; %use different normalization than orig (orig =divide by mean)
-    cfg.epochfilter = {7,[0 1]}; %which epochs to extract and save - {column, [values]}; only immediate epochs
+    %cfg.epochfilter = {7,[0 1]}; %which epochs to extract and save - {column, [values]}; %stored already in setup
+    cfg.typeEpochs = 0; % immediate
+    cfg.normalizeEpochs = 1;
     filenames = BatchHilbert('memact',cfg);
 end
-%% an analysis with aligning according to the responses
-if odpovedi
-    disp(' ++++ ANALYZA 2 - RAZENI PODLE ODPOVEDI ++++');
-    cfg = struct('hybernovat',0,'srovnejresp',1);
-    filenames = BatchHilbert('aedist',cfg);
+%% an analysis of epochs before delay
+if beforedelay
+    disp(' ++++ ANALYSIS 2 - epochs before delay ++++');
+    pacienti = {'VT66'};
+    cfg = struct('hybernovat',0,'suffix','Ep2023-07'); 
+    cfg.pacienti = pacienti;
+    cfg.typeEpochs = 1; % before delay
+    cfg.normalizeEpochs = 0; % we won't normalize parts of delayed epochs before connecting them together     
+    filenames = BatchHilbert('memact',cfg);
 end
-%% finally, the analysis with response time percentage
-% hibernating at the end
-if podilcasuodpovedi
-    disp(' ++++ ANALYZA 3 - PODIL CASU ODPOVEDI ++++');
-    cfg = struct('hybernovat',1,'podilcasuodpovedi',1);
-    filenames = BatchHilbert('aedist',cfg);
+%% an analysis of epochs after delay
+if afterdelay
+    disp(' ++++ ANALYSIS 3 - epochs after delay ++++');
+    pacienti = {'VT66'};
+    cfg = struct('hybernovat',0,'suffix','Ep2023-07');
+    cfg.pacienti = pacienti;
+    cfg.typeEpochs = 2; % after delay
+    cfg.normalizeEpochs = 0;    
+    filenames = BatchHilbert('memact',cfg);
+end
+%% an analysis of epochs during the whole delay
+if withindelay
+    disp(' ++++ ANALYSIS 4 - epochs within delay ++++');
+    cfg = struct('hybernovat',0,'suffix','Ep2023-07'); 
+    cfg.typeEpochs = 3; % within delay
+    cfg.normalizeEpochs = 0;    
+    filenames = BatchHilbert('memact',cfg);
 end

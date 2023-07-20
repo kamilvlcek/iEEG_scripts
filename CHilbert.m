@@ -167,8 +167,8 @@ classdef CHilbert < CiEEGData
             if(numel(obj.HFreq)>0)
                 %now epoching of all frequency band individually, mostly because of figures
                 %average for each category, no statistic needed from this 
-                 iepochtime = round(epochtime(1:2).*obj.fs); %v poctu vzorku cas pred a po udalosti, prvni cislo je zaporne druhe kladne             
-                 ibaseline =  round(baseline.*obj.fs); %v poctu vzorku cas pred a po udalosti
+                 iepochtime = round(obj.epochtime(1:2).*obj.fs); %v poctu vzorku cas pred a po udalosti, prvni cislo je zaporne druhe kladne             
+                 ibaseline =  round(obj.baseline.*obj.fs); %v poctu vzorku cas pred a po udalosti
                  kategorie = cell2mat(obj.PsyData.P.strings.podminka(:,2)); %cisla kayegorii ve sloupcich
                  iepochs = obj.PsyData.FilteredIn(1:obj.epochs,filter); %to be processed epochs according to the filter,  array of 0/1 for each epoch
                  Hfreq2 = zeros(iepochtime(2)-iepochtime(1), size(obj.d,2), numel(obj.Hfmean),size(kategorie,1)); %new epoched power data: time x channel x freq x kategorie=podminka

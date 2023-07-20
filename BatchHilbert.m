@@ -17,24 +17,33 @@ if ~isfield(cfg,'overwrite'), cfg.overwrite = 0;  end %jestil se maji prepsat pu
 if ~isfield(cfg,'podilcasuodpovedi'), cfg.podilcasuodpovedi = 0; end  %jestli se maji epochy resamplovat na podil casu mezi podnetem a odpovedi
 if ~isfield(cfg,'freqepochs'), cfg.freqepochs = 0; end %jestli se maji uklada frekvencni data od vsech epoch - velka data!
 if ~isfield(cfg,'extractepochs'), cfg.extractepochs = default.extractepochs; end %muzu uklada nezepochovana data
-if ~isfield(cfg,'srovnejresp'), cfg.srovnejresp = 0; end %jestli se maji epochy zarovnava podle odpovedi
+if ~isfield(cfg,'typeEpochs'), cfg.typeEpochs = 0; end %jestli se maji epochy zarovnava podle odpovedi
 if ~isfield(cfg,'suffix'), cfg.suffix = ['Ep' datestr(now,'YYYY-mm')]; end %defaultne automaticka pripona rok-mesic
 if ~isfield(cfg,'pacienti'), cfg.pacienti = {}; end %muzu analyzovat jen vyber pacientu
 if ~isfield(cfg,'normalization'), cfg.normalization = 'orig'; end %type of normalization after hilbert transform
 if ~isfield(cfg,'statmethod'), cfg.statmethod = struct('test','wilcox','chn',1,'fdr',1); end %for explanation see BatchStat
 if ~isfield(cfg,'epochfilter'), cfg.epochfilter = []; end % I can select only some epochs and include them in the resulting file, e.g. {8,[1 2]}; - epochs with values 1 or 2 in the 8th column of obj.P.data
 if ~isfield(cfg,'decimatefactor'), cfg.decimatefactor = default.decimatefactor; end %decimate factor to use after hilbert tranform. 8 should be enough for trial-average analysis
+if ~isfield(cfg,'normalizeEpochs'), cfg.normalizeEpochs = 1; end % if to normalize epochs by substracting the baseline
 
-[ pacienti, setup,frekvence,reference  ] = pacienti_setup_load( testname,cfg.srovnejresp ); %11.1.2018 - 0 = zarovnani podle podnetu, 1=zarovnani podle odpovedi
+[ pacienti, setup,frekvence,reference  ] = pacienti_setup_load( testname,cfg.typeEpochs ); %11.1.2018 - 0 = zarovnani podle podnetu, 1=zarovnani podle odpovedi; 2023 - in memact, epoch type 0-3: immediate, epochs before delay, after delay, and within delay
 if numel(cfg.pacienti)>0
     pacienti = filterpac(pacienti,cfg.pacienti);
 end
 basedir = setup.basedir;
 epochtime = setup.epochtime;
-baseline = setup.baseline;
+if cfg.normalizeEpochs == 0
+    baseline = [0 0]; % if we don't want to normalize epochs (in memact test, before connecting two parts of epochs together) 
+else
+    baseline = setup.baseline;
+end
+if isempty(cfg.epochfilter) && isfield(setup, 'filter') && ~isempty(setup.filter)
+    cfg.epochfilter = setup.filter; % if we didn't specify filter in batchmemact.m, we'll use it from the test setup
+end
 suffix = cfg.suffix;  % napriklad 'Ep2018-01' + Resp pokud serazeno podle odpovedi
 if cfg.podilcasuodpovedi == 1, suffix = [suffix 'PCO']; end %pokud, pridam jeste na konec priponu
-if cfg.srovnejresp,  suffix = [suffix 'RES']; end %pokud zarovnavam podle odpovedi, pridavam priponu
+% if cfg.typeEpochs > 0,  suffix = [suffix 'RES']; end %pokud zarovnavam podle odpovedi, pridavam priponu
+if cfg.typeEpochs > 0, suffix = [suffix setup.suffix]; end  % 2023: in memact, to distinguish delayed epoch types 
 if cfg.freqepochs == 1, suffix = [suffix ' FE']; end %pokud, pridam jeste na konec priponu
 if cfg.extractepochs == 0, suffix = [suffix ' noEp']; end %pokud, pridam jeste na konec priponu
 if cfg.decimatefactor ~= default.decimatefactor, suffix = [suffix ' D' num2str(cfg.decimatefactor)]; end %pokud, pridam jeste na konec priponu
@@ -226,11 +235,16 @@ for f=1:numel(frekvence)
                                 else
                                     E.ExtractEpochs(psychopy,epochtime,baseline,cfg.freqepochs,cfg.epochfilter);   
                                 end
-                                if exist('RjEpoch','var') %muze byt prazne, pak se nevyrazuji zadne epochy
-                                    E.RejectEpochs(RjEpoch); %globalne vyrazene epochy
-                                end
-                                if exist('RjEpochCh','var')
-                                    E.RejectEpochs(0,RjEpochCh); %epochy pro kazdy kanal zvlast
+                                if exist('rjepoch','var') && isstruct(rjepoch) % 2023: in case of memact test, rjepoch is struct containing RjEpoch and RjEpochCh for each epoch type
+                                    E.RejectEpochs(rjepoch(setup.index).RjEpoch);
+                                    E.RejectEpochs(0,rjepoch(setup.index).RjEpochCh);
+                                else % for other tests, use the old method
+                                    if exist('RjEpoch','var') %muze byt prazne, pak se nevyrazuji zadne epochy
+                                        E.RejectEpochs(RjEpoch); %globalne vyrazene epochy
+                                    end
+                                    if exist('RjEpochCh','var')
+                                        E.RejectEpochs(0,RjEpochCh); %epochy pro kazdy kanal zvlast
+                                    end
                                 end
                                 if cfg.podilcasuodpovedi == 1                            
                                     E.ResampleEpochs(); % 27.11.2017 %resampluju na -1 1s podle casu odpovedi
