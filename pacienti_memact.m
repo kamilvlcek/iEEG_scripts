@@ -67,7 +67,8 @@ pacienti(p).folder = {'p1883612 And VT66','VT66 And p1883612'};
 pacienti(p).data = 'VT66_2023-04-24_16-52_067_512hz_14_concat_memact.mat'; 
 pacienti(p).header = 'p1883612_headerS.mat'; 
 pacienti(p).psychopy = 'p1883612_memact.mat';
-pacienti(p).rjepoch = 'p1883612_memact_rjepoch_immed.mat'; 
+%pacienti(p).rjepoch = 'p1883612_memact_rjepoch_immed.mat'; 
+pacienti(p).rjepoch = 'p1883612_memact_rjepoch.mat';
 pacienti(p).epievents = 'p1883612_memact_epievents.mat';
 pacienti(p).rjch = []; 
 
