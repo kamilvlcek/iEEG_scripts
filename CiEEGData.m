@@ -418,6 +418,25 @@ classdef CiEEGData < matlab.mixin.Copyable
             obj.PsyData.FilterEpochs(iepochs);
             fprintf('\n%i of %i epochs  extracted\n',obj.epochs, numel(iepochs) );
         end
+        function obj = NormalizeEpochs(obj, baseline) % July 2023
+            % performs a small part of CiEEGData.ExtractEpochs(), 
+            % normalizing the obj.d property by substracting mean baseline activity in each epoch and channel
+            % it is needed after appending two CiEEGData or CHilbert objects (joining two parts of epochs, e.g. in memact test in delayed epochs with jitter)
+            assert(obj.epochs > 1, 'data should be epoched');
+            if ~exist('baseline','var') || isempty(baseline), baseline = [obj.epochtime(1) 0]; end % by default, baseline time - the whole period before stimulus
+            iepochtime = round(obj.epochtime(1:2).*obj.fs); % epochtime in samples
+            ibaseline =  round(baseline.*obj.fs); % baseline in samples         
+            dnorm = zeros(size(obj.d,1), size(obj.d,2), size(obj.d,3)); % new normalized data time x channel x epoch
+           
+            for iepoch = 1:obj.epochs % over all epochs in given data                             
+                for ch = 1:obj.channels % over all channels
+                    baseline_mean = mean(obj.d(-iepochtime(1)+ibaseline(1)+1 : -iepochtime(1)+ibaseline(2)-1, ch, iepoch)); % average baseline for this channel, this epoch
+                    dnorm(:,ch,iepoch) = obj.d(:, ch, iepoch) - baseline_mean; % substract mean baseline from the entire epoch
+                end
+            end
+        obj.d = dnorm; % replace by normalized data
+        fprintf('%i epochs were normalized\n',obj.epochs);
+        end
         function obj = ResampleEpochs(obj,newepochtime)
             %resampluje epochy na -0.1 1, pricemz 0-1 je cas odpovedi
             %epochy s delsim casem odpovedi nez je puvodni delka epochy vyradi
@@ -668,7 +687,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             obj.Wp(WpA).DiEp = iEp; %index zpracovanych epoch 
             obj.Wp(WpA).DiEpCh = iEpCh & ~obj.RjEpochCh; %index zpracovanych epochCh, pro ruzne kanaly budou ruzna data je u tridy CHilbertMulti 
             obj.Wp(WpA).epochtime = obj.epochtime;
-            obj.Wp(WpA).baseline = obj.baseline; %pro zpetnou kontrolu, zaloha parametru
+            obj.Wp(WpA).baseline = obj.baseline; %pro zpetnou kontrolu, zaloha parametru; 24.7.2023 - Sofia - shouldn't be baseline, output from EEGStat.Baseline, stored here instead of obj.baseline as they may differ?
             obj.Wp(WpA).iepochtime = [ibaseline; abs(iepochtime(1)-ibaseline(2))+1 obj.samples ; iepochtime ]; %15.1.2019 - pro zpetnou kontrolu - statistika je pocitana podle indexu druheho radku
             
         
@@ -2813,7 +2832,8 @@ classdef CiEEGData < matlab.mixin.Copyable
             klavesy ='fghjkl';
             disp(['channels same(' klavesy(marks(1)) '): ' num2str(sum(chdif == 1)) ', different(' klavesy(marks(2)) '): ' num2str(sum(chdif == 0)) ]);
         end
-        function AppendFile(obj,E2)
+        function AppendFile(obj,E2, startTimeE2)
+            % startTimeE2 - time in sec relative to the stimulus in E2, at which the part of the object E2 should be taken
             assert(size(obj.d,2)==size(E2.d,2) && size(obj.d,3)==size(E2.d,3),'same number of channels and epochs required');
             assert(obj.fs == E2.fs,'same sampling frequency required');
             assert(isequal(obj.epochData(:,1),E2.epochData(:,1)) && isequal(obj.epochData(:,2),E2.epochData(:,2)),'same order of epochs required');
@@ -2821,21 +2841,30 @@ classdef CiEEGData < matlab.mixin.Copyable
             assert(isequal(obj.PsyData.P.pacientid, E2.PsyData.P.pacientid),'same pacient required');
             assert(isequal(obj.CH.H.channels,E2.CH.H.channels),'same channels required');
             assert(isequal(obj.els,E2.els),'same electrode sizes required');
+            if ~exist('startTimeE2','var') || isempty(startTimeE2), startTimeE2 = E2.epochtime(1); end % if no time is given, take the entire period of epoch in E2 including time before stimulus
             
-            iepochtimeE2 = round(E2.epochtime(1:2).*obj.fs);   
-            if(iepochtimeE2(1) < 0)
-                iD = abs(iepochtimeE2(1)): iepochtimeE2(2)-iepochtimeE2(1);   %import only part after stimulus of the E2 data
+            istartTimeE2 = round(startTimeE2*obj.fs); % startTime of E2 in samples
+            iepochtimeE2 = round(E2.epochtime(1:2).*obj.fs); 
+            if istartTimeE2 == iepochtimeE2(1)
+                iD = 1 : iepochtimeE2(2)-iepochtimeE2(1); % all time points of epoch in E2 including time before stimulus (e.g. in memact in file after delay, it'll take [-1.95, 2])
             else
-                iD = 1:size(E2.d,1); %if the epoch starts after 0, we want to start the actual epoch start
+                iD = abs(iepochtimeE2(1)) + istartTimeE2 : iepochtimeE2(2)-iepochtimeE2(1); % time points in E2 considering specified start time (might be before of after stimulus, e.g. [-.5, 2] or [.5, 2])
             end
+                       
+%             if(iepochtimeE2(1) < 0)
+%                 iD = abs(iepochtimeE2(1)): iepochtimeE2(2)-iepochtimeE2(1);   %import only part after stimulus of the E2 data
+%             else
+%                 iD = 1:size(E2.d,1); %if the epoch starts after 0, we want to start the actual epoch start
+%             end
             
             obj.d = cat(1,obj.d,E2.d(iD,:,:));            
             obj.tabs = cat(1,obj.tabs,E2.tabs(iD,:));
             obj.tabs_orig = {obj.tabs_orig; E2.tabs_orig};
             obj.samples = size(obj.d,1);
             obj.epochData = [obj.epochData, E2.epochData(:,3)];
-            obj.epochtime = [obj.epochtime(1) (obj.epochtime(2)+E2.epochtime(2)) E2.epochtime(3)]; %TODO this will need to confirm on real data
-            obj.baseline = [min(obj.baseline(1),E2.baseline(1)) max(obj.baseline(2),E2.baseline(2))]; %TODO this will need to confirm on real data
+%             obj.epochtime = [obj.epochtime(1) (obj.epochtime(2)+E2.epochtime(2)) E2.epochtime(3)]; %TODO this will need to confirm on real data
+            obj.epochtime = [obj.epochtime(1) (obj.epochtime(2)+abs(startTimeE2)+E2.epochtime(2)) obj.epochtime(3)]; % as from now we'll use stimulus time in E1, it should be obj.epochtime(3)
+            obj.baseline = [min(obj.baseline(1),E2.baseline(1)) max(obj.baseline(2),E2.baseline(2))]; %TODO this will need to confirm on real data; % Sofia: now baseline in both objects = [0 0] - according to BatchHilbert because we used cfg.normalizeEpochs = 0
             obj.RjEpoch = union(obj.RjEpoch,E2.RjEpoch); %epochs rejected from any file
             obj.RjEpochCh = obj.RjEpochCh | E2.RjEpochCh; %epochs rejected in any of the two files
             obj.Wp = {}; %all computed contrasts are removed

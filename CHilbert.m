@@ -653,19 +653,27 @@ classdef CHilbert < CiEEGData
             end
             disp([ num2str(numel(channels)) ' channels removed']);
         end
-        function AppendFile(obj,E2)
+        function AppendFile(obj,E2, startTimeE2)
+            % startTimeE2 - time in sec relative to the stimulus in E2, at which the part of the object E2 should be taken
             assert(size(obj.HFreq,2)==size(E2.HFreq,2) && size(obj.HFreq,3)==size(E2.HFreq,3) && size(obj.HFreq,4)==size(E2.HFreq,4),'same number of channels, frequencies and categories are required');
             assert(isequal(obj.Hf,E2.Hf),'same frequency bands required');
             assert(size(obj.HFreqEpochs,2)==size(E2.HFreqEpochs,2) && size(obj.HFreqEpochs,3)==size(E2.HFreqEpochs,3) && size(obj.HFreqEpochs,4)==size(E2.HFreqEpochs,4),'same number of channels, frequencies and epochs are required');
             assert(isequal(obj.normalization,E2.normalization),'same normalization required');
-            AppendFile@CiEEGData(obj,E2); 
+            if ~exist('startTimeE2','var') || isempty(startTimeE2), startTimeE2 = E2.epochtime(1); end % if no time is given, take the entire period of epoch in E2 including time before stimulus
+            AppendFile@CiEEGData(obj,E2, startTimeE2); 
             
-            iepochtimeE2 = round(E2.epochtime(1:2).*obj.fs);   
-            if(iepochtimeE2(1) < 0)
-                iD = abs(iepochtimeE2(1)): iepochtimeE2(2)-iepochtimeE2(1);   %import only part after stimulus of the E2 data
+            iepochtimeE2 = round(E2.epochtime(1:2).*obj.fs);
+            istartTimeE2 = round(startTimeE2*obj.fs); % startTime of E2 in samples
+            if istartTimeE2 == iepochtimeE2(1)
+                iD = 1 : iepochtimeE2(2)-iepochtimeE2(1); % all time points of epoch in E2 including time before stimulus (e.g. in memact in file after delay, it'll take [-1.95, 2])
             else
-                iD = 1:size(E2.d,1); %if the epoch starts after 0, we want to start the actual epoch start
+                iD = abs(iepochtimeE2(1)) + istartTimeE2 : iepochtimeE2(2)-iepochtimeE2(1); % time points in E2 considering start time (might be before of after stimulus, e.g. [-.5, 2] or [.5, 2])
             end
+%             if(iepochtimeE2(1) < 0)
+%                 iD = abs(iepochtimeE2(1)): iepochtimeE2(2)-iepochtimeE2(1);   %import only part after stimulus of the E2 data
+%             else
+%                 iD = 1:size(E2.d,1); %if the epoch starts after 0, we want to start the actual epoch start
+%             end
             
             obj.HFreq = cat(1,obj.HFreq,E2.HFreq(iD,:,:,:));
             if ~isempty(obj.HFreqEpochs)
