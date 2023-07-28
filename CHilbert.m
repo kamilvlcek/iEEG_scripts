@@ -190,7 +190,11 @@ classdef CHilbert < CiEEGData
                      for epoch = Epochs' %epochs in row
                          izacatek = find(obj.tabs_orig==obj.epochData{epoch,3}); %find sample number of stimulus for this epochs, using its timestamp. In the third columnt of epochData stimulus timestamps
                          for ch=1:obj.channels %over channels for this epoch
-                            baseline_mean = mean(obj.HFreq(izacatek + ibaseline(1) : izacatek+ibaseline(2)-1,ch,:),1); %1x1xfreq: baseline for each freq band  - mean over time                            
+                             if ibaseline(1)==ibaseline(2)
+                                 baseline_mean = 0; %baseline not used if there is the same start and end time, e.g. [0 0]
+                             else
+                                 baseline_mean = mean(obj.HFreq(izacatek + ibaseline(1) : izacatek+ibaseline(2)-1,ch,:),1); %1x1xfreq: baseline for each freq band  - mean over time
+                             end                                                        
                             epoch_data = bsxfun(@minus,obj.HFreq(izacatek + iepochtime(1) : izacatek+iepochtime(2)-1,ch,:) , baseline_mean); %timex1xfreq - epoch data with baseline substracted for the current epoch and channel
                             Hfreq2(:,ch,:,katnum+1) = Hfreq2(:,ch,:,katnum+1) + epoch_data; %sum over all epochs of power for this channel and category, over all timesamples and frequecies
                                 %for this channel and katnum, this line is executed ones for each epoch
