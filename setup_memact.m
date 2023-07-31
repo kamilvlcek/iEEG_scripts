@@ -41,7 +41,9 @@ elseif typeEpochs == 2 % epochs after delay
     setup.stat_kats = {[2 3],[3 2]}; % del_same x del_diff
     
 elseif typeEpochs == 3 % epochs within delay   
-    setup.epochtime =  [-3.9 0.3 0]; % stimulus - start of action phase
+    setup.epochtime =  [-3.9 0.3 0]; % stimulus - start of action phase; how to normalize such epochs?
+    % setup.epochtime =  [-0.5 5.9 2]; % stimulus - start of encoding phase, in this way we can exctract encoding phase and the whole delay and normalize by baseline acvitity before encod phase
+    % setup.baseline = [-.2 0];
     setup.baseline = [-6.3 -6.1]; % baseline activity before encoding phase (ITI)
     setup.index = 4;
     setup.suffix = 'del';

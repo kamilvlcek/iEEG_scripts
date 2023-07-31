@@ -1,7 +1,7 @@
 %% which type of epoch I want to analyze
 immediate = 0; 
 beforedelay = 1;  
-afterdelay = 0; 
+afterdelay = 1; 
 withindelay = 0;
 
 %% an analysis of immediate epochs
@@ -21,9 +21,9 @@ end
 %% an analysis of epochs before delay
 if beforedelay
     disp(' ++++ ANALYSIS 2 - epochs before delay ++++');
-    pacienti = {'VT66'};
+%     pacienti = {'VT66'};
     cfg = struct('hybernovat',0,'suffix','Ep2023-07'); 
-    cfg.pacienti = pacienti;
+%     cfg.pacienti = pacienti;
     cfg.typeEpochs = 1; % before delay
     cfg.normalizeEpochs = 0; % we won't normalize parts of delayed epochs before connecting them together     
     filenames = BatchHilbert('memact',cfg);
@@ -31,9 +31,9 @@ end
 %% an analysis of epochs after delay
 if afterdelay
     disp(' ++++ ANALYSIS 3 - epochs after delay ++++');
-    pacienti = {'VT66'};
+%     pacienti = {'VT66'};
     cfg = struct('hybernovat',0,'suffix','Ep2023-07');
-    cfg.pacienti = pacienti;
+%     cfg.pacienti = pacienti;
     cfg.typeEpochs = 2; % after delay
     cfg.normalizeEpochs = 0;    
     filenames = BatchHilbert('memact',cfg);

@@ -662,14 +662,14 @@ classdef CHilbert < CiEEGData
             end
             disp([ num2str(numel(channels)) ' channels removed']);
         end
-        function AppendFile(obj,E2, startTimeE2)
+        function AppendData(obj,E2, startTimeE2)
             % startTimeE2 - time in sec relative to the stimulus in E2, at which the part of the object E2 should be taken
             assert(size(obj.HFreq,2)==size(E2.HFreq,2) && size(obj.HFreq,3)==size(E2.HFreq,3) && size(obj.HFreq,4)==size(E2.HFreq,4),'same number of channels, frequencies and categories are required');
             assert(isequal(obj.Hf,E2.Hf),'same frequency bands required');
             assert(size(obj.HFreqEpochs,2)==size(E2.HFreqEpochs,2) && size(obj.HFreqEpochs,3)==size(E2.HFreqEpochs,3) && size(obj.HFreqEpochs,4)==size(E2.HFreqEpochs,4),'same number of channels, frequencies and epochs are required');
             assert(isequal(obj.normalization,E2.normalization),'same normalization required');
             if ~exist('startTimeE2','var') || isempty(startTimeE2), startTimeE2 = E2.epochtime(1); end % if no time is given, take the entire period of epoch in E2 including time before stimulus
-            AppendFile@CiEEGData(obj,E2, startTimeE2); 
+            AppendData@CiEEGData(obj,E2, startTimeE2); 
             
             iepochtimeE2 = round(E2.epochtime(1:2).*obj.fs);
             istartTimeE2 = round(startTimeE2*obj.fs); % startTime of E2 in samples

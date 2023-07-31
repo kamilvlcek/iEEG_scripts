@@ -431,6 +431,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             dnorm = obj.d - baseline_mean; % time x ch x epochs - substract mean baseline from the entire epoch
                  %requires implicit expansion of arrays with compatible size in Matlab 2016b and later, 
             obj.d = dnorm; % replace by normalized data
+            obj.baseline = baseline; % store new baseline in the object
             fprintf('%i epochs were normalized\n',obj.epochs);
         end
         function obj = ResampleEpochs(obj,newepochtime)
@@ -2828,7 +2829,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             klavesy ='fghjkl';
             disp(['channels same(' klavesy(marks(1)) '): ' num2str(sum(chdif == 1)) ', different(' klavesy(marks(2)) '): ' num2str(sum(chdif == 0)) ]);
         end
-        function AppendFile(obj,E2, startTimeE2)
+        function AppendData(obj,E2, startTimeE2)
             % startTimeE2 - time in sec relative to the stimulus in E2, at which the part of the object E2 should be taken
             assert(size(obj.d,2)==size(E2.d,2) && size(obj.d,3)==size(E2.d,3),'same number of channels and epochs required');
             assert(obj.fs == E2.fs,'same sampling frequency required');
@@ -2860,12 +2861,12 @@ classdef CiEEGData < matlab.mixin.Copyable
             obj.epochData = [obj.epochData, E2.epochData(:,3)];
 %             obj.epochtime = [obj.epochtime(1) (obj.epochtime(2)+E2.epochtime(2)) E2.epochtime(3)]; %TODO this will need to confirm on real data
             obj.epochtime = [obj.epochtime(1) (obj.epochtime(2)+abs(startTimeE2)+E2.epochtime(2)) obj.epochtime(3)]; % as from now we'll use stimulus time in E1, it should be obj.epochtime(3)
-            obj.baseline = [min(obj.baseline(1),E2.baseline(1)) max(obj.baseline(2),E2.baseline(2))]; %TODO this will need to confirm on real data; % Sofia: now baseline in both objects = [0 0] - according to BatchHilbert because we used cfg.normalizeEpochs = 0
+            obj.baseline = [min(obj.baseline(1),E2.baseline(1)) max(obj.baseline(2),E2.baseline(2))]; %TODO this will need to confirm on real data; %25.7.2023 - new baseline will be stored after calling CiEEGData.NormalizeEpochs();
             obj.RjEpoch = union(obj.RjEpoch,E2.RjEpoch); %epochs rejected from any file
             obj.RjEpochCh = obj.RjEpochCh | E2.RjEpochCh; %epochs rejected in any of the two files
             obj.Wp = {}; %all computed contrasts are removed
             obj.STp = {};
-            obj.DatumCas.AppendFile = datestr(now);
+            obj.DatumCas.AppendData = datestr(now);
         end
     end
     %% staticke metody
