@@ -115,7 +115,7 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
                 ts_podnety = obj.P.data(:,obj.P.sloupce.ts_podnet); %stimuli
             elseif alignEpochs==1
                 ts_podnety = obj.P.data(:,obj.P.sloupce.ts_odpoved); %responses
-            elseif alignEpochs==2 %stimuli before delay in memact (new)                               
+            elseif alignEpochs==2 %stimuli before delay in memact (new, Sofiia 2023/07)                               
                 dt = datetime(obj.P.data(:,obj.P.sloupce.ts_podnet), 'ConvertFrom', 'datenum'); % convert ts_podnet from obj.P.data to datetime objects
                 val2substract = seconds(obj.P.data(:,obj.P.sloupce.delay) + obj.P.data(:,obj.P.sloupce.t_encod_del)); % convert what's need to be substracted to duration objects in seconds            
                 ts_podnety = datenum(dt - val2substract); % subtract delay and t_encod from ts_podnet (datetime object) and convert obtained values back to serial date numbers

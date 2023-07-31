@@ -265,10 +265,10 @@ classdef CiEEGData < matlab.mixin.Copyable
                 if isfield(obj.testsetup, 'index') && ~isempty(obj.testsetup.index)
                     index = obj.testsetup.index; % use index corresponding to epoch type from the test setup
                 else
-                    index = 1;
+                    index = 1; %used only with filename argument
                 end
             end
-            if exist('filename','var') && ~isempty(filename) 
+            if exist('filename','var') && ~isempty(filename) %Sofiia 2023/07 because of memact
                 % check if the filename is the same as used in pacienti_memact for pacienti(p).rjepoch                
                 [~, filenameShort, ext] = fileparts(filename); % return short filename without path
                 [pacienti] = pacienti_memact(); % return structure with all patients %TODO - it should be probably generalized to all tests
@@ -284,7 +284,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                     rjepoch = struct(); % otherwise create a new struct
                 end
                 rjepoch(index).RjEpoch = obj.RjEpoch; % store new rejected epochs in struct
-                rjepoch(index).RjEpochCh = obj.RjEpochCh;
+                rjepoch(index).RjEpochCh = obj.RjEpochCh; %#ok<STRNU>
                 save(filename, 'rjepoch', '-v7.3');
                 RjEpoch = obj.RjEpoch;
                 RjEpochCh = obj.RjEpochCh;
@@ -418,24 +418,20 @@ classdef CiEEGData < matlab.mixin.Copyable
             obj.PsyData.FilterEpochs(iepochs);
             fprintf('\n%i of %i epochs  extracted\n',obj.epochs, numel(iepochs) );
         end
-        function obj = NormalizeEpochs(obj, baseline) % July 2023
+        function obj = NormalizeEpochs(obj, baseline) % July 2023 Sofiia
             % performs a small part of CiEEGData.ExtractEpochs(), 
             % normalizing the obj.d property by substracting mean baseline activity in each epoch and channel
             % it is needed after appending two CiEEGData or CHilbert objects (joining two parts of epochs, e.g. in memact test in delayed epochs with jitter)
             assert(obj.epochs > 1, 'data should be epoched');
             if ~exist('baseline','var') || isempty(baseline), baseline = [obj.epochtime(1) 0]; end % by default, baseline time - the whole period before stimulus
             iepochtime = round(obj.epochtime(1:2).*obj.fs); % epochtime in samples
-            ibaseline =  round(baseline.*obj.fs); % baseline in samples         
-            dnorm = zeros(size(obj.d,1), size(obj.d,2), size(obj.d,3)); % new normalized data time x channel x epoch
+            ibaseline =  round(baseline.*obj.fs); % baseline in samples                     
            
-            for iepoch = 1:obj.epochs % over all epochs in given data                             
-                for ch = 1:obj.channels % over all channels
-                    baseline_mean = mean(obj.d(-iepochtime(1)+ibaseline(1)+1 : -iepochtime(1)+ibaseline(2)-1, ch, iepoch)); % average baseline for this channel, this epoch
-                    dnorm(:,ch,iepoch) = obj.d(:, ch, iepoch) - baseline_mean; % substract mean baseline from the entire epoch
-                end
-            end
-        obj.d = dnorm; % replace by normalized data
-        fprintf('%i epochs were normalized\n',obj.epochs);
+            baseline_mean = mean(obj.d(-iepochtime(1)+ibaseline(1)+1 : -iepochtime(1)+ibaseline(2), :, :),1); % 1xchxepochs average baseline for this channel, this epoch
+            dnorm = obj.d - baseline_mean; % time x ch x epochs - substract mean baseline from the entire epoch
+                 %requires implicit expansion of arrays with compatible size in Matlab 2016b and later, 
+            obj.d = dnorm; % replace by normalized data
+            fprintf('%i epochs were normalized\n',obj.epochs);
         end
         function obj = ResampleEpochs(obj,newepochtime)
             %resampluje epochy na -0.1 1, pricemz 0-1 je cas odpovedi

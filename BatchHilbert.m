@@ -24,7 +24,7 @@ if ~isfield(cfg,'normalization'), cfg.normalization = 'orig'; end %type of norma
 if ~isfield(cfg,'statmethod'), cfg.statmethod = struct('test','wilcox','chn',1,'fdr',1); end %for explanation see BatchStat
 if ~isfield(cfg,'epochfilter'), cfg.epochfilter = []; end % I can select only some epochs and include them in the resulting file, e.g. {8,[1 2]}; - epochs with values 1 or 2 in the 8th column of obj.P.data
 if ~isfield(cfg,'decimatefactor'), cfg.decimatefactor = default.decimatefactor; end %decimate factor to use after hilbert tranform. 8 should be enough for trial-average analysis
-if ~isfield(cfg,'normalizeEpochs'), cfg.normalizeEpochs = 1; end % if to normalize epochs by substracting the baseline
+if ~isfield(cfg,'normalizeEpochs'), cfg.normalizeEpochs = 1; end % if to normalize epochs by substracting the baseline - 20230/ because of memact
 
 [ pacienti, setup,frekvence,reference  ] = pacienti_setup_load( testname,cfg.typeEpochs ); %11.1.2018 - 0 = zarovnani podle podnetu, 1=zarovnani podle odpovedi; 2023 - in memact, epoch type 0-3: immediate, epochs before delay, after delay, and within delay
 if numel(cfg.pacienti)>0
@@ -43,7 +43,7 @@ end
 suffix = cfg.suffix;  % napriklad 'Ep2018-01' + Resp pokud serazeno podle odpovedi
 if cfg.podilcasuodpovedi == 1, suffix = [suffix 'PCO']; end %pokud, pridam jeste na konec priponu
 % if cfg.typeEpochs > 0,  suffix = [suffix 'RES']; end %pokud zarovnavam podle odpovedi, pridavam priponu
-if cfg.typeEpochs > 0, suffix = [suffix setup.suffix]; end  % 2023: in memact, to distinguish delayed epoch types 
+if cfg.typeEpochs > 0, suffix = [suffix setup.suffix]; end  % 2023/07 Sifiia : to distinguish epoch types, eg. delayed in memact
 if cfg.freqepochs == 1, suffix = [suffix ' FE']; end %pokud, pridam jeste na konec priponu
 if cfg.extractepochs == 0, suffix = [suffix ' noEp']; end %pokud, pridam jeste na konec priponu
 if cfg.decimatefactor ~= default.decimatefactor, suffix = [suffix ' D' num2str(cfg.decimatefactor)]; end %pokud, pridam jeste na konec priponu
@@ -235,7 +235,7 @@ for f=1:numel(frekvence)
                                 else
                                     E.ExtractEpochs(psychopy,epochtime,baseline,cfg.freqepochs,cfg.epochfilter);   
                                 end
-                                if exist('rjepoch','var') && isstruct(rjepoch) % 2023: in case of memact test, rjepoch is struct containing RjEpoch and RjEpochCh for each epoch type
+                                if exist('rjepoch','var') && isstruct(rjepoch) % 2023 Sofiia: in case of memact test, rjepoch is struct containing RjEpoch and RjEpochCh for each epoch type
                                     E.RejectEpochs(rjepoch(setup.index).RjEpoch);
                                     E.RejectEpochs(0,rjepoch(setup.index).RjEpochCh);
                                 else % for other tests, use the old method
