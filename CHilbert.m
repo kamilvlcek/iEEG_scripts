@@ -223,6 +223,28 @@ classdef CHilbert < CiEEGData
                  fprintf('\n');
             end
         end
+        function obj = NormalizeEpochs(obj, baseline)
+            % performs a small part of CHilbert.ExtractEpochs(), 
+            % normalizing the obj.HFreq property by substracting mean baseline activity in each channel and category for individual frequency bands
+            % it is needed after appending two CHilbert objects (joining two parts of epochs, e.g. in memact test in delayed epochs with jitter)  
+            assert(obj.epochs > 1, 'data should be epoched');
+            if ~exist('baseline','var') || isempty(baseline), baseline = [obj.epochtime(1) 0]; end % by default, baseline time - the whole period before stimulus
+            
+            NormalizeEpochs@CiEEGData(obj, baseline);
+            
+            iepochtime = round(obj.epochtime(1:2).*obj.fs); % epochtime in samples
+            ibaseline =  round(baseline.*obj.fs); % baseline in samples 
+            baseline_mean = mean(obj.HFreq(-iepochtime(1)+ibaseline(1)+1 : -iepochtime(1)+ibaseline(2), :, :, :),1); % 1 x channels x frequencies x categories, average baseline for each channel, freq and category
+            HFreqnorm = obj.HFreq - baseline_mean; % time x ch x frequencies x categories - substract mean baseline from the entire epoch
+                 %requires implicit expansion of arrays with compatible size in Matlab 2016b and later
+            obj.HFreq = HFreqnorm; % replace by normalized data
+            
+            if ~isempty(obj.HFreqEpochs) % data for all epochs for all frequency bands
+                baseline_meanEp = mean(obj.HFreqEpochs(-iepochtime(1)+ibaseline(1)+1 : -iepochtime(1)+ibaseline(2), :, :, :),1); % 1 x channel x frequency x epoch, average baseline
+                HFreqEpochsnorm = obj.HFreqEpochs - baseline_meanEp; % time x channels x frequencies x epochs, substract mean baseline from each individual epoch
+                obj.HFreqEpochs = HFreqEpochsnorm; % replace by normalized data
+            end
+        end
         function GetITPC(obj)
             assert(obj.epochs > 1, 'data musi byt epochovana');
             PN = CPlotsN(obj);
