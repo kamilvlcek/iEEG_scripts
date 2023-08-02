@@ -5,6 +5,7 @@ function [ setup ] = setup_memact(typeEpochs)
 % 1 - epochs before delay
 % 2 - epochs after delay
 % 3 - epochs within delay
+% 4 - baseline activity before encoding phase, requires for normalization and computing stats for epochs within delay
 
 if(~exist('typeEpochs','var')) || isempty(typeEpochs), typeEpochs = 0; end % by default analyses immediate epochs
 setup = {};
@@ -26,7 +27,7 @@ if typeEpochs == 0  % immediate epochs
     
 elseif typeEpochs == 1 % epochs before delay 
     setup.epochtime =  [-0.5 3.95 2]; % encoding phase (2 sec) + first part of delay (1.95 sec); % 2 - align to stimuli - delay (new)- stimulus which is presented during the encoding phase
-    setup.baseline = [-.2 0];
+    setup.baseline = [-0.5 -0.1]; % isn't used in BatchHilbert; use it only after appending 2 objects in function CM.NormalizeEpochs([-0.5 -0.1]);
     setup.index = 2;
     setup.suffix = 'bdel';
     setup.filter = {7,[2 3]}; % 2 - 'del_same'; 3 - 'del_diff'
@@ -34,24 +35,32 @@ elseif typeEpochs == 1 % epochs before delay
     
 elseif typeEpochs == 2 % epochs after delay
     setup.epochtime =  [-1.95 2 0];  % second part of delay (1.95 sec) + action phase (2 sec); stimulus - start of action phase
-    setup.baseline = [-6.3 -6.1]; % baseline activity before encoding phase (ITI)
+    setup.baseline = [-0.5 -0.1]; % baseline activity before encoding phase (ITI); 
+        % isn't used in BatchHilbert; use it only after appending 2 objects in function CM.NormalizeEpochs([-0.5 -0.1]);
     setup.index = 3;
     setup.suffix = 'adel';
     setup.filter = {7,[2 3]}; % 2 - 'del_same'; 3 - 'del_diff'
     setup.stat_kats = {[2 3],[3 2]}; % del_same x del_diff
     
 elseif typeEpochs == 3 % epochs within delay   
-    setup.epochtime =  [-3.9 0.3 0]; % stimulus - start of action phase; how to normalize such epochs?
-    % setup.epochtime =  [-0.5 5.9 2]; % stimulus - start of encoding phase, in this way we can exctract encoding phase and the whole delay and normalize by baseline acvitity before encod phase
-    % setup.baseline = [-.2 0];
-    setup.baseline = [-6.3 -6.1]; % baseline activity before encoding phase (ITI)
+    % setup.epochtime =  [-3.9 0.3 0]; % stimulus - start of action phase; how to normalize such epochs?
+    setup.epochtime =  [2 5.9 2]; % stimulus - start of encoding phase, in this way we can exctract the whole delay and normalize by baseline acvitity before encod phase
+    setup.baseline = [-0.5 -0.1]; % baseline activity before encoding phase 
+        % isn't used in BatchHilbert; use it only after appending 2 objects in function CM.NormalizeEpochs([-0.5 -0.1]);
     setup.index = 4;
     setup.suffix = 'del';
     setup.filter = {7,[2 3]}; % 2 - 'del_same'; 3 - 'del_diff'
     setup.stat_kats = {[2 3],[3 2]}; % del_same x del_diff
     
+elseif typeEpochs == 4 % baseline activity before encoding phase, used for normalization and computing stats for epochs within delay
+    setup.epochtime =  [-0.5 0 2];
+    setup.baseline = [-0.5 -0.1]; % isn't used in BatchHilbert; use it only after appending with epochs within delay in function CM.NormalizeEpochs([-0.5 -0.1]);
+    setup.index = 4; % the same as for within delay epochs
+    setup.suffix = 'bs';
+    setup.filter = {7,[2 3]}; % 2 - 'del_same'; 3 - 'del_diff'
+    setup.stat_kats = {[2 3],[3 2]}; % del_same x del_diff
 else
-    disp('wrong value of typeEpochs, use only values: 0, 1, 2 or 3')
+    disp('wrong value of typeEpochs, use only values: 0, 1, 2, 3 or 4')
 end
 setup.prefix = 'MemAct'; %has to be AlloEgo, PPA, AEdist or MemAct
 % setup.stat_kats = {[0 1 2 3], ...  % 'immed_same';'immed_diff';'del_same';'del_diff'

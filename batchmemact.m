@@ -1,8 +1,9 @@
 %% which type of epoch I want to analyze
 immediate = 0; 
-beforedelay = 1;  
-afterdelay = 1; 
-withindelay = 0;
+beforedelay = 0;  
+afterdelay = 0; 
+withindelay = 1;
+baseline4delay = 1;
 
 %% an analysis of immediate epochs
  if immediate
@@ -25,7 +26,7 @@ if beforedelay
     cfg = struct('hybernovat',0,'suffix','Ep2023-07'); 
 %     cfg.pacienti = pacienti;
     cfg.typeEpochs = 1; % before delay
-    cfg.normalizeEpochs = 0; % we won't normalize parts of delayed epochs before connecting them together     
+    cfg.normalizeEpochs = 0; % we won't normalize parts of delayed epochs and compute statistics in BatchHilbert before connecting two parts together     
     filenames = BatchHilbert('memact',cfg);
 end
 %% an analysis of epochs after delay
@@ -41,8 +42,20 @@ end
 %% an analysis of epochs during the whole delay
 if withindelay
     disp(' ++++ ANALYSIS 4 - epochs within delay ++++');
+    % pacienti = {'VT66'};
     cfg = struct('hybernovat',0,'suffix','Ep2023-07'); 
+    % cfg.pacienti = pacienti;
     cfg.typeEpochs = 3; % within delay
-    cfg.normalizeEpochs = 0;    
+    cfg.normalizeEpochs = 0; % doesn't compute statistics in BatchHilbert, we should compute it only after appending with the baseline
+    filenames = BatchHilbert('memact',cfg);
+end
+%% extraction of baseline activity for analysis of epochs during the whole delay
+if baseline4delay
+    disp(' ++++ ANALYSIS 4 - extraction of baseline activity for epochs within delay ++++');
+    % pacienti = {'VT66'};
+    cfg = struct('hybernovat',0,'suffix','Ep2023-07'); 
+    % cfg.pacienti = pacienti;
+    cfg.typeEpochs = 4; % baseline activity before encoding phase
+    cfg.normalizeEpochs = 0;   
     filenames = BatchHilbert('memact',cfg);
 end
