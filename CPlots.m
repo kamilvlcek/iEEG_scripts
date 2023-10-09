@@ -881,7 +881,8 @@ classdef CPlots < matlab.mixin.Copyable
         function obj = plotEpochData(obj, epochrel,verthorz, katnum,ch)
             %plots freq-averaged single epoch data - average of BVA, with response tim and single-trial significance 
             if isfield(obj.plotPlotEpochData,'fh') && ishandle(obj.plotPlotEpochData.fh)
-                figure(obj.plotPlotEpochData.fh); %use the existing figure                 
+                figure(obj.plotPlotEpochData.fh); %use the existing figure   
+                clf;
             else
                 obj.plotPlotEpochData.fh = figure('Name','plotEpochData');
             end            
@@ -918,14 +919,13 @@ classdef CPlots < matlab.mixin.Copyable
             STpA = obj.Eh.STpActive; %just shortcut
             showSTp = iff(length(obj.Eh.STp)>=STpA && ~isempty(obj.Eh.STp(STpA).P) && ismember(ch,obj.Eh.STp(STpA).channels),1,0); %if to show the the p value of single-trial statistics            
 
-            katname = obj.Eh.PsyData.CategoryName(katnum);
-            title(sprintf('epoch %i (%i)(%i) of channel %i, %s',epoch,epochrel,epochabs, ch,katname));
+            katname = obj.Eh.PsyData.CategoryName(katnum);            
             T = linspace(obj.Eh.epochtime(1),obj.Eh.epochtime(2),size(obj.Eh.d,1)); %time scale - all samples            
             ichannel = false(obj.Eh.channels,1);
             ichannel(ch) = 1; %logical index of ch in all channels   
             
             %power plot
-            yyaxis left
+            if showSTp, yyaxis left;  end
             plot(T,obj.Eh.d(:,ch,epochabs),'+-');   
             ylim(obj.Eh.plotEp.ylim);
             line([0 0],obj.Eh.plotEp.ylim,'Color','black','LineWidth',1); %stimulus
@@ -961,7 +961,9 @@ classdef CPlots < matlab.mixin.Copyable
                 line([T(baselinestart) T(baselinestart)],[0 0.5],'Color','cyan','LineWidth',1); %baseline start               
                 timewindowend = obj.Eh.STp(STpA).itimewindow + obj.Eh.STp(STpA).iepochtime(2,1);
                 line([T(timewindowend) T(timewindowend)],[0 0.5],'Color','cyan','LineWidth',1); %timewindow size
-            end  
+            end
+            
+            title(sprintf('epoch %i (%i)(%i) of channel %i, %s',epoch,epochrel,epochabs, ch,katname), 'Interpreter', 'none');
             set(obj.plotPlotEpochData.fh,'KeyPressFcn',@obj.hybejplotEpochData);
         end
         function [rho,pval,maxTrials,obj] = ComputeCorrelChan(obj,ch,tmax,fraction,correctRT,correctTrials, conditions, katdata) %Sofiia since 11.2020             

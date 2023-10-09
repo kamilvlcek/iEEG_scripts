@@ -224,9 +224,10 @@ classdef CHilbert < CiEEGData
             end
         end
         function obj = NormalizeEpochs(obj, baseline)
-            % performs a small part of CHilbert.ExtractEpochs(), 
-            % normalizing the obj.HFreq property by substracting mean baseline activity in each channel and category for individual frequency bands
-            % it is needed after appending two CHilbert objects (joining two parts of epochs, e.g. in memact test in delayed epochs with jitter)  
+            % normalizes the obj.HFreq property by substracting mean baseline activity in each channel and category for individual frequency bands
+            % normalizes also HFreqEpochs if it exists 
+            % needed after appending two CHilbert objects (joining two parts of epochs, e.g. in memact test in delayed epochs with jitter)  
+            % Sofiia 2023/07 Memact 
             assert(obj.epochs > 1, 'data should be epoched');
             if ~exist('baseline','var') || isempty(baseline), baseline = [obj.epochtime(1) 0]; end % by default, baseline time - the whole period before stimulus
             
@@ -396,7 +397,7 @@ classdef CHilbert < CiEEGData
             for k = 1:numel(kategories)
                 subplot(1,numel(kategories),k);
                 caxis([miny,maxy]);     %colormap limits          
-                title( obj.PsyData.CategoryName(cellval(kategories,k)));
+                title( obj.PsyData.CategoryName(cellval(kategories,k)), 'Interpreter', 'none');
                 if k == 1
                     chstr = iff(isempty(obj.CH.sortedby),num2str(ch), [ num2str(ch) '(' obj.CH.sortedby  num2str(obj.plotF.ch) ')' ]);
                     ylabel(['channel ' chstr ' - freq [Hz]']); 

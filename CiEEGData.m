@@ -1527,7 +1527,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                 end
             end
             
-            if numel(obj.plotEp.selected)>=2
+            if isfield(obj.plotEp,'selected') && numel(obj.plotEp.selected)>=2
                 subplot(subplotsy,numel(kategories),obj.plotEp.selected(2));
                 plot(0,obj.plotEp.selected(1),'+','MarkerSize',12,'Color','red');
             end
@@ -2856,7 +2856,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             
             obj.d = cat(1,obj.d,E2.d(iD,:,:));            
             obj.tabs = cat(1,obj.tabs,E2.tabs(iD,:));
-            obj.tabs_orig = {obj.tabs_orig; E2.tabs_orig};
+            obj.tabs_orig = {obj.tabs, E2.tabs(iD,:); obj.tabs_orig, E2.tabs_orig}; %store all original tabs, both epoched and non epoched
             obj.samples = size(obj.d,1);
             obj.epochData = [obj.epochData, E2.epochData(:,3)];
 %             obj.epochtime = [obj.epochtime(1) (obj.epochtime(2)+E2.epochtime(2)) E2.epochtime(3)]; %TODO this will need to confirm on real data
