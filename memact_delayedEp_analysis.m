@@ -12,25 +12,34 @@ exlcude = {'MFG', 'IFG', 'SFG'};
 [PAC,ChNum] =  CB.StructFind({}, selectedStruct,'memact','b', exlcude); 
 % found 663 channels in 7 pacients
 
+% % select structures in frontal lobe
+% selectedStruct = {'MFG', 'IFG', 'SFG'};
+% [PAC,ChNum] =  CB.StructFind({}, selectedStruct,'memact','b'); 
+% % found 77 channels in 7 pacients (only from 5 patients)
+
 %% create CHilbertMulti before delay and create extracts
-CHilbert_filenamebd = 'MemAct CHilbert 50-150Hz -0.5-4.0 refBipo Ep2023-07bdel_CHilb.mat';
+% CHilbert_filenamebd = 'MemAct CHilbert 50-150Hz -0.5-4.0 refBipo Ep2023-07bdel_CHilb.mat';
+CHilbert_filenamebd = 'MemAct CHilbert 2-150Hz -0.5-4.0 refBipo Ep2023-07bdel_CHilb.mat';
 extracts_label = 'AllChan_PT'; % label for the extract files
-CMlabelbd = 'Memact_AllChan_PT_50-150Hz bdel'; 
+CMlabelbd = 'Memact_AllChan_PT_2-150Hz bdel'; 
 CMbd = CHilbertMulti();
 filenamesbd = CMbd.ExtractData(PAC,'memact',CHilbert_filenamebd,extracts_label,0); % create extracts for these all channels, - doesn't overwrite the old ones 
 
 %% import extracts for CM before delay
 CMbd.ImportExtract(filenamesbd,CMlabelbd);  % import all these extracts to one CHilbertMulti object
+CMbd.Save('d:\EEG\motol\CHilbertMulti\MemAct\CM Memact CHilbert 2-150Hz AnyResp_PT -0.5-4.0 refBipo Ep2023-07bdel_CiEEG.mat'); % save the file
 
 %% create CHilbertMulti after delay and create extracts
-CHilbert_filenamead = 'MemAct CHilbert 50-150Hz -1.9-2.0 refBipo Ep2023-07adel_CHilb.mat';
+% CHilbert_filenamead = 'MemAct CHilbert 50-150Hz -1.9-2.0 refBipo Ep2023-07adel_CHilb.mat';
+CHilbert_filenamead = 'MemAct CHilbert 2-150Hz -1.9-2.0 refBipo Ep2023-07adel_CHilb.mat';
 extracts_label = 'AllChan_PT'; % label for the extract files
-CMlabelad = 'Memact_AllChan_PT_50-150Hz bdel'; 
+CMlabelad = 'Memact_AllChan_PT_2-150Hz adel'; 
 CMad = CHilbertMulti();
 filenamesad = CMad.ExtractData(PAC,'memact',CHilbert_filenamead,extracts_label,0); % create extracts for these all channels, - doesn't overwrite the old ones 
 
 %% import extracts for CM after delay
 CMad.ImportExtract(filenamesad,CMlabelad);  % import all these extracts to one CHilbertMulti object
+CMad.Save('d:\EEG\motol\CHilbertMulti\MemAct\CM Memact CHilbert 2-150Hz AnyResp_PT -0.5-4.0 refBipo Ep2023-07adel_CiEEG.mat');
 
 %% join two objects and normalize epochs, compute statistics
 CMbd.AppendData(CMad);
@@ -41,7 +50,7 @@ CMbd.ResponseSearchMulti(0.1,setup.stat_kats,[],struct('chn',2, 'fdr',1)); % com
 CMbd.PlotResponseCh();
 
 %% save the file with all chan in parieto-temporal cortex
-CHilbertMulti_filename = 'CM Memact CHilbert 50-150Hz AllChan_PT -0.5-7.9 refBipo Ep2023-07delayed_CiEEG.mat';
+CHilbertMulti_filename = 'CM Memact CHilbert 2-150Hz AllChan_PT -0.5-7.9 refBipo Ep2023-07delayed_CiEEG.mat';
 CMbd.Save(['d:\EEG\motol\CHilbertMulti\MemAct\' CHilbertMulti_filename]); % save the file
 
 %% store contrasts to markings
@@ -69,5 +78,5 @@ CMbd.SetSelChActive(1); % set first set of markings
 CMbd.PlotResponseCh();
 
 %% save the file with active chan 
-CHilbertMulti_filename = 'CM Memact CHilbert 50-150Hz AnyResp_PT -0.5-7.9 refBipo Ep2023-07delayed_CiEEG.mat';
+CHilbertMulti_filename = 'CM Memact CHilbert 2-150Hz AllChan_PT -0.5-7.9 refBipo Ep2023-07delayed_CiEEG.mat';
 CMbd.Save(['d:\EEG\motol\CHilbertMulti\MemAct\' CHilbertMulti_filename]); % save the file

@@ -1,15 +1,15 @@
 %% which type of epoch I want to analyze
-immediate = 0; 
+immediate = 1; 
 beforedelay = 0;  
 afterdelay = 0; 
-withindelay = 1;
-baseline4delay = 1;
+withindelay = 0;
+baseline4delay = 0;
 
 %% an analysis of immediate epochs
  if immediate
     disp(' ++++ ANALYSIS 1 - immediate epochs ++++');
     pacienti = {'VT66'}; 
-    cfg = struct('hybernovat',0,'suffix','Ep2023-07'); 
+    cfg = struct('hybernovat',0,'suffix','Ep2023-06'); 
     cfg.pacienti = pacienti; %which patients to analyse - has to be added after struct creation
     %cfg.overwrite=1; %overwrite old output files?
     %cfg.freqepochs=1; %save all frequencies from all epochs?

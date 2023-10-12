@@ -44,7 +44,8 @@ elseif typeEpochs == 2 % epochs after delay
     
 elseif typeEpochs == 3 % epochs within delay   
     % setup.epochtime =  [-3.9 0.3 0]; % stimulus - start of action phase; how to normalize such epochs?
-    setup.epochtime =  [2 5.9 2]; % stimulus - start of encoding phase, in this way we can exctract the whole delay and normalize by baseline acvitity before encod phase
+    setup.epochtime =  [2.8 5.3 2]; % stimulus - start of encoding phase, in this way we can exctract the whole delay and normalize by baseline acvitity before encod phase
+%     setup.epochtime =  [2.0 5.9 2];
     setup.baseline = [-0.5 -0.1]; % baseline activity before encoding phase 
         % isn't used in BatchHilbert; use it only after appending 2 objects in function CM.NormalizeEpochs([-0.5 -0.1]);
     setup.index = 4;
