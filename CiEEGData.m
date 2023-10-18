@@ -2540,7 +2540,7 @@ classdef CiEEGData < matlab.mixin.Copyable
                         ikatnum1{2} = ismember(cell2mat(obj.Wp(WpA).kats'), cellval(categorynum(2,:)));
                         ikatnum = [find(all(ikatnum1{1}')) , find(all(ikatnum1{2}'))];
                     else
-                        ikatnum = [find(obj.Wp(WpA).kats == katnum(1,:)),find(obj.Wp(WpA).kats == katnum(2,:))];
+                        ikatnum = [find(obj.Wp(WpA).kats == cellval(katnum,1)),find(obj.Wp(WpA).kats == cellval(katnum,2))];
                     end                
                 end
                 katdata1 = katdata1(:,channels,:); %time x channels x epochs- vyberu jen kanaly podle channels
@@ -2621,6 +2621,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             end
             %channels
             channels = obj.CH.H.channels(obj.CH.sortorder); %vyberu kanaly, podle aktualniho razeni a ty ktere jsou zobrazene podle CH.FilterChannels()
+            if ~isfield(channels,'rejected'), [channels(:).rejected] = deal(NaN); end %create the field if it not exists
             selChFiltered = obj.plotRCh.selCh(obj.CH.sortorder,:); % channels x 6 - channel markings fghjkl
             %kategories
             
@@ -2681,7 +2682,7 @@ classdef CiEEGData < matlab.mixin.Copyable
            BrainNames = obj.CH.GetBrainNames(); %return full names of brain structures, of channels in obj.CH.sortorder, so same to channels variable
            %pres vsechny kanaly plnim tabulku
            for ch=1:numel(channels)              
-               channelHeader = channels(ch);
+               channelHeader = channels(ch);               
                RjCh = double(any(obj.RjCh==obj.CH.sortorder(ch))); %vyrazeni kanalu v CiEEGData               
                if exportBrainlabels    
                    if ch <= length(obj.CH.brainlabels)
