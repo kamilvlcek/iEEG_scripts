@@ -173,9 +173,9 @@ classdef CHilbert < CiEEGData
                  iepochs = obj.PsyData.FilteredIn(1:obj.epochs,filter); %to be processed epochs according to the filter,  array of 0/1 for each epoch
                  Hfreq2 = zeros(iepochtime(2)-iepochtime(1), size(obj.d,2), numel(obj.Hfmean),size(kategorie,1)); %new epoched power data: time x channel x freq x kategorie=podminka
                  if freqepochs %if we want to store all epochs for all frequency bands - for statistics, much larger data
-                     obj.HFreqEpochs = zeros(iepochtime(2)-iepochtime(1),size(obj.HFreq,2),size(obj.HFreq,3),obj.epochs(iepochs)); % time x channel x frequency x epoch
-                     obj.fphaseEpochs = zeros(iepochtime(2)-iepochtime(1),size(obj.HFreq,2),size(obj.HFreq,3),obj.epochs(iepochs)); % time x channel x frequency x epoch
-                     obj.frealEpochs = zeros(iepochtime(2)-iepochtime(1),size(obj.HFreq,2),size(obj.HFreq,3),obj.epochs(iepochs)); % time x channel x frequency x epoch
+                     obj.HFreqEpochs = zeros(iepochtime(2)-iepochtime(1),size(obj.HFreq,2),size(obj.HFreq,3),sum(iepochs)); % time x channel x frequency x epoch
+                     obj.fphaseEpochs = zeros(iepochtime(2)-iepochtime(1),size(obj.HFreq,2),size(obj.HFreq,3),sum(iepochs)); % time x channel x frequency x epoch
+                     obj.frealEpochs = zeros(iepochtime(2)-iepochtime(1),size(obj.HFreq,2),size(obj.HFreq,3),sum(iepochs)); % time x channel x frequency x epoch
                  else %normal analysis                    
                      obj.HFreqEpochs = [];
                      obj.fphaseEpochs = [];
