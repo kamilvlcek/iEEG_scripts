@@ -6,7 +6,8 @@ classdef CHilbert < CiEEGData
     end
     properties (Access = public)
         HFreq; %hilberova obalka pro kazde frekvenci pasmo - time x channel x freq (x kategorie)
-        HFreqEpochs; %Hf bez priemerovania cez epochy - time x channel x frequency x epoch
+        HFreq_ChEpochs; %true for channels/epochs, which are included in Hfreq, channels x epochs
+        HFreqEpochs; %Hf bez priemerovania cez epochy - time x channel x frequency x epoch        
         fphaseEpochs; % epochovane fazy fphase ~HFreqEpochs
         Hf; %frekvencni pasma pro ktere jsou pocitany obalky - okraje pasem, pocet je tedy vetsi o 1 nez pocet spocitanych pasem
         Hfmean; %stredni hodnoty pasem  - pocet = pocet spocitanych pasem
@@ -171,7 +172,10 @@ classdef CHilbert < CiEEGData
                  ibaseline =  round(obj.baseline.*obj.fs); %v poctu vzorku cas pred a po udalosti
                  kategorie = cell2mat(obj.PsyData.P.strings.podminka(:,2)); %cisla kayegorii ve sloupcich
                  iepochs = obj.PsyData.FilteredIn(1:obj.epochs,filter); %to be processed epochs according to the filter,  array of 0/1 for each epoch
+                 iepochs = iepochs & ~any(obj.PsyData.GetErrorTrials(),2)'; %exclude all epochs with errors
+                 iepochs(obj.RjEpoch) = 0; %reject globally rejected epochs
                  Hfreq2 = zeros(iepochtime(2)-iepochtime(1), size(obj.d,2), numel(obj.Hfmean),size(kategorie,1)); %new epoched power data: time x channel x freq x kategorie=podminka
+                 HFreq_ChEpochs = false(size(obj.RjEpochCh));  %#ok<PROPLC> %true for channels/epochs, which will be included in Hfreq, channels x epochs
                  if freqepochs %if we want to store all epochs for all frequency bands - for statistics, much larger data
                      obj.HFreqEpochs = zeros(iepochtime(2)-iepochtime(1),size(obj.HFreq,2),size(obj.HFreq,3),sum(iepochs)); % time x channel x frequency x epoch
                      obj.fphaseEpochs = zeros(iepochtime(2)-iepochtime(1),size(obj.HFreq,2),size(obj.HFreq,3),sum(iepochs)); % time x channel x frequency x epoch
@@ -182,46 +186,50 @@ classdef CHilbert < CiEEGData
                      obj.frealEpochs = [];                  
                  end
                  %cycle over categories, not over epochs 
-                 for katnum = kategorie' %categories in rows                       	 	
-                     Epochs = find(cell2mat(obj.epochData(iepochs,2))==katnum);  %epochs x 1: epochs numbers for this category
+                 for katnum = kategorie' %categories in rows 
+                     iepochskat = iepochs & (cell2mat(obj.epochData(:,2))==katnum)'; 
+                     Epochs = find(iepochskat);  %epochs x 1: epochs numbers for this category
                      if (numel(Epochs)) > 0 % when using filter, for some categorie, we will have no epochs. 
-                         fprintf('%i,', katnum); 
-                     end
-                     for epoch = Epochs' %epochs in row
-                         izacatek = find(obj.tabs_orig==obj.epochData{epoch,3}); %find sample number of stimulus for this epochs, using its timestamp. In the third columnt of epochData stimulus timestamps
-                         for ch=1:obj.channels %over channels for this epoch
-                            if ibaseline(1)==ibaseline(2) %baseline not used if there is the same start and end time
-                                baseline_mean = 0;
-                                epoch_data = obj.HFreq(izacatek + iepochtime(1) : izacatek+iepochtime(2)-1,ch,:); %timex1xfreq - epoch data with baseline substracted for the current epoch and channel
-                            else 
-                                baseline_mean = mean(obj.HFreq(izacatek + ibaseline(1) : izacatek+ibaseline(2)-1,ch,:),1); %1x1xfreq: baseline for each freq band  - mean over time                            
-                                %epoch_data = bsxfun(@minus,obj.HFreq(izacatek + iepochtime(1) : izacatek+iepochtime(2)-1,ch,:) , baseline_mean); %timex1xfreq - epoch data with baseline substracted for the current epoch and channel
-                                epoch_data = obj.HFreq(izacatek + iepochtime(1) : izacatek+iepochtime(2)-1,ch,:) - baseline_mean; %timex1xfreq - epoch data with baseline substracted for the current epoch and channel
-                                    %requires implicit expansion of arrays with compatible size in Matlab 2016b and later, 
-                            end
-                            
-                            Hfreq2(:,ch,:,katnum+1) = Hfreq2(:,ch,:,katnum+1) + epoch_data; %sum over all epochs of power for this channel and category, over all timesamples and frequecies
-                                %for this channel and katnum, this line is executed ones for each epoch
-                            
-                            if freqepochs  %if we want to store all epochs for all frequency bands - for statistics, much larger data
-                                obj.HFreqEpochs(:,ch,:,epoch) = squeeze(epoch_data) - squeeze(baseline_mean); % timeXfreq - here data for each epoch, channel and freq separately are saved, independent of category
-                                    %normalize power for all epochs
-                                if isprop(obj,'fphase') && ~isempty(obj.fphase) %if phase data were created in CMorlet.PasmoFrekvence
-                                    obj.fphaseEpochs(:,ch,:,epoch) = squeeze(obj.fphase(izacatek + iepochtime(1) : izacatek + iepochtime(2)-1, ch, :)); %phase data for this epoch and channel (no baseline substracted
-                                end                                
-                                if isprop(obj,'freal') && ~isempty(obj.freal) %if this was created - the bandpass-filtered signal - projection on the real axis                                    
-                                    obj.frealEpochs(:,ch,:,epoch) = squeeze(obj.freal(izacatek + iepochtime(1) : izacatek + iepochtime(2)-1, ch, :));
+                         fprintf('%i,', katnum);                      
+                         nEpochsChKat = zeros(1,obj.channels); %number of epoch data stored in Hfreq2 for each channel for this category
+                         for epoch = Epochs %number of epochs in a column - convert into row
+                             izacatek = find(obj.tabs_orig==obj.epochData{epoch,3}); %find sample number of stimulus for this epochs, using its timestamp. In the third columnt of epochData stimulus timestamps
+                             for ch=1:obj.channels %over channels for this epoch
+                                if obj.RjEpochCh(ch,epoch)==0 % 23.10.2023 - if this epoch for this channel is not rejected
+                                    if ibaseline(1)==ibaseline(2) %baseline not used if there is the same start and end time
+                                        baseline_mean = 0;
+                                        epoch_data = obj.HFreq(izacatek + iepochtime(1) : izacatek+iepochtime(2)-1,ch,:); %timex1xfreq - epoch data with baseline substracted for the current epoch and channel
+                                    else 
+                                        baseline_mean = mean(obj.HFreq(izacatek + ibaseline(1) : izacatek+ibaseline(2)-1,ch,:),1); %1x1xfreq: baseline for each freq band  - mean over time                            
+                                        %epoch_data = bsxfun(@minus,obj.HFreq(izacatek + iepochtime(1) : izacatek+iepochtime(2)-1,ch,:) , baseline_mean); %timex1xfreq - epoch data with baseline substracted for the current epoch and channel
+                                        epoch_data = obj.HFreq(izacatek + iepochtime(1) : izacatek+iepochtime(2)-1,ch,:) - baseline_mean; %timex1xfreq - epoch data with baseline substracted for the current epoch and channel
+                                            %requires implicit expansion of arrays with compatible size in Matlab 2016b and later, 
+                                    end
+                        
+                                    Hfreq2(:,ch,:,katnum+1) = Hfreq2(:,ch,:,katnum+1) + epoch_data; %sum over all epochs of power for this channel and category, over all timesamples and frequecies
+                                        %for this channel and katnum, this line is executed ones for each epoch
+                                    nEpochsChKat(1,ch) = nEpochsChKat(1,ch)  + 1;
+                                    HFreq_ChEpochs(ch,epoch)=1;  %#ok<PROPLC>
                                 end
-                            end                            
-                         end
-                     end
-                     if (numel(Epochs)) > 0  % when using filter, for some categorie, we will have no epochs. 
-                         Hfreq2(:,:,:,katnum+1) = Hfreq2(:,:,:,katnum+1)./numel(Epochs); %average over all epochs in this category  - the stored sum divided by number 
+                                if freqepochs  %if we want to store all epochs for all frequency bands - for statistics, much larger data
+                                    obj.HFreqEpochs(:,ch,:,epoch) = squeeze(epoch_data) - squeeze(baseline_mean); % timeXfreq - here data for each epoch, channel and freq separately are saved, independent of category
+                                        %normalize power for all epochs
+                                    if isprop(obj,'fphase') && ~isempty(obj.fphase) %if phase data were created in CMorlet.PasmoFrekvence
+                                        obj.fphaseEpochs(:,ch,:,epoch) = squeeze(obj.fphase(izacatek + iepochtime(1) : izacatek + iepochtime(2)-1, ch, :)); %phase data for this epoch and channel (no baseline substracted
+                                    end                                
+                                    if isprop(obj,'freal') && ~isempty(obj.freal) %if this was created - the bandpass-filtered signal - projection on the real axis                                    
+                                        obj.frealEpochs(:,ch,:,epoch) = squeeze(obj.freal(izacatek + iepochtime(1) : izacatek + iepochtime(2)-1, ch, :));
+                                    end
+                                end                            
+                             end
+                         end                     
+                         Hfreq2(:,:,:,katnum+1) = Hfreq2(:,:,:,katnum+1)./nEpochsChKat(1,:); %average over all epochs in this category  - the stored sum divided by number 
                      end
                  end             
                  obj.HFreq = Hfreq2;
+                 obj.HFreq_ChEpochs = HFreq_ChEpochs;  %#ok<PROPLC>
                  fprintf('\n');
-            end
+            end            
         end
         function obj = NormalizeEpochs(obj, baseline)
             % normalizes the obj.HFreq property by substracting mean baseline activity in each channel and category for individual frequency bands

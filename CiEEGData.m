@@ -210,11 +210,15 @@ classdef CiEEGData < matlab.mixin.Copyable
             if RjEpoch ~= 0  %muzu takhle vynechat vlozeni vyrazenych epoch              
                 obj.RjEpoch = RjEpoch; 
                 disp(['globally (over all channels) rejected ' num2str(numel(RjEpoch)) ' epochs']); 
+            else
+                disp('globally (over all channels) rejected 0 epochs'); 
             end
             if exist('RjEpochCh','var') 
                 if ~isempty(RjEpochCh)   
                     %we do not know if RjEpochs contains all or only filtered epochs. Therefore, check for both variants
-                    if size(RjEpochCh,2)==numel(obj.epochsFilter.iepochs) %epochsFilter.iepochs is all true if no filter is used
+                    if isempty(obj.epochsFilter)
+                        obj.RjEpochCh = RjEpochCh; %epochs were not extracted yet, just store the value
+                    elseif size(RjEpochCh,2)==numel(obj.epochsFilter.iepochs) %epochsFilter.iepochs is all true if no filter is used
                         obj.RjEpochCh = RjEpochCh(:,obj.epochsFilter.iepochs); %if only some epochs were used, use only these here as well
                     elseif size(RjEpochCh,2)==sum(obj.epochsFilter.iepochs)
                         obj.RjEpochCh = RjEpochCh; %RjEpochCh probably includes only the filtered epochs
@@ -225,8 +229,11 @@ classdef CiEEGData < matlab.mixin.Copyable
                     if ~strcmp(obj.reference,'original') && ~isempty(obj.CH.filterMatrix)  %pokud to neni originalni reference                      
                         obj.ChangeReferenceRjEpochCh(obj.CH.filterMatrix); %prepocitam na jinou referenci i RjEpochCh
                     end
+                    
                     assert( size(obj.RjEpochCh,1)== size(obj.d,2), ['RjEpochCh has different channel number (' num2str(size(obj.RjEpochCh,1)) ') than data (' num2str(size(obj.d,2)) ')']);
-                    assert( size(obj.RjEpochCh,2)== size(obj.d,3), ['RjEpochCh has different epoch number (' num2str(size(obj.RjEpochCh,2)) ') than data (' num2str(size(obj.d,3)) ')']);
+                    if size(obj.d,3)>1 %if the data are epoched, the size of obj.d and RjEpochCh should match
+                        assert( size(obj.RjEpochCh,2)== size(obj.d,3), ['RjEpochCh has different epoch number (' num2str(size(obj.RjEpochCh,2)) ') than data (' num2str(size(obj.d,3)) ')']);
+                    end
                     
                     disp(['+ rejected ' num2str(sum(max(obj.RjEpochCh,[],1))) ' epochs with epi events for individual channels']);   
                 else %takhle muzu vyrazene epochy vymazat
@@ -412,7 +419,9 @@ classdef CiEEGData < matlab.mixin.Copyable
             obj.tabs = tabs; 
             [obj.samples,obj.channels, obj.epochs] = obj.DSize();
             obj.DatumCas.Epoched = datestr(now);
-            obj.RjEpochCh = false(obj.channels,obj.epochs); %no rejected epochs for now
+            if(isempty(obj.RjEpochCh)) %now (10/2023) the RjEpochs should be set before epoching to exlude epochs during CHilbert.ExtractEpochs
+                obj.RjEpochCh = false(obj.channels,obj.epochs); %no rejected epochs for now
+            end
             obj.epochsFilter.filter = filter;
             obj.epochsFilter.iepochs = iepochs;
             obj.PsyData.FilterEpochs(iepochs);
@@ -3259,9 +3268,9 @@ classdef CiEEGData < matlab.mixin.Copyable
 
         function [obj] = ChangeReferenceRjEpochCh(obj,filterMatrix,selCh_H)
             %kod Nada 2017-12-07 - prepocitani RjEpochCh na bipolarni referenci 
-            if ~exist('selCh_H','var'), selCh_H = 1:obj.channels; end                       
+            if ~exist('selCh_H','var'), selCh_H = 1:size(filterMatrix,1); end  %default is all original channel                   
             RjEpochCh = obj.RjEpochCh(selCh_H,:)';  %u zadneho z pacientu jsem nenasel trigger channel uprostred kanalu, vzdy je na konci. To by jinak byl problem            
-            filterMatrix(filterMatrix<0) = 0; %oprava pro bipolarni referenci - chci mit v kazdem slouci je jednu 1
+            filterMatrix(filterMatrix<0) = 1; %oprava pro bipolarni referenci - misto -1 chci mit +1, aby se vyrazene kanaly sirily okolo
             filterMatrix(filterMatrix>0) = 1; %pridano kvuli jine = ele a head referenci
             RjEpochCh = RjEpochCh * filterMatrix(selCh_H,:); %kdyz je vynechany kanal (prvni u detskych pac, kvuli triggeru), tak ho radky fM stejne obsahuji
             RjEpochCh(RjEpochCh >= 2) = 1;
