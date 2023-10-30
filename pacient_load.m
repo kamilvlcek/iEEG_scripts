@@ -80,10 +80,7 @@ else
         if ~exist('channels','var'), channels = 1:E.channels; end
         E.ChangeReference('b');
         E.PasmoFrekvence(frequencies,channels);
-    end
-    %vytvorim epochy
-    filename = [ setup.basedir pacienti(p).folder '\' setup.subfolder '\' pacienti(p).psychopy];    
-    E.ExtractEpochs(getpsychopydata(filename,testname),setup.epochtime,setup.baseline);
+    end    
 
     %vyradim epochy
     if ~isempty(pacienti(p).rjepoch)
@@ -92,6 +89,12 @@ else
     if ~exist('RjEpochCh','var'), RjEpochCh = []; end %pokud neexistuje RjEpochCh - starsi data
     if ~exist('RjEpoch','var'), RjEpoch = []; end %pokud neexistuje RjEpoch - starsi data
     E.RejectEpochs(RjEpoch, RjEpochCh); %uz drive ulozene vyrazene epochy
+    
+    %vytvorim epochy
+    %the epoching should follow loading excluded epochs, to correctly exclude them in CHilbert.HFreq
+    filename = [ setup.basedir pacienti(p).folder '\' setup.subfolder '\' pacienti(p).psychopy];    
+    E.ExtractEpochs(getpsychopydata(filename,testname),setup.epochtime,setup.baseline);
+    
     %E.RjEpochsEpi([],0);
     %E.RjEpochsEpi(30);
     if ~isempty(frequencies)  %defaultne delam statistiku jen pro frekvencni data

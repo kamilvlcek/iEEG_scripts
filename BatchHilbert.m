@@ -229,12 +229,7 @@ for f=1:numel(frekvence)
                                 E.Normalize(cfg.normalization); %normalize the frequency bands
                             end                            
                             if cfg.extractepochs 
-                                disp('extracting epochs ...');
-                                if ERP
-                                    E.ExtractEpochs(psychopy,epochtime,baseline,cfg.epochfilter);                                 
-                                else
-                                    E.ExtractEpochs(psychopy,epochtime,baseline,cfg.freqepochs,cfg.epochfilter);   
-                                end
+                                disp('extracting epochs ...');                                
                                 if exist('rjepoch','var') && isstruct(rjepoch) % 2023 Sofiia: in case of memact test, rjepoch is struct containing RjEpoch and RjEpochCh for each epoch type
                                     E.RejectEpochs(rjepoch(setup.index).RjEpoch);
                                     E.RejectEpochs(0,rjepoch(setup.index).RjEpochCh);
@@ -245,6 +240,11 @@ for f=1:numel(frekvence)
                                     if exist('RjEpochCh','var')
                                         E.RejectEpochs(0,RjEpochCh); %epochy pro kazdy kanal zvlast
                                     end
+                                end
+                                if ERP %the epoching should follow loading excluded epochs, to correctly exclude them in CHilbert.HFreq
+                                    E.ExtractEpochs(psychopy,epochtime,baseline,cfg.epochfilter);                                 
+                                else
+                                    E.ExtractEpochs(psychopy,epochtime,baseline,cfg.freqepochs,cfg.epochfilter);   
                                 end
                                 if cfg.podilcasuodpovedi == 1                            
                                     E.ResampleEpochs(); % 27.11.2017 %resampluju na -1 1s podle casu odpovedi

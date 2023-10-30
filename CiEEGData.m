@@ -390,7 +390,7 @@ classdef CiEEGData < matlab.mixin.Copyable
             iepochtime = round(epochtime(1:2).*obj.fs); %epochtime in samples 
             ibaseline =  round(baseline.*obj.fs); %baseline in samples 
             ts_events = obj.PsyData.TimeStimuli(epochtime(3)); %nepochs x 1 - timestamps of stimuli/responses from all epochs
-            iepochs = obj.PsyData.FilteredIn(1:numel(ts_events),filter); %to be processed epochs according to the filter
+            iepochs = obj.PsyData.FilteredIn((1:numel(ts_events))',filter); %to be processed epochs according to the filter
             iepochs_abs = find(iepochs); %absolute numbers of epochs 1:all epochs
             de = zeros(iepochtime(2)-iepochtime(1), size(obj.d,2), numel(ts_events(iepochs))); %new epoched data time x channel x epoch  
             tabs = zeros(iepochtime(2)-iepochtime(1),numel(ts_events(iepochs))); %#ok<*PROPLC> %new epoched tabs

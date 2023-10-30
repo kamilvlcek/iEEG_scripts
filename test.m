@@ -41,11 +41,11 @@ E.ChangeReference('b');
 
 E.PasmoFrekvence(frequencies,channels,0, decimatefactor);
 
-load([location, pacient.folder, '\aedist\', pacient.psychopy]);
-E.ExtractEpochs(aedist,[-0.2 1.2],[-0.5 -0.2]);
-
 load([location, pacient.folder, '\aedist\', pacient.rjepoch]);
 E.RejectEpochs(RjEpoch, RjEpochCh);
+%the epoching should follow loading excluded epochs, to correctly exclude them in CHilbert.HFreq
+load([location, pacient.folder, '\aedist\', pacient.psychopy]);
+E.ExtractEpochs(aedist,[-0.2 1.2],[-0.5 -0.2]);
 
 E.ResponseSearch(0.1,[0 1 2]);
 

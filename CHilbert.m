@@ -171,8 +171,8 @@ classdef CHilbert < CiEEGData
                  iepochtime = round(obj.epochtime(1:2).*obj.fs); %v poctu vzorku cas pred a po udalosti, prvni cislo je zaporne druhe kladne             
                  ibaseline =  round(obj.baseline.*obj.fs); %v poctu vzorku cas pred a po udalosti
                  kategorie = cell2mat(obj.PsyData.P.strings.podminka(:,2)); %cisla kayegorii ve sloupcich
-                 iepochs = obj.PsyData.FilteredIn(1:obj.epochs,filter); %to be processed epochs according to the filter,  array of 0/1 for each epoch
-                 iepochs = iepochs & ~any(obj.PsyData.GetErrorTrials(),2)'; %exclude all epochs with errors
+                 iepochs = obj.PsyData.FilteredIn((1:obj.epochs)',filter); %to be processed epochs according to the filter,  array of 0/1 for each epoch
+                 iepochs = iepochs & ~any(obj.PsyData.GetErrorTrials(),2); %exclude all epochs with errors
                  iepochs(obj.RjEpoch) = 0; %reject globally rejected epochs
                  Hfreq2 = zeros(iepochtime(2)-iepochtime(1), size(obj.d,2), numel(obj.Hfmean),size(kategorie,1)); %new epoched power data: time x channel x freq x kategorie=podminka
                  HFreq_ChEpochs = false(size(obj.RjEpochCh));  %#ok<PROPLC> %true for channels/epochs, which will be included in Hfreq, channels x epochs
@@ -187,12 +187,12 @@ classdef CHilbert < CiEEGData
                  end
                  %cycle over categories, not over epochs 
                  for katnum = kategorie' %categories in rows 
-                     iepochskat = iepochs & (cell2mat(obj.epochData(:,2))==katnum)'; 
+                     iepochskat = iepochs & (cell2mat(obj.epochData(:,2))==katnum); 
                      Epochs = find(iepochskat);  %epochs x 1: epochs numbers for this category
                      if (numel(Epochs)) > 0 % when using filter, for some categorie, we will have no epochs. 
                          fprintf('%i,', katnum);                      
                          nEpochsChKat = zeros(1,obj.channels); %number of epoch data stored in Hfreq2 for each channel for this category
-                         for epoch = Epochs %number of epochs in a column - convert into row
+                         for epoch = Epochs' %number of epochs in a column - convert into row
                              izacatek = find(obj.tabs_orig==obj.epochData{epoch,3}); %find sample number of stimulus for this epochs, using its timestamp. In the third columnt of epochData stimulus timestamps
                              for ch=1:obj.channels %over channels for this epoch
                                 if obj.RjEpochCh(ch,epoch)==0 % 23.10.2023 - if this epoch for this channel is not rejected
