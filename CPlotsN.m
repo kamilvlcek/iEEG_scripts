@@ -520,6 +520,7 @@ classdef CPlotsN < handle
                     chanPair_sign_filtered{ik} = chanPair;                    
                 end
                 obj.plotISPC.chanPair_sign_filtered = chanPair_sign_filtered;
+                disp('channel pairs with significant ISPC were filtered' );
                 
             else  % filter only between ROI pairs of chan
                 chanPair = ones(length(channels)); % matrix of all possible pairs
@@ -533,6 +534,7 @@ classdef CPlotsN < handle
                 [ch1, ch2] = find(triu(chanPair) == 1); % find pairs of chan with 1 (different brain labels), without repetition 
                 chanPair = [ch1, ch2];   
                 obj.plotISPC.roi_chanpair = chanPair;
+                disp('between ROI pairs of channels were filtered' );
             end
         end
         
@@ -742,7 +744,7 @@ classdef CPlotsN < handle
             % aggregates significant ispc data to enlarged bins with the spicified size of bins: freq_bin - for freq in Hz, time_bin - for time in sec,
             % either by using mean of smaller bins (how_aggregate = 0) or max value (how_aggregate = 1)
             % also counts the number of channel pairs that have significant values in each enlarged bin (output - bins_n_chanPair)
-            % and returns the time window and frequency range in which most chan pairs show the significance (max_bins)
+            % and returns the time window and frequency range in which most chan pairs show the significance (max_bins = {kats}[itime ifreq time freq n_chan_pairs])
             if ~exist('freq_bin', 'var') || isempty(freq_bin)
                 freq_bin = 1; % default, freq bin = 1 Hz       
             end
@@ -802,28 +804,36 @@ classdef CPlotsN < handle
             end
             
             % then count the number of chan pairs with non-zero values in each bin
-            bins_n_chanPair = zeros(numel(itime)-1, numel(ifreq)-1, nkats); % time x freq x kats
+            bins_n_chanPair = cell(nkats, 1); % {kats} time x freq, store a number of channels for each enlarged bin
+            bins_idx_chanPairs = cell(nkats, numel(itime)-1, numel(ifreq)-1); % {kats x time x freq} [ch1 ch2] store all indexes of channels in pairs for each enlarged bin
             for k = 1:nkats
                 for ifr = 1:numel(ifreq)-1
                     for it = 1:numel(itime)-1
-                        bins_n_chanPair(it,ifr,k) = sum(sum(squeeze(ispc_cats_bins{k}(:, :, it, ifr))~=0 & ~isnan(squeeze(ispc_cats_bins{k}(:, :, it, ifr)))))/2; % as matrix is symmetrical, we shoud divide by 2 
+                        bins_n_chanPair{k}(it,ifr) = sum(sum(squeeze(ispc_cats_bins{k}(:, :, it, ifr))~=0 & ~isnan(squeeze(ispc_cats_bins{k}(:, :, it, ifr)))))/2; % as matrix is symmetrical, we shoud divide by 2 
+                        [ch1, ch2] = find(triu(squeeze(ispc_cats_bins{k}(:, :, it, ifr))~=0 & ~isnan(squeeze(ispc_cats_bins{k}(:, :, it, ifr))))); % find pairs of chan with non-zero and not NaN values, without repetition (upper triangle of the matrix) 
+                        bins_idx_chanPairs{k,it,ifr} = [ch1, ch2];
                     end
                 end
             end
             
             % find first N bins with the maximum number of chan pairs with significant values
-            max_bins = cell(nkats,1); %{kats}[time freq]
+            max_bins = cell(nkats,1); %{kats}[itime ifreq time freq n_chan_pairs]
             for k = 1:nkats
-                bins_n_chanPair_kat = squeeze(bins_n_chanPair(:,:,k));
-                [~, imax] = maxk(bins_n_chanPair_kat(:), n_max_bins); % linear indices
+                bins_n_chanPair_kat = bins_n_chanPair{k};
+                [n_chan_pairs, imax] = maxk(bins_n_chanPair_kat(:), n_max_bins); % linear indices
                 [itime_max, ifreq_max] = ind2sub(size(bins_n_chanPair_kat), imax); % converting linear indices to row and column indices
-                max_bins{k}(:,1) = round((itime(itime_max)-abs(iepochtime(1)))/obj.E.fs,1); % real time value in sec relative to stimulus time
-                max_bins{k}(:,2) = obj.E.Hf(ifreq(ifreq_max)); % real freq in Hz
+                max_bins{k} = table();
+                max_bins{k}.itime = itime_max;
+                max_bins{k}.ifreq = ifreq_max; % these indexes then help to find exact chan indexes in bins_idx_chanPairs  
+                max_bins{k}.time_sec = transpose(round((itime(itime_max)-abs(iepochtime(1)))/obj.E.fs,1)); % real time value in sec relative to stimulus time
+                max_bins{k}.freq_hz = transpose(obj.E.Hf(ifreq(ifreq_max))); % real freq in Hz
+                max_bins{k}.N_chan_pairs = n_chan_pairs; % number of chan pairs in this bin
             end
             
             obj.plotISPC.PlotISPCbins.ispc_cats_bins = ispc_cats_bins; % save all to the structure
             obj.plotISPC.PlotISPCbins.bins_n_chanPair = bins_n_chanPair;
-            obj.plotISPC.PlotISPCbins.max_bins = max_bins;            
+            obj.plotISPC.PlotISPCbins.bins_idx_chanPairs = bins_idx_chanPairs;
+            obj.plotISPC.PlotISPCbins.max_bins = max_bins;           
         end
       
         function [ispc_cats_intime] = ISPCAverageFreq(obj, freq, signChanPair, only_significant_values)  % Sofia from 13.6.2022 
@@ -1046,7 +1056,8 @@ classdef CPlotsN < handle
             % cat - one category, which we want to plot (one number)
             % chnpair - pair of the channels (or rather their xy coordinates in the plot) to be higlited on the left top plot of all channels, and shown an all other figure
             % TimeHf - point in the time-frequency space highlighted on the left top plot - 
-%             assert(isfield(obj.plotISPC,'ispc')&& ~isempty(obj.plotISPC.ispc), 'no ispc values are computed');
+           
+            assert(isfield(obj.plotISPC,'ispc_cats')&& ~isempty(obj.plotISPC.ispc_cats), 'no ispc values are computed');
             
             % define one category = condition, which we want to plot
             if ~exist('cat', 'var') || isempty(cat)
@@ -1263,7 +1274,89 @@ classdef CPlotsN < handle
                 set(obj.plotISPC.fh_ispc, 'WindowButtonDownFcn', @obj.hybejPlotISPCClick);
             end
         end
-                    
+        function ISPCPlotEnlargedBins(obj, chpair, ikat, imax_bin) % Sofiia since 3.11.2023
+            % plots new enlarged time-frequency bins of significant ispc values for each channel pair (only one condition)
+            % chpair - index of channel pair which we want to plot
+            % ikat - index of condition
+            % imax_bin - index in obj.plotISPC.PlotISPCbins.max_bins{ikat} to choose which chan pairs to plot
+            assert(isfield(obj.plotISPC,'PlotISPCbins')&& ~isempty(obj.plotISPC.PlotISPCbins), 'first call ISPCFindSignBins to create enlarged bins');
+            
+            if ~exist('chpair','var') || isempty(chpair) % selected channel pair
+                if isfield(obj.plotISPC.PlotISPCbins,'chpair') && ~isempty(obj.plotISPC.PlotISPCbins.chpair)
+                    chpair = obj.plotISPC.PlotISPCbins.chpair;
+                else
+                    chpair = 1; % the fisrt pair of channels
+                    obj.plotISPC.PlotISPCbins.chpair = chpair;
+                end
+            else
+                obj.plotISPC.PlotISPCbins.chpair = chpair;
+            end
+            
+            if ~exist('ikat','var') || isempty(ikat) % selected condition - its index               
+                if isfield(obj.plotISPC.PlotISPCbins,'ikat')
+                    ikat = obj.plotISPC.PlotISPCbins.ikat;
+                else
+                    ikat = 1; % first condition
+                    obj.plotISPC.PlotISPCbins.ikat = ikat;
+                end
+            else
+                obj.plotISPC.PlotISPCbins.ikat = ikat;
+            end
+            
+            if ~exist('imax_bin','var') || isempty(imax_bin) % index of window with max number of chan pairs               
+                if isfield(obj.plotISPC.PlotISPCbins,'imax_bin')
+                    imax_bin = obj.plotISPC.PlotISPCbins.imax_bin;
+                else
+                    imax_bin = 1; % the first max bin
+                    obj.plotISPC.PlotISPCbins.imax_bin = imax_bin;
+                end
+            else
+                obj.plotISPC.PlotISPCbins.imax_bin = imax_bin;
+            end
+            
+            % take all chan pairs in this bin
+            itime = obj.plotISPC.PlotISPCbins.max_bins{ikat}.itime(imax_bin);
+            ifreq = obj.plotISPC.PlotISPCbins.max_bins{ikat}.ifreq(imax_bin);
+            chpairs = obj.plotISPC.PlotISPCbins.bins_idx_chanPairs{ikat,itime,ifreq}; % {kats x time x freq} [ch1 ch2]; all channel pairs with ISPC averaged for this bin
+            obj.plotISPC.PlotISPCbins.chpairs = chpairs;
+                        
+            % ploting
+            freq_bin = obj.plotISPC.PlotISPCbins.freq(2) - obj.plotISPC.PlotISPCbins.freq(1); % size of freq-time bin
+            time_bin = obj.plotISPC.PlotISPCbins.time(2) - obj.plotISPC.PlotISPCbins.time(1);
+            if isfield(obj.plotISPC.PlotISPCbins,'h') && ~isempty(obj.plotISPC.PlotISPCbins.h) && ishandle(obj.plotISPC.PlotISPCbins.h)
+                figure(obj.plotISPC.PlotISPCbins.h) % use the existing plot
+                clf(obj.plotISPC.PlotISPCbins.h); % clear it
+            else
+                obj.plotISPC.PlotISPCbins.h = figure('Name',['ISPCPlotEnlargedBins with bin size:  ' num2str(freq_bin) ' Hz and ' num2str(time_bin) ' sec']); % or new plot
+            end            
+            
+            T = obj.plotISPC.PlotISPCbins.time;
+            F = obj.plotISPC.PlotISPCbins.freq(1:end-1);
+            chn1 = obj.plotISPC.PlotISPCbins.chpairs(chpair,1);
+            chn2 = obj.plotISPC.PlotISPCbins.chpairs(chpair,2);
+            ispc_bins = squeeze(obj.plotISPC.PlotISPCbins.ispc_cats_bins{ikat}(chn1,chn2,:,:)); % binned data for this chan pair
+            imagesc(T, F, ispc_bins');               
+            axis xy;
+            set(gca, 'XTick',T-time_bin/2, 'XTickLabel',T) % shift ticks to the left
+            set(gca, 'YTick',F-freq_bin/2, 'YTickLabel',F)
+            xlabel('Time (s)'), ylabel('Frequency (Hz)')  
+            colorbar;  
+            
+            yrange = get(gca, 'Ylim');
+            xrange = get(gca,'XLim');
+            
+            text(xrange(1)+0.1,yrange(2)-0.2, sprintf('channel %i %s x %i %s',obj.plotISPC.channels(chn1),obj.E.CH.H.channels(obj.plotISPC.channels(chn1)).neurologyLabel,...
+                obj.plotISPC.channels(chn2), obj.E.CH.H.channels(obj.plotISPC.channels(chn2)).neurologyLabel), 'Color' ,'r'); % neurology label
+            text(xrange(1)+0.1,yrange(2)-1, [obj.E.CH.brainlabels(obj.plotISPC.PlotISPCbins.chpairs(chpair,1)).label '-' obj.E.CH.brainlabels(obj.plotISPC.PlotISPCbins.chpairs(chpair,2)).label], 'Color' ,'r') % brain labels of channels
+            text(xrange(1)+0.1,yrange(2)-0.6,sprintf(' %s x %s', ...
+                    obj.E.CH.H.channels(obj.plotISPC.PlotISPCbins.chpairs(chpair,1)).name, obj.E.CH.H.channels(obj.plotISPC.PlotISPCbins.chpairs(chpair,2)).name), 'Color' ,'r'); %  channels name   
+            title(['channel pair ' num2str(chpair) '/' num2str(length(obj.plotISPC.PlotISPCbins.chpairs)) ', condition: ' obj.plotISPC.ispc_cats_names{1, 1}{ikat}], 'Interpreter', 'none'); % number of chan pair and the name of condition
+           
+            methodhandle = @obj.hybejISPCPlotEnlargedBins; % switch chan pairs 
+            set(obj.plotISPC.PlotISPCbins.h,'KeyPressFcn',methodhandle);
+            figure(obj.plotISPC.PlotISPCbins.h); % activates this figure again             
+        end
+        
         function ISPCSave(obj)
             assert(~isempty(obj.E),'no original CiEEGData data exist');
             assert(~isempty(obj.plotISPC),'no plotISPC data exist');
@@ -1778,6 +1871,33 @@ classdef CPlotsN < handle
                     end
                     obj.ISPCPlotChPair();
             end
+        end
+        function obj = hybejISPCPlotEnlargedBins(obj,~,eventDat) % Sofiia since 3.11.2023
+            % reacts to events in figure ISPCPlotEnlargedBins
+            switch eventDat.Key
+                case {'rightarrow'} % next channel pair by ->
+                    chpair = min([obj.plotISPC.PlotISPCbins.chpair + 1 , length(obj.plotISPC.PlotISPCbins.chpairs)]);
+                    obj.ISPCPlotEnlargedBins(chpair);
+                case {'leftarrow'} % previous channel pair by <-
+                    chpair = max([obj.plotISPC.PlotISPCbins.chpair - 1 , 1]);
+                    obj.ISPCPlotEnlargedBins(chpair);
+                case 'pagedown' % move by 10 ch pairs forward
+                    chpair = min([obj.plotISPC.PlotISPCbins.chpair + 10 , length(obj.plotISPC.PlotISPCbins.chpairs)]);
+                    obj.ISPCPlotEnlargedBins(chpair);
+                case 'pageup' % move by 10 ch pairs back
+                    chpair = max([obj.plotISPC.PlotISPCbins.chpair - 10 , 1]);
+                    obj.ISPCPlotEnlargedBins(chpair);
+               case 'home' % choose the first chan pair
+                    obj.ISPCPlotEnlargedBins(1);                    
+                case 'end' % choose the last chan pair
+                    obj.ISPCPlotEnlargedBins(length(obj.plotISPC.PlotISPCbins.chpairs)); 
+                case 'o' % specify the chan pair by input number
+                     answ = inputdlg('Enter channel pair number:','Go to channel pair', 1,{num2str(obj.plotISPC.PlotISPCbins.chpair)});
+                     if numel(answ)>0
+                         chpair = str2double(answ{1}); 
+                         if ~isempty(chpair), obj.ISPCPlotEnlargedBins(chpair); end
+                     end
+            end            
         end
         
         function obj = hybejPlotISPC(obj,~,eventDat)  
