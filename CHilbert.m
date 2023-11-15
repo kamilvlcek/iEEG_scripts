@@ -436,16 +436,17 @@ classdef CHilbert < CiEEGData
             Save@CiEEGData(obj,CHilbert.filenameE(filename));  %ulozim do prvniho souboru data z nadrazene tridy          
             if ~isempty(obj.HFreq)                
                 HFreq = obj.HFreq;   %#ok<PROPLC,NASGU>
+                HFreq_ChEpochs = obj.HFreq_ChEpochs; %#ok<PROPLC,NASGU> %ch,epoch - bool - from which epochs HFreq was computed
                 Hf = obj.Hf;         %#ok<PROPLC,NASGU> 
                 Hfmean = obj.Hfmean; %#ok<PROPLC,NASGU> 
-                HFreqEpochs = obj.HFreqEpochs; %#ok<PROPLC,NASGU> %time x channel x frequency x epoch
+                HFreqEpochs = obj.HFreqEpochs; %#ok<PROPLC,NASGU> %time x channel x frequency x epoch                
                 yrange = obj.yrange; %#ok<NASGU>
                 fphase = obj.fphase; %#ok<NASGU,PROPLC> %15.5.2018
                 fphaseEpochs = obj.fphaseEpochs; %#ok<NASGU,PROPLC> %15.5.2018
                 frealEpochs = obj.frealEpochs;  %#ok<NASGU,PROPLC> %30.5.2018
                 if isprop(obj,'freal'), freal = obj.freal; else, freal=[]; end   %#ok<NASGU>                 
                 normalization = obj.normalization; %#ok<NASGU,PROPLC> 
-                save(CHilbert.filenameH(filename),'HFreq','Hf','Hfmean','HFreqEpochs','freal','frealEpochs','yrange','fphase','fphaseEpochs','normalization','-v7.3'); %do druheho souboru data z teto tridy
+                save(CHilbert.filenameH(filename),'HFreq','Hf','Hfmean','HFreqEpochs','freal','frealEpochs','yrange','fphase','fphaseEpochs','normalization','HFreq_ChEpochs','-v7.3'); %do druheho souboru data z teto tridy
             end
         end
         %pokud je treti parametr 1, nenacitaji se data z nadrazene tridy
@@ -459,7 +460,7 @@ classdef CHilbert < CiEEGData
             if exist(CHilbert.filenameH(filename),'file')  
                 filenameH = CHilbert.filenameH(filename);
                 load(filenameH,'HFreq','Hf','yrange');
-                obj.HFreq = HFreq;        %#ok<CPROPLC>
+                obj.HFreq = HFreq;        %#ok<CPROPLC>                
                 obj.Hf = Hf;               %#ok<CPROPLC>                 
                 obj.yrange = yrange;
                 vars = whos('-file',filenameH);
@@ -467,6 +468,12 @@ classdef CHilbert < CiEEGData
                     load(filenameH,'Hfmean');      obj.Hfmean = Hfmean; %#ok<CPROPLC>
                 else
                     obj.Hfmean = (obj.Hf(1:end-1) + obj.Hf(2:end)) ./ 2;
+                end
+                
+                if ismember('HFreq_ChEpochs', {vars.name}) %7.4.2017
+                    load(filenameH,'HFreq_ChEpochs');      obj.HFreq_ChEpochs = HFreq_ChEpochs; %#ok<CPROPLC>
+                else
+                    obj.HFreq_ChEpochs = [];
                 end
                 
                 if ismember('fphase', {vars.name}) %15.5.2018
