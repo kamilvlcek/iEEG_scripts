@@ -538,7 +538,7 @@ classdef CPlotsN < handle
             end
         end
         
-        function [ispc_cats, ispc_cats_signif, ispc_cats_clust_corr] = ISPCCalculateCats(obj, separate_kats, kats, channels, ChanPair_betweenROI, exclude_ChanPair_lowEpochs, baseline, normalize)  % Sofia from 6.6.2022 
+        function [ispc_cats, ispc_cats_signif, ispc_cats_clust_corr] = ISPCCalculateCats(obj, separate_kats, kats, channels, chanPair_betweenROI, preselected_chnpairs, exclude_chanPair_lowEpochs, baseline, normalize)  % Sofia from 6.6.2022 
             % inter site phase clustering = phase-locking value (PLV) is computed for each condition with permutation statistics; incorrect and epi epochs are excluded
             %%% input: separate_kats - whether to compute ispc separately for each category (1) or for all trials together (0)
             % kats - indexes of conditions, e.g. [2,3]
@@ -559,12 +559,16 @@ classdef CPlotsN < handle
             if ~exist('channels', 'var') || isempty(channels)
                 channels = 1:obj.E.channels; % default - all channels
             end
-            if ~exist('ChanPair_betweenROI', 'var') || isempty(ChanPair_betweenROI)
-                ChanPair_betweenROI = 0; % default all chan pairs
+            if ~exist('chanPair_betweenROI', 'var') || isempty(chanPair_betweenROI)
+                chanPair_betweenROI = 0; % default all chan pairs
             end                    % if 1 computes only for between ROI pairs of chan, but first call function ISPCFilterChanPair
             
-            if ~exist('exclude_ChanPair_lowEpochs', 'var') || isempty(exclude_ChanPair_lowEpochs)
-                exclude_ChanPair_lowEpochs = 1; % default - exclude chan pairs with number of epochs < 30 (not compute ispc = NaN), according to Mike X Cohen’s book p.340-341, ISPC-trials is sensitive to the number of trials, with lower ustable results
+            if ~exist('preselected_chnpairs', 'var') || isempty(preselected_chnpairs)
+                preselected_chnpairs = 0; % default all chan pairs, if 1 computes only for preselected chan pairs (obtained in obj.ISPCSigPairRatio)
+            end 
+            
+            if ~exist('exclude_ChanPair_lowEpochs', 'var') || isempty(exclude_chanPair_lowEpochs)
+                exclude_chanPair_lowEpochs = 1; % default - exclude chan pairs with number of epochs < 30 (not compute ispc = NaN), according to Mike X Cohen’s book p.340-341, ISPC-trials is sensitive to the number of trials, with lower ustable results
             end 
             
             if ~exist('baseline', 'var') || isempty(baseline)
@@ -591,8 +595,6 @@ classdef CPlotsN < handle
                 obj.plotISPC.ispc_cats_names{1}{1} = 'all trials together'; % used everywhere in plots
                 obj.plotISPC.ispc_cats_names{2} = kats;
             end
-%             obj.plotISPC.ispc_cats_names{1} = obj.E.PsyData.CategoryName(kats, []); % save names of conditions for which ISPC was computed
-%             obj.plotISPC.ispc_cats_names{2} = kats; % but also their original numbers - needed for ploting then
             ispc_cats = cell(numel(kats),1); %{kats}(chn x chn x time x fq)
             ispc_cats_signif = cell(numel(kats),1); %{kats}(chn x chn x time x fq)
             ispc_cats_clust_corr = cell(numel(kats),1); %{kats}(chn x chn x time x fq)
@@ -616,7 +618,8 @@ classdef CPlotsN < handle
                     if sum(obj.E.CH.RjCh==channels(ichn2))>0, continue; end
                     if ~isa(obj.E, 'CHilbertMulti') || find(obj.E.els >= channels(ichn1),1) == find(obj.E.els >= channels(ichn2),1) %find expression to get the pacient number 
                         for k = 1:numel(kats) % over all conditions
-                            if ChanPair_betweenROI==1 && ~(ismember([channels(ichn1), channels(ichn2)], obj.plotISPC.roi_chanpair,'rows')|| ismember([channels(ichn2), channels(ichn1)], obj.plotISPC.roi_chanpair,'rows')) % if the current pair of chan is not between ROI pair
+                            if (chanPair_betweenROI==1 && ~(ismember([channels(ichn1), channels(ichn2)], obj.plotISPC.roi_chanpair,'rows')|| ismember([channels(ichn2), channels(ichn1)], obj.plotISPC.roi_chanpair,'rows')))... % if the current pair of chan is not between ROI pair
+                                || (preselected_chnpairs==1 && ~(ismember([channels(ichn1), channels(ichn2)], obj.plotISPC.chanPairs_max_sig,'rows')|| ismember([channels(ichn2), channels(ichn1)], obj.plotISPC.chanPairs_max_sig,'rows'))) % % if the current pair of chan is not in preselected ones
                                 ispc_sign_chan{k}(ichn1,ichn2) = NaN;
                                 ispc_sign_chan{k}(ichn2,ichn1) = NaN; % symmetrical position
                             else
@@ -634,7 +637,7 @@ classdef CPlotsN < handle
                                 end
                                 % for computing ISPC, the epochs should be the same in both channels
                                 iEpBoth = intersect(iEp1, iEp2);
-                                if exclude_ChanPair_lowEpochs && numel(iEpBoth) < 30 % not to compute ispc for chan pairs with a low number of epochs
+                                if exclude_chanPair_lowEpochs && numel(iEpBoth) < 30 % not to compute ispc for chan pairs with a low number of epochs
                                     ispc_sign_chan{k}(ichn1,ichn2) = NaN;
                                     ispc_sign_chan{k}(ichn2,ichn1) = NaN; % symmetrical position
                                     continue
@@ -695,7 +698,7 @@ classdef CPlotsN < handle
             end
             
             if ~exist('n_permutes', 'var') || isempty(n_permutes)
-                n_permutes = 200; % default, if more e.g. 500, it is becoming very time-consuming
+                n_permutes = 500; % default, if more e.g. 500, it is becoming very time-consuming
             end
             
             if ~exist('threshold', 'var') || isempty(threshold)
@@ -705,7 +708,17 @@ classdef CPlotsN < handle
             iepochtime = round(obj.E.epochtime(1:2).*obj.E.fs); % epochtime in samples
             ibaseline =  round(baseline.*obj.E.fs); % baseline in samples 
             time_interval = abs(iepochtime(1)-ibaseline(2))+1 : size(ispc_computed,1); % time interval in samples over which compute stats (after stimulus period)                                
-            ispc_all_trials_afterStim = ispc_all_trials(time_interval, :, :); % take the data only after stimulus
+            
+%             % substract baseline period from computed ispc - to normalize ispc values            
+%             ispc_baseline = mean(ispc_computed(ibaseline(1)-iepochtime(1)+1 : ibaseline(2)-iepochtime(1),:),1); % mean over time (baseline period)
+%             ispc_norm = bsxfun(@minus,ispc_computed,ispc_baseline); % time x freq, substract mean baseline
+%             
+%             % substract baseline period from phase differences from each trial
+%             ispc_all_trials_baseline = mean(ispc_all_trials(ibaseline(1)-iepochtime(1)+1 : ibaseline(2)-iepochtime(1),:,:),1); % mean over time (baseline period), freq x trials
+%             ispc_all_trials_norm = bsxfun(@minus,ispc_all_trials,ispc_all_trials_baseline); % time x freq x trials
+            
+            % take the data only after stimulus
+            ispc_all_trials_afterStim = ispc_all_trials(time_interval, :, :); 
             ispc_computed_afterStim = ispc_computed(time_interval, :);
             
             % initialize null hypothesis matrices
@@ -723,6 +736,10 @@ classdef CPlotsN < handle
 %                 cutpoint = randsample(2:time_points-2,1); % to replace the loop above
 %                 permuted_vals(permi,:,:) = squeeze(abs(mean(exp(1i*ispc_all_trials([cutpoint:end 1:cutpoint-1],:,:)),3))); % permuted plv
             end
+            
+%             % plot the distribution of permuted values for one freq and one time point (just for debugging)
+%             figure(8), clf
+%             histogram(permuted_vals(:,1,10),50)
             
             % transform to z values and set to zero values below thershold
             zmap = (ispc_computed_afterStim-squeeze(mean(permuted_vals,1))) ./ squeeze(std(permuted_vals,1));
@@ -872,7 +889,63 @@ classdef CPlotsN < handle
             obj.plotISPC.PlotISPCbins.max_bins = max_bins;           
         end
       
-        function [ispc_cats_intime] = ISPCAverageFreq(obj, freq, signChanPair, only_significant_values)  % Sofia from 13.6.2022 
+        function ratioMatrix = ISPCSigPairRatio(obj, kat, n_max_bins) % Sofia since 13.11.2023
+            % computes binary maps for each chan pair, then averages them across all pairs 
+            % plots resulting time-freq figure showing the ratio of significant pairs / total pairs with computed ispc in each bin
+            % also finds indexes of chan pairs in n_max_bins with maximum ratio
+            % TODO: obtain ratio matrix separately for ROI1-ROI2 connections
+            
+            if ~exist('kat', 'var') || isempty(kat) % now does it only for all conditions together
+                kat = 1;
+            end
+            
+            if ~exist('n_max_bins', 'var') || isempty(n_max_bins) % number of bins with maximum ratio of signin chan pairs, from which to take chan indexes
+                n_max_bins = 15;
+            end
+            
+            ispc_clust_corr = obj.plotISPC.ispc_cats_clust_corr{kat};  % {kats}(chn x chn x time x fq),  significant ispc values after cluster correction
+            binaryMaps = ispc_clust_corr;
+            binaryMaps(ispc_clust_corr > 0) = 1; % assign 1 to significant values, leave zeros and NaN unchanged            
+
+            % average binary maps across computed chan pairs                      
+            channelSum = squeeze(sum(sum(binaryMaps, 1, 'omitnan' ), 2, 'omitnan')); % sum along the channel dimensions (1st and 2nd dimensions)        
+            nonNaN = ~isnan(squeeze(binaryMaps(:,:,1,1))); % find chan pairs with computed ispc (not NaN)             
+            ratioMatrix = channelSum / (sum(nonNaN(:))/2); % calculate the ratio of significant pairs for each time-frequency bin (divided by 2 as the matrix is symmetrical)
+            
+            % visualize the matrix
+            figure('Name','ISPCSigPairRatio');
+            colormap jet;
+            T = linspace(obj.E.epochtime(1), obj.E.epochtime(2), size(obj.E.fphaseEpochs,1));
+            F = obj.E.Hfmean;
+            imagesc(T, F, ratioMatrix');
+            axis xy;
+            xlabel('Time (s)'), ylabel('Frequency (Hz)')
+            colorbar;
+            title(['significant pairs / total ' num2str((sum(nonNaN(:))/2)) ' pairs of channels'], 'Interpreter', 'none')
+            
+            % save data to the object
+            obj.plotISPC.ratioMatrix = ratioMatrix;
+            obj.plotISPC.binaryMaps = binaryMaps;
+            
+            % find the maximum ratio and its indices
+            [~, maxIndices] = maxk(ratioMatrix(:), n_max_bins);
+            
+            % convert linear index to subscripts for time and frequency
+            [maxTimeIndex, maxFreqIndex] = ind2sub(size(ratioMatrix), maxIndices);
+            chanPairs_all_max_bins = [];
+            for ib = 1:numel(maxTimeIndex) % for each bin with maximum ratio of signif pairs               
+                % find indexes of chan pairs that have significant ispc in this time-freq bin
+                binaryMapMax = binaryMaps(:,:, maxTimeIndex(ib), maxFreqIndex(ib));               
+                % find the indices where the value is 1
+                [ch1, ch2] = find(binaryMapMax == 1);
+                chanPairs = [ch1, ch2];
+                chanPairs_all_max_bins = [chanPairs_all_max_bins ; chanPairs];
+            end                                        
+            chanPairs_max_sig = unique(chanPairs_all_max_bins, 'rows'); % find the repeated rows    
+            obj.plotISPC.chanPairs_max_sig = chanPairs_max_sig; % save chan pairs to the object
+        end
+                
+        function [ispc_cats_intime] = ISPCAverageFreq(obj, freq, signChanPair,preselected_chnpairs, only_significant_values)  % Sofia from 13.6.2022 
             % averages time-frequency matrices of ISPC across frequencies for each condition - to obtain one curve in time for each pair of chan            
             % freq - frequency range over which to average, e.g. [4 8]
             % signChanPair - if 1, averages only for channel pairs with significant ispc values (each condition separately), if 0 - averages across all between ROI chan pairs
@@ -892,9 +965,12 @@ classdef CPlotsN < handle
             if ~exist('signChanPair', 'var') || isempty(signChanPair)
                 signChanPair = 1; % default, averages across only channel pairs with significant ispc values
             end
+            if ~exist('preselected_chnpairs', 'var') || isempty(preselected_chnpairs)
+                preselected_chnpairs = 0;
+            end
             
             if ~exist('only_significant_values', 'var') || isempty(only_significant_values)
-                only_significant_values = 1; % default, averages only significant ispc values                
+                only_significant_values = 0; % default - all ispc values, if 1 averages only significant ispc values                
             end
             if only_significant_values
                 ispc_cats = obj.plotISPC.ispc_cats_clust_corr; % {kats}(chn x chn x time x fq) significant ispc values for each condition (non-signif = 0)
@@ -913,6 +989,9 @@ classdef CPlotsN < handle
                         for k = 1:nkats
                             if signChanPair && ~(ismember([ichn1, ichn2],obj.plotISPC.chanPair_sign_filtered{k},'rows') || ismember([ichn2, ichn1],obj.plotISPC.chanPair_sign_filtered{k},'rows'))
                                 continue % if the current pair of chan is not signif, skip it
+                            end
+                            if preselected_chnpairs==1 && ~(ismember([ichn1, ichn2], obj.plotISPC.chanPairs_max_sig,'rows')|| ismember([ichn2, ichn1], obj.plotISPC.chanPairs_max_sig,'rows')) % % if the current pair of chan is not in preselected ones
+                                continue
                             end
                             temp = mean(squeeze(ispc_cats{k}(ichn1,ichn2,:,ifreq(1):ifreq(2))),2); % mean over selected frequency bins
                             ispc_cats_intime{k}(i,:) = [ichn1, ichn2, temp']; % chan pair: ISPC in time
@@ -943,6 +1022,7 @@ classdef CPlotsN < handle
 %                 numRows = cellfun(@(x) x(1), array_sizes); % extract the number of rows for each matrix
 %                 [~, icond] = max(numRows); % index of the matrix (condition) with the maximum number of rows                
 %                 chpairs = obj.plotISPC.PlotChPair.ispc_cats_intime{icond, 1}(:,[1 2]); % all channel pairs with ISPC averaged of this condition
+%                 obj.plotISPC.PlotChPair.chpairs = chpairs;
                  % find common chpairs for all conditions
                  allchpairs = [];
                  for k=1:numel(obj.plotISPC.PlotChPair.ispc_cats_intime)
@@ -1083,8 +1163,8 @@ classdef CPlotsN < handle
             
             for k = 1:nkats
                 isps_time_k = obj.plotISPC.PlotChPair.ispc_cats_intime{k}(ipairs2average, 3:end); % only time points without number of chan
-                ispc_cats_roi_mean(k,:) = mean(isps_time_k, 1); % average across selected pairs of chan, kats x time points
-                ispc_cats_roiE(k,:) = std(isps_time_k,[],1)/sqrt(nChanPairs); % std err of mean
+                ispc_cats_roi_mean(k,:) = mean(isps_time_k, 1, 'omitnan'); % average across selected pairs of chan, kats x time points
+                ispc_cats_roiE(k,:) = std(isps_time_k,[],1,'omitnan')/sqrt(nChanPairs); % std err of mean
             end
             
             % ploting
