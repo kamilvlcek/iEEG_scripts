@@ -543,7 +543,8 @@ classdef CPlotsN < handle
             %%% input: separate_kats - whether to compute ispc separately for each category (1) or for all trials together (0)
             % kats - indexes of conditions, e.g. [2,3]
             % channels - channels, for which we want to compute PLV, e.g. [1:30]
-            % ChanPair_betweenROI = 1 to compute ispc only for between ROI pairs of chan, 0 - for all chan pairs (default) 
+            % ChanPair_betweenROI = 1 to compute ispc only for between ROI pairs of chan, 0 - for all chan pairs (default)
+            % preselected_chnpairs = 0 - for all computed chan pairs, if 1 - only for preselected chan pairs (obtained in obj.ISPCSigPairRatio), if 2 - for all sign chan pairs (stored in obj.plotISPC.chanPair_sign_filtered)
             % exclude_ChanPair_lowEpochs = 1; not to compute ispc for chan pairs with number of epochs < 30; 0 - to compute
             % baseline - baseline period to substract to normalize ispc values
             % normalize - if 1, substract baseline period to normalize ispc values, 0 - not
@@ -564,7 +565,7 @@ classdef CPlotsN < handle
             end                    % if 1 computes only for between ROI pairs of chan, but first call function ISPCFilterChanPair
             
             if ~exist('preselected_chnpairs', 'var') || isempty(preselected_chnpairs)
-                preselected_chnpairs = 0; % default all chan pairs, if 1 computes only for preselected chan pairs (obtained in obj.ISPCSigPairRatio)
+                preselected_chnpairs = 0; % default all chan pairs, if 1 computes only for preselected chan pairs (obtained in obj.ISPCSigPairRatio), if 2 - for all sign chan pairs (stored in obj.plotISPC.chanPair_sign_filtered)
             end 
             
             if ~exist('exclude_ChanPair_lowEpochs', 'var') || isempty(exclude_chanPair_lowEpochs)
@@ -620,7 +621,8 @@ classdef CPlotsN < handle
                     if ~isa(obj.E, 'CHilbertMulti') || find(obj.E.els >= channels(ichn1),1) == find(obj.E.els >= channels(ichn2),1) %find expression to get the pacient number 
                         for k = 1:numel(kats) % over all conditions
                             if (chanPair_betweenROI==1 && ~(ismember([channels(ichn1), channels(ichn2)], obj.plotISPC.roi_chanpair,'rows')|| ismember([channels(ichn2), channels(ichn1)], obj.plotISPC.roi_chanpair,'rows')))... % if the current pair of chan is not between ROI pair
-                                || (preselected_chnpairs==1 && ~(ismember([channels(ichn1), channels(ichn2)], obj.plotISPC.chanPairs_max_sig,'rows')|| ismember([channels(ichn2), channels(ichn1)], obj.plotISPC.chanPairs_max_sig,'rows'))) % % if the current pair of chan is not in preselected ones
+                                || (preselected_chnpairs==1 && ~(ismember([channels(ichn1), channels(ichn2)], obj.plotISPC.chanPairs_max_sig,'rows')|| ismember([channels(ichn2), channels(ichn1)], obj.plotISPC.chanPairs_max_sig,'rows')))... % if the current pair of chan is not in preselected ones
+                                || (preselected_chnpairs==2 && ~(ismember([channels(ichn1), channels(ichn2)], obj.plotISPC.chanPair_sign_filtered{1},'rows')|| ismember([channels(ichn2), channels(ichn1)], obj.plotISPC.chanPair_sign_filtered{1},'rows'))) % if the current pair of chan was not significant for all trials
                                 ispc_sign_chan{k}(ichn1,ichn2) = NaN;
                                 ispc_sign_chan{k}(ichn2,ichn1) = NaN; % symmetrical position
                             else
@@ -658,7 +660,7 @@ classdef CPlotsN < handle
                                 ispc_cats{k}(ichn1,ichn2,:,:) = ispc_norm; % put normalized ispc after baseline substraction in cell array with all conditions
                                 ispc_cats_signif{k}(ichn1,ichn2,:,:) = ispc_signif; % put thresholded ispc values in cell array with all conditions
                                 ispc_cats_clust_corr{k}(ichn1,ichn2,:,:) = ispc_clust_corr; % cluster corrected significant ispc values
-                                if sum(sum(ispc_clust_corr))>0                              
+                                if sum(sum(ispc_clust_corr))~=0                              
                                     ispc_sign_chan{k}(ichn1,ichn2) = 1; % assign 1 to pair of chan if their significant ispc values survived after cluster correction
                                 end
                                 
@@ -843,7 +845,7 @@ classdef CPlotsN < handle
             
 %             % plot the distribution of H0 values for one freq and one time point (just for checking purposes)
 %             figure(8), clf
-%             histogram(permuted_vals_diff(:,5,2),50)
+%             histogram(permuted_vals_diff(:,20,3),50)
             
             % real PLV difference between 2 conditions
             realPLV_diff = ispc_computed_cats{2}-ispc_computed_cats{1}; % time x frequency 
@@ -916,17 +918,22 @@ classdef CPlotsN < handle
         
         end
         
-        function [ispc_diff_signif_chpairs, ispc_diff_clust_corr_chpairs] = ISPCStatCatsDiff(obj, freq, preselected_chnpairs, permutation, alpha)
+        function [ispc_diff_signif_chpairs, ispc_diff_clust_corr_chpairs] = ISPCStatCatsDiff(obj, freq, time_interval, preselected_chnpairs, permutation, alpha)
             %%% computes permutation-based statistic (permutation=1) for PLV difference between conditions for pairs of channels
             %%% permutation=0: or different type of stat using the equation for evaluation of ISPC diff (p. 488 and 491 in Mike X Cohen book and its implementation in CPlotsN.CalculateITPCdiffs)
             % preselected_chnpairs = 0 - for all computed chan pairs, if 1 - only for preselected chan pairs (obtained in obj.ISPCSigPairRatio), if 2 - for all sign chan pairs (stored in obj.plotISPC.chanPair_sign_filtered)
-            % freq - frequency range for which compute stst, e.g. [4 8]
+            % freq - frequency range in Hz for which compute stat, e.g. [4 8]
+            % time_interval - time window for which compute stat is sec, e.g. [0 0.5]
             % output:
             % ispc_diff_signif_chpairs - significant thresholded PLV diff between 2 conditions: chn1 x chn2 x time x freq with values below the threshold set to zero
             % ispc_diff_clust_corr_chpairs - chn1 x chn2 x time x freq, significant PLV diff after the cluster correction (correction for multiple comparisons)           
                   
             if ~exist('freq', 'var') || isempty(freq)
                 freq = [obj.E.Hf(1) obj.E.Hf(end)]; % default, all freq
+            end
+            
+            if ~exist('time_interval', 'var') || isempty(time_interval)
+                time_interval = [obj.E.baseline(2) obj.E.epochtime(2)]; % default, the whole period after stimulus (e.g. [0 2])
             end
             
             if ~exist('preselected_chnpairs', 'var') || isempty(preselected_chnpairs)
@@ -941,15 +948,15 @@ classdef CPlotsN < handle
             end
             
             [~, ifreq] = ismember(freq, obj.E.Hf); % indexes of desired freq in the data
+            itime_interval = round(time_interval(1:2).*obj.E.fs); % start and end of time interval in samples
+            iepochtime = round(obj.E.epochtime(1:2).*obj.E.fs); % epochtime in samples              
+            itime_interval = abs(iepochtime(1) - itime_interval(1))+1 : itime_interval(2)-iepochtime(1); % the whole time interval in samples                       
+
             channels = obj.plotISPC.channels;
-            realPLV_diff_chpairs = NaN(numel(channels), numel(channels), size(obj.E.fphaseEpochs, 1), size(obj.E.fphaseEpochs, 3)); % chn x chn x time x fq, NaN will be for non computed chan pairs
-            ispc_diff_signif_chpairs = NaN(numel(channels), numel(channels), size(obj.E.fphaseEpochs, 1), size(obj.E.fphaseEpochs, 3)); %chn x chn x time x fq)
-            ispc_diff_clust_corr_chpairs = NaN(numel(channels), numel(channels), size(obj.E.fphaseEpochs, 1), size(obj.E.fphaseEpochs, 3)); %chn x chn x time x fq)
-            ispc_diff_sign_chan = zeros(numel(channels), numel(channels)); %chn1 x chn2 to distinguish non-significant and not computed values
-            
-            iepochtime = round(obj.E.epochtime(1:2).*obj.E.fs); % epochtime in samples
-            ibaseline =  round(obj.E.baseline.*obj.E.fs); % baseline in samples 
-            time_interval = abs(iepochtime(1)-ibaseline(2))+1 : size(obj.E.fphaseEpochs,1); % time interval in samples over which compute stats (after stimulus period)                                
+            realPLV_diff_chpairs = NaN(numel(channels), numel(channels), numel(itime_interval), diff(ifreq)+1); % chn x chn x time x fq, NaN will be for non computed chan pairs
+            ispc_diff_signif_chpairs = NaN(numel(channels), numel(channels), numel(itime_interval), diff(ifreq)+1); %chn x chn x time x fq
+            ispc_diff_clust_corr_chpairs = NaN(numel(channels), numel(channels), numel(itime_interval), diff(ifreq)+1); %chn x chn x time x fq
+            ispc_diff_sign_chan = zeros(numel(channels), numel(channels)); %chn1 x chn2 to distinguish non-significant and not computed values            
 
             fprintf('ISPCStatCatsDiff:    ');
             for ichn1 = 1:numel(channels)
@@ -957,12 +964,14 @@ classdef CPlotsN < handle
                 for ichn2 = ichn1:numel(channels) % iterate only through the upper triangular part of the matrix, not to compute the same value twice for each chan pair
                     if preselected_chnpairs==1 && ~(ismember([channels(ichn1), channels(ichn2)], obj.plotISPC.chanPairs_max_sig,'rows')|| ismember([channels(ichn2), channels(ichn1)], obj.plotISPC.chanPairs_max_sig,'rows')) % if the current pair of chan is not in preselected ones
                         ispc_diff_sign_chan(ichn1,ichn2) = NaN;
-                    elseif preselected_chnpairs==2 && ~(ismember([channels(ichn1), channels(ichn2)], obj.plotISPC.chanPair_sign_filtered,'rows')|| ismember([channels(ichn2), channels(ichn1)], obj.plotISPC.chanPair_sign_filtered,'rows')) % if the current pair of chan is not significant
+                        ispc_diff_sign_chan(ichn2,ichn1) = NaN; % symmetrical position
+                    elseif preselected_chnpairs==2 && ~(ismember([channels(ichn1), channels(ichn2)], obj.plotISPC.chanPair_sign_filtered{1},'rows')|| ismember([channels(ichn2), channels(ichn1)], obj.plotISPC.chanPair_sign_filtered{1},'rows')) % if the current pair of chan is not significant
                         ispc_diff_sign_chan(ichn1,ichn2) = NaN;
+                        ispc_diff_sign_chan(ichn2,ichn1) = NaN; % symmetrical position
                     else
                         % compute stat between 2 conditions for this chan pair
-                        ispc_cats = {squeeze(obj.plotISPC.ispc_cats{1}(ichn1,ichn2,time_interval,ifreq(1):ifreq(2))),squeeze(obj.plotISPC.ispc_cats{2}(ichn1,ichn2,time_interval,ifreq(1):ifreq(2)))};
-                        ispc_all_trials_cats = {obj.plotISPC.ispc_all_trials_cats{1,ichn1,ichn2}(time_interval,ifreq(1):ifreq(2),:), obj.plotISPC.ispc_all_trials_cats{2,ichn1,ichn2}(time_interval,ifreq(1):ifreq(2),:)};
+                        ispc_cats = {squeeze(obj.plotISPC.ispc_cats{1}(ichn1,ichn2,itime_interval,ifreq(1):ifreq(2))),squeeze(obj.plotISPC.ispc_cats{2}(ichn1,ichn2,itime_interval,ifreq(1):ifreq(2)))};
+                        ispc_all_trials_cats = {obj.plotISPC.ispc_all_trials_cats{1,ichn1,ichn2}(itime_interval,ifreq(1):ifreq(2),:), obj.plotISPC.ispc_all_trials_cats{2,ichn1,ichn2}(itime_interval,ifreq(1):ifreq(2),:)};
                         if permutation % permutation stat
                             [realPLV_diff, ispc_diff_signif, ispc_diff_clust_corr] = obj.ISPCPermutCatsDiff(ispc_cats,ispc_all_trials_cats,[],alpha);
                         else % another type of statistics (also implemented for ITPC diff in CalculateITPCdiffs)
@@ -976,20 +985,18 @@ classdef CPlotsN < handle
                             ispc_diff_clust_corr = ispc_diff_signif;
                             ispc_diff_clust_corr(adj_p > alpha)=0;
                         end
-                        % add zeros in baseline period and for not computed freq for both matrices with significant values to make them the
-                        % same size as computed ispc (for easier ploting in the future)
-                        realPLV_diff = padarray(realPLV_diff, [time_interval(1)-1 0], 0, 'pre');
-                        realPLV_diff = padarray(realPLV_diff, [0 numel(obj.E.Hf) - size(realPLV_diff,2)], 'post');
-                        ispc_diff_signif = padarray(ispc_diff_signif, [time_interval(1)-1 0], 0, 'pre');
-                        ispc_diff_signif = padarray(ispc_diff_signif, [0 numel(obj.E.Hf) - size(ispc_diff_signif,2)], 'post');
-                        ispc_diff_clust_corr = padarray(ispc_diff_clust_corr, [time_interval(1)-1 0], 0, 'pre');
-                        ispc_diff_clust_corr = padarray(ispc_diff_clust_corr, [0 numel(obj.E.Hf) - size(ispc_diff_clust_corr,2)], 'post');
                         realPLV_diff_chpairs(ichn1,ichn2,:,:) = realPLV_diff;
                         ispc_diff_signif_chpairs(ichn1,ichn2,:,:) = ispc_diff_signif;
                         ispc_diff_clust_corr_chpairs(ichn1,ichn2,:,:) = ispc_diff_clust_corr; % cluster corrected significant ispc values
                         if sum(sum(ispc_diff_clust_corr))~=0
                             ispc_diff_sign_chan(ichn1,ichn2) = 1; % assign 1 to pair of chan if their significant ispc values survived after cluster correction
                         end
+                        
+                        % assign the computed values to the symmetrical positions
+                        realPLV_diff_chpairs(ichn2,ichn1,:,:) = realPLV_diff;
+                        ispc_diff_signif_chpairs(ichn2,ichn1,:,:) = ispc_diff_signif;
+                        ispc_diff_clust_corr_chpairs(ichn2,ichn1,:,:) = ispc_diff_clust_corr;
+                        ispc_diff_sign_chan(ichn2,ichn1) = ispc_diff_sign_chan(ichn1,ichn2);
                     end
                 end
             end
@@ -1000,6 +1007,8 @@ classdef CPlotsN < handle
             obj.plotISPC.ispc_sign_chanPair{numel(obj.plotISPC.ispc_sign_chanPair)+1} = ispc_diff_sign_chan; % 2D: chn1 x chn2
             obj.plotISPC.ispc_cats_names{1}{numel(obj.plotISPC.ispc_cats_names{1})+1} = 'PLV difference: diff-same'; % used everywhere in plots
             obj.plotISPC.ispc_cats_names{1, 2}(end+1) = -1; % used everywhere in plots, will mean diff between conditions
+            obj.plotISPC.stat_cats_freq = freq; % also save freq and time interval for which stat was computed
+            obj.plotISPC.stat_cats_time = [time_interval numel(itime_interval)]; % and number of time points, needed for ISPCPlot
         end
         
         function [bins_n_chanPair, max_bins] = ISPCFindSignBins(obj, freq_bin, time_bin, how_aggregate, n_max_bins) % Sofia since 30.10.2023
@@ -1099,10 +1108,11 @@ classdef CPlotsN < handle
             obj.plotISPC.PlotISPCbins.max_bins = max_bins;           
         end
       
-        function ratioMatrix = ISPCSigPairRatio(obj, kat, n_max_bins) % Sofia since 13.11.2023
+        function ratioMatrix = ISPCSigPairRatio(obj, kat, n_max_bins, onlyPlot) % Sofia since 13.11.2023
             % computes binary maps for each chan pair, then averages them across all pairs 
             % plots resulting time-freq figure showing the ratio of significant pairs / total pairs with computed ispc in each bin
             % also finds indexes of chan pairs in n_max_bins with maximum ratio
+            % onlyPlot - if 1, only plots the time-freq figure with the ratio of significant pairs from previously computed data (0 - computes again)
             % TODO: obtain ratio matrix separately for ROI1-ROI2 connections
             
             if ~exist('kat', 'var') || isempty(kat) % now does it only for all conditions together
@@ -1113,14 +1123,44 @@ classdef CPlotsN < handle
                 n_max_bins = 15;
             end
             
-            ispc_clust_corr = obj.plotISPC.ispc_cats_clust_corr{kat};  % {kats}(chn x chn x time x fq),  significant ispc values after cluster correction
-            binaryMaps = ispc_clust_corr;
-            binaryMaps(ispc_clust_corr > 0) = 1; % assign 1 to significant values, leave zeros and NaN unchanged            
-
-            % average binary maps across computed chan pairs                      
-            channelSum = squeeze(sum(sum(binaryMaps, 1, 'omitnan' ), 2, 'omitnan')); % sum along the channel dimensions (1st and 2nd dimensions)        
-            nonNaN = ~isnan(squeeze(binaryMaps(:,:,1,1))); % find chan pairs with computed ispc (not NaN)             
-            ratioMatrix = channelSum / (sum(nonNaN(:))/2); % calculate the ratio of significant pairs for each time-frequency bin (divided by 2 as the matrix is symmetrical)
+            if ~exist('onlyPlot', 'var') || isempty(onlyPlot)
+                onlyPlot = 0; % default - computes the time-freq ratio matrix and plots it
+            end
+            
+            if onlyPlot == 0
+                ispc_clust_corr = obj.plotISPC.ispc_cats_clust_corr{kat};  % {kats}(chn x chn x time x fq),  significant ispc values after cluster correction
+                binaryMaps = ispc_clust_corr;
+                binaryMaps(ispc_clust_corr > 0) = 1; % assign 1 to significant values, leave zeros and NaN unchanged
+                
+                % average binary maps across computed chan pairs
+                channelSum = squeeze(sum(sum(binaryMaps, 1, 'omitnan' ), 2, 'omitnan')); % sum along the channel dimensions (1st and 2nd dimensions)
+                nonNaN = ~isnan(squeeze(binaryMaps(:,:,1,1))); % find chan pairs with computed ispc (not NaN)
+                ratioMatrix = channelSum / (sum(nonNaN(:))/2); % calculate the ratio of significant pairs for each time-frequency bin (divided by 2 as the matrix is symmetrical)
+                
+                % save data to the object
+                obj.plotISPC.ratioMatrix = ratioMatrix;
+                obj.plotISPC.binaryMaps = binaryMaps;
+                
+                % find the maximum ratio and its indices
+                [~, maxIndices] = maxk(ratioMatrix(:), n_max_bins);
+                
+                % convert linear index to subscripts for time and frequency
+                [maxTimeIndex, maxFreqIndex] = ind2sub(size(ratioMatrix), maxIndices);
+                chanPairs_all_max_bins = [];
+                for ib = 1:numel(maxTimeIndex) % for each bin with maximum ratio of signif pairs
+                    % find indexes of chan pairs that have significant ispc in this time-freq bin
+                    binaryMapMax = binaryMaps(:,:, maxTimeIndex(ib), maxFreqIndex(ib));
+                    % find the indices where the value is 1
+                    [ch1, ch2] = find(binaryMapMax == 1);
+                    chanPairs = [ch1, ch2];
+                    chanPairs_all_max_bins = [chanPairs_all_max_bins ; chanPairs];
+                end
+                chanPairs_max_sig = unique(chanPairs_all_max_bins, 'rows'); % find the repeated rows
+                obj.plotISPC.chanPairs_max_sig = chanPairs_max_sig; % save chan pairs to the object
+            else
+                ratioMatrix = obj.plotISPC.ratioMatrix;
+                nonNaN = ~isnan(squeeze(obj.plotISPC.binaryMaps(:,:,1,1))); % find chan pairs with computed ispc (not NaN)
+            end
             
             % visualize the matrix
             figure('Name','ISPCSigPairRatio');
@@ -1132,27 +1172,6 @@ classdef CPlotsN < handle
             xlabel('Time (s)'), ylabel('Frequency (Hz)')
             colorbar;
             title(['significant pairs / total ' num2str((sum(nonNaN(:))/2)) ' pairs of channels'], 'Interpreter', 'none')
-            
-            % save data to the object
-            obj.plotISPC.ratioMatrix = ratioMatrix;
-            obj.plotISPC.binaryMaps = binaryMaps;
-            
-            % find the maximum ratio and its indices
-            [~, maxIndices] = maxk(ratioMatrix(:), n_max_bins);
-            
-            % convert linear index to subscripts for time and frequency
-            [maxTimeIndex, maxFreqIndex] = ind2sub(size(ratioMatrix), maxIndices);
-            chanPairs_all_max_bins = [];
-            for ib = 1:numel(maxTimeIndex) % for each bin with maximum ratio of signif pairs               
-                % find indexes of chan pairs that have significant ispc in this time-freq bin
-                binaryMapMax = binaryMaps(:,:, maxTimeIndex(ib), maxFreqIndex(ib));               
-                % find the indices where the value is 1
-                [ch1, ch2] = find(binaryMapMax == 1);
-                chanPairs = [ch1, ch2];
-                chanPairs_all_max_bins = [chanPairs_all_max_bins ; chanPairs];
-            end                                        
-            chanPairs_max_sig = unique(chanPairs_all_max_bins, 'rows'); % find the repeated rows    
-            obj.plotISPC.chanPairs_max_sig = chanPairs_max_sig; % save chan pairs to the object
         end
                 
         function [ispc_cats_intime] = ISPCAverageFreq(obj, freq, signChanPair,preselected_chnpairs, only_significant_values)  % Sofia from 13.6.2022 
@@ -1332,7 +1351,7 @@ classdef CPlotsN < handle
                 timeFreqPlot = 0; % by default, not plot average time-freq plot of raw ispc for all chan pairs in ROI1-ROI2
             end
             
-             if ~exist('chanpairs_sign','var') || isempty(chanpairs_sign)
+            if ~exist('chanpairs_sign','var') || isempty(chanpairs_sign)
                 chanpairs_sign = 0; % by default, plots average time-freq plot of raw ispc for all chan pairs in ROI1-ROI2, othewise - onlu for significant
             end
 
@@ -1514,9 +1533,13 @@ classdef CPlotsN < handle
                     end
                 end
             end   
-            
-            T = linspace(obj.E.epochtime(1), obj.E.epochtime(2), size(obj.E.fphaseEpochs,1));
-            F =  obj.E.Hfmean;                                 
+            if obj.plotISPC.current_cat <= -1 % if we want to plot the PLV diff between conditions, then time and freq range can be different
+                T = linspace(obj.plotISPC.stat_cats_time(1),obj.plotISPC.stat_cats_time(2), obj.plotISPC.stat_cats_time(3));
+                F = obj.plotISPC.stat_cats_freq(1) : obj.plotISPC.stat_cats_freq(2);
+            else
+                T = linspace(obj.E.epochtime(1), obj.E.epochtime(2), size(obj.E.fphaseEpochs,1));
+                F =  obj.E.Hfmean;
+            end
  
             %subplot with ISPC values from one pair of channels (by countour, significant uncorrected ispc values are highlighed)
             if updateS(1)
@@ -1525,10 +1548,14 @@ classdef CPlotsN < handle
                 end
                 ispc=squeeze(obj.plotISPC.ispc_cats{ik}(chn1,chn2,:,:))'; % all ispc values
                 ispc_signif = squeeze(obj.plotISPC.ispc_cats_signif{ik}(chn1,chn2,:,:))'; % only significant uncorrected ispc values
-                % im1=imagesc(T,F,ispc); %has to transpose, imagesc probably plots first dimension in rows
-                contourf(T,F,ispc,40,'linecolor','none'); % plot all ispc values 
-                hold on
-                contour(T,F,ispc_signif,1,'linecolor','k', 'LineWidth', 0.01) % on the same chart, highlight significant uncorrected ispc values
+                im1=imagesc(T,F,ispc); % all ispc values               
+                sign_mask = ispc_signif~=0;  % apply transparency to the non-signif values
+                alphaMask = double(sign_mask); 
+                alphaMask(alphaMask==0) = 0.5; % 0.5 of transparency for non-significant values, 1 - for significant
+                set(im1, 'AlphaData', alphaMask);
+%                 contourf(T,F,ispc,40,'linecolor','none'); % plot all ispc values 
+%                 hold on
+%                 contour(T,F,ispc_signif,1,'linecolor','k', 'LineWidth', 0.01) % on the same chart, highlight significant uncorrected ispc values
                 axis xy; %make the y axis increasing from bottom to top
                 colormap parula;
                 colorbar;
@@ -1551,7 +1578,7 @@ classdef CPlotsN < handle
                 hold on;
                 plot(T(TimeHf(1)),obj.plotISPC.ispc_cats{ik}(chn1,chn2, TimeHf(1),TimeHf(2)),'o');
                 title([num2str(F(TimeHf(2))) ' Hz']);
-                if isnan(obj.plotISPC.ispc_cats{ik}(chn1,chn2,:,:));
+                if isnan(obj.plotISPC.ispc_cats{ik}(chn1,chn2,:,:))
                     maxispc = 0;
                 else
                     maxispc = max(max(squeeze(obj.plotISPC.ispc_cats{ik}(chn1,chn2,:,:))));
@@ -1610,7 +1637,8 @@ classdef CPlotsN < handle
 %                 im4.AlphaData = imAlpha; %set transparency for nan values
 %                 imAplhaISPC = cat(2,repmat(obj.plotISPC.aplha,size(imAlpha,1),size(ispc,2)-size(ispc_p,2)),imAlpha);
 %                 im1.AlphaData = imAplhaISPC;
-                contourf(T,F,ispc_clust_corr',40,'linecolor','none')
+                imagesc(T,F,ispc_clust_corr', [-0.5 0.5])
+%                 contourf(T,F,ispc_clust_corr',40,'linecolor','none')
                 xlabel('Time (s)'), ylabel('Frequency (Hz)')
                 
                 axis xy;
