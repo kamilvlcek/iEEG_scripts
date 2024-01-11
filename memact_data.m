@@ -11,9 +11,11 @@ if ~exist('RT_corr','var')  || isempty(RT_corr)
     RT_corr = 0; % default: RT of start moving joystick, if 1 - RT of hiting the correct object 
 end
 
-dir = 'd:\eeg\motol\PsychoPydata\MemoryActions\';
+% dir = 'd:\eeg\motol\PsychoPydata\MemoryActions\';
+dir = uigetdir(path,'Select file directory.'); % to choose directory where data are stored (each patient is in diff folder)
+
 % load mat file with all behav data
-load([dir pacientid '_MemoryActions.mat']);
+load([dir '\' pacientid '_MemoryActions.mat']);
 
 % get only table with RT, accuracy and timing, without coordinates of joystick 
 dataS = MemoryActions.Gdata;
