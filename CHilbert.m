@@ -177,9 +177,10 @@ classdef CHilbert < CiEEGData
                  Hfreq2 = zeros(iepochtime(2)-iepochtime(1), size(obj.d,2), numel(obj.Hfmean),size(kategorie,1)); %new epoched power data: time x channel x freq x kategorie=podminka
                  HFreq_ChEpochs = false(size(obj.RjEpochCh));  %#ok<PROPLC> %true for channels/epochs, which will be included in Hfreq, channels x epochs
                  if freqepochs %if we want to store all epochs for all frequency bands - for statistics, much larger data
-                     obj.HFreqEpochs = zeros(iepochtime(2)-iepochtime(1),size(obj.HFreq,2),size(obj.HFreq,3),sum(iepochs)); % time x channel x frequency x epoch
-                     obj.fphaseEpochs = zeros(iepochtime(2)-iepochtime(1),size(obj.HFreq,2),size(obj.HFreq,3),sum(iepochs)); % time x channel x frequency x epoch
-                     obj.frealEpochs = zeros(iepochtime(2)-iepochtime(1),size(obj.HFreq,2),size(obj.HFreq,3),sum(iepochs)); % time x channel x frequency x epoch
+                     %nan values - the data for rejected epochs will stay nan
+                     obj.HFreqEpochs = nan(iepochtime(2)-iepochtime(1),size(obj.HFreq,2),size(obj.HFreq,3),sum(iepochs)); % time x channel x frequency x epoch
+                     obj.fphaseEpochs = nan(iepochtime(2)-iepochtime(1),size(obj.HFreq,2),size(obj.HFreq,3),sum(iepochs)); % time x channel x frequency x epoch
+                     obj.frealEpochs = nan(iepochtime(2)-iepochtime(1),size(obj.HFreq,2),size(obj.HFreq,3),sum(iepochs)); % time x channel x frequency x epoch
                  else %normal analysis                    
                      obj.HFreqEpochs = [];
                      obj.fphaseEpochs = [];
@@ -210,17 +211,17 @@ classdef CHilbert < CiEEGData
                                         %for this channel and katnum, this line is executed ones for each epoch
                                     nEpochsChKat(1,ch) = nEpochsChKat(1,ch)  + 1;
                                     HFreq_ChEpochs(ch,epoch)=1;  %#ok<PROPLC>
-                                end
-                                if freqepochs  %if we want to store all epochs for all frequency bands - for statistics, much larger data
-                                    obj.HFreqEpochs(:,ch,:,epoch) = squeeze(epoch_data) - squeeze(baseline_mean); % timeXfreq - here data for each epoch, channel and freq separately are saved, independent of category
-                                        %normalize power for all epochs
-                                    if isprop(obj,'fphase') && ~isempty(obj.fphase) %if phase data were created in CMorlet.PasmoFrekvence
-                                        obj.fphaseEpochs(:,ch,:,epoch) = squeeze(obj.fphase(izacatek + iepochtime(1) : izacatek + iepochtime(2)-1, ch, :)); %phase data for this epoch and channel (no baseline substracted
-                                    end                                
-                                    if isprop(obj,'freal') && ~isempty(obj.freal) %if this was created - the bandpass-filtered signal - projection on the real axis                                    
-                                        obj.frealEpochs(:,ch,:,epoch) = squeeze(obj.freal(izacatek + iepochtime(1) : izacatek + iepochtime(2)-1, ch, :));
-                                    end
-                                end                            
+                                    if freqepochs  %if we want to store all epochs for all frequency bands - for statistics, much larger data
+                                        obj.HFreqEpochs(:,ch,:,epoch) = epoch_data - baseline_mean; % timeXfreq - here data for each epoch, channel and freq separately are saved, independent of category
+                                            %normalize power for all epochs
+                                        if isprop(obj,'fphase') && ~isempty(obj.fphase) %if phase data were created in CMorlet.PasmoFrekvence
+                                            obj.fphaseEpochs(:,ch,:,epoch) = squeeze(obj.fphase(izacatek + iepochtime(1) : izacatek + iepochtime(2)-1, ch, :)); %phase data for this epoch and channel (no baseline substracted
+                                        end                                
+                                        if isprop(obj,'freal') && ~isempty(obj.freal) %if this was created - the bandpass-filtered signal - projection on the real axis                                    
+                                            obj.frealEpochs(:,ch,:,epoch) = squeeze(obj.freal(izacatek + iepochtime(1) : izacatek + iepochtime(2)-1, ch, :));
+                                        end
+                                    end    
+                                end                                                        
                              end
                          end                     
                          Hfreq2(:,:,:,katnum+1) = Hfreq2(:,:,:,katnum+1)./nEpochsChKat(1,:); %average over all epochs in this category  - the stored sum divided by number 
@@ -378,14 +379,13 @@ classdef CHilbert < CiEEGData
             T = linspace(obj.epochtime(1),obj.epochtime(2),size(obj.d,1)); %time scale - all samples
             
             maxy = 0; %scale of the power (z or y axis), over all categories
-            miny = 0;
+            miny = 0;            
             for k = 1:numel(kategories) %cycle over categories
-                subplot(1,numel(kategories),k);
-                                 
+                subplot(1,numel(kategories),k);                                 
                 if iscell(kategories(k))                    
                     dd = zeros(size(obj.HFreq,1),size(obj.HFreq,3),numel(kategories{k}));
                     for ikat = 1:numel(kategories{k})
-                        dd(:,:,ikat) = squeeze(obj.HFreq(:,ch,:,kategories{k}(ikat)+1));
+                        dd(:,:,ikat) = squeeze(obj.HFreq(:,ch,:,kategories{k}(ikat)+1));                        
                     end
                     D = mean(dd,3); %mean over combined categories
                 else
@@ -408,7 +408,7 @@ classdef CHilbert < CiEEGData
                 title( obj.PsyData.CategoryName(cellval(kategories,k)), 'Interpreter', 'none');
                 if k == 1
                     chstr = iff(isempty(obj.CH.sortedby),num2str(ch), [ num2str(ch) '(' obj.CH.sortedby  num2str(obj.plotF.ch) ')' ]);
-                    ylabel(['channel ' chstr ' - freq [Hz]']); 
+                    ylabel(['channel ' chstr ' (' num2str(sum(obj.HFreq_ChEpochs(ch,:))) ' epochs) - freq [Hz]']); 
                     if isprop(obj,'plotRCh') && isfield(obj.plotRCh,'selCh') && any(obj.plotRCh.selCh(ch,:),2)==1        
                         klavesy = 'fghjkl'; %abych mohl vypsat primo nazvy klaves vedle hvezdicky podle selCh
                         text(0,obj.Hf(1),['*' klavesy(logical(obj.plotRCh.selCh(ch,:)))], 'FontSize', 15,'Color','red');
