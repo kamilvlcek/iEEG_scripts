@@ -378,7 +378,7 @@ classdef CPsyData < matlab.mixin.Copyable %je mozne kopirovat pomoci E.copy();
         end
         function iepochs = FilteredIn(obj,epochs, filter)      
             %returns boolean array of 0/1 for each epoch: 1 means the epochs meets the filter condition, ie there is the looked for value in a given column
-            %epochs - numbers of epochs to be checked
+            %epochs - numbers of epochs to be checked, n x 1
             %filter - cellarray filter{1} - column number in obj.P.data, filter{2} - looked for values in this column
             %iepochs - array numel(epochs) x 1;            
             if isempty(filter)

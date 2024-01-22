@@ -52,8 +52,8 @@ E.Save([ dir 'ppa CHilbert.mat']);
 E.PasmoFrekvence([50:10:150]); %frekvencni pasma Hilbertovy obalky 50-150Hz po 10ti Hz
 
 %% 9. Epochování dat a vyøazení tìch døíve vyøazených manuálnì
+E.RejectEpochs(RjEpoch); %the epoching should follow loading excluded epochs, to correctly exclude them in CHilbert.HFreq
 E.ExtractEpochs(ppa,[-0.3 0.8]); %epocha -0.3 az 0.8s kolem podnetu
-E.RejectEpochs(RjEpoch); 
 E.Save(); %a uložení souboru
 
 %% 10. Výpoèet statistických rozdílù

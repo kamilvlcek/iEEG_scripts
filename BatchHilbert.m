@@ -25,7 +25,7 @@ if ~isfield(cfg,'statmethod'), cfg.statmethod = struct('test','wilcox','chn',1,'
 if ~isfield(cfg,'epochfilter'), cfg.epochfilter = []; end % I can select only some epochs and include them in the resulting file, e.g. {8,[1 2]}; - epochs with values 1 or 2 in the 8th column of obj.P.data
 if ~isfield(cfg,'decimatefactor'), cfg.decimatefactor = default.decimatefactor; end %decimate factor to use after hilbert tranform. 8 should be enough for trial-average analysis
 if ~isfield(cfg,'normalizeEpochs'), cfg.normalizeEpochs = 1; end % if to normalize epochs by substracting the baseline and to compute statistics - 2023/08 Sofiia, because of memact
-
+if ~isfield(cfg,'debug'), cfg.debug = 0; end % if to use debug mode - e.g. save files after TF analysis
 [ pacienti, setup,frekvence,reference  ] = pacienti_setup_load( testname,cfg.typeEpochs ); %11.1.2018 - 0 = zarovnani podle podnetu, 1=zarovnani podle odpovedi; 2023 - in memact, epoch type 0-3: immediate, epochs before delay, after delay, and within delay
 if numel(cfg.pacienti)>0
     pacienti = filterpac(pacienti,cfg.pacienti);
@@ -219,22 +219,25 @@ for f=1:numel(frekvence)
                                 E.ChangeReference(reference(r).char);
                             end
                             if ~ERP
-                                if isfield(frekvence(f),'prekryv') && ~isempty(frekvence(f).prekryv)
-                                    prekryv = frekvence(f).prekryv;
+                                if cfg.debug && exist(CHilbert.filenameH([outfilename '_debug']),'file')
+                                    E.Load([outfilename '_debug']);   %the time frequency data were saved already, load them
                                 else
-                                    prekryv = 0;  %defaultne je nulovy prekryv pasem                                    
+                                    if isfield(frekvence(f),'prekryv') && ~isempty(frekvence(f).prekryv)
+                                        prekryv = frekvence(f).prekryv;
+                                    else
+                                        prekryv = 0;  %defaultne je nulovy prekryv pasem                                    
+                                    end                                
+                                    E.PasmoFrekvence(frekvence(f).freq,[],prekryv,cfg.decimatefactor); % nemuzu  najit puvod: iff(cfg.podilcasuodpovedi,2,[]),
+                                        %pokud podilcasu, zdecimuju zatim jen malo, cele se mi ale nevejde do pameti
+                                    E.Normalize(cfg.normalization); %normalize the frequency bands
+                                    if cfg.debug
+                                        E.Save([outfilename '_debug']);   
+                                    end
                                 end                                
-                                E.PasmoFrekvence(frekvence(f).freq,[],prekryv,cfg.decimatefactor); % nemuzu  najit puvod: iff(cfg.podilcasuodpovedi,2,[]),
-                                    %pokud podilcasu, zdecimuju zatim jen malo, cele se mi ale nevejde do pameti
-                                E.Normalize(cfg.normalization); %normalize the frequency bands
-                            end                            
+                            end  
+                            
                             if cfg.extractepochs 
-                                disp('extracting epochs ...');
-                                if ERP
-                                    E.ExtractEpochs(psychopy,epochtime,baseline,cfg.epochfilter);                                 
-                                else
-                                    E.ExtractEpochs(psychopy,epochtime,baseline,cfg.freqepochs,cfg.epochfilter);   
-                                end
+                                disp('extracting epochs ...');                                
                                 if exist('rjepoch','var') && isstruct(rjepoch) % 2023 Sofiia: in case of memact test, rjepoch is struct containing RjEpoch and RjEpochCh for each epoch type
                                     E.RejectEpochs(rjepoch(setup.index).RjEpoch);
                                     E.RejectEpochs(0,rjepoch(setup.index).RjEpochCh);
@@ -245,6 +248,11 @@ for f=1:numel(frekvence)
                                     if exist('RjEpochCh','var')
                                         E.RejectEpochs(0,RjEpochCh); %epochy pro kazdy kanal zvlast
                                     end
+                                end
+                                if ERP %the epoching should follow loading excluded epochs, to correctly exclude them in CHilbert.HFreq
+                                    E.ExtractEpochs(psychopy,epochtime,baseline,cfg.epochfilter);                                 
+                                else
+                                    E.ExtractEpochs(psychopy,epochtime,baseline,cfg.freqepochs,cfg.epochfilter);   
                                 end
                                 if cfg.podilcasuodpovedi == 1                            
                                     E.ResampleEpochs(); % 27.11.2017 %resampluju na -1 1s podle casu odpovedi
