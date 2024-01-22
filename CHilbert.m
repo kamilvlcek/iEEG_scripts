@@ -408,7 +408,10 @@ classdef CHilbert < CiEEGData
                 title( obj.PsyData.CategoryName(cellval(kategories,k)), 'Interpreter', 'none');
                 if k == 1
                     chstr = iff(isempty(obj.CH.sortedby),num2str(ch), [ num2str(ch) '(' obj.CH.sortedby  num2str(obj.plotF.ch) ')' ]);
-                    ylabel(['channel ' chstr ' (' num2str(sum(obj.HFreq_ChEpochs(ch,:))) ' epochs) - freq [Hz]']); 
+                    if ~isempty(obj.HFreq_ChEpochs) && size(obj.HFreq_ChEpochs,1)>=ch                        
+                        chstr = [ chstr ' (' num2str(sum(obj.HFreq_ChEpochs(ch,:))) ' epochs) ']; %#ok<AGROW>
+                    end
+                    ylabel(['channel ' chstr ' - freq [Hz]']); 
                     if isprop(obj,'plotRCh') && isfield(obj.plotRCh,'selCh') && any(obj.plotRCh.selCh(ch,:),2)==1        
                         klavesy = 'fghjkl'; %abych mohl vypsat primo nazvy klaves vedle hvezdicky podle selCh
                         text(0,obj.Hf(1),['*' klavesy(logical(obj.plotRCh.selCh(ch,:)))], 'FontSize', 15,'Color','red');
