@@ -71,6 +71,26 @@ pacienti(p).rjepoch = 'VT66_p1883612_memact_rjepoch.mat';
 pacienti(p).epievents = 'VT66_p1883612_memact_epievents.mat';
 pacienti(p).rjch = []; 
 
+p=p+1;
+pacienti(p).todo = 1; 
+pacienti(p).folder = {'p1396542 Seb VT67','VT67 Seb p1396542'};
+pacienti(p).data = 'VT67_2023-09-25_16-25_104_512hz_26_concat_memact.mat'; 
+pacienti(p).header = 'p1396542_headerS.mat'; 
+pacienti(p).psychopy = 'p1396542_memact.mat';
+pacienti(p).rjepoch = 'p1396542_memact_rjepoch.mat';
+pacienti(p).epievents = 'p1396542_memact_epievents.mat';
+pacienti(p).rjch = []; 
+
+p=p+1;
+pacienti(p).todo = 1; 
+pacienti(p).folder = {'p2092846 Gru VT68','VT68 Gru p2092846'};
+pacienti(p).data = 'VT68_2023-11-07_14-20_084_512hz_20_concat_memact.mat'; 
+pacienti(p).header = 'p2092846_headerS.mat'; 
+pacienti(p).psychopy = 'p2092846_memact.mat';
+pacienti(p).rjepoch = 'p2092846_memact_rjepoch.mat';
+pacienti(p).epievents = 'p2092846_memact_epievents.mat';
+pacienti(p).rjch = [73 114 127]; % noise
+
 pacienti = pacientFolderSelect(pacienti,setup_memact());
 end
 
