@@ -18,7 +18,7 @@ if typeEpochs == 0  % immediate epochs
     % 1 - align to responses 
     % 2 - align to stimuli - delay 
     setup.epochtime =  [-0.5 2.0 0];  % immediate trials - 2s response time
-    setup.baseline = [-.2 0]; % baseline [-.2 0], similarly to menrot or aedist
+    setup.baseline = [-.5 0]; % baseline [-.2 0], similarly to menrot or aedist
     setup.index = 1; % serves as index to rjepoch struct 
     setup.suffix = 'imm'; % short name of epoch type to distinguish the CHilbert file created; used in BatchHilbert
     setup.filter = {7,[0 1]}; % used in CiEEGData.ExtractEpochs: filter{1} - column number in obj.P.data, filter{2} - searches for kats values in this column
@@ -26,8 +26,10 @@ if typeEpochs == 0  % immediate epochs
     setup.stat_kats = {[0 1],[1 0]}; % immed_same x immed_diff
     
 elseif typeEpochs == 1 % epochs before delay 
-    setup.epochtime =  [-0.5 3.95 2]; % encoding phase (2 sec) + first part of delay (1.95 sec); % 2 - align to stimuli - delay (new)- stimulus which is presented during the encoding phase
-    setup.baseline = [-0.5 -0.1]; % isn't used in BatchHilbert; use it only after appending 2 objects in function CM.NormalizeEpochs([-0.5 -0.1]);
+%     setup.epochtime =  [-0.5 3.95 2]; % encoding phase (2 sec) + first part of delay (1.95 sec); % 2 - align to stimuli - delay (new)- stimulus which is presented during the encoding phase
+    setup.epochtime =  [-0.5 5.9 2]; % 13.12.2023: encoding phase (2 sec) + the whole delay (3.9 sec)
+%     setup.baseline = [-0.5 -0.1]; % isn't used in BatchHilbert; use it only after appending 2 objects in function CM.NormalizeEpochs([-0.5 -0.1]);
+    setup.baseline = [-0.5 0]; % 13.12.2023 uses this baseline if cfg.normalizeEpochs = 1 in BatchHilbert
     setup.index = 2;
     setup.suffix = 'bdel';
     setup.filter = {7,[2 3]}; % 2 - 'del_same'; 3 - 'del_diff'
@@ -35,7 +37,7 @@ elseif typeEpochs == 1 % epochs before delay
     
 elseif typeEpochs == 2 % epochs after delay
     setup.epochtime =  [-1.95 2 0];  % second part of delay (1.95 sec) + action phase (2 sec); stimulus - start of action phase
-    setup.baseline = [-0.5 -0.1]; % baseline activity before encoding phase (ITI); 
+    setup.baseline = [-0.5 0]; % baseline activity before encoding phase (ITI); 
         % isn't used in BatchHilbert; use it only after appending 2 objects in function CM.NormalizeEpochs([-0.5 -0.1]);
     setup.index = 3;
     setup.suffix = 'adel';
@@ -44,9 +46,9 @@ elseif typeEpochs == 2 % epochs after delay
     
 elseif typeEpochs == 3 % epochs within delay   
     % setup.epochtime =  [-3.9 0.3 0]; % stimulus - start of action phase; how to normalize such epochs?
-    setup.epochtime =  [2.8 5.3 2]; % stimulus - start of encoding phase, in this way we can exctract the whole delay and normalize by baseline acvitity before encod phase
-%     setup.epochtime =  [2.0 5.9 2];
-    setup.baseline = [-0.5 -0.1]; % baseline activity before encoding phase 
+%     setup.epochtime =  [2.8 5.3 2]; % stimulus - start of encoding phase, in this way we can exctract the whole delay and normalize by baseline acvitity before encod phase
+    setup.epochtime =  [2.0 5.9 2];
+    setup.baseline = [-0.5 0]; % baseline activity before encoding phase 
         % isn't used in BatchHilbert; use it only after appending 2 objects in function CM.NormalizeEpochs([-0.5 -0.1]);
     setup.index = 4;
     setup.suffix = 'del';
@@ -55,7 +57,7 @@ elseif typeEpochs == 3 % epochs within delay
     
 elseif typeEpochs == 4 % baseline activity before encoding phase, used for normalization and computing stats for epochs within delay
     setup.epochtime =  [-0.5 0 2];
-    setup.baseline = [-0.5 -0.1]; % isn't used in BatchHilbert; use it only after appending with epochs within delay in function CM.NormalizeEpochs([-0.5 -0.1]);
+    setup.baseline = [-0.5 0]; % isn't used in BatchHilbert; use it only after appending with epochs within delay in function CM.NormalizeEpochs([-0.5 -0.1]);
     setup.index = 4; % the same as for within delay epochs
     setup.suffix = 'bs';
     setup.filter = {7,[2 3]}; % 2 - 'del_same'; 3 - 'del_diff'
