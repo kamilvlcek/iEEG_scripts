@@ -9,12 +9,12 @@ function PLV_permutation_stat(ROI1, ROI2, condition, period, significant, freq, 
 % ROI2 - e.g. 'IPL'
 % condition - can be 'same' , 'diff' or 'all' (trials of both conditions) or empty for the case of period = 0
 % period - which period to compare with which:
-% 0 - compare 2 conditions during the delay  TODO - adapt the script for this case
-% 1 - last 1.5 sec of delay (2.4-3.9) vs 1.5 sec baseline
-% 2 - middle 1.5 sec of delay (0.9-2.4) vs 1.5 sec baseline
-% 3 last 1.5 sec of delay (2.4-3.9) vs 1.5 sec of encoding
-% 4 encoding vs baseline
-% significant - only for period =0, if 1, select only significant chan pairs that were obtained by PLV_permutation_stat for all trials
+% 0 - compare 2 conditions during the delay
+% 1 - last 1.5 sec of delay (4.4-5.9) vs 1.5 sec baseline
+% 2 - middle 1.5 sec of delay (2.9-4.4) vs 1.5 sec baseline
+% 3 last 1.5 sec of delay (4.4-5.9) vs 1.5 sec of encoding
+% 4 encoding vs baseline (not in the code yet)
+% significant - only for period =0; if 1, select only significant chan pairs that were obtained by PLV_permutation_stat for all trials
 %%% optional:
 % freq - freq range for which compute PLV
 % n_permutes - number of permutations, default = 200
@@ -52,7 +52,7 @@ for p = 1:numel(pacienti)
             cfg = [];
             cfg.channel = chan_labels; % select channels in 2 ROIs
             cfg.trials = itrials_same; % for now, we don't reject individual epochs for each channel with spikes
-            cfg.latency = [4.4+1/data.fsample, 5.9];    % last 1.5 sec of delay, if fsample=512, 768 time points
+            cfg.latency = [4.4, 5.9+1/data.fsample];    % last 1.5 sec of delay, if fsample=512, 768 time points
             dataCond1 = ft_selectdata(cfg,data);
             dataCond1.condition = 'same';
             

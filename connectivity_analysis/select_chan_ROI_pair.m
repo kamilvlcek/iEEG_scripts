@@ -47,11 +47,11 @@ else
     load([PLV_path PLV_data_file.name]);
     
     % channels in the data
-    chan_labels = dataDelay.label;
-    ROI_labels = {dataDelay.channelInfo.ROI}';
+    chan_labels = dataCond1.label;
+    ROI_labels = {dataCond1.channelInfo.ROI}';
     
-    % find indexes of chan pairs with significant PLV difference
-    significant_chanPairs = find(sum(plv_signif_allPairs_clustcorr,2) ~= 0);
+    % find indexes of chan pairs with significant PLV difference, only positive delay > bs
+    significant_chanPairs = sum(plv_signif_allPairs_clustcorr,2) > 0;
     ROI_chanpairs = ROI_chanpairs(significant_chanPairs, :);
    
 end
