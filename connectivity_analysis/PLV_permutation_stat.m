@@ -13,6 +13,7 @@ function PLV_permutation_stat(ROI1, ROI2, condition, period, significant, freq, 
 % 1 - last 1.5 sec of delay (2.4-3.9) vs 1.5 sec baseline
 % 2 - middle 1.5 sec of delay (0.9-2.4) vs 1.5 sec baseline
 % 3 last 1.5 sec of delay (2.4-3.9) vs 1.5 sec of encoding
+% 4 encoding vs baseline
 % significant - only for period =0, if 1, select only significant chan pairs that were obtained by PLV_permutation_stat for all trials
 %%% optional:
 % freq - freq range for which compute PLV
@@ -27,6 +28,7 @@ if(~exist('threshold','var')) || isempty(threshold), threshold = 0.05; end
 ft_defaults % set up fieldtrip
 
 data_preproc = 'MemAct_refBipo -1.5-5.9 bdel fieldtrip_2024-02.mat';
+% data_preproc ='MemAct_refBipo -2.0-5.9 bdel fieldtrip_2024-02.mat';
 
 setup = setup_memact(1); % setup for the delayed epochs
 basedir = setup.basedir; % folder where the data of all patients stored
@@ -50,7 +52,7 @@ for p = 1:numel(pacienti)
             cfg = [];
             cfg.channel = chan_labels; % select channels in 2 ROIs
             cfg.trials = itrials_same; % for now, we don't reject individual epochs for each channel with spikes
-            cfg.latency = [2.4+1/data.fsample, 3.9];    % last 1.5 sec of delay, if fsample=512, 768 time points
+            cfg.latency = [4.4+1/data.fsample, 5.9];    % last 1.5 sec of delay, if fsample=512, 768 time points
             dataCond1 = ft_selectdata(cfg,data);
             dataCond1.condition = 'same';
             
@@ -58,7 +60,7 @@ for p = 1:numel(pacienti)
             cfg = [];
             cfg.channel = chan_labels; % select channels in 2 ROIs
             cfg.trials = itrials_diff;
-            cfg.latency = [2.4+1/data.fsample, 3.9];    % last 1.5 sec of delay, if fsample=512, 768 time points
+            cfg.latency = [4.4+1/data.fsample, 5.9];    % last 1.5 sec of delay, if fsample=512, 768 time points
             dataCond2 = ft_selectdata(cfg,data);
             dataCond2.condition = 'diff';
             str2save = '_diff_vs_same_last 1.5s delay_';
@@ -80,21 +82,26 @@ for p = 1:numel(pacienti)
             %% select delay and baseline period (or encoding)
             if period == 1
                 delaycfg = [];
-                delaycfg.latency = [2.4+1/dataROI.fsample, 3.9];    % last 1.5 sec of delay, if fsample=512, 768 time points
-                bscfg = [];
+                delaycfg.latency = [4.4+1/dataROI.fsample, 5.9];    % last 1.5 sec of delay, if fsample=512, 768 time points
+%                 delaycfg.latency = [3.9+1/dataROI.fsample, 5.9]; % last 2 sec of delay
+                bscfg = []; 
                 bscfg.latency = [-1.5, -1/dataROI.fsample]; % baseline [-1.5 0], 768 time points
+%                 bscfg.latency = [-2, -1/dataROI.fsample]; % baseline 2 sec
                 str2save = '_last 1.5s delay_vs_bs_';
                 str_period = 'baseline';
             elseif period == 2
                 delaycfg = [];
-                delaycfg.latency = [0.9+1/dataROI.fsample, 2.4];    % middle 1.5 sec of delay, if fsample=512, 768 time points
+                delaycfg.latency = [2.9+1/dataROI.fsample, 4.4];    % middle 1.5 sec of delay, if fsample=512, 768 time points
+%                 delaycfg.latency = [1/dataROI.fsample, 2];   % first 2 sec of delay
                 bscfg = [];
                 bscfg.latency = [-1.5, -1/dataROI.fsample];
+%                 bscfg.latency = [-2, -1/dataROI.fsample]; % baseline 2 sec
                 str2save = '_middle 1.5s delay_vs_bs_';
+%                 str2save = '_first 2s delay_vs_2s_bs_';
                 str_period = 'baseline';
             elseif period == 3
                 delaycfg = [];
-                delaycfg.latency = [2.4+1/dataROI.fsample, 3.9];    % last 1.5 sec of delay
+                delaycfg.latency = [4.4+1/dataROI.fsample, 5.9];    % last 1.5 sec of delay
                 bscfg = [];
                 bscfg.latency = [1/dataROI.fsample, 1.5]; % encoding 1.5 sec
                 str2save = '_last 1.5s delay_vs_1.5s encoding_';
@@ -118,7 +125,7 @@ for p = 1:numel(pacienti)
         freqcfg.taper       = 'dpss';
         freqcfg.output      = 'fourier';
         freqcfg.foi         = freq;
-        freqcfg.tapsmofrq   = 2;
+        freqcfg.tapsmofrq   = 2; % the amount of spectral smoothing through multi-tapering, Note that 4 Hz smoothing means plus-minus 4 Hz, i.e. a 8 Hz smoothing box.
         freqcfg.pad         = 2;
         freqcfg.keeptrials = 'yes';
         FreqCond1   = ft_freqanalysis(freqcfg, dataCond1);
