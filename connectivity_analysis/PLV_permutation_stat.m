@@ -60,7 +60,7 @@ for p = 1:numel(pacienti)
             cfg = [];
             cfg.channel = chan_labels; % select channels in 2 ROIs
             cfg.trials = itrials_diff;
-            cfg.latency = [4.4+1/data.fsample, 5.9];    % last 1.5 sec of delay, if fsample=512, 768 time points
+            cfg.latency = [4.4, 5.9+1/data.fsample];    % last 1.5 sec of delay, if fsample=512, 768 time points
             dataCond2 = ft_selectdata(cfg,data);
             dataCond2.condition = 'diff';
             str2save = '_diff_vs_same_last 1.5s delay_';
@@ -82,7 +82,7 @@ for p = 1:numel(pacienti)
             %% select delay and baseline period (or encoding)
             if period == 1
                 delaycfg = [];
-                delaycfg.latency = [4.4+1/dataROI.fsample, 5.9];    % last 1.5 sec of delay, if fsample=512, 768 time points
+                delaycfg.latency = [4.4, 5.9+1/data.fsample];    % last 1.5 sec of delay, if fsample=512, 768 time points
 %                 delaycfg.latency = [3.9+1/dataROI.fsample, 5.9]; % last 2 sec of delay
                 bscfg = []; 
                 bscfg.latency = [-1.5, -1/dataROI.fsample]; % baseline [-1.5 0], 768 time points
@@ -101,7 +101,7 @@ for p = 1:numel(pacienti)
                 str_period = 'baseline';
             elseif period == 3
                 delaycfg = [];
-                delaycfg.latency = [4.4+1/dataROI.fsample, 5.9];    % last 1.5 sec of delay
+                delaycfg.latency = [4.4, 5.9+1/data.fsample];    % last 1.5 sec of delay
                 bscfg = [];
                 bscfg.latency = [1/dataROI.fsample, 1.5]; % encoding 1.5 sec
                 str2save = '_last 1.5s delay_vs_1.5s encoding_';
