@@ -3,7 +3,7 @@ function plot_Granger_significance(granger_data)
 % plots all significant chan pairs and saves them to the patient's folder
 % granger_data - filename of granger data which we want to plot
 
-if(~exist('PLV_data','var')) || isempty(granger_data), granger_data = 'Granger_VTC-IPL last 1.5s delay all_trials_2024-02.mat'; end
+if(~exist('granger_data','var')) || isempty(granger_data), granger_data = 'Granger_VTC-IPL last 1.5s delay all_trials_2024-02.mat'; end
 granger_folder = 'Granger_permut_stat';
 setup = setup_memact(1); % setup for the delayed epochs
 basedir = setup.basedir; % folder where the data of all patients stored
