@@ -6,11 +6,17 @@ function BatchConvert2fieldtrip(typeEpochs, bipolarRef)
 % 1 - epochs before delay (or encoding + delay, can be changed in setup_memact)
 % 2 - epochs after delay
 % 3 - epochs within delay
+% -1 - the whole delayed epochs (connected from 2 parts)
 
 %%% bipolarRef = if to change the original reference to bipolar
 % 1 - bipolar
 % 0 - original
-setup = setup_memact(typeEpochs); % setup for the specific epoch type
+
+if typeEpochs == -1 
+    setup = setup_memact(1); % first create epochs before delay
+else
+    setup = setup_memact(typeEpochs); % setup for the specific epoch type
+end
 basedir = setup.basedir; % folder where the data of all patients stored
 subfolder = setup.subfolder;
 [pacienti] = pacienti_memact(); % struct with all patients in memact
@@ -44,8 +50,27 @@ for p = 1:numel(pacienti)
             ref = 'refOrig';
         end
         
-        E.ExtractEpochs(memact,setup_memact(typeEpochs)); % extract delayed epochs (encoding+delay) or immediate
+        E.ExtractEpochs(memact, setup); % extract delayed epochs (encoding+delay) or immediate
         E.RejectEpochs(rjepoch(setup.index).RjEpoch, rjepoch(setup.index).RjEpochCh); % save rejected epochs to the object
+        
+        if typeEpochs == -1 % if we want to get the whole delayed epoch
+            setup = setup_memact(2); % then create epochs after delay           
+            E2 = CiEEGData (d, tabs, fs); % create another ieeg data object
+            E2.GetHHeader(H); % read header
+            E2.GetEpiEvents(DE); % read epi events
+            E2.RejectChannels(pacienti(p).rjch); % reject bad channels
+            E2.Filter({0.5 [50 100 150] },[],[],0); % notch filter for [50 100 150]+-.5Hz
+            if bipolarRef
+                E2.ChangeReference('b'); % change the reference to bipolar
+                ref = 'refBipo';
+            else
+                ref = 'refOrig';
+            end
+            
+            E2.ExtractEpochs(memact,setup); % extract the second part of delayed epoch
+            E2.RejectEpochs(rjepoch(setup.index).RjEpoch, rjepoch(setup.index).RjEpochCh); % save rejected epochs to the object
+            E.AppendData(E2); % join 2 objects
+        end
         
         % create the fieldtrip data structure
         data = {};
@@ -88,7 +113,7 @@ for p = 1:numel(pacienti)
             {'TrialNumber','Condition', 'Correct', 'ResponseTime', 'Block', 'Training', 'DelayLength', 'AnswerButtonCorrect', 'AnswerButtonRT','Trials2Reject'} );
         
         % save data
-        outfilename = [ basedir pacienti(p).folder '\' subfolder '\' setup.prefix '_' ref ' ' sprintf('%.1f-%.1f',setup.epochtime(1:2)) ' ' setup.suffix ' fieldtrip_' datestr(now,'YYYY-mm') '.mat'];
+        outfilename = [ basedir pacienti(p).folder '\' subfolder '\' setup.prefix '_' ref ' ' sprintf('%.1f-%.1f', E.epochtime(1:2)) ' ' setup.suffix ' fieldtrip_' datestr(now,'YYYY-mm') '.mat'];
         save(outfilename, 'data', 'TrialInformationTable');
         clear E d tabs fs mults header RjEpoch RjEpochCh memact H data TrialInformationTable; 
     end

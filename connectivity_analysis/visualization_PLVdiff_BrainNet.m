@@ -3,7 +3,7 @@
 % in edge file, it saves the average significant diff between PLV delay and PLV bs
 
 % load file with PLV data
-patient_filename = 'E:\work\eeg\motol\pacienti\p1883612 And VT59\memact\PLV_permut_stat\PLV_VTC-IPL_last 1.5s delay_vs_bs_all_trials_2024-02.mat';
+patient_filename = 'E:\work\eeg\motol\pacienti\p2092846 Gru VT68\memact\PLV_permut_stat\PLV_VTC-IPL_last 1.5s delay_vs_bs_all_trials_2024-02.mat';
 load(patient_filename)
 
 %% first create edge file with plv difference
@@ -14,6 +14,7 @@ load(patient_filename)
 % Find rows (ch pairs) with at least 2 positive values (2 freq bins)
 positive_values_count = sum(plv_signif_allPairs_clustcorr > 0, 2);
 significant_chanPairs = find(positive_values_count >= 2);
+ROI_chanpairs_signif = ROI_chanpairs(significant_chanPairs, :);
 
 % significant PLV diff
 PLVdiff_chpairs_signif = plv_signif_allPairs_clustcorr(significant_chanPairs, :);
