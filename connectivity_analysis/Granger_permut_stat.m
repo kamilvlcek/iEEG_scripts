@@ -39,6 +39,10 @@ for p = 1:numel(pacienti)
         % select channels, trials and period for the analysis
         [chan_labels, ROI_labels, ROI_chanpairs] = select_chan_ROI_pair([], ROI1, ROI2, patient_id, 1, patient_path); % select only significant chan pairs with PLV delay > bs
         
+        if isempty(ROI_chanpairs) % if no significant ch pairs were found, skip this patient
+            continue
+        end
+        
         itrials_good = get_correct_trials(condition, TrialInformationTable); % good trials for this condition or for both conditions
         cfg = [];
         cfg.channel = chan_labels;
