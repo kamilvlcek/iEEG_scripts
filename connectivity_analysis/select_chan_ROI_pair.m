@@ -41,23 +41,44 @@ else
     
     % Specify the directory where the data are stored
     PLV_path = [patient_path '\PLV_permut_stat\'];
-    partialName = ['PLV_' ROI1 '-' ROI2 '_last'];
-    PLV_data_file = dir(fullfile(PLV_path, [partialName '*' 'all_trials_2024-02.mat'])); % find the file
+    partialName = ['PLV_' ROI1 '-' ROI2 '_last 2s'];
+    PLV_data_file = dir(fullfile(PLV_path, [partialName '*' 'bs_all_trials_2024-02.mat'])); % find the file
     
-    load([PLV_path PLV_data_file.name]);
-    
-    % channels in the data
-    chan_labels = dataCond1.label;
-    ROI_labels = {dataCond1.channelInfo.ROI}';
-    
-%     % find indexes of chan pairs with significant PLV difference, only positive delay > bs
-%     significant_chanPairs = sum(plv_signif_allPairs_clustcorr,2) > 0;
-%     ROI_chanpairs = ROI_chanpairs(significant_chanPairs, :);    
-    
-    % find rows (ch pairs) with at least 2 positive values (2 freq bins) delay > bs (more strict selection of pairs)
-    positive_values_count = sum(plv_signif_allPairs_clustcorr > 0, 2);
-    significant_chanPairs = find(positive_values_count >= 2);
-    ROI_chanpairs = ROI_chanpairs(significant_chanPairs, :);
-    
+    if exist([PLV_path PLV_data_file.name],'file') == 2
+        load([PLV_path PLV_data_file.name]);
+        
+        % channels in the data
+        chan_labels = dataCond1.label;
+        ROI_labels = {dataCond1.channelInfo.ROI}';
+        
+        %     % find indexes of chan pairs with significant PLV difference, only positive delay > bs
+        %     significant_chanPairs = sum(plv_signif_allPairs_clustcorr,2) > 0;
+        %     ROI_chanpairs = ROI_chanpairs(significant_chanPairs, :);
+        
+        %     % find rows (ch pairs) with at least 2 positive values (2 freq bins) delay > bs (more strict selection of pairs)
+        %     positive_values_count = sum(plv_signif_allPairs_clustcorr > 0, 2);
+        %     significant_chanPairs = find(positive_values_count >= 2);
+        
+        % Find rows with at least 2 consecutive positive values
+        rows_with_consecutive_positives = [];
+        
+        for i = 1:size(plv_signif_allPairs_clustcorr, 1)
+            row = plv_signif_allPairs_clustcorr(i, :);
+            % Use a sliding window to check for consecutive positive values
+            for j = 1:(length(row)-1)
+                if row(j) > 0 && row(j+1) > 0
+                    rows_with_consecutive_positives = [rows_with_consecutive_positives, i];
+                    break; % Break once you find the first occurrence
+                end
+            end
+        end
+        
+        significant_chanPairs = rows_with_consecutive_positives';
+        ROI_chanpairs = ROI_chanpairs(significant_chanPairs, :);
+    else
+        chan_labels = [];
+        ROI_labels = [];
+        ROI_chanpairs = [];
+    end
 end
 

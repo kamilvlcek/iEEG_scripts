@@ -1,9 +1,11 @@
-function plot_Granger_significance(granger_data)
+function plot_Granger_significance(granger_data, significant)
 % visualization of channel pairs with significant Granger difference between 2 directions,
 % plots all significant chan pairs and saves them to the patient's folder
 % granger_data - filename of granger data which we want to plot
+% significant - if to plot only significant ch pairs (1), or all(0)
+if(~exist('granger_data','var')) || isempty(granger_data), granger_data = 'Granger_VTC-IPL last 2s delay all_trials_2024-02.mat'; end
+if(~exist('significant','var')) || isempty(significant), significant = 1; end % by default, plot only significant ch pairs
 
-if(~exist('granger_data','var')) || isempty(granger_data), granger_data = 'Granger_VTC-IPL last 1.5s delay all_trials_2024-02.mat'; end
 granger_folder = 'Granger_permut_stat';
 setup = setup_memact(1); % setup for the delayed epochs
 basedir = setup.basedir; % folder where the data of all patients stored
@@ -16,8 +18,12 @@ for p = 1:numel(pacienti)
             % load the PLV data with statistics
             load([basedir pacienti(p).folder '\' subfolder '\' granger_folder '\' granger_data]);
             
-            % first find indexes of chan pairs with significant PLV difference
-            significant_chanPairs = find(sum(Granger_signif_allPairs_clustcorr,2) ~= 0);
+            if significant == 1
+                % first find indexes of chan pairs with significant PLV difference
+                chanPairsToPlot = find(sum(Granger_signif_allPairs_clustcorr,2) ~= 0);                
+            else
+                chanPairsToPlot = 1:size(ROI_chanpairs,1); % all ch pairs in the data
+            end
             
             iPairsGranger = 1:2:2*size(ROI_chanpairs, 1); % as we have 2 row of values for each ch pair
             
@@ -27,16 +33,16 @@ for p = 1:numel(pacienti)
             fig_filename = [basedir pacienti(p).folder '\' subfolder '\' granger_folder '\' fig_name_part{1}];
             
             % find the max granger value for setting ylim
-            maxgranger1 = max(max(max(squeeze(grangerDelay.grangerspctrm(iPairsGranger(significant_chanPairs'), :)))));
-            maxgranger2 = max(max(max(squeeze(grangerDelay.grangerspctrm(iPairsGranger(significant_chanPairs')+1, :)))));
+            maxgranger1 = max(max(max(squeeze(grangerDelay.grangerspctrm(iPairsGranger(chanPairsToPlot'), :)))));
+            maxgranger2 = max(max(max(squeeze(grangerDelay.grangerspctrm(iPairsGranger(chanPairsToPlot')+1, :)))));
             maxgranger = max(maxgranger1, maxgranger2);
             
-            for i = 1:numel(significant_chanPairs)
+            for i = 1:numel(chanPairsToPlot)
                 
-                ipair = ROI_chanpairs(significant_chanPairs(i), :); % real indexes of channels in the data
-                ipairGranger = iPairsGranger(significant_chanPairs(i)); % index of ch pair in granger spectrum
-                significancePos = Granger_signif_allPairs_clustcorr(significant_chanPairs(i),:)>0;
-                significanceNeg = Granger_signif_allPairs_clustcorr(significant_chanPairs(i),:)<0;
+                ipair = ROI_chanpairs(chanPairsToPlot(i), :); % real indexes of channels in the data
+                ipairGranger = iPairsGranger(chanPairsToPlot(i)); % index of ch pair in granger spectrum
+                significancePos = Granger_signif_allPairs_clustcorr(chanPairsToPlot(i),:)>0;
+                significanceNeg = Granger_signif_allPairs_clustcorr(chanPairsToPlot(i),:)<0;
                 
                 figure(i); plot(grangerDelay.freq, grangerDelay.grangerspctrm(ipairGranger,:),'b', 'LineWidth', 1)
                 hold on

@@ -1,9 +1,14 @@
-function plot_PLV_significance(PLV_data)
-% visualization of channel pairs with significant PLV difference between 2 periods, 
+function plot_PLV_significance(PLV_data1, PLV_data2, significant, direction)
+% visualization of channel pairs with significant PLV difference between 2 periods (or 2 conditions),
 % plots all significant chan pairs and saves them to the patient's folder
-% PLV_data - filename of PLV data which we want to plot
+% PLV_data1 - filename of PLV data which we want to plot
+% PLV_data2 - filename of other PLV data (if e.g. we want to plot PLV of delay, bs, and encoding in the same figure)
+% significant - if to plot only significant ch pairs (1), or all(0)
+% direction - if 1, significant ch pairs where cond 1 > cond 2; if 2 significant ch pairs where cond 2 > cond 1
+if(~exist('PLV_data1','var')) || isempty(PLV_data1), PLV_data1 = 'PLV_VTC-IPL_last 2s delay_vs_bs_all_trials_2024-02.mat'; end
+if(~exist('significant','var')) || isempty(significant), significant = 1; end % by default, plot only significant ch pairs
+if(~exist('direction','var')) || isempty(direction), direction = 1; end % by default, significant ch pairs where cond 1 > cond 2 
 
-if(~exist('PLV_data','var')) || isempty(PLV_data), PLV_data = 'PLV_VTC-IPL_last 1.5s delay_vs_bs_all_trials_2024-02.mat'; end
 PLV_folder = 'PLV_permut_stat';
 setup = setup_memact(1); % setup for the delayed epochs
 basedir = setup.basedir; % folder where the data of all patients stored
@@ -12,32 +17,71 @@ subfolder = setup.subfolder;
 
 for p = 1:numel(pacienti)
     if pacienti(p).todo
-        if isfile([basedir pacienti(p).folder '\' subfolder '\' PLV_folder '\' PLV_data])
+        if exist('PLV_data2','var')
+            if isfile([basedir pacienti(p).folder '\' subfolder '\' PLV_folder '\' PLV_data2])
+                load([basedir pacienti(p).folder '\' subfolder '\' PLV_folder '\' PLV_data2],...
+                    'dataCond2', 'PLVCond2', 'plv_signif_allPairs_clustcorr');
+                dataEncod = dataCond2;
+                PLVEncod = PLVCond2;
+                Encod_plv_signif_allPairs_cc = plv_signif_allPairs_clustcorr; 
+                chanPairsToPlot2 = 1:size(Encod_plv_signif_allPairs_cc,1);
+                clear dataCond2 PLVCond2 plv_signif_allPairs_clustcorr;
+            end
+        end
+        if isfile([basedir pacienti(p).folder '\' subfolder '\' PLV_folder '\' PLV_data1])
             % load the PLV data with statistics
-            load([basedir pacienti(p).folder '\' subfolder '\' PLV_folder '\' PLV_data]);
+            load([basedir pacienti(p).folder '\' subfolder '\' PLV_folder '\' PLV_data1]);
+            %
+            %             % first find indexes of chan pairs with significant PLV difference
+            %             significant_chanPairs = find(sum(plv_signif_allPairs_clustcorr,2) ~= 0);
 
-            % first find indexes of chan pairs with significant PLV difference
-            significant_chanPairs = find(sum(plv_signif_allPairs_clustcorr,2) ~= 0);
-
+            if significant == 1
+                % Find rows with at least 2 consecutive positive (or negative) values
+                rows_with_consecutive_positives = [];
+                
+                for i = 1:size(plv_signif_allPairs_clustcorr, 1)
+                    row = plv_signif_allPairs_clustcorr(i, :);
+                    % Use a sliding window to check for consecutive positive (or negative) values
+                    for j = 1:(length(row)-1)
+                        if direction == 1
+                            if row(j) > 0 && row(j+1) > 0
+                                rows_with_consecutive_positives = [rows_with_consecutive_positives, i];
+                                break; % Break once you find the first occurrence
+                            end
+                        elseif direction == 2
+                            if row(j) < 0 && row(j+1) < 0
+                                rows_with_consecutive_positives = [rows_with_consecutive_positives, i];
+                                break; % Break once you find the first occurrence
+                            end
+                        end
+                    end
+                end
+                
+                chanPairsToPlot = rows_with_consecutive_positives';
+            else
+                chanPairsToPlot = 1:size(ROI_chanpairs,1);
+            end
+            
             % plot separate chan pairs with significant difference between 2 periods
             % (LOC - IPL) ROI1-ROI2
-            fig_name_part = split(PLV_data, '.mat');
+            fig_name_part = split(PLV_data1, '.mat');
             fig_filename = [basedir pacienti(p).folder '\' subfolder '\' PLV_folder '\' fig_name_part{1}];
 
             % find the max plv value for setting ylim
-            maxplv1 = max(max(max(squeeze(PLVCond1.plvspctrm(ROI_chanpairs(significant_chanPairs,1),ROI_chanpairs(significant_chanPairs,2), :)))));
-            maxplv2 = max(max(max(squeeze(PLVCond2.plvspctrm(ROI_chanpairs(significant_chanPairs,1),ROI_chanpairs(significant_chanPairs,2), :)))));
+            maxplv1 = max(max(max(squeeze(PLVCond1.plvspctrm(ROI_chanpairs(chanPairsToPlot,1),ROI_chanpairs(chanPairsToPlot,2), :)))));
+            maxplv2 = max(max(max(squeeze(PLVCond2.plvspctrm(ROI_chanpairs(chanPairsToPlot,1),ROI_chanpairs(chanPairsToPlot,2), :)))));
             maxplv = max(maxplv1, maxplv2);
-            
-            for i = 1:numel(significant_chanPairs)
 
-                ipair = ROI_chanpairs(significant_chanPairs(i), :);
-                significancePos = plv_signif_allPairs_clustcorr(significant_chanPairs(i),:)>0;
-                significanceNeg = plv_signif_allPairs_clustcorr(significant_chanPairs(i),:)<0;
+            for i = 1:numel(chanPairsToPlot)
 
-                figure(i); plot(PLVCond1.freq, squeeze(PLVCond1.plvspctrm(ipair(1),ipair(2),:)),'b', 'LineWidth', 1)
+                ipair = ROI_chanpairs(chanPairsToPlot(i), :);
+                significancePos = plv_signif_allPairs_clustcorr(chanPairsToPlot(i),:)>0;
+                significanceNeg = plv_signif_allPairs_clustcorr(chanPairsToPlot(i),:)<0;
+
+                figure(i); 
+                h1 = plot(PLVCond1.freq, squeeze(PLVCond1.plvspctrm(ipair(1),ipair(2),:)),'b', 'LineWidth', 1);
                 hold on
-                plot(PLVCond2.freq, squeeze(PLVCond2.plvspctrm(ipair(1),ipair(2),:)),'r', 'LineWidth', 1)
+                h2 = plot(PLVCond2.freq, squeeze(PLVCond2.plvspctrm(ipair(1),ipair(2),:)),'r', 'LineWidth', 1);
                 hold on
                 ylim([0 maxplv*1.05])
                 yLimits = ylim;
@@ -56,8 +100,26 @@ for p = 1:numel(pacienti)
                 xlim([PLVCond2.freq(1) PLVCond2.freq(end)])
                 xlabel('Frequency, Hz')
                 ylabel('PLV')
-%                 legend('delay last 1.5 sec', 'baseline 1.5 sec');
-                legend(dataCond1.condition, dataCond2.condition);
+                
+                if exist('PLV_data2','var') && ~isempty(PLV_data2) % if we want to plot also encoding
+                    significancePos = Encod_plv_signif_allPairs_cc(chanPairsToPlot2(i),:)>0;
+                    significanceNeg = Encod_plv_signif_allPairs_cc(chanPairsToPlot2(i),:)<0;
+                    y = yLimits(2) * 0.05;
+                    hold on
+                    h3 = plot(PLVEncod.freq, squeeze(PLVEncod.plvspctrm(ipair(1),ipair(2),:)),'g', 'LineWidth', 1);
+                    hold on
+                    ySignifPosValues = ones(1, numel(PLVEncod.freq)) * NaN; % Initialize with NaN
+                    ySignifPosValues(significancePos) = y; % Assign y values only at significant indices
+                    plot(PLVEncod.freq, ySignifPosValues, '.-', 'Color', [0, 0.75, 0.75],'LineWidth', 3, 'MarkerSize', 10);
+                    hold on
+                    ySignifNegValues = ones(1, numel(PLVEncod.freq)) * NaN; % Initialize with NaN
+                    ySignifNegValues(significanceNeg) = y; % Assign y values only at significant indices
+                    plot(PLVEncod.freq, ySignifNegValues, '.-g', 'LineWidth', 3, 'MarkerSize', 10);
+                    legend([h1, h2, h3],{[dataCond1.condition ': ' num2str(length(dataCond1.trial)) ' trials'], [dataCond2.condition ': ' num2str(length(dataCond2.trial)) ' trials'],...
+                        [dataEncod.condition ': ' num2str(length(dataEncod.trial)) ' trials']});
+                else
+                    legend([h1, h2], {[dataCond1.condition ': ' num2str(length(dataCond1.trial)) ' trials'], [dataCond2.condition ': ' num2str(length(dataCond2.trial)) ' trials']});
+                end
                 title(['PLV between ' PLVCond1.label{ipair(1), 1} ' ' dataCond1.channelInfo(ipair(1)).ROI ' and ' PLVCond1.label{ipair(2), 1} ' ' dataCond1.channelInfo(ipair(2)).ROI]);
 
                 figi_filename = [fig_filename '_chnpair_' PLVCond1.label{ipair(1), 1} ' ' PLVCond1.label{ipair(2), 1} '_' num2str(i) '.fig'];

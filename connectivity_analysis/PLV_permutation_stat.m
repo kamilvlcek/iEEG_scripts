@@ -1,7 +1,7 @@
 function PLV_permutation_stat(ROI1, ROI2, condition, period, significant, freq, n_permutes, threshold)
 %%% computes PLV between ROI1 and ROI2 in each patient for channels that showed alpha power increase during the delay
 %%% computes permutation statistics by shuffling conditions, either periods - comparing delay vs baseline, or comparing real conditions - same and diff during the delay
-%%% Code adapted from M. X. Cohen, 2014 (https://github.com/mikexcohen/AnalyzingNeuralTimeSeries)
+%%% code for permutation statistics and cluster correction adapted from M. X. Cohen, 2014 (https://github.com/mikexcohen/AnalyzingNeuralTimeSeries)
 
 % first, set up pacienti_memact by selecting which patients to analyze
 %%% these parametrs should be configured each time:
@@ -9,26 +9,27 @@ function PLV_permutation_stat(ROI1, ROI2, condition, period, significant, freq, 
 % ROI2 - e.g. 'IPL'
 % condition - can be 'same' , 'diff' or 'all' (trials of both conditions) or empty for the case of period = 0
 % period - which period to compare with which:
-% 0 - compare 2 conditions during the delay
-% 1 - last 1.5 sec of delay (4.4-5.9) vs 1.5 sec baseline
-% 2 - middle 1.5 sec of delay (2.9-4.4) vs 1.5 sec baseline
-% 3 last 1.5 sec of delay (4.4-5.9) vs 1.5 sec of encoding
-% 4 encoding vs baseline (not in the code yet)
-% significant - only for period =0; if 1, select only significant chan pairs that were obtained by PLV_permutation_stat for all trials
+% 0 - compare 2 conditions during the last 2 s of delay
+% 1 - last 2 sec of delay (3.9-5.9) vs 2 sec baseline
+% 2 - first 2 sec of delay (2.0-4.0) vs 2 sec baseline
+% 3 - last 2 sec of delay (3.9-5.9) vs 2 sec of encoding
+% 4 - encoding (2s) vs baseline (2s) 
+% significant - for any period other than 1; if 1, select only significant chan pairs that were obtained by PLV_permutation_stat for all trials (for period = 1)
 %%% optional:
-% freq - freq range for which compute PLV
+% freq - freq range for which compute PLV, default = 2:40 Hz
 % n_permutes - number of permutations, default = 200
 % threshold - alpha level for p-value, default = 0.05
 
 tic
+if(~exist('significant','var')) || isempty(significant), significant = 0; end % default all ROI1-ROI2 chan pairs
 if(~exist('freq','var')) || isempty(freq), freq = [2:40]; end % default 2-40 Hz for PLV
 if(~exist('n_permutes','var')) || isempty(n_permutes), n_permutes = 200; end
 if(~exist('threshold','var')) || isempty(threshold), threshold = 0.05; end
 
 ft_defaults % set up fieldtrip
 
-data_preproc = 'MemAct_refBipo -1.5-5.9 bdel fieldtrip_2024-02.mat';
-% data_preproc ='MemAct_refBipo -2.0-5.9 bdel fieldtrip_2024-02.mat';
+% data_preproc = 'MemAct_refBipo -1.5-5.9 bdel fieldtrip_2024-02.mat';
+data_preproc ='MemAct_refBipo -2.0-5.9 bdel fieldtrip_2024-02.mat';
 
 setup = setup_memact(1); % setup for the delayed epochs
 basedir = setup.basedir; % folder where the data of all patients stored
@@ -52,7 +53,7 @@ for p = 1:numel(pacienti)
             cfg = [];
             cfg.channel = chan_labels; % select channels in 2 ROIs
             cfg.trials = itrials_same; % for now, we don't reject individual epochs for each channel with spikes
-            cfg.latency = [4.4, 5.9+1/data.fsample];    % last 1.5 sec of delay, if fsample=512, 768 time points
+            cfg.latency = [3.9, 5.9+1/data.fsample];    % last 2 sec of delay
             dataCond1 = ft_selectdata(cfg,data);
             dataCond1.condition = 'same';
             
@@ -60,14 +61,14 @@ for p = 1:numel(pacienti)
             cfg = [];
             cfg.channel = chan_labels; % select channels in 2 ROIs
             cfg.trials = itrials_diff;
-            cfg.latency = [4.4, 5.9+1/data.fsample];    % last 1.5 sec of delay, if fsample=512, 768 time points
+            cfg.latency = [3.9, 5.9+1/data.fsample];    % last 2 sec of delay
             dataCond2 = ft_selectdata(cfg,data);
             dataCond2.condition = 'diff';
-            str2save = '_diff_vs_same_last 1.5s delay_';
+            str2save = '_diff_vs_same_last 2s delay_';
             
         else  % if we want to compare two periods for one condition
             % find channels for this patient and ROIs in the table if there are some
-            [chan_labels, ROI_labels, ROI_chanpairs] = select_chan_ROI_pair([], ROI1, ROI2, patient_id); % select channels for this patient and ROIs
+            [chan_labels, ROI_labels, ROI_chanpairs] = select_chan_ROI_pair([], ROI1, ROI2, patient_id, significant, patient_path); % select channels for this patient and ROIs
             
             if numel(unique(ROI_labels)) < 2
                 continue; % if for this patient no channels in 2 ROIs were found, switch to the next
@@ -82,30 +83,32 @@ for p = 1:numel(pacienti)
             %% select delay and baseline period (or encoding)
             if period == 1
                 delaycfg = [];
-                delaycfg.latency = [4.4, 5.9+1/data.fsample];    % last 1.5 sec of delay, if fsample=512, 768 time points
-%                 delaycfg.latency = [3.9+1/dataROI.fsample, 5.9]; % last 2 sec of delay
+                delaycfg.latency = [3.9, 5.9+1/data.fsample];    % last 2 sec of delay, if fsample=512, 1024 time points
                 bscfg = []; 
-                bscfg.latency = [-1.5, -1/dataROI.fsample]; % baseline [-1.5 0], 768 time points
-%                 bscfg.latency = [-2, -1/dataROI.fsample]; % baseline 2 sec
-                str2save = '_last 1.5s delay_vs_bs_';
+                bscfg.latency = [-2, -1/dataROI.fsample]; % baseline [-2 0], 1024 time points                
+                str2save = '_last 2s delay_vs_bs_';
                 str_period = 'baseline';
             elseif period == 2
                 delaycfg = [];
-                delaycfg.latency = [2.9+1/dataROI.fsample, 4.4];    % middle 1.5 sec of delay, if fsample=512, 768 time points
-%                 delaycfg.latency = [1/dataROI.fsample, 2];   % first 2 sec of delay
+                delaycfg.latency = [2+1/dataROI.fsample, 4];    % first 2 sec of delay, if fsample=512, 1024 time points
                 bscfg = [];
-                bscfg.latency = [-1.5, -1/dataROI.fsample];
-%                 bscfg.latency = [-2, -1/dataROI.fsample]; % baseline 2 sec
-                str2save = '_middle 1.5s delay_vs_bs_';
-%                 str2save = '_first 2s delay_vs_2s_bs_';
+                bscfg.latency = [-2, -1/dataROI.fsample]; % baseline 2 sec
+                str2save = '_first 2s delay_vs_bs_';
                 str_period = 'baseline';
             elseif period == 3
                 delaycfg = [];
-                delaycfg.latency = [4.4, 5.9+1/data.fsample];    % last 1.5 sec of delay
+                delaycfg.latency = [3.9, 5.9+1/data.fsample];    % last 2 sec of delay
                 bscfg = [];
-                bscfg.latency = [1/dataROI.fsample, 1.5]; % encoding 1.5 sec
-                str2save = '_last 1.5s delay_vs_1.5s encoding_';
+                bscfg.latency = [1/dataROI.fsample, 2]; % encoding 2 sec
+                str2save = '_last 2s delay_vs_2s encoding_';
                 str_period = 'encoding';
+            elseif period == 4
+                delaycfg = [];
+                delaycfg.latency = [1/dataROI.fsample, 2];    % encoding 2 sec
+                bscfg = [];
+                bscfg.latency = [-2, -1/dataROI.fsample]; %  baseline 2 sec
+                str2save = '_2s encoding_vs_bs_';
+                str_period = 'baseline';
             end
             
             dataCond1 = ft_selectdata(delaycfg,dataROI); % delay

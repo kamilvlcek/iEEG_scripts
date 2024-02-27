@@ -1,9 +1,9 @@
 function Granger_permut_stat(ROI1, ROI2, condition, fsample, n_permutes, threshold)
-% does Granger analysis between ROI1 and ROI2 for the last 1.5 sec of delay for ch pairs that have significant PLV last 1.5s delay > bs
-% using permut stat (shuffling trials in one channel), compares 2 directions: if chn A -> cnh B is greater than chn B -> chn A
+% does Granger analysis between ROI1 and ROI2 for the last 2 sec of delay for ch pairs that have significant PLV in last 2s delay > bs
+% using permutation stat (shuffling trials in one channel), compares 2 directions: if chn A -> cnh B is greater than chn B -> chn A
 % first, set up pacienti_memact by selecting which patients to analyze
 
-%%% these parametrs should be configured each time:
+%%% these parameters should be configured each time:
 % ROI1 - e.g. 'VTC'
 % ROI2 - e.g. 'IPL'
 % condition - can be 'same' , 'diff' or 'all' (trials of both conditions)
@@ -15,12 +15,12 @@ function Granger_permut_stat(ROI1, ROI2, condition, fsample, n_permutes, thresho
 tic
 if(~exist('condition','var')) || isempty(condition), condition = 'all'; end % default - all trials
 if(~exist('fsample','var')) || isempty(fsample), fsample = 40; end % default resample to 40 Hz
-if(~exist('n_permutes','var')) || isempty(n_permutes), n_permutes = 200; end
+if(~exist('n_permutes','var')) || isempty(n_permutes), n_permutes = 200; end % can be increased for more stable results
 if(~exist('threshold','var')) || isempty(threshold), threshold = 0.05; end
 
 ft_defaults % set up fieldtrip
 
-data_preproc = 'MemAct_refBipo -1.5-5.9 bdel fieldtrip_2024-02.mat';
+data_preproc = 'MemAct_refBipo -2.0-5.9 bdel fieldtrip_2024-02.mat';
 
 setup = setup_memact(1); % setup for the delayed epochs
 basedir = setup.basedir; % folder where the data of all patients stored
@@ -47,7 +47,9 @@ for p = 1:numel(pacienti)
         cfg = [];
         cfg.channel = chan_labels;
         cfg.trials = itrials_good;
-        cfg.latency = [4.4, 5.9+1/data.fsample];    % last 1.5 sec of delay, if fsample=512, 768 time points
+        cfg.latency = [3.9, 5.9+1/data.fsample];    % last 2 sec of delay
+%         cfg.latency = [2+1/data.fsample, 4];    % first 2 sec of delay
+%         cfg.latency = [1/data.fsample, 2];    %  2 sec encoding
         dataDelay = ft_selectdata(cfg,data);
         
         % save ROI labels to the data
@@ -181,7 +183,7 @@ for p = 1:numel(pacienti)
         % Save results
         strVariableFolder = [ basedir pacienti(p).folder '\' subfolder '\Granger_permut_stat\'];
         mkdir(strVariableFolder)
-        save([strVariableFolder,'Granger_' ROI1 '-' ROI2 ' last 1.5s delay ' condition '_trials_', datestr(now,'YYYY-mm'), '.mat'],...
+        save([strVariableFolder,'Granger_' ROI1 '-' ROI2 ' last 2s delay ' condition '_trials_', datestr(now,'YYYY-mm'), '.mat'],...
             'ROI_chanpairs','Granger_signif_allPairs', 'Granger_signif_allPairs_clustcorr','p_values_allPairs', 'grangerDelay', 'freqDelay','dataDelay', 'dataDelayResampled', 'n_permutes', 'threshold', '-v7.3')
         
     end
