@@ -1,9 +1,11 @@
 %% script creates a nod and edge file for BrainNet Viewer for one patient
-% with ch pairs showing stat difference between last 1.5 s of delay and bs
+% with ch pairs showing stat difference between last 2 s of delay and bs
 % in edge file, it saves the average significant diff between PLV delay and PLV bs
 
 % load file with PLV data
-patient_filename = 'E:\work\eeg\motol\pacienti\p2092846 Gru VT68\memact\PLV_permut_stat\PLV_VTC-IPL_last 1.5s delay_vs_bs_all_trials_2024-02.mat';
+% patient_filename = 'E:\work\eeg\motol\pacienti\p2092846 Gru VT68\memact\PLV_permut_stat\PLV_VTC-IPL_last 1.5s delay_vs_bs_all_trials_2024-02.mat';
+patient_filename = 'E:\work\eeg\motol\pacienti\p2092846 Gru VT68\memact\PLV_permut_stat\PLV_VTC-IPL_last 2s delay_vs_bs_all_trials_2024-02.mat';
+
 load(patient_filename)
 
 %% first create edge file with plv difference
@@ -11,9 +13,26 @@ load(patient_filename)
 % significant_chanPairs = sum(plv_signif_allPairs_clustcorr,2) > 0;
 % ROI_chanpairs_signif = ROI_chanpairs(significant_chanPairs, :);
 
-% Find rows (ch pairs) with at least 2 positive values (2 freq bins)
-positive_values_count = sum(plv_signif_allPairs_clustcorr > 0, 2);
-significant_chanPairs = find(positive_values_count >= 2);
+% % Find rows (ch pairs) with at least 2 positive values (2 freq bins)
+% positive_values_count = sum(plv_signif_allPairs_clustcorr > 0, 2);
+% significant_chanPairs = find(positive_values_count >= 2);
+
+% Find rows (ch pairs) with at least 2 consecutive positive values
+rows_with_consecutive_positives = [];
+
+for i = 1:size(plv_signif_allPairs_clustcorr, 1)
+    row = plv_signif_allPairs_clustcorr(i, :);
+    % Use a sliding window to check for consecutive positive values
+    for j = 1:(length(row)-1)
+        if row(j) > 0 && row(j+1) > 0
+            rows_with_consecutive_positives = [rows_with_consecutive_positives, i];
+            break; % Break once you find the first occurrence
+        end
+    end
+end
+
+significant_chanPairs = rows_with_consecutive_positives';
+
 ROI_chanpairs_signif = ROI_chanpairs(significant_chanPairs, :);
 
 % significant PLV diff
@@ -40,7 +59,7 @@ end
 % export it to ASCII text file
 % Set the file name and path
 [patient_filepath, name] = fileparts(patient_filename);
-filename = [name '.edge'];
+filename = ['BrainNet_figures\' name '.edge'];
 full_path = fullfile(patient_filepath, filename);
 % Write the matrix to the ASCII text file
 dlmwrite(full_path, plv_diff_matrix, 'delimiter', '\t');
@@ -73,7 +92,7 @@ end
 nod_table.node_size = ones(size(nod_table,1),1);
 
 % export the table to a text file
-filename2 = [name '.node'];
+filename2 = ['BrainNet_figures\' name '.node'];
 full_path2 = fullfile(patient_filepath, filename2);
 writetable(nod_table, full_path2, 'Delimiter', ' ', 'QuoteStrings', false, 'FileType', 'text', 'WriteVariableNames',0);
 
