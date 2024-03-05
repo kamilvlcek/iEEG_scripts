@@ -2,7 +2,8 @@
 % and save a summary table with their numbers and indices
  
 %% set up a path for data
-PLV_data =  'PLV_VTC-IPL_last 2s delay_vs_bs_all_trials_2024-02.mat';
+% PLV_data =  'PLV_VTC-IPL_last 2s delay_vs_bs_all_trials_2024-02.mat';
+PLV_data =  'PLV_VTC-IPL_first 2s delay_vs_bs_all_trials_2024-03.mat';
 PLV_folder = 'PLV_permut_stat';
 setup = setup_memact(1); % setup for the delayed epochs
 basedir = setup.basedir; % folder where the data of all patients stored
@@ -66,7 +67,8 @@ end
 %% save
 [~, name] = fileparts(PLV_data);
 filename = [name '_summary.mat'];
-filepath = 'E:\work\PhD\MemoryActions\results\iEEG\connectivity\group data';
+% filepath = 'E:\work\PhD\MemoryActions\results\iEEG\connectivity\group data';
+filepath = 'F:\Sofia\MemoryActions\results\iEEG\connectivity\group data';
 full_path = fullfile(filepath, filename);
 save(full_path, 'tablePLV_allSubj')
 

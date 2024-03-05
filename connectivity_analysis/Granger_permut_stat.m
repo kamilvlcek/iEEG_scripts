@@ -1,4 +1,4 @@
-function Granger_permut_stat(ROI1, ROI2, condition, fsample, n_permutes, threshold)
+function Granger_permut_stat(ROI1, ROI2, condition, significant, fsample, n_permutes, threshold)
 % does Granger analysis between ROI1 and ROI2 for the last 2 sec of delay for ch pairs that have significant PLV in last 2s delay > bs
 % using permutation stat (shuffling trials in one channel), compares 2 directions: if chn A -> cnh B is greater than chn B -> chn A
 % first, set up pacienti_memact by selecting which patients to analyze
@@ -7,6 +7,8 @@ function Granger_permut_stat(ROI1, ROI2, condition, fsample, n_permutes, thresho
 % ROI1 - e.g. 'VTC'
 % ROI2 - e.g. 'IPL'
 % condition - can be 'same' , 'diff' or 'all' (trials of both conditions)
+% significant - if 1, select only significant chan pairs with PLV delay > bs; otherwise - uses all chan pairs between 2 ROIs
+
 %%% optional:
 % fsample - new sample frequency (for Granger we need to downsample), default 40 Hz (then freq range would be [0 20])
 % n_permutes - number of permutations, default = 200
@@ -14,6 +16,7 @@ function Granger_permut_stat(ROI1, ROI2, condition, fsample, n_permutes, thresho
 
 tic
 if(~exist('condition','var')) || isempty(condition), condition = 'all'; end % default - all trials
+if(~exist('significant','var')) || isempty(significant), significant = 0; end % default all ROI1-ROI2 chan pairs
 if(~exist('fsample','var')) || isempty(fsample), fsample = 40; end % default resample to 40 Hz
 if(~exist('n_permutes','var')) || isempty(n_permutes), n_permutes = 200; end % can be increased for more stable results
 if(~exist('threshold','var')) || isempty(threshold), threshold = 0.05; end
@@ -37,7 +40,7 @@ for p = 1:numel(pacienti)
         patient_id = patient_id{1};
         
         % select channels, trials and period for the analysis
-        [chan_labels, ROI_labels, ROI_chanpairs] = select_chan_ROI_pair([], ROI1, ROI2, patient_id, 1, patient_path); % select only significant chan pairs with PLV delay > bs
+        [chan_labels, ROI_labels, ROI_chanpairs] = select_chan_ROI_pair([], ROI1, ROI2, patient_id, significant, patient_path); % select channels for this patient and ROIs
         
         if isempty(ROI_chanpairs) % if no significant ch pairs were found, skip this patient
             continue
@@ -69,7 +72,7 @@ for p = 1:numel(pacienti)
         freqcfg.taper       = 'dpss';
         freqcfg.output      = 'fourier';
         freqcfg.tapsmofrq   = 2; % the amount of spectral smoothing through multi-tapering, Note that 4 Hz smoothing means plus-minus 4 Hz, i.e. a 8 Hz smoothing box.
-        freqcfg.pad         = 10;
+        freqcfg.pad         = 20; % the same as in Dimakopoulos et al, 2022 elife
         freqcfg.keeptrials = 'yes';
         freqDelay       = ft_freqanalysis(freqcfg, dataDelayResampled);
         

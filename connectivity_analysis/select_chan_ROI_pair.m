@@ -7,7 +7,8 @@ function [chan_labels, ROI_labels, ROI_chanpairs] = select_chan_ROI_pair(table, 
 % patient_path - path for the data with significant PLV
 
 if(~exist('table','var')) || isempty(table)
-    table = 'E:\work\PhD\MemoryActions\results\iEEG\delayed condition\January2024_9pat\Response2XLS_CM_Memact_CHilbert_8-13Hz_AnyResp_OTP_-0.5-5.9_refBipo_Ep2024-01_encod+del_CHMult_2024-01-25_13-01-46.xls';
+%     table = 'E:\work\PhD\MemoryActions\results\iEEG\delayed condition\January2024_9pat\Response2XLS_CM_Memact_CHilbert_8-13Hz_AnyResp_OTP_-0.5-5.9_refBipo_Ep2024-01_encod+del_CHMult_2024-01-25_13-01-46.xls';
+    table = 'F:\Sofia\MemoryActions\results\iEEG\delayed condition\January2024_9pat\Response2XLS_CM_Memact_CHilbert_8-13Hz_AnyResp_OTP_-0.5-5.9_refBipo_Ep2024-01_encod+del_CHMult_2024-01-25_13-01-46.xls';
 end
 if(~exist('significant','var')) || isempty(significant)
     significant = 0; % default all ROI1-ROI2 chan pairs

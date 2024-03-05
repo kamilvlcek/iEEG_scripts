@@ -2,7 +2,8 @@
 % and save a summary table with their numbers and indices
 
 %% set up a path for data
-granger_data = 'Granger_VTC-IPL last 2s delay all_trials_2024-02.mat';
+% granger_data = 'Granger_VTC-IPL last 2s delay all_trials_2024-02.mat';
+granger_data = 'Granger_VTC-IPL last 2s delay all_trials_2024-03.mat';
 granger_folder = 'Granger_permut_stat';
 
 setup = setup_memact(1); % setup for the delayed epochs
@@ -42,8 +43,8 @@ end
 %% save
 [~, name] = fileparts(granger_data);
 filename = [name '_summary.mat'];
-filepath = 'E:\work\PhD\MemoryActions\results\iEEG\connectivity\group data';
-% filepath = 'E:\Sofia\MemoryActions\results\iEEG';
+% filepath = 'E:\work\PhD\MemoryActions\results\iEEG\connectivity\group data';
+filepath = 'F:\Sofia\MemoryActions\results\iEEG\connectivity\group data';
 full_path = fullfile(filepath, filename);
 save(full_path, 'tableGranger_allSubj')
 

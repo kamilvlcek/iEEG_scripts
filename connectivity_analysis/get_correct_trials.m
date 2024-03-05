@@ -1,6 +1,6 @@
 function itrials_good = get_correct_trials(condition, TrialInformationTable)
-  % first select all non-rejected, only correct, and without training trials
-    trials2keep = find(TrialInformationTable.Correct == 1 & TrialInformationTable.Training == 0 & TrialInformationTable.Trials2Reject == 0);
+  % first select all non-rejected, only correct, and without training trials (also incorrect responses for the question in delayed condition are excluded)
+    trials2keep = find(TrialInformationTable.Correct == 1 & TrialInformationTable.Training == 0 & TrialInformationTable.Trials2Reject == 0 & TrialInformationTable.AnswerButtonCorrect ~= 0);
 
     if strcmp(condition, 'same')
         icond = 2; % index of the same condition in the data
