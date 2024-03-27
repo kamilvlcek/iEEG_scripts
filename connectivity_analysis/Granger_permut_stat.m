@@ -186,7 +186,7 @@ for p = 1:numel(pacienti)
         % Save results
         strVariableFolder = [ basedir pacienti(p).folder '\' subfolder '\Granger_permut_stat\'];
         mkdir(strVariableFolder)
-        save([strVariableFolder,'Granger_' ROI1 '-' ROI2 ' last 2s delay ' condition '_trials_', datestr(now,'YYYY-mm'), '.mat'],...
+        save([strVariableFolder,'Granger_' ROI1 '-' ROI2 ' last 2s delay ' condition '_trials_' num2str(n_permutes) 'permut_', datestr(now,'YYYY-mm'), '.mat'],...
             'ROI_chanpairs','Granger_signif_allPairs', 'Granger_signif_allPairs_clustcorr','p_values_allPairs', 'grangerDelay', 'freqDelay','dataDelay', 'dataDelayResampled', 'n_permutes', 'threshold', '-v7.3')
         
     end

@@ -42,12 +42,17 @@ for p = 1:numel(pacienti)
         patient_path = [basedir pacienti(p).folder '\' subfolder];
         load([patient_path '\' data_preproc]);
         
-        patient_id = regexp(pacienti(p).folder,' ','split');
-        patient_id = patient_id{1};
+%         patient_id = regexp(pacienti(p).folder,' ','split');
+%         patient_id = patient_id{1};
+        patient_id = pacienti(p).folder; % in the table with all implanted channels, a full name of patient (as the name of the folder) is used
         
         % select channels, trials and period for the analysis
         if period == 0 % if we want to compare two conditions for one period (delay)
             [chan_labels, ROI_labels, ROI_chanpairs] = select_chan_ROI_pair([], ROI1, ROI2, patient_id, significant, patient_path); % select only significant chan pairs (that were significant for all trials)
+            
+            if isempty(ROI_chanpairs)
+                continue; % if for this patient no significant ch pairs in 2 ROIs were found, switch to the next
+            end
             
             itrials_same = get_correct_trials('same', TrialInformationTable); % good trials for same condition
             cfg = [];
@@ -70,8 +75,8 @@ for p = 1:numel(pacienti)
             % find channels for this patient and ROIs in the table if there are some
             [chan_labels, ROI_labels, ROI_chanpairs] = select_chan_ROI_pair([], ROI1, ROI2, patient_id, significant, patient_path); % select channels for this patient and ROIs
             
-            if numel(unique(ROI_labels)) < 2
-                continue; % if for this patient no channels in 2 ROIs were found, switch to the next
+            if isempty(ROI_chanpairs)
+                continue; % if for this patient no ch pairs in 2 ROIs were found, switch to the next
             end
             
             itrials_good = get_correct_trials(condition, TrialInformationTable); % good trials for this condition or for both conditions
@@ -257,7 +262,7 @@ for p = 1:numel(pacienti)
         mkdir(strVariableFolder)
         %         save([strVariableFolder,'PLV_' ROI1 '-' ROI2 str2save condition '_trials_', datestr(now,'YYYY-mm'), '.mat'],...
         %             'ROI_chanpairs','plv_signif_allPairs', 'plv_signif_allPairs_clustcorr','p_values_allPairs', 'PLVDelay', 'PLVBaseline','dataDelay', 'dataBaseline', 'n_permutes', 'threshold', '-v7.3')
-        save([strVariableFolder,'PLV_' ROI1 '-' ROI2 str2save condition '_trials_', datestr(now,'YYYY-mm'), '.mat'],...
+        save([strVariableFolder,'PLV_' ROI1 '-' ROI2 str2save condition '_trials_' num2str(n_permutes) 'permut_', datestr(now,'YYYY-mm'), '.mat'],...
             'ROI_chanpairs','plv_signif_allPairs', 'plv_signif_allPairs_clustcorr','p_values_allPairs', 'PLVCond1', 'PLVCond2','dataCond1', 'dataCond2', 'n_permutes', 'threshold', '-v7.3')
         
         

@@ -5,9 +5,13 @@
 
 %9.02.2024
 % table with all channels from all patients showing an alpha increase during the delay
-alphaIncrease = 'E:\work\PhD\MemoryActions\results\iEEG\delayed condition\January2024_9pat\Response2XLS_CM_Memact_CHilbert_8-13Hz_AnyResp_OTP_-0.5-5.9_refBipo_Ep2024-01_encod+del_CHMult_2024-01-25_13-01-46.xls';
-alphaIncreaseChan = readtable(alphaIncrease, 'ReadRowNames',true);
-PAC = table2struct(alphaIncreaseChan); % I want to change ROIs in this table, they will be in a field newROI
+% table = 'E:\work\PhD\MemoryActions\results\iEEG\delayed condition\January2024_9pat\Response2XLS_CM_Memact_CHilbert_8-13Hz_AnyResp_OTP_-0.5-5.9_refBipo_Ep2024-01_encod+del_CHMult_2024-01-25_13-01-46.xls';
+
+% table with all channels from 9 patients
+table = 'F:\Sofia\MemoryActions\raw data\electrodes localization\StructFind PAC_memact_all_chan_9pat.xlsx';
+% tableChan = readtable(table, 'ReadRowNames',true);
+tableChan = readtable(table);
+PAC = table2struct(tableChan); % I want to change ROIs in this table, they will be in a field newROI
 %%
 
 for i = 1:length(PAC)
@@ -43,20 +47,25 @@ for i = 1:length(PAC)
 %     end
     
     % new ROIs(brainlabels) based on neurologyLabel only (anatomical, not functional) % 12.02.2024
-    if contains(PAC(i).neurologyLabel, 'Ang', 'IgnoreCase',true) || contains(PAC(i).neurologyLabel, 'SMG', 'IgnoreCase',true) 
+    if (contains(PAC(i).neurologyLabel, 'Ang', 'IgnoreCase',true) || contains(PAC(i).neurologyLabel, 'SMG', 'IgnoreCase',true))...
+            && (~contains(PAC(i).neurologyLabel, 'MOG', 'IgnoreCase',true) && ~contains(PAC(i).neurologyLabel, 'POP', 'IgnoreCase',true) && ~contains(PAC(i).neurologyLabel, 'INS', 'IgnoreCase',true)...
+            && ~contains(PAC(i).neurologyLabel, 'STG', 'IgnoreCase',true) && ~contains(PAC(i).neurologyLabel, 'MTG', 'IgnoreCase',true) ...
+            && ~contains(PAC(i).neurologyLabel, 'SPL', 'IgnoreCase',true) && ~contains(PAC(i).neurologyLabel, 'Het', 'IgnoreCase',true) && ~contains(PAC(i).neurologyLabel, 'bone', 'IgnoreCase',true))
         PAC(i).brainlabel = 'IPL';
-%     if contains(PAC(i).neurologyLabel, 'Ang', 'IgnoreCase',true) 
-%         PAC(i).brainlabel = 'AnG';
-%     elseif contains(PAC(i).neurologyLabel, 'SMG', 'IgnoreCase',true) 
-%         PAC(i).brainlabel = 'SMG';
-    elseif contains(PAC(i).neurologyLabel, 'PCun', 'IgnoreCase',true) || contains(PAC(i).neurologyLabel,'precun', 'IgnoreCase',true)
+    elseif (contains(PAC(i).neurologyLabel, 'PCun', 'IgnoreCase',true) || contains(PAC(i).neurologyLabel,'precun', 'IgnoreCase',true)) && ~contains(PAC(i).neurologyLabel, 'Het', 'IgnoreCase',true)
         PAC(i).brainlabel = 'precun';
-    elseif contains(PAC(i).neurologyLabel, 'SPL', 'IgnoreCase',true)
+    elseif contains(PAC(i).neurologyLabel, 'SPL', 'IgnoreCase',true) && ~contains(PAC(i).neurologyLabel, 'Het', 'IgnoreCase',true)
         PAC(i).brainlabel = 'SPL';
-    elseif (contains(PAC(i).neurologyLabel, 'Hi', 'IgnoreCase',true) || contains(PAC(i).neurologyLabel, 'PHG', 'IgnoreCase',true) || contains(PAC(i).neurologyLabel, 'Ent', 'IgnoreCase',true))
-        PAC(i).brainlabel = 'MTL';
+%     elseif (contains(PAC(i).neurologyLabel, 'Hi', 'IgnoreCase',true) || contains(PAC(i).neurologyLabel, 'PHG', 'IgnoreCase',true) || contains(PAC(i).neurologyLabel, 'Ent', 'IgnoreCase',true))
+%         PAC(i).brainlabel = 'MTL';
+    elseif contains(PAC(i).neurologyLabel, 'Hi', 'IgnoreCase',true) && ~contains(PAC(i).neurologyLabel, 'Het', 'IgnoreCase',true)
+        PAC(i).brainlabel = 'Hip';
     elseif (contains(PAC(i).neurologyLabel, 'ITG', 'IgnoreCase',true) || contains(PAC(i).neurologyLabel, 'FuG', 'IgnoreCase',true)...
-            || contains(PAC(i).neurologyLabel, 'LgG', 'IgnoreCase',true) || contains(PAC(i).neurologyLabel, 'MOG', 'IgnoreCase',true))
+            || contains(PAC(i).neurologyLabel, 'LgG', 'IgnoreCase',true) || contains(PAC(i).neurologyLabel, 'MOG', 'IgnoreCase',true) || contains(PAC(i).neurologyLabel, 'PHG', 'IgnoreCase',true))...
+            && (MNI_y < 0 && MNI_y > -82) && (MNI_z < 15)...
+            && (~contains(PAC(i).neurologyLabel, 'Amg', 'IgnoreCase',true) && ~contains(PAC(i).neurologyLabel, 'Ent', 'IgnoreCase',true) && ~contains(PAC(i).neurologyLabel, 'Het', 'IgnoreCase',true)...
+            && ~contains(PAC(i).neurologyLabel, 'V1', 'IgnoreCase',true) && ~contains(PAC(i).neurologyLabel, 'AnG', 'IgnoreCase',true) && ~contains(PAC(i).neurologyLabel, 'bone', 'IgnoreCase',true))
+        
         PAC(i).brainlabel = 'VTC';
     end
 
@@ -67,6 +76,6 @@ PAC_table = struct2table(PAC);
 % 
 % % Write the table to an Excel file
 % writetable(PAC_table, 'd:\eeg\motol\iEEG_scripts\logs\StructFind PAC_memact_ROI_7pat.xlsx', 'Sheet', 1, 'Range', 'A1');
-writetable(PAC_table, 'E:\work\PhD\MemoryActions\results\iEEG\delayed condition\January2024_9pat\Response2XLS_CM_Memact_CHilbert_8-13Hz_AnyResp_OTP_-0.5-5.9_refBipo_Ep2024-01_encod+del.xlsx', 'Sheet', 1, 'Range', 'A1');
+writetable(PAC_table, 'F:\Sofia\MemoryActions\results\iEEG\connectivity\StructFind PAC_memact_all_chan_9pat_ROI2.xlsx', 'Sheet', 1, 'Range', 'A1');
 
 

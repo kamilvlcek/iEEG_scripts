@@ -8,21 +8,29 @@ function [chan_labels, ROI_labels, ROI_chanpairs] = select_chan_ROI_pair(table, 
 
 if(~exist('table','var')) || isempty(table)
 %     table = 'E:\work\PhD\MemoryActions\results\iEEG\delayed condition\January2024_9pat\Response2XLS_CM_Memact_CHilbert_8-13Hz_AnyResp_OTP_-0.5-5.9_refBipo_Ep2024-01_encod+del_CHMult_2024-01-25_13-01-46.xls';
-    table = 'F:\Sofia\MemoryActions\results\iEEG\delayed condition\January2024_9pat\Response2XLS_CM_Memact_CHilbert_8-13Hz_AnyResp_OTP_-0.5-5.9_refBipo_Ep2024-01_encod+del_CHMult_2024-01-25_13-01-46.xls';
+%     table = 'F:\Sofia\MemoryActions\results\iEEG\delayed condition\January2024_9pat\Response2XLS_CM_Memact_CHilbert_8-13Hz_AnyResp_OTP_-0.5-5.9_refBipo_Ep2024-01_encod+del_CHMult_2024-01-25_13-01-46.xls';
+    table = 'F:\Sofia\MemoryActions\results\iEEG\connectivity\StructFind PAC_memact_all_chan_9pat_ROI_v2.xlsx';
 end
 if(~exist('significant','var')) || isempty(significant)
     significant = 0; % default all ROI1-ROI2 chan pairs
 end
 
 if significant == 0
-    alphaIncreaseChan = readtable(table, 'ReadRowNames',true); % table with all channels from all patients showing alpha increase during the delay
-    
-    % find channels for this patient and ROIs in the table
-    ichanROI = find(strcmp(alphaIncreaseChan.pacient, patient_id) & ...
-        alphaIncreaseChan.any_vs_bs == 1 &...
-        (strcmp(alphaIncreaseChan.newROI, ROI1) | strcmp(alphaIncreaseChan.newROI, ROI2))); % chan indexes with alpha increase to any condition
-    chan_labels = strrep(alphaIncreaseChan.name(ichanROI), [patient_id ' '], ''); % find labels of these chan
-    ROI_labels = alphaIncreaseChan.newROI(ichanROI); % store also their ROI labels
+%     alphaIncreaseChan = readtable(table, 'ReadRowNames',true); % table with all channels from all patients showing alpha increase during the delay
+%     
+%     % find channels for this patient and ROIs in the table
+%     ichanROI = find(strcmp(alphaIncreaseChan.pacient, patient_id) & ...
+%         alphaIncreaseChan.any_vs_bs == 1 &...
+%         (strcmp(alphaIncreaseChan.newROI, ROI1) | strcmp(alphaIncreaseChan.newROI, ROI2))); % chan indexes with alpha increase to any condition
+%     chan_labels = strrep(alphaIncreaseChan.name(ichanROI), [patient_id ' '], ''); % find labels of these chan
+%     ROI_labels = alphaIncreaseChan.newROI(ichanROI); % store also their ROI labels
+
+    % find channels for this patient and ROIs in the table of all implanted channels
+    PAC = readtable(table);
+    ichanROI = find(strcmp(PAC.pacient, patient_id) & ...
+        (strcmp(PAC.brainlabel, ROI1) | strcmp(PAC.brainlabel, ROI2))); % chan indexes of 2 ROIs
+    chan_labels = PAC.name(ichanROI); % find labels of these chan
+    ROI_labels = PAC.brainlabel(ichanROI); % store also their ROI labels
     
     % Channel pairs to run for connectivity
     ROI1_chan_idx = find(contains(ROI_labels, ROI1)); % channel indexes for ROI1
@@ -43,7 +51,7 @@ else
     % Specify the directory where the data are stored
     PLV_path = [patient_path '\PLV_permut_stat\'];
     partialName = ['PLV_' ROI1 '-' ROI2 '_last 2s'];
-    PLV_data_file = dir(fullfile(PLV_path, [partialName '*' 'bs_all_trials_2024-02.mat'])); % find the file
+    PLV_data_file = dir(fullfile(PLV_path, [partialName '*' 'bs_all_trials_200permut_2024-03.mat'])); % find the file
     
     if exist([PLV_path PLV_data_file.name],'file') == 2
         load([PLV_path PLV_data_file.name]);
