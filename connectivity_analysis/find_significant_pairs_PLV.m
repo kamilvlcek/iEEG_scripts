@@ -1,10 +1,14 @@
 % find all significant ch pairs with PLV across all patients
-% and save a summary table with their numbers and indices
- 
+% and save a summary table with their numbers and indices in .mat file
+
 %% set up a path for data
-% PLV_data =  'PLV_VTC-IPL_last 2s delay_vs_bs_all_trials_2024-02.mat';
-PLV_data =  'PLV_VTC-IPL_first 2s delay_vs_bs_all_trials_2024-03.mat';
+% PLV_data =  'PLV_VTC-IPL_diff_vs_same_last 2s delay__trials_200permut_2024-04.mat';
+% PLV_data =  'PLV_VTC-IPL_last 2s delay_vs_bs_all_trials_200permut_2024-03.mat';
+% PLV_data =  'PLV_VTC-IPL_first 2s delay_vs_bs_all_trials_200permut_2024-03.mat';
+PLV_data =  'PLV_VTC-IPL_0.5s recall_vs_bs_all_trials_200permut_2024-04.mat';
 PLV_folder = 'PLV_permut_stat';
+direction = 1;  % 1 - significant ch pairs where cond 1 > cond 2; 2 - significant ch pairs where cond 2 > cond 1
+
 setup = setup_memact(1); % setup for the delayed epochs
 basedir = setup.basedir; % folder where the data of all patients stored
 subfolder = setup.subfolder;
@@ -21,27 +25,35 @@ for p = 1:numel(pacienti)
             % load the PLV data with statistics
             load([basedir pacienti(p).folder '\' subfolder '\' PLV_folder '\' PLV_data]);
             
-            %             % Find rows (ch pairs) with at least 2 positive values (2 freq bins)
-            %             positive_values_count = sum(plv_signif_allPairs_clustcorr > 0, 2);
-            %             significant_chanPairs = find(positive_values_count >= 2);
-            
-            % Find rows with at least 2 consecutive positive values
-            rows_with_consecutive_positives = [];
-            
-            for i = 1:size(plv_signif_allPairs_clustcorr, 1)
-                row = plv_signif_allPairs_clustcorr(i, :);                
-                % Use a sliding window to check for consecutive positive values
-                for j = 1:(length(row)-1)
-                    if row(j) > 0 && row(j+1) > 0
-                        rows_with_consecutive_positives = [rows_with_consecutive_positives, i];
-                        break; % Break once you find the first occurrence
-                    end
-                end
+            if direction == 1 % cond 1 > cond 2
+                % find all rows with at least one positive value
+                positives = plv_signif_allPairs_clustcorr > 0;
+                % Sum across columns to find rows with at least one positive
+                rowsWithPositives = sum(positives, 2) > 0;
+                % rows with negative values
+                negatives = plv_signif_allPairs_clustcorr < 0;
+                % Sum across columns to ensure no negatives in the row
+                rowsWithoutNegatives = sum(negatives, 2) == 0;
+                % Combine conditions: rows with at least one positive and no negatives
+                desiredRows = rowsWithPositives & rowsWithoutNegatives;
+                
+            elseif direction == 2 % cond 2 > cond 1
+                % find all rows with at least one negative value
+                negatives = plv_signif_allPairs_clustcorr < 0;
+                % Sum across columns to find rows with at least one negative
+                rowsWithNegatives = sum(negatives, 2) > 0;
+                % rows with positive values
+                positives = plv_signif_allPairs_clustcorr > 0;
+                % Sum across columns to ensure no positives in the row
+                rowsWithoutPositives = sum(positives, 2) == 0;
+                % Combine conditions: rows with at least one positive and no negatives
+                desiredRows = rowsWithNegatives & rowsWithoutPositives;
             end
             
-            significant_chanPairs = rows_with_consecutive_positives';
-            idxChan = ROI_chanpairs(significant_chanPairs, :); % channel indices in each pair
+            % Find indices of these rows
+            significant_chanPairs = find(desiredRows);
             
+            idxChan = ROI_chanpairs(significant_chanPairs, :); % channel indices in each pair            
             chn_labels = [{PLVCond1.label{idxChan(:,1)}}' {PLVCond1.label{idxChan(:,2)}}'];  % original labels of chan in pairs
             tablePLV_allSubj(ip).patient = pacienti(p).folder;
             
@@ -51,9 +63,9 @@ for p = 1:numel(pacienti)
             nROI1 = sum(strcmp({dataCond1.channelInfo.ROI},unique_ROI{1}));
             ROI2_fieldname = [unique_ROI{2} '_n_channels'];
             nROI2 = sum(strcmp({dataCond1.channelInfo.ROI},unique_ROI{2}));
-            tablePLV_allSubj(ip).(ROI1_fieldname) = nROI1; 
-            tablePLV_allSubj(ip).(ROI2_fieldname) = nROI2;   
-                        
+            tablePLV_allSubj(ip).(ROI1_fieldname) = nROI1;
+            tablePLV_allSubj(ip).(ROI2_fieldname) = nROI2;
+            
             tablePLV_allSubj(ip).total_n_chnPairs = size(plv_signif_allPairs_clustcorr,1);
             tablePLV_allSubj(ip).n_signif_chnPairs = numel(significant_chanPairs);
             tablePLV_allSubj(ip).idxChan_in_Pairs = idxChan;
@@ -66,7 +78,7 @@ end
 
 %% save
 [~, name] = fileparts(PLV_data);
-filename = [name '_summary.mat'];
+filename = [name '_summaryNewSignif.mat'];
 % filepath = 'E:\work\PhD\MemoryActions\results\iEEG\connectivity\group data';
 filepath = 'F:\Sofia\MemoryActions\results\iEEG\connectivity\group data';
 full_path = fullfile(filepath, filename);

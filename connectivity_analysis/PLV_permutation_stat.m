@@ -14,6 +14,7 @@ function PLV_permutation_stat(ROI1, ROI2, condition, period, significant, freq, 
 % 2 - first 2 sec of delay (2.0-4.0) vs 2 sec baseline
 % 3 - last 2 sec of delay (3.9-5.9) vs 2 sec of encoding
 % 4 - encoding (2s) vs baseline (2s) 
+% 5 - recall/action phase (0.5s) vs baseline (0.5s) 
 % significant - for any period other than 1; if 1, select only significant chan pairs that were obtained by PLV_permutation_stat for all trials (for period = 1)
 %%% optional:
 % freq - freq range for which compute PLV, default = 2:40 Hz
@@ -29,7 +30,8 @@ if(~exist('threshold','var')) || isempty(threshold), threshold = 0.05; end
 ft_defaults % set up fieldtrip
 
 % data_preproc = 'MemAct_refBipo -1.5-5.9 bdel fieldtrip_2024-02.mat';
-data_preproc ='MemAct_refBipo -2.0-5.9 bdel fieldtrip_2024-02.mat';
+% data_preproc ='MemAct_refBipo -2.0-5.9 bdel fieldtrip_2024-02.mat';
+data_preproc = 'MemAct_refBipo -2.0-7.9 adel fieldtrip_2024-04.mat';
 
 setup = setup_memact(1); % setup for the delayed epochs
 basedir = setup.basedir; % folder where the data of all patients stored
@@ -92,34 +94,46 @@ for p = 1:numel(pacienti)
                 bscfg = []; 
                 bscfg.latency = [-2, -1/dataROI.fsample]; % baseline [-2 0], 1024 time points                
                 str2save = '_last 2s delay_vs_bs_';
-                str_period = 'baseline';
+                str_period1 = 'last 2s delay';
+                str_period2 = 'baseline';
             elseif period == 2
                 delaycfg = [];
                 delaycfg.latency = [2+1/dataROI.fsample, 4];    % first 2 sec of delay, if fsample=512, 1024 time points
                 bscfg = [];
                 bscfg.latency = [-2, -1/dataROI.fsample]; % baseline 2 sec
                 str2save = '_first 2s delay_vs_bs_';
-                str_period = 'baseline';
+                str_period1 = 'first 2s delay';
+                str_period2 = 'baseline';
             elseif period == 3
                 delaycfg = [];
                 delaycfg.latency = [3.9, 5.9+1/data.fsample];    % last 2 sec of delay
                 bscfg = [];
                 bscfg.latency = [1/dataROI.fsample, 2]; % encoding 2 sec
                 str2save = '_last 2s delay_vs_2s encoding_';
-                str_period = 'encoding';
+                str_period1 = 'last 2s delay';
+                str_period2 = '2s encoding';
             elseif period == 4
                 delaycfg = [];
                 delaycfg.latency = [1/dataROI.fsample, 2];    % encoding 2 sec
                 bscfg = [];
                 bscfg.latency = [-2, -1/dataROI.fsample]; %  baseline 2 sec
                 str2save = '_2s encoding_vs_bs_';
-                str_period = 'baseline';
+                str_period1 = '2s encoding';
+                str_period2 = 'baseline';
+            elseif period == 5
+                delaycfg = [];
+                delaycfg.latency = [5.9, 6.4-1/data.fsample];    % recall 0.5 sec, 256 samples
+                bscfg = [];
+                bscfg.latency = [-0.5, -1/dataROI.fsample]; %  baseline 0.5 sec, 256 samples
+                str2save = '_0.5s recall_vs_bs_';
+                str_period1 = '0.5s recall';
+                str_period2 = '0.5s baseline';
             end
             
             dataCond1 = ft_selectdata(delaycfg,dataROI); % delay
-            dataCond1.condition = 'delay';
+            dataCond1.condition = str_period1;
             dataCond2 = ft_selectdata(bscfg,dataROI); % baseline
-            dataCond2.condition = str_period;
+            dataCond2.condition = str_period2;
         end
         % save ROI labels for each condition
         for i = 1:numel(dataCond1.channelInfo)

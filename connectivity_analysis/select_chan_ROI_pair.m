@@ -7,8 +7,8 @@ function [chan_labels, ROI_labels, ROI_chanpairs] = select_chan_ROI_pair(table, 
 % patient_path - path for the data with significant PLV
 
 if(~exist('table','var')) || isempty(table)
-%     table = 'E:\work\PhD\MemoryActions\results\iEEG\delayed condition\January2024_9pat\Response2XLS_CM_Memact_CHilbert_8-13Hz_AnyResp_OTP_-0.5-5.9_refBipo_Ep2024-01_encod+del_CHMult_2024-01-25_13-01-46.xls';
-%     table = 'F:\Sofia\MemoryActions\results\iEEG\delayed condition\January2024_9pat\Response2XLS_CM_Memact_CHilbert_8-13Hz_AnyResp_OTP_-0.5-5.9_refBipo_Ep2024-01_encod+del_CHMult_2024-01-25_13-01-46.xls';
+    %     table = 'E:\work\PhD\MemoryActions\results\iEEG\delayed condition\January2024_9pat\Response2XLS_CM_Memact_CHilbert_8-13Hz_AnyResp_OTP_-0.5-5.9_refBipo_Ep2024-01_encod+del_CHMult_2024-01-25_13-01-46.xls';
+    %     table = 'F:\Sofia\MemoryActions\results\iEEG\delayed condition\January2024_9pat\Response2XLS_CM_Memact_CHilbert_8-13Hz_AnyResp_OTP_-0.5-5.9_refBipo_Ep2024-01_encod+del_CHMult_2024-01-25_13-01-46.xls';
     table = 'F:\Sofia\MemoryActions\results\iEEG\connectivity\StructFind PAC_memact_all_chan_9pat_ROI_v2.xlsx';
 end
 if(~exist('significant','var')) || isempty(significant)
@@ -16,15 +16,15 @@ if(~exist('significant','var')) || isempty(significant)
 end
 
 if significant == 0
-%     alphaIncreaseChan = readtable(table, 'ReadRowNames',true); % table with all channels from all patients showing alpha increase during the delay
-%     
-%     % find channels for this patient and ROIs in the table
-%     ichanROI = find(strcmp(alphaIncreaseChan.pacient, patient_id) & ...
-%         alphaIncreaseChan.any_vs_bs == 1 &...
-%         (strcmp(alphaIncreaseChan.newROI, ROI1) | strcmp(alphaIncreaseChan.newROI, ROI2))); % chan indexes with alpha increase to any condition
-%     chan_labels = strrep(alphaIncreaseChan.name(ichanROI), [patient_id ' '], ''); % find labels of these chan
-%     ROI_labels = alphaIncreaseChan.newROI(ichanROI); % store also their ROI labels
-
+    %     alphaIncreaseChan = readtable(table, 'ReadRowNames',true); % table with all channels from all patients showing alpha increase during the delay
+    %
+    %     % find channels for this patient and ROIs in the table
+    %     ichanROI = find(strcmp(alphaIncreaseChan.pacient, patient_id) & ...
+    %         alphaIncreaseChan.any_vs_bs == 1 &...
+    %         (strcmp(alphaIncreaseChan.newROI, ROI1) | strcmp(alphaIncreaseChan.newROI, ROI2))); % chan indexes with alpha increase to any condition
+    %     chan_labels = strrep(alphaIncreaseChan.name(ichanROI), [patient_id ' '], ''); % find labels of these chan
+    %     ROI_labels = alphaIncreaseChan.newROI(ichanROI); % store also their ROI labels
+    
     % find channels for this patient and ROIs in the table of all implanted channels
     PAC = readtable(table);
     ichanROI = find(strcmp(PAC.pacient, patient_id) & ...
@@ -59,30 +59,20 @@ else
         % channels in the data
         chan_labels = dataCond1.label;
         ROI_labels = {dataCond1.channelInfo.ROI}';
-        
-        %     % find indexes of chan pairs with significant PLV difference, only positive delay > bs
-        %     significant_chanPairs = sum(plv_signif_allPairs_clustcorr,2) > 0;
-        %     ROI_chanpairs = ROI_chanpairs(significant_chanPairs, :);
-        
-        %     % find rows (ch pairs) with at least 2 positive values (2 freq bins) delay > bs (more strict selection of pairs)
-        %     positive_values_count = sum(plv_signif_allPairs_clustcorr > 0, 2);
-        %     significant_chanPairs = find(positive_values_count >= 2);
-        
-        % Find rows with at least 2 consecutive positive values
-        rows_with_consecutive_positives = [];
-        
-        for i = 1:size(plv_signif_allPairs_clustcorr, 1)
-            row = plv_signif_allPairs_clustcorr(i, :);
-            % Use a sliding window to check for consecutive positive values
-            for j = 1:(length(row)-1)
-                if row(j) > 0 && row(j+1) > 0
-                    rows_with_consecutive_positives = [rows_with_consecutive_positives, i];
-                    break; % Break once you find the first occurrence
-                end
-            end
-        end
-        
-        significant_chanPairs = rows_with_consecutive_positives';
+               
+        % find all rows with at least one positive value
+        positives = plv_signif_allPairs_clustcorr > 0;
+        % Sum across columns to find rows with at least one positive
+        rowsWithPositives = sum(positives, 2) > 0;
+        % Logical matrix for negative values
+        negatives = plv_signif_allPairs_clustcorr < 0;
+        % Sum across columns to ensure no negatives in the row
+        rowsWithoutNegatives = sum(negatives, 2) == 0;
+        % Combine conditions: rows with at least one positive and no negatives
+        desiredRows = rowsWithPositives & rowsWithoutNegatives;
+        % Find indices of these rows
+        significant_chanPairs = find(desiredRows);
+                
         ROI_chanpairs = ROI_chanpairs(significant_chanPairs, :);
     else
         chan_labels = [];

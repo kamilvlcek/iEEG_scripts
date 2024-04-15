@@ -116,6 +116,7 @@ for p = 1:numel(pacienti)
         outfilename = [ basedir pacienti(p).folder '\' subfolder '\' setup.prefix '_' ref ' ' sprintf('%.1f-%.1f', E.epochtime(1:2)) ' ' setup.suffix ' fieldtrip_' datestr(now,'YYYY-mm') '.mat'];
         save(outfilename, 'data', 'TrialInformationTable');
         clear E d tabs fs mults header RjEpoch RjEpochCh memact H data TrialInformationTable; 
+        setup = setup_memact(1); % create epochs before delay for the next patient
     end
 end
 end

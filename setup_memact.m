@@ -27,7 +27,8 @@ if typeEpochs == 0  % immediate epochs
     
 elseif typeEpochs == 1 % epochs before delay 
 %     setup.epochtime =  [-0.5 3.95 2]; % encoding phase (2 sec) + first part of delay (1.95 sec); % 2 - align to stimuli - delay (new)- stimulus which is presented during the encoding phase
-    setup.epochtime =  [-0.5 5.9 2]; % 13.12.2023: encoding phase (2 sec) + the whole delay (3.9 sec)
+%     setup.epochtime =  [-0.5 5.9 2]; % 13.12.2023: encoding phase (2 sec) + the whole delay (3.9 sec)
+    setup.epochtime =  [-2 2 2]; % 12.04.2024: baseline (2 sec) + encoding phase (2 sec)
 %     setup.baseline = [-0.5 -0.1]; % isn't used in BatchHilbert; use it only after appending 2 objects in function CM.NormalizeEpochs([-0.5 -0.1]);
     setup.baseline = [-0.5 0]; % 13.12.2023 uses this baseline if cfg.normalizeEpochs = 1 in BatchHilbert
     setup.index = 2;
@@ -36,7 +37,8 @@ elseif typeEpochs == 1 % epochs before delay
     setup.stat_kats = {[2 3],[3 2]}; % del_same x del_diff
     
 elseif typeEpochs == 2 % epochs after delay
-    setup.epochtime =  [-1.95 2 0];  % second part of delay (1.95 sec) + action phase (2 sec); stimulus - start of action phase
+%     setup.epochtime =  [-1.95 2 0];  % second part of delay (1.95 sec) + action phase (2 sec); stimulus - start of action phase
+    setup.epochtime =  [-3.9 2 0]; % 12.04.2024: delay (3.9 sec) + + action phase (2 sec); stimulus - start of action phase
     setup.baseline = [-0.5 0]; % baseline activity before encoding phase (ITI); 
         % isn't used in BatchHilbert; use it only after appending 2 objects in function CM.NormalizeEpochs([-0.5 -0.1]);
     setup.index = 3;
