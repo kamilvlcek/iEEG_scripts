@@ -20,6 +20,10 @@ function PLV_permutation_stat(ROI1, ROI2, condition, period, significant, freq, 
 % freq - freq range for which compute PLV, default = 2:40 Hz
 % n_permutes - number of permutations, default = 200
 % threshold - alpha level for p-value, default = 0.05
+% --------------------
+% by Sofiia Moraresku
+% May 2024
+% --------------------
 
 tic
 if(~exist('significant','var')) || isempty(significant), significant = 0; end % default all ROI1-ROI2 chan pairs
@@ -90,19 +94,23 @@ for p = 1:numel(pacienti)
             %% select delay and baseline period (or encoding)
             if period == 1
                 delaycfg = [];
-                delaycfg.latency = [3.9, 5.9+1/data.fsample];    % last 2 sec of delay, if fsample=512, 1024 time points
+%                 delaycfg.latency = [3.9, 5.9+1/data.fsample];    % last 2 sec of delay, if fsample=512, 1024 time points
+                delaycfg.latency = [4, 5.9-1/data.fsample]; % last 1.9 sec of delay (at 5.9s recall starts)
                 bscfg = []; 
-                bscfg.latency = [-2, -1/dataROI.fsample]; % baseline [-2 0], 1024 time points                
-                str2save = '_last 2s delay_vs_bs_';
-                str_period1 = 'last 2s delay';
+%                 bscfg.latency = [-2, -1/dataROI.fsample]; % baseline [-2 0], 1024 time points     
+                bscfg.latency = [-1.9, -1/dataROI.fsample]; % baseline [-1.9 0]
+                str2save = '_last 1.9s delay_vs_bs_';
+                str_period1 = 'last 1.9s delay';
                 str_period2 = 'baseline';
             elseif period == 2
                 delaycfg = [];
-                delaycfg.latency = [2+1/dataROI.fsample, 4];    % first 2 sec of delay, if fsample=512, 1024 time points
+%                 delaycfg.latency = [2+1/dataROI.fsample, 4];    % first 2 sec of delay, if fsample=512, 1024 time points
+                delaycfg.latency = [2.1+1/dataROI.fsample, 4];    % first 1.9 sec of delay
                 bscfg = [];
-                bscfg.latency = [-2, -1/dataROI.fsample]; % baseline 2 sec
-                str2save = '_first 2s delay_vs_bs_';
-                str_period1 = 'first 2s delay';
+%                 bscfg.latency = [-2, -1/dataROI.fsample]; % baseline 2 sec
+                bscfg.latency = [-1.9, -1/dataROI.fsample]; % baseline [-1.9 0]
+                str2save = '_first 1.9s delay_vs_bs_';
+                str_period1 = 'first 1.9s delay';
                 str_period2 = 'baseline';
             elseif period == 3
                 delaycfg = [];
