@@ -8,6 +8,10 @@
 % --------------------
 
 %% aggregate data from 3 periods (delay first 2s, delay last 2s, recall 0.5s)
+
+% path for the output files
+outputPath = 'F:\Sofia\MemoryActions\results\iEEG\connectivity\group data\LMEM_May2024';
+
 % load 3 tables with indices of all significant pairs across patients
 % filenameTable1 = 'F:\Sofia\MemoryActions\results\iEEG\connectivity\group data\PLV_VTC-IPL_first 2s delay_vs_bs_all_trials_200permut_2024-03_summaryNewSignif.mat';
 % filenameTable2 = 'F:\Sofia\MemoryActions\results\iEEG\connectivity\group data\PLV_VTC-IPL_last 2s delay_vs_bs_all_trials_200permut_2024-03_summaryNewSignif.mat';
@@ -51,6 +55,10 @@ parts = split(name, '_');
 filename = [strjoin(parts(1:2), '_') '_aggregated_significant_chnPairs'];
 full_path = fullfile(filepath, filename);
 save(full_path, 'aggregTable')
+
+% Extract important info from the file name
+ROI1 = regexp(PLV_data1, '(?<=PLV_)[^-]+', 'match', 'once');
+ROI2 = regexp(PLV_data1, '(?<=-)[^-_]+', 'match', 'once');
 
 %% plot significant difference for all signif pairs - individual points with real PLV difference between any period and bs
 
@@ -256,7 +264,7 @@ x = sum(countsSigPRatioAll,1); % observed number of 'successes'
 % Perform binomial test for each proportion - freq bin
 p_values = zeros(size(SigPRatioAll ));
 for i = 1:numel(SigPRatioAll )
-    p_values(i) = binocdf(x(i), chnPairsTotal , chance_level, 'upper' ); % one-sided test
+    p_values(i) = binocdf(x(i), chnPairsTotal, chance_level, 'upper' ); % one-sided test
 end
 
 isignificant_bins_uncorr = find(p_values<0.05); % indexes of significant freq bins before fdr corr
@@ -271,6 +279,7 @@ disp(significant_bins);
 
 % new histogram
 figure;
+set(gcf, 'units', 'normalized', 'outerposition', [0 0 1 1]); % Maximize the figure window
 barHandle = bar(first_delay_plv.PLVCond2.freq, SigPRatioAll, 'FaceColor', 'r');
 hold on
 linehandle = line(xlim, [chance_level chance_level], 'Color', 'k', 'LineStyle', '--', 'LineWidth', 2); % plot median
@@ -278,7 +287,7 @@ linehandle = line(xlim, [chance_level chance_level], 'Color', 'k', 'LineStyle', 
 % Add labels and title
 xlabel('Frequency (Hz)');
 ylabel('Sig.P.Ratio');
-title(['Sig.P.Ratio across all ' num2str(numPatients) ' patients, in total: ' num2str(sum([aggregTable.n_signif_chnPairs])) '/' num2str(sum([aggregTable.total_n_chnPairs])) ' chn pairs significant']);
+title(['Sig.P.Ratio across all ' num2str(numPatients) ' patients, in total: ' num2str(sum([aggregTable.n_signif_chnPairs])) '/' num2str(sum([aggregTable.total_n_chnPairs])) ' chn pairs significant in ' ROI1 '-' ROI2]);
 %legend('', 'median across all freq bins');
 
 % Get the x and y values for the tops of the bars
@@ -306,5 +315,10 @@ hInvisible1 = plot(nan, nan, 'w'); % 'w' makes it white/invisible
 legend([linehandle, hInvisible, hInvisible1], {'median across all freq bins', ' *  - p < 0.05 uncorr, binomial test', ' **  - p < 0.05 fdr-corr, binomial test'}, 'Location', 'best');
 hold off;
 
+% Define the image name
+figureName = ['SigPairRatio_of_PLV_difference_between_anyPeriod_and_bs_in_' ROI1 '-' ROI2 '.jpg'];
+filename2 = [outputPath '\' figureName];
 
+% Save the figure as JPEG in high resolution
+print(gcf, filename2, '-djpeg', '-r300'); 
 

@@ -5,16 +5,18 @@
 % May 2024
 % --------------------
 
-
 % first, set up the indexes of freq bins to use for averaging PLV in the model (obtained earlier by plot_PLVdiff_variability)
 % isignificant_bins = [1 2 3]; % delta-theta, 2-4Hz
-isignificant_bins = [6 7]; % alpha, 7-8Hz
-% isignificant_bins = [1:8]; % theta-alpha, 2-9Hz
+% isignificant_bins = [6 7]; % alpha, 7-8Hz
+isignificant_bins = [1:8]; % theta-alpha, 2-9Hz
 
 % load an aggregated table with indices of all significant pairs for all three periods across patients
 %filenameTable = 'F:\Sofia\MemoryActions\results\iEEG\connectivity\group data\PLV_VTC-IPL_aggregated_significant_chnPairs.mat';
 filenameTable = 'F:\Sofia\MemoryActions\results\iEEG\connectivity\group data\PLV_Hip-IPL_aggregated_significant_chnPairs.mat';
 load(filenameTable);
+
+% path for the output files
+outputPath = 'F:\Sofia\MemoryActions\results\iEEG\connectivity\group data\LMEM_May2024';
 
 % set up a path for the main data
 % PLV_data1 =  'PLV_VTC-IPL_first 2s delay_vs_bs_all_trials_200permut_2024-03.mat';
@@ -28,6 +30,10 @@ setup = setup_memact(1); % setup for the delayed epochs
 basedir = setup.basedir; % folder where the data of all patients stored
 subfolder = setup.subfolder;
 [pacienti] = pacienti_memact(); % set up pacienti_memact by selecting which patients to analyze
+
+% Extract important info from the file name
+ROI1 = regexp(PLV_data1, '(?<=PLV_)[^-]+', 'match', 'once');
+ROI2 = regexp(PLV_data1, '(?<=-)[^-_]+', 'match', 'once');
 
 %% get average PLV over the selected freq range for all periods
 % Initialize an empty table for storing the results
@@ -96,14 +102,53 @@ disp(model); % the output can be copied to txt file
 % The coefTest function in MATLAB conducts a linear hypothesis test of the model coefficients
 % pVal = coefTest(model); % Test if all fixed-effects coefficients except for the intercept are 0.
 pVal1 = coefTest(model,[0 1 -1 0]); % Test if there is any difference between the first and last delay
-pVal2 = coefTest(model,[1 -1 0 0]); % Test if there is any difference between bs and the first delay
-pVal3 = coefTest(model,[1 0 -1 0]); % Test if there is any difference between bs and the last delay
-pVal4 = coefTest(model,[0 0 1 -1]); % Test if there is any difference between the last delay and recall
-pVal5 = coefTest(model,[0 1 0 -1]); % Test if there is any difference between the first delay and recall
-pVal6 = coefTest(model,[1 0 0 -1]); % Test if there is any difference between bs and recall
+pVal2 = coefTest(model,[0 0 1 -1]); % Test if there is any difference between the last delay and recall
+pVal3 = coefTest(model,[0 1 0 -1]); % Test if there is any difference between the first delay and recall
 
 % FDR correction 
-[~, ~, adj_p_values] = fdr_bh([pVal1, pVal2, pVal3, pVal4, pVal5, pVal6], 0.05, 'dep');
+[~, ~, adj_p_values] = fdr_bh([pVal1, pVal2, pVal3], 0.05, 'pdep');
+
+%% export the results to the xls file
+
+% Define the Excel file name
+outputname = ['LMEM_output_meanPLV_' num2str(first_delay_plv.PLVCond2.freq(isignificant_bins(1))) '-' num2str(first_delay_plv.PLVCond2.freq(isignificant_bins(end))) 'Hz_' ROI1 '-' ROI2 '.xlsx'];
+filename = [outputPath '\' outputname];
+
+% Manually create a table from the 'titleddataset'
+coefficients = model.Coefficients;
+coefTable = table(coefficients.Name, coefficients.Estimate, coefficients.SE, coefficients.tStat, ...
+                  coefficients.DF, coefficients.pValue, coefficients.Lower, coefficients.Upper, ...
+                  'VariableNames', {'Name', 'Estimate', 'SE', 'tStat', 'DF', 'pValue', 'Lower', 'Upper'});
+
+% Write the fixed effects table to Excel
+writetable(coefTable, filename, 'Sheet', 'Fixed Effects', 'Range', 'A1');
+
+% Model Statistics
+modelStats = {
+    'Number of observations', size(model.Residuals.Raw, 1); % Adjusted to model.Residuals.Raw if applicable
+    'AIC', model.ModelCriterion.AIC;
+    'BIC', model.ModelCriterion.BIC;
+    'LogLikelihood', model.LogLikelihood;
+};
+modelStatsTable = cell2table(modelStats, 'VariableNames', {'Statistic', 'Value'});
+writetable(modelStatsTable, filename, 'Sheet', 'Model Statistics', 'Range', 'A1');
+
+% Model Formula
+formula = {char(model.Formula)};
+formulaTable = cell2table(formula, 'VariableNames', {'Formula'});
+writetable(formulaTable, filename, 'Sheet', 'Model Formula', 'Range', 'A1');
+
+% Prepare and save comparison results
+comparisons = {
+    'First 1.9s Delay vs Last 1.9s Delay';
+    'Last 1.9s Delay vs Recall';
+    'First 1.9s Delay vs Recall'
+};
+comparisonResults = table(comparisons, [pVal1; pVal2; pVal3], adj_p_values', ...
+    'VariableNames', {'Comparison', 'Uncorrected_pValue', 'FDR_Corrected_pValue'});
+
+% Append the comparison results to the existing Excel file
+writetable(comparisonResults, filename, 'Sheet', 'Comparison Results', 'Range', 'A1');
 
 %% visualize the results
 % Unique identifiers for patients and time periods
@@ -132,6 +177,7 @@ end
 
 % plot the mean and SEM for each patient
 figure;
+set(gcf, 'units', 'normalized', 'outerposition', [0 0 1 1]); % Maximize the figure window
 hold on;
 
 % Define colors of markers 
@@ -157,7 +203,8 @@ ax.YAxis.FontSize = 14; % Specific font size for Y-axis
 ylabel(['Mean PLV in Freq Range: ' num2str(first_delay_plv.PLVCond2.freq(isignificant_bins(1))) '-' num2str(first_delay_plv.PLVCond2.freq(isignificant_bins(end)))  ' Hz'], ...
     'FontSize', 14); 
 xlabel('Time Period', 'FontSize', 14); 
-title('Mean +- SEM of PLV Across Channel Pairs for Each Subject', 'FontSize', 14); 
+title(['Mean +- SEM of PLV in ' num2str(first_delay_plv.PLVCond2.freq(isignificant_bins(1))) '-' num2str(first_delay_plv.PLVCond2.freq(isignificant_bins(end)))...
+    'Hz across chn pairs for each subject in ' ROI1 '-' ROI2], 'FontSize', 14); 
 
 % Set axis limits with some padding
 xlim([0.5, numel(uniqueTimePeriods) + 0.5]);
@@ -173,4 +220,11 @@ set(gcf, 'GraphicsSmoothing', 'on');
 % Add legend
 legend(uniquePatients, 'Location', 'Best', 'Interpreter', 'None', 'FontSize', 10);
 hold off;
+
+% Define the image name
+figureName = ['meanPLV_' num2str(first_delay_plv.PLVCond2.freq(isignificant_bins(1))) '-' num2str(first_delay_plv.PLVCond2.freq(isignificant_bins(end))) 'Hz_' ROI1 '-' ROI2 '.jpg'];
+filename2 = [outputPath '\' figureName];
+
+% Save the figure as JPEG in high resolution
+print(gcf, filename2, '-djpeg', '-r300'); 
 

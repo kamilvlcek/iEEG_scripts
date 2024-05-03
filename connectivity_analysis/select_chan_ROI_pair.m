@@ -47,11 +47,15 @@ if significant == 0
     end
     
 else
-    
-    % Specify the directory where the data are stored
+    % Specify the directory where the PLV data are stored
     PLV_path = [patient_path '\PLV_permut_stat\'];
-    partialName = ['PLV_' ROI1 '-' ROI2 '_last 2s'];
-    PLV_data_file = dir(fullfile(PLV_path, [partialName '*' 'bs_all_trials_200permut_2024-03.mat'])); % find the file
+    partialName = ['PLV_' ROI1 '-' ROI2 '_last 1.9s'];
+    PLV_data_file = dir(fullfile(PLV_path, [partialName '*' 'bs_all_trials_200permut_2024-04.mat'])); % find the file
+    
+    % find significant ch pairs from all periods in the aggregated table
+    aggregTable_path = 'F:\Sofia\MemoryActions\results\iEEG\connectivity\group data\'; % specify the directory where the aggregated data are stored
+    aggregTableName = ['PLV_' ROI1 '-' ROI2 '_aggregated'];
+    aggregTable = dir(fullfile(aggregTable_path, [aggregTableName '*' '.mat'])); % find the file
     
     if exist([PLV_path PLV_data_file.name],'file') == 2
         load([PLV_path PLV_data_file.name]);
@@ -59,25 +63,21 @@ else
         % channels in the data
         chan_labels = dataCond1.label;
         ROI_labels = {dataCond1.channelInfo.ROI}';
-               
-        % find all rows with at least one positive value
-        positives = plv_signif_allPairs_clustcorr > 0;
-        % Sum across columns to find rows with at least one positive
-        rowsWithPositives = sum(positives, 2) > 0;
-        % Logical matrix for negative values
-        negatives = plv_signif_allPairs_clustcorr < 0;
-        % Sum across columns to ensure no negatives in the row
-        rowsWithoutNegatives = sum(negatives, 2) == 0;
-        % Combine conditions: rows with at least one positive and no negatives
-        desiredRows = rowsWithPositives & rowsWithoutNegatives;
-        % Find indices of these rows
-        significant_chanPairs = find(desiredRows);
-                
-        ROI_chanpairs = ROI_chanpairs(significant_chanPairs, :);
+        
+        if exist([aggregTable_path aggregTable.name],'file') == 2
+            load([aggregTable_path aggregTable.name]);
+            
+            % Match the patient by name
+            subjIndex = strcmp({aggregTable.patient}, patient_id);
+            
+            % Get indices of aggregated significant channel pairs for the current patient
+            ROI_chanpairs = aggregTable(subjIndex).idxChan_in_Pairs;                        
+        end
     else
         chan_labels = [];
         ROI_labels = [];
         ROI_chanpairs = [];
     end
+    
 end
 

@@ -1,4 +1,4 @@
-function PLV_permutation_stat(ROI1, ROI2, condition, period, significant, freq, n_permutes, threshold)
+function PLV_permutation_stat(ROI1, ROI2, condition, period, significant, freq, n_permutes, threshold, stat)
 %%% computes PLV between ROI1 and ROI2 in each patient for channels that showed alpha power increase during the delay
 %%% computes permutation statistics by shuffling conditions, either periods - comparing delay vs baseline, or comparing real conditions - same and diff during the delay
 %%% code for permutation statistics and cluster correction adapted from M. X. Cohen, 2014 (https://github.com/mikexcohen/AnalyzingNeuralTimeSeries)
@@ -13,13 +13,14 @@ function PLV_permutation_stat(ROI1, ROI2, condition, period, significant, freq, 
 % 1 - last 2 sec of delay (3.9-5.9) vs 2 sec baseline
 % 2 - first 2 sec of delay (2.0-4.0) vs 2 sec baseline
 % 3 - last 2 sec of delay (3.9-5.9) vs 2 sec of encoding
-% 4 - encoding (2s) vs baseline (2s) 
-% 5 - recall/action phase (0.5s) vs baseline (0.5s) 
+% 4 - encoding (2s) vs baseline (2s)
+% 5 - recall/action phase (0.5s) vs baseline (0.5s)
 % significant - for any period other than 1; if 1, select only significant chan pairs that were obtained by PLV_permutation_stat for all trials (for period = 1)
 %%% optional:
 % freq - freq range for which compute PLV, default = 2:40 Hz
 % n_permutes - number of permutations, default = 200
 % threshold - alpha level for p-value, default = 0.05
+% stat - if 0, compute PLV without any stat; default = 1, run permutation stat
 % --------------------
 % by Sofiia Moraresku
 % May 2024
@@ -30,6 +31,7 @@ if(~exist('significant','var')) || isempty(significant), significant = 0; end % 
 if(~exist('freq','var')) || isempty(freq), freq = [2:40]; end % default 2-40 Hz for PLV
 if(~exist('n_permutes','var')) || isempty(n_permutes), n_permutes = 200; end
 if(~exist('threshold','var')) || isempty(threshold), threshold = 0.05; end
+if(~exist('stat','var')) || isempty(stat), stat = 1; end % default run permutation stat
 
 ft_defaults % set up fieldtrip
 
@@ -48,8 +50,8 @@ for p = 1:numel(pacienti)
         patient_path = [basedir pacienti(p).folder '\' subfolder];
         load([patient_path '\' data_preproc]);
         
-%         patient_id = regexp(pacienti(p).folder,' ','split');
-%         patient_id = patient_id{1};
+        %         patient_id = regexp(pacienti(p).folder,' ','split');
+        %         patient_id = patient_id{1};
         patient_id = pacienti(p).folder; % in the table with all implanted channels, a full name of patient (as the name of the folder) is used
         
         % select channels, trials and period for the analysis
@@ -64,7 +66,9 @@ for p = 1:numel(pacienti)
             cfg = [];
             cfg.channel = chan_labels; % select channels in 2 ROIs
             cfg.trials = itrials_same; % for now, we don't reject individual epochs for each channel with spikes
-            cfg.latency = [3.9, 5.9+1/data.fsample];    % last 2 sec of delay
+%             cfg.latency = [4, 5.9-1/data.fsample]; % last 1.9 sec of delay (at 5.9s recall starts)
+%             cfg.latency = [2.1+1/data.fsample, 4];    % first 1.9 sec of delay
+            cfg.latency = [5.9, 6.4-1/data.fsample];    % recall 0.5 sec
             dataCond1 = ft_selectdata(cfg,data);
             dataCond1.condition = 'same';
             
@@ -72,10 +76,14 @@ for p = 1:numel(pacienti)
             cfg = [];
             cfg.channel = chan_labels; % select channels in 2 ROIs
             cfg.trials = itrials_diff;
-            cfg.latency = [3.9, 5.9+1/data.fsample];    % last 2 sec of delay
+%             cfg.latency = [4, 5.9-1/data.fsample]; % last 1.9 sec of delay (at 5.9s recall starts)
+%             cfg.latency = [2.1+1/data.fsample, 4];    % first 1.9 sec of delay
+            cfg.latency = [5.9, 6.4-1/data.fsample];    % recall 0.5 sec
             dataCond2 = ft_selectdata(cfg,data);
             dataCond2.condition = 'diff';
-            str2save = '_diff_vs_same_last 2s delay_';
+%             str2save = '_diff_vs_same_last 1.9s delay_';
+%             str2save = '_diff_vs_same_first 1.9s delay_';
+            str2save = '_diff_vs_same_0.5s recall_';
             
         else  % if we want to compare two periods for one condition
             % find channels for this patient and ROIs in the table if there are some
@@ -94,20 +102,20 @@ for p = 1:numel(pacienti)
             %% select delay and baseline period (or encoding)
             if period == 1
                 delaycfg = [];
-%                 delaycfg.latency = [3.9, 5.9+1/data.fsample];    % last 2 sec of delay, if fsample=512, 1024 time points
+                %                 delaycfg.latency = [3.9, 5.9+1/data.fsample];    % last 2 sec of delay, if fsample=512, 1024 time points
                 delaycfg.latency = [4, 5.9-1/data.fsample]; % last 1.9 sec of delay (at 5.9s recall starts)
-                bscfg = []; 
-%                 bscfg.latency = [-2, -1/dataROI.fsample]; % baseline [-2 0], 1024 time points     
+                bscfg = [];
+                %                 bscfg.latency = [-2, -1/dataROI.fsample]; % baseline [-2 0], 1024 time points
                 bscfg.latency = [-1.9, -1/dataROI.fsample]; % baseline [-1.9 0]
                 str2save = '_last 1.9s delay_vs_bs_';
                 str_period1 = 'last 1.9s delay';
                 str_period2 = 'baseline';
             elseif period == 2
                 delaycfg = [];
-%                 delaycfg.latency = [2+1/dataROI.fsample, 4];    % first 2 sec of delay, if fsample=512, 1024 time points
+                %                 delaycfg.latency = [2+1/dataROI.fsample, 4];    % first 2 sec of delay, if fsample=512, 1024 time points
                 delaycfg.latency = [2.1+1/dataROI.fsample, 4];    % first 1.9 sec of delay
                 bscfg = [];
-%                 bscfg.latency = [-2, -1/dataROI.fsample]; % baseline 2 sec
+                %                 bscfg.latency = [-2, -1/dataROI.fsample]; % baseline 2 sec
                 bscfg.latency = [-1.9, -1/dataROI.fsample]; % baseline [-1.9 0]
                 str2save = '_first 1.9s delay_vs_bs_';
                 str_period1 = 'first 1.9s delay';
@@ -169,124 +177,127 @@ for p = 1:numel(pacienti)
         PLVCond2  = ft_connectivityanalysis(plvcfg, FreqCond2);
         
         %% permutation stat
-        
-        % initialize to store the output for this patient
-        plv_signif_allPairs = zeros(size(ROI_chanpairs,1), numel(PLVCond1.freq)); % chn pairs x significant PLV diff
-        p_values_allPairs = zeros(size(ROI_chanpairs,1), numel(PLVCond1.freq)); % chn pairs x p values for PLV diff
-        plv_signif_allPairs_clustcorr = zeros(size(ROI_chanpairs,1), numel(PLVCond1.freq)); % chn pairs x significant PLV diff after cluster correction
-        
-        % n of trials in real delay and baseline data (or in each condition)
-        ntrialsCond1 = length(dataCond1.trial);     % for VT62 - 132 trials
-        ntrialsCond2 = length(dataCond2.trial); % for VT62 - 132 trials
-        
-        % concatenate trials from two conditions
-        cfg = [];
-        data2periods = ft_appenddata(cfg,dataCond1,dataCond2); % for VT62 - 264 trials
-        
-        fprintf('Computing permutat stat for patient %s \n', patient_id);
-        for iPair = 1:size(ROI_chanpairs,1)
+        if stat
+            % initialize to store the output for this patient
+            plv_signif_allPairs = zeros(size(ROI_chanpairs,1), numel(PLVCond1.freq)); % chn pairs x significant PLV diff
+            p_values_allPairs = zeros(size(ROI_chanpairs,1), numel(PLVCond1.freq)); % chn pairs x p values for PLV diff
+            plv_signif_allPairs_clustcorr = zeros(size(ROI_chanpairs,1), numel(PLVCond1.freq)); % chn pairs x significant PLV diff after cluster correction
             
-            % Channel indexes
-            iChannel_1 = ROI_chanpairs(iPair,1);
-            iChannel_2 = ROI_chanpairs(iPair,2);
+            % n of trials in real delay and baseline data (or in each condition)
+            ntrialsCond1 = length(dataCond1.trial);     % for VT62 - 132 trials
+            ntrialsCond2 = length(dataCond2.trial); % for VT62 - 132 trials
             
-            fprintf('Calculating %s with  %s right now. Elapsed pairs for this patient are %d..... \n',PLVCond1.label{iChannel_1, 1},PLVCond1.label{iChannel_2, 1}, size(ROI_chanpairs,1)-iPair);
-            
-            % select data for one pair of chan
+            % concatenate trials from two conditions
             cfg = [];
-            cfg.channel = [iChannel_1, iChannel_2];
-            data2periodsChPair = ft_selectdata(cfg, data2periods);
-            PLVCond1ChPair = ft_selectdata(cfg, PLVCond1);
-            PLVCond2ChPair = ft_selectdata(cfg, PLVCond2);
+            data2periods = ft_appenddata(cfg,dataCond1,dataCond2); % for VT62 - 264 trials
             
-            % initialize for PLV distribution of null hypothesis values
-            permuted_vals_diff = zeros(n_permutes, numel(PLVCond1.freq)); % n_permutes x freq; PLV differences between 2 periods (conditions)
-            
-            % permute
-            for permi=1:n_permutes
+            fprintf('Computing permutat stat for patient %s \n', patient_id);
+            for iPair = 1:size(ROI_chanpairs,1)
                 
-                % random permutation
-                fakeconds = randperm(length(data2periods.trial));
+                % Channel indexes
+                iChannel_1 = ROI_chanpairs(iPair,1);
+                iChannel_2 = ROI_chanpairs(iPair,2);
                 
-                % shuffled condition labels
-                fakeconds(fakeconds<ntrialsCond1+1) = 1;
-                fakeconds(fakeconds>1) = 2;
+                fprintf('Calculating %s with  %s right now. Elapsed pairs for this patient are %d..... \n',PLVCond1.label{iChannel_1, 1},PLVCond1.label{iChannel_2, 1}, size(ROI_chanpairs,1)-iPair);
                 
-                % Frequency and PLV analysis for fake condtition 1
+                % select data for one pair of chan
                 cfg = [];
-                cfg.trials = fakeconds==1;
-                dataFakeCond1 = ft_selectdata(cfg,data2periodsChPair);
-                FreqFakeCond1   = ft_freqanalysis(freqcfg, dataFakeCond1);
-                PLVFakeCond1  = ft_connectivityanalysis(plvcfg, FreqFakeCond1);
+                cfg.channel = [iChannel_1, iChannel_2];
+                data2periodsChPair = ft_selectdata(cfg, data2periods);
+                PLVCond1ChPair = ft_selectdata(cfg, PLVCond1);
+                PLVCond2ChPair = ft_selectdata(cfg, PLVCond2);
                 
-                % Frequency and PLV analysis for fake condtition 2
-                cfg = [];
-                cfg.trials = fakeconds==2;
-                dataFakeCond2 = ft_selectdata(cfg,data2periodsChPair);
-                FreqFakeCond2   = ft_freqanalysis(freqcfg, dataFakeCond2);
-                PLVFakeCond2  = ft_connectivityanalysis(plvcfg, FreqFakeCond2);
+                % initialize for PLV distribution of null hypothesis values
+                permuted_vals_diff = zeros(n_permutes, numel(PLVCond1.freq)); % n_permutes x freq; PLV differences between 2 periods (conditions)
                 
-                % PLV difference of 2 spectrums of shuffled conditions
-                permuted_vals_diff(permi,:) = squeeze(PLVFakeCond1.plvspctrm(1,2,:)) - squeeze(PLVFakeCond2.plvspctrm(1,2,:));
+                % permute
+                for permi=1:n_permutes
+                    
+                    % random permutation
+                    fakeconds = randperm(length(data2periods.trial));
+                    
+                    % shuffled condition labels
+                    fakeconds(fakeconds<ntrialsCond1+1) = 1;
+                    fakeconds(fakeconds>1) = 2;
+                    
+                    % Frequency and PLV analysis for fake condtition 1
+                    cfg = [];
+                    cfg.trials = fakeconds==1;
+                    dataFakeCond1 = ft_selectdata(cfg,data2periodsChPair);
+                    FreqFakeCond1   = ft_freqanalysis(freqcfg, dataFakeCond1);
+                    PLVFakeCond1  = ft_connectivityanalysis(plvcfg, FreqFakeCond1);
+                    
+                    % Frequency and PLV analysis for fake condtition 2
+                    cfg = [];
+                    cfg.trials = fakeconds==2;
+                    dataFakeCond2 = ft_selectdata(cfg,data2periodsChPair);
+                    FreqFakeCond2   = ft_freqanalysis(freqcfg, dataFakeCond2);
+                    PLVFakeCond2  = ft_connectivityanalysis(plvcfg, FreqFakeCond2);
+                    
+                    % PLV difference of 2 spectrums of shuffled conditions
+                    permuted_vals_diff(permi,:) = squeeze(PLVFakeCond1.plvspctrm(1,2,:)) - squeeze(PLVFakeCond2.plvspctrm(1,2,:));
+                    
+                end
                 
+                % % plot the distribution of H0 values for one freq (just for checking purposes)
+                % figure(1), clf
+                % histogram(permuted_vals_diff(:,10),50)
+                
+                % real PLV difference between 2 periods
+                realPLV_diff = squeeze(PLVCond1ChPair.plvspctrm(1,2,:))-squeeze(PLVCond2ChPair.plvspctrm(1,2,:)); % frequency x 1
+                
+                % transform to z values and set to zero values below thershold
+                zmap = (realPLV_diff'-mean(permuted_vals_diff,1))./std(permuted_vals_diff);
+                plv_diff_signif = realPLV_diff;
+                p_value_difference = 2 * (1 - normcdf(abs(zmap))); % compute two-tailed p-values using normcdf (each z value is converted to p value)
+                plv_diff_signif(p_value_difference > threshold) = 0;
+                plv_signif_allPairs(iPair, :) = plv_diff_signif'; % save significant plv for this chan pair
+                p_values_allPairs(iPair, :) = p_value_difference;
+                
+                %% the cluster correction on the permuted data
+                for permi = 1:n_permutes
+                    
+                    % for cluster correction, apply uncorrected threshold and get maximum cluster sizes
+                    fakecorrsz = (permuted_vals_diff(permi,:)-mean(permuted_vals_diff,1)) ./ std(permuted_vals_diff,[],1) ;
+                    %                 fakecorrsz(abs(fakecorrsz)<norminv(1-threshold))=0;
+                    fakecorrsz(2 * (1 - normcdf(abs(fakecorrsz))) > threshold) = 0;
+                    
+                    % get number of elements in largest supra-threshold cluster
+                    clustinfo = bwconncomp(fakecorrsz);
+                    max_clust_info(permi) = max([ 0 cellfun(@numel,clustinfo.PixelIdxList) ]); % the zero accounts for empty maps
+                    % using cellfun here eliminates the need for a slower loop over cells
+                end
+                
+                % apply cluster-level corrected threshold
+                plv_diff_clust_corr = plv_diff_signif; % uncorrected pixel-level threshold
+                
+                % find islands and remove those smaller than cluster size threshold
+                clustinfo = bwconncomp(plv_diff_clust_corr);
+                clust_info = cellfun(@numel,clustinfo.PixelIdxList);
+                clust_threshold = prctile(max_clust_info,100-threshold*100);
+                
+                % identify clusters to remove
+                whichclusters2remove = find(clust_info<clust_threshold);
+                
+                % remove clusters
+                for i=1:length(whichclusters2remove)
+                    plv_diff_clust_corr(clustinfo.PixelIdxList{whichclusters2remove(i)})=0;
+                end
+                
+                plv_signif_allPairs_clustcorr(iPair, :) = plv_diff_clust_corr'; % save significant plv after cluster corr for this chan pair
             end
-            
-            % % plot the distribution of H0 values for one freq (just for checking purposes)
-            % figure(1), clf
-            % histogram(permuted_vals_diff(:,10),50)
-            
-            % real PLV difference between 2 periods
-            realPLV_diff = squeeze(PLVCond1ChPair.plvspctrm(1,2,:))-squeeze(PLVCond2ChPair.plvspctrm(1,2,:)); % frequency x 1
-            
-            % transform to z values and set to zero values below thershold
-            zmap = (realPLV_diff'-mean(permuted_vals_diff,1))./std(permuted_vals_diff);
-            plv_diff_signif = realPLV_diff;
-            p_value_difference = 2 * (1 - normcdf(abs(zmap))); % compute two-tailed p-values using normcdf (each z value is converted to p value)
-            plv_diff_signif(p_value_difference > threshold) = 0;
-            plv_signif_allPairs(iPair, :) = plv_diff_signif'; % save significant plv for this chan pair
-            p_values_allPairs(iPair, :) = p_value_difference;
-            
-            %% the cluster correction on the permuted data
-            for permi = 1:n_permutes
-                
-                % for cluster correction, apply uncorrected threshold and get maximum cluster sizes
-                fakecorrsz = (permuted_vals_diff(permi,:)-mean(permuted_vals_diff,1)) ./ std(permuted_vals_diff,[],1) ;
-                %                 fakecorrsz(abs(fakecorrsz)<norminv(1-threshold))=0;
-                fakecorrsz(2 * (1 - normcdf(abs(fakecorrsz))) > threshold) = 0;
-                
-                % get number of elements in largest supra-threshold cluster
-                clustinfo = bwconncomp(fakecorrsz);
-                max_clust_info(permi) = max([ 0 cellfun(@numel,clustinfo.PixelIdxList) ]); % the zero accounts for empty maps
-                % using cellfun here eliminates the need for a slower loop over cells
-            end
-            
-            % apply cluster-level corrected threshold
-            plv_diff_clust_corr = plv_diff_signif; % uncorrected pixel-level threshold
-            
-            % find islands and remove those smaller than cluster size threshold
-            clustinfo = bwconncomp(plv_diff_clust_corr);
-            clust_info = cellfun(@numel,clustinfo.PixelIdxList);
-            clust_threshold = prctile(max_clust_info,100-threshold*100);
-            
-            % identify clusters to remove
-            whichclusters2remove = find(clust_info<clust_threshold);
-            
-            % remove clusters
-            for i=1:length(whichclusters2remove)
-                plv_diff_clust_corr(clustinfo.PixelIdxList{whichclusters2remove(i)})=0;
-            end
-            
-            plv_signif_allPairs_clustcorr(iPair, :) = plv_diff_clust_corr'; % save significant plv after cluster corr for this chan pair
         end
         
         % Save results
         strVariableFolder = [ basedir pacienti(p).folder '\' subfolder '\PLV_permut_stat\'];
         mkdir(strVariableFolder)
-        %         save([strVariableFolder,'PLV_' ROI1 '-' ROI2 str2save condition '_trials_', datestr(now,'YYYY-mm'), '.mat'],...
-        %             'ROI_chanpairs','plv_signif_allPairs', 'plv_signif_allPairs_clustcorr','p_values_allPairs', 'PLVDelay', 'PLVBaseline','dataDelay', 'dataBaseline', 'n_permutes', 'threshold', '-v7.3')
-        save([strVariableFolder,'PLV_' ROI1 '-' ROI2 str2save condition '_trials_' num2str(n_permutes) 'permut_', datestr(now,'YYYY-mm'), '.mat'],...
-            'ROI_chanpairs','plv_signif_allPairs', 'plv_signif_allPairs_clustcorr','p_values_allPairs', 'PLVCond1', 'PLVCond2','dataCond1', 'dataCond2', 'n_permutes', 'threshold', '-v7.3')
-        
+        if stat
+            save([strVariableFolder,'PLV_' ROI1 '-' ROI2 str2save condition '_trials_' num2str(n_permutes) 'permut_', datestr(now,'YYYY-mm'), '.mat'],...
+                'ROI_chanpairs','plv_signif_allPairs', 'plv_signif_allPairs_clustcorr','p_values_allPairs', 'PLVCond1', 'PLVCond2','dataCond1', 'dataCond2', 'n_permutes', 'threshold', '-v7.3')
+        else
+            save([strVariableFolder,'PLV_' ROI1 '-' ROI2 str2save condition '_trials_', datestr(now,'YYYY-mm'), '.mat'],...
+                'ROI_chanpairs', 'PLVCond1', 'PLVCond2','dataCond1', 'dataCond2', '-v7.3')
+        end
         
     end
 end
