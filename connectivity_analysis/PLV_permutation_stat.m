@@ -68,7 +68,8 @@ for p = 1:numel(pacienti)
             cfg.trials = itrials_same; % for now, we don't reject individual epochs for each channel with spikes
 %             cfg.latency = [4, 5.9-1/data.fsample]; % last 1.9 sec of delay (at 5.9s recall starts)
 %             cfg.latency = [2.1+1/data.fsample, 4];    % first 1.9 sec of delay
-            cfg.latency = [5.9, 6.4-1/data.fsample];    % recall 0.5 sec
+%             cfg.latency = [5.9, 6.4-1/data.fsample];    % recall 0.5 sec
+            cfg.latency = [-0.5, -1/data.fsample]; %  baseline 0.5 sec
             dataCond1 = ft_selectdata(cfg,data);
             dataCond1.condition = 'same';
             
@@ -78,12 +79,14 @@ for p = 1:numel(pacienti)
             cfg.trials = itrials_diff;
 %             cfg.latency = [4, 5.9-1/data.fsample]; % last 1.9 sec of delay (at 5.9s recall starts)
 %             cfg.latency = [2.1+1/data.fsample, 4];    % first 1.9 sec of delay
-            cfg.latency = [5.9, 6.4-1/data.fsample];    % recall 0.5 sec
+%             cfg.latency = [5.9, 6.4-1/data.fsample];    % recall 0.5 sec
+            cfg.latency = [-0.5, -1/data.fsample]; %  baseline 0.5 sec
             dataCond2 = ft_selectdata(cfg,data);
             dataCond2.condition = 'diff';
 %             str2save = '_diff_vs_same_last 1.9s delay_';
 %             str2save = '_diff_vs_same_first 1.9s delay_';
-            str2save = '_diff_vs_same_0.5s recall_';
+%             str2save = '_diff_vs_same_0.5s recall_';
+            str2save = '_diff_vs_same_0.5s bs_';
             
         else  % if we want to compare two periods for one condition
             % find channels for this patient and ROIs in the table if there are some

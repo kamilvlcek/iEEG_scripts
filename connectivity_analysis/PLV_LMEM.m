@@ -6,12 +6,13 @@
 % --------------------
 
 % first, set up the indexes of freq bins to use for averaging PLV in the model (obtained earlier by plot_PLVdiff_variability)
-% isignificant_bins = [1 2 3]; % delta-theta, 2-4Hz
+isignificant_bins = [1 2 3]; % delta-theta, 2-4Hz
 % isignificant_bins = [6 7]; % alpha, 7-8Hz
-isignificant_bins = [1:8]; % theta-alpha, 2-9Hz
+% isignificant_bins = [1:8]; % theta-alpha, 2-9Hz
+% isignificant_bins = [1:4]; % 2-5 Hz, VTC-IPL
 
 % load an aggregated table with indices of all significant pairs for all three periods across patients
-%filenameTable = 'F:\Sofia\MemoryActions\results\iEEG\connectivity\group data\PLV_VTC-IPL_aggregated_significant_chnPairs.mat';
+% filenameTable = 'F:\Sofia\MemoryActions\results\iEEG\connectivity\group data\PLV_VTC-IPL_aggregated_significant_chnPairs.mat';
 filenameTable = 'F:\Sofia\MemoryActions\results\iEEG\connectivity\group data\PLV_Hip-IPL_aggregated_significant_chnPairs.mat';
 load(filenameTable);
 
@@ -19,8 +20,8 @@ load(filenameTable);
 outputPath = 'F:\Sofia\MemoryActions\results\iEEG\connectivity\group data\LMEM_May2024';
 
 % set up a path for the main data
-% PLV_data1 =  'PLV_VTC-IPL_first 2s delay_vs_bs_all_trials_200permut_2024-03.mat';
-% PLV_data2 =  'PLV_VTC-IPL_last 2s delay_vs_bs_all_trials_200permut_2024-03.mat';
+% PLV_data1 =  'PLV_VTC-IPL_first 1.9s delay_vs_bs_all_trials_200permut_2024-04.mat';
+% PLV_data2 =  'PLV_VTC-IPL_last 1.9s delay_vs_bs_all_trials_200permut_2024-04.mat';
 % PLV_data3 =  'PLV_VTC-IPL_0.5s recall_vs_bs_all_trials_200permut_2024-04.mat';
 PLV_data1 =  'PLV_Hip-IPL_first 1.9s delay_vs_bs_all_trials_200permut_2024-04.mat';
 PLV_data2 =  'PLV_Hip-IPL_last 1.9s delay_vs_bs_all_trials_200permut_2024-04.mat';
@@ -194,31 +195,31 @@ end
 ax = gca; % Get current axis
 ax.XTick = 1:numel(uniqueTimePeriods);
 ax.XTickLabel = {'Baseline', 'First 1.9s Delay', 'Last 1.9s Delay', 'Recall'};
-ax.FontSize = 12; % Increase font size for better readability
+ax.FontSize = 16; % Increase font size for better readability
 ax.LineWidth = 1.5; % Make the axes lines thicker
-ax.XAxis.FontSize = 14; % Specific font size for X-axis
-ax.YAxis.FontSize = 14; % Specific font size for Y-axis
+ax.XAxis.FontSize = 18; % Specific font size for X-axis
+ax.YAxis.FontSize = 18; % Specific font size for Y-axis
 
 % Labeling
 ylabel(['Mean PLV in Freq Range: ' num2str(first_delay_plv.PLVCond2.freq(isignificant_bins(1))) '-' num2str(first_delay_plv.PLVCond2.freq(isignificant_bins(end)))  ' Hz'], ...
-    'FontSize', 14); 
-xlabel('Time Period', 'FontSize', 14); 
+    'FontSize', 18); 
+xlabel('Time Period', 'FontSize', 18); 
 title(['Mean +- SEM of PLV in ' num2str(first_delay_plv.PLVCond2.freq(isignificant_bins(1))) '-' num2str(first_delay_plv.PLVCond2.freq(isignificant_bins(end)))...
-    'Hz across chn pairs for each subject in ' ROI1 '-' ROI2], 'FontSize', 14); 
+    'Hz across chn pairs for each subject in ' ROI1 '-' ROI2], 'FontSize', 18); 
 
 % Set axis limits with some padding
 xlim([0.5, numel(uniqueTimePeriods) + 0.5]);
 ylim([min(meanValues(:) - semValues(:)) * 0.9, max(meanValues(:) + semValues(:)) * 1.05]);
 
 % Add grid
-grid on;
-set(ax, 'GridLineStyle', '--'); % Customize grid lines
+% grid on;
+% set(ax, 'GridLineStyle', '--'); % Customize grid lines
 
 % Anti-aliasing for smoother lines
 set(gcf, 'GraphicsSmoothing', 'on'); 
 
 % Add legend
-legend(uniquePatients, 'Location', 'Best', 'Interpreter', 'None', 'FontSize', 10);
+legend(uniquePatients, 'Location', 'Best', 'Interpreter', 'None', 'FontSize', 12);
 hold off;
 
 % Define the image name
@@ -226,5 +227,5 @@ figureName = ['meanPLV_' num2str(first_delay_plv.PLVCond2.freq(isignificant_bins
 filename2 = [outputPath '\' figureName];
 
 % Save the figure as JPEG in high resolution
-print(gcf, filename2, '-djpeg', '-r300'); 
+% print(gcf, filename2, '-djpeg', '-r300'); 
 
