@@ -6,28 +6,28 @@
 % --------------------
 
 % first, set up the indexes of freq bins to use for averaging PLV in the model (obtained earlier by plot_PLVdiff_variability)
-% isignificant_bins = [1 2 3]; % delta-theta, 2-4Hz
-isignificant_bins = [6 7]; % alpha, 7-8Hz
-% isignificant_bins = [1:8]; % theta-alpha, 2-9Hz
-% isignificant_bins = [1:4]; % 2-5 Hz, VTC-IPL
+% isignificant_bins = [1 2 3]; % low theta, 2-4Hz, Hip-IPL
+% isignificant_bins = [6 7]; % high theta, 7-8Hz, Hip-IPL
+% isignificant_bins = [1:7]; % the whole range, Hip-IPL
+isignificant_bins = [1:4]; % low theta, 2-5 Hz, VTC-IPL
 
 % load an aggregated table with indices of all significant pairs for all three periods across patients
-% filenameTable = 'F:\Sofia\MemoryActions\results\iEEG\connectivity\group data\PLV_VTC-IPL_aggregated_significant_chnPairs.mat';
-filenameTable = 'F:\Sofia\MemoryActions\results\iEEG\connectivity\group data\PLV_Hip-IPL_aggregated_significant_chnPairs.mat';
+filenameTable = 'F:\Sofia\MemoryActions\results\iEEG\connectivity\group data\PLV_VTC-IPL_aggregated_significant_chnPairs.mat';
+% filenameTable = 'F:\Sofia\MemoryActions\results\iEEG\connectivity\group data\PLV_Hip-IPL_aggregated_significant_chnPairs.mat';
 load(filenameTable);
 
 % path for the output files
 outputPath = 'F:\Sofia\MemoryActions\results\iEEG\connectivity\group data\LMEM_May2024\conditions';
 
 % set up a path for the main data
-PLV_data1 =  'PLV_Hip-IPL_diff_vs_same_first 1.9s delay__trials_2024-05.mat';
-PLV_data2 =  'PLV_Hip-IPL_diff_vs_same_last 1.9s delay__trials_2024-05.mat';
-PLV_data3 =  'PLV_Hip-IPL_diff_vs_same_0.5s recall__trials_2024-05.mat';
-PLV_data4 = 'PLV_Hip-IPL_diff_vs_same_0.5s bs__trials_2024-05.mat';
-% PLV_data1 =  'PLV_VTC-IPL_diff_vs_same_first 1.9s delay__trials_2024-05.mat';
-% PLV_data2 =  'PLV_VTC-IPL_diff_vs_same_last 1.9s delay__trials_2024-05.mat';
-% PLV_data3 =  'PLV_VTC-IPL_diff_vs_same_0.5s recall__trials_2024-05.mat';
-% PLV_data4 = 'PLV_VTC-IPL_diff_vs_same_0.5s bs__trials_2024-05.mat';
+% PLV_data1 =  'PLV_Hip-IPL_diff_vs_same_first 1.9s delay__trials_2024-05.mat';
+% PLV_data2 =  'PLV_Hip-IPL_diff_vs_same_last 1.9s delay__trials_2024-05.mat';
+% PLV_data3 =  'PLV_Hip-IPL_diff_vs_same_0.5s recall__trials_2024-05.mat';
+% PLV_data4 = 'PLV_Hip-IPL_diff_vs_same_0.5s bs__trials_2024-05.mat';
+PLV_data1 =  'PLV_VTC-IPL_diff_vs_same_first 1.9s delay__trials_2024-05.mat';
+PLV_data2 =  'PLV_VTC-IPL_diff_vs_same_last 1.9s delay__trials_2024-05.mat';
+PLV_data3 =  'PLV_VTC-IPL_diff_vs_same_0.5s recall__trials_2024-05.mat';
+PLV_data4 = 'PLV_VTC-IPL_diff_vs_same_0.5s bs__trials_2024-05.mat';
 PLV_folder = 'PLV_permut_stat';
 setup = setup_memact(1); % setup for the delayed epochs
 basedir = setup.basedir; % folder where the data of all patients stored
@@ -37,8 +37,7 @@ subfolder = setup.subfolder;
 % Extract important info from the file name
 ROI1 = regexp(PLV_data1, '(?<=PLV_)[^-]+', 'match', 'once');
 ROI2 = regexp(PLV_data1, '(?<=-)[^-_]+', 'match', 'once');
-% period = regexp(PLV_data, '(first|last) \d+\.\ds delay|(?<=_)\w+(?=__trials)', 'match', 'once');
-% period = '0.5s recall';
+
 
 %% get average PLV over the selected freq range for two conditions
 % Initialize an empty table for storing the results
@@ -113,12 +112,19 @@ resultsTable.chPair = categorical(resultsTable.chPair);
 
 %% LMM
 % Fit a linear mixed-effects model: condition - fixed effect, patient and chan pair - random effects
-% model = fitlme(resultsTable, 'meanPLV ~ condition + (1 | patientId) + (1 | patientId:chPair)'); % chapter 36.4.2 of iEEG book
-model = fitlme(resultsTable, 'meanPLV ~ timePeriod * condition + (1 | patientId) + (1 | patientId:chPair)');
+model = fitlme(resultsTable, 'meanPLV ~ timePeriod * condition + (1 | patientId) + (1 | patientId:chPair)'); % chapter 36.4.2 of iEEG book
 
 % Display the model summary
 disp(model); % the output can be copied to txt file
 
+% Define the number of comparisons (number of models)
+numComparisons = 3;
+
+% original alpha level
+alpha = 0.05;
+
+% Adjust the alpha level using Bonferroni correction
+alphaAdjusted = alpha / numComparisons;
 
 %% export the results to the xls file
 
@@ -128,9 +134,10 @@ filename = [outputPath '\' outputname];
 
 % Manually create a table from the 'titleddataset'
 coefficients = model.Coefficients;
+significant = coefficients.pValue < alphaAdjusted;  % Apply Bonferroni correction
 coefTable = table(coefficients.Name, coefficients.Estimate, coefficients.SE, coefficients.tStat, ...
-                  coefficients.DF, coefficients.pValue, coefficients.Lower, coefficients.Upper, ...
-                  'VariableNames', {'Name', 'Estimate', 'SE', 'tStat', 'DF', 'pValue', 'Lower', 'Upper'});
+                  coefficients.DF, coefficients.Lower, coefficients.Upper, coefficients.pValue, significant, repmat(alphaAdjusted, numel(significant),1), ...
+                  'VariableNames', {'Name', 'Estimate', 'SE', 'tStat', 'DF', 'Lower', 'Upper', 'pValue','significance_bonferroni_corr', 'alpha_bonferroni'});
 
 % Write the fixed effects table to Excel
 writetable(coefTable, filename, 'Sheet', 'Fixed Effects', 'Range', 'A1');
@@ -150,7 +157,7 @@ formula = {char(model.Formula)};
 formulaTable = cell2table(formula, 'VariableNames', {'Formula'});
 writetable(formulaTable, filename, 'Sheet', 'Model Formula', 'Range', 'A1');
 
-%% visualize the results
+%% visualize the results (mean +- sem for each patient separately)
 % Unique identifiers for patients and conditions
 uniquePatients = unique(string(resultsTable.patientId), 'stable');
 uniqueCondition = unique(string(resultsTable.condition), 'stable');
@@ -310,13 +317,26 @@ for conditionIdx = 1:numel(uniqueConditions)
     
 end
 
-%% mean over all patients and chn pairs
+%% 22.05.2024 simpler plot with mean +- SEM across channel pairs
 % Extract unique time periods and conditions
 uniqueTimePeriods = unique(string(resultsTable.timePeriod), 'stable');
 uniqueConditions = unique(string(resultsTable.condition), 'stable');
 numPatients = numel(unique(string(resultsTable.patientId), 'stable'));
 numTimePeriods = numel(uniqueTimePeriods);
 numConditions = numel(uniqueConditions);
+
+% Define colors for conditions
+colors = [
+    1 0.5 0.5; % same condition (light red)
+    0.5 0.5 1; % different condition (light blue)
+    ];
+
+% Width of the shift for conditions
+shiftWidth = 0.1;
+
+% set the same y-limits
+globalMin = 0.1; 
+globalMax = 0.2;
 
 % Initialize figure
 figure;
@@ -346,9 +366,12 @@ for conditionIdx = 1:numConditions
         semValues(timePeriodIdx) = std(plvData) / sqrt(length(plvData));  % SEM = std / sqrt(N)
     end
 
+    % Shift the x positions for conditions to avoid overlap
+    xPositions = (1:numTimePeriods) + (conditionIdx - 1.5) * shiftWidth;
+    
     % Plot the mean with error bars for each condition
-    errorbar(1:numTimePeriods, meanValues, semValues, '-o', ...
-        'DisplayName', char(uniqueConditions(conditionIdx)), 'LineWidth', 1.5, 'MarkerSize', 6, 'CapSize', 8);
+    errorbar(xPositions, meanValues, semValues, 'o', 'Color', colors(conditionIdx,:),...
+        'DisplayName', char(uniqueConditions(conditionIdx)), 'LineWidth', 2, 'MarkerSize', 10, 'CapSize', 10, 'MarkerFaceColor', colors(conditionIdx,:));
     
     % Update max PLV for this condition
     maxPLV(conditionIdx) = max(meanValues);
@@ -358,37 +381,45 @@ end
 ax = gca; % Get current axis
 ax.XTick = 1:numTimePeriods;
 ax.XTickLabel = {'Baseline', 'First 1.9s Delay', 'Last 1.9s Delay', 'Recall'};
-ax.FontSize = 12; % Increase font size for better readability
+ax.FontSize = 14; % Increase font size for better readability
 ax.LineWidth = 1.5; % Make the axes lines thicker
-ax.XAxis.FontSize = 14; % Specific font size for X-axis
-ax.YAxis.FontSize = 14; % Specific font size for Y-axis
+ax.XAxis.FontSize = 16; % Specific font size for X-axis
+ax.YAxis.FontSize = 16; % Specific font size for Y-axis
 
 % Labeling
 ylabel(['Mean PLV in Freq Range: ' num2str(first_delay_plv.PLVCond2.freq(isignificant_bins(1))) '-' num2str(first_delay_plv.PLVCond2.freq(isignificant_bins(end)))  ' Hz'], ...
-    'FontSize', 14);
-xlabel('Time Period', 'FontSize', 14);
+    'FontSize', 16, 'FontWeight', 'bold');
+xlabel('Time Period', 'FontSize', 16, 'FontWeight', 'bold');
 title(['Mean +- SEM of PLV in ' num2str(first_delay_plv.PLVCond2.freq(isignificant_bins(1))) '-' num2str(first_delay_plv.PLVCond2.freq(isignificant_bins(end)))...
-    'Hz in ' ROI1 '-' ROI2 ' over all patients and chn pairs '], 'FontSize', 14);
+    'Hz in ' ROI1 '-' ROI2 ' over all chn pairs '], 'FontSize', 18, 'FontWeight', 'bold');
 
 % Set axis limits with some padding
 xlim([0.5, numTimePeriods + 0.5]);
-ylim([min(meanValues(:) - semValues(:)) * 0.9, max(maxPLV) * 1.1]);
+% ylim([min(meanValues(:) - semValues(:)) * 0.9, max(maxPLV) * 1.1]);
+% Set consistent y-axis limits
+ylim([globalMin globalMax]);
+yticks(globalMin:0.02:globalMax)
 
 % Add legend
-legend(uniqueConditions, 'Location', 'Best', 'Interpreter', 'None', 'FontSize', 10);
+legend(uniqueConditions, 'Location', 'northwest', 'Interpreter', 'None', 'FontSize', 14);
 
 % Show grid
 grid on;
+set(ax, 'GridLineStyle', '--'); % Customize grid lines
 
 % Release hold
 hold off;
 
 % Define the image name
-figureName = ['meanPLV_' num2str(first_delay_plv.PLVCond2.freq(isignificant_bins(1))) '-' num2str(first_delay_plv.PLVCond2.freq(isignificant_bins(end))) 'Hz_' ROI1 '-' ROI2 '_over_allPatients_and_chnPairs.jpg'];
-filename2 = [outputPath '\' figureName];
+figureName = ['meanPLV_' num2str(first_delay_plv.PLVCond2.freq(isignificant_bins(1))) '-' num2str(first_delay_plv.PLVCond2.freq(isignificant_bins(end))) 'Hz_' ROI1 '-' ROI2 '_over_all_chnPairs.jpg'];
+figureNameFull = [outputPath '\' figureName];
 
 % Save the figure as JPEG in high resolution
-print(gcf, filename2, '-djpeg', '-r300');
+print(gcf, figureNameFull, '-djpeg', '-r300');
+
+% save also in matlab format
+figureName2 = ['meanPLV_' num2str(first_delay_plv.PLVCond2.freq(isignificant_bins(1))) '-' num2str(first_delay_plv.PLVCond2.freq(isignificant_bins(end))) 'Hz_' ROI1 '-' ROI2 '_over_all_chnPairs.fig'];
+savefig([outputPath '\' figureName2]);
 
 %% violin plot 10.05.2024
 % Extract unique time periods and conditions

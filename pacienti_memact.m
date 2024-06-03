@@ -63,7 +63,7 @@ pacienti(p).rjch = [129]; % noise
 
 p=p+1;
 pacienti(p).todo = 1; 
-pacienti(p).folder = {'p1883612 And VT66','VT66 And p1883612'};
+pacienti(p).folder = {'p1883612_VT66 And VT66','VT66 And p1883612_VT66'};
 pacienti(p).data = 'VT66_2023-04-24_16-52_067_512hz_14_concat_memact.mat'; 
 pacienti(p).header = 'VT66_p1883612_headerS.mat'; 
 pacienti(p).psychopy = 'VT66_p1883612_memact.mat';

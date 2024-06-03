@@ -13,8 +13,8 @@
 outputPath = 'F:\Sofia\MemoryActions\results\iEEG\connectivity\group data\LMEM_May2024';
 
 % load 3 tables with indices of all significant pairs across patients
-% filenameTable1 = 'F:\Sofia\MemoryActions\results\iEEG\connectivity\group data\PLV_VTC-IPL_first 2s delay_vs_bs_all_trials_200permut_2024-03_summaryNewSignif.mat';
-% filenameTable2 = 'F:\Sofia\MemoryActions\results\iEEG\connectivity\group data\PLV_VTC-IPL_last 2s delay_vs_bs_all_trials_200permut_2024-03_summaryNewSignif.mat';
+% filenameTable1 = 'F:\Sofia\MemoryActions\results\iEEG\connectivity\group data\PLV_VTC-IPL_first 1.9s delay_vs_bs_all_trials_200permut_2024-04_summaryNewSignif.mat';
+% filenameTable2 = 'F:\Sofia\MemoryActions\results\iEEG\connectivity\group data\PLV_VTC-IPL_last 1.9s delay_vs_bs_all_trials_200permut_2024-04_summaryNewSignif.mat';
 % filenameTable3 = 'F:\Sofia\MemoryActions\results\iEEG\connectivity\group data\PLV_VTC-IPL_0.5s recall_vs_bs_all_trials_200permut_2024-04_summaryNewSignif.mat';
 filenameTable1 = 'F:\Sofia\MemoryActions\results\iEEG\connectivity\group data\PLV_Hip-IPL_first 1.9s delay_vs_bs_all_trials_200permut_2024-04_summaryNewSignif.mat';
 filenameTable2 = 'F:\Sofia\MemoryActions\results\iEEG\connectivity\group data\PLV_Hip-IPL_last 1.9s delay_vs_bs_all_trials_200permut_2024-04_summaryNewSignif.mat';
@@ -24,8 +24,8 @@ last_delay = load(filenameTable2);
 recall = load(filenameTable3);
 
 % set up a path for the main data
-% PLV_data1 =  'PLV_VTC-IPL_first 2s delay_vs_bs_all_trials_200permut_2024-03.mat';
-% PLV_data2 =  'PLV_VTC-IPL_last 2s delay_vs_bs_all_trials_200permut_2024-03.mat';
+% PLV_data1 =  'PLV_VTC-IPL_first 1.9s delay_vs_bs_all_trials_200permut_2024-04.mat';
+% PLV_data2 =  'PLV_VTC-IPL_last 1.9s delay_vs_bs_all_trials_200permut_2024-04.mat';
 % PLV_data3 =  'PLV_VTC-IPL_0.5s recall_vs_bs_all_trials_200permut_2024-04.mat';
 PLV_data1 =  'PLV_Hip-IPL_first 1.9s delay_vs_bs_all_trials_200permut_2024-04.mat';
 PLV_data2 =  'PLV_Hip-IPL_last 1.9s delay_vs_bs_all_trials_200permut_2024-04.mat';
@@ -65,9 +65,7 @@ ROI2 = regexp(PLV_data1, '(?<=-)[^-_]+', 'match', 'once');
 % Create a new figure
 figure('Name','significant PLV difference between any period and baseline');
 
-% Define a colormap for the scatter plot. This is a simple way to ensure each
-% channel pair gets a unique color, but with many pairs, some colors may be similar.
-% colors = lines(max([tablePLV_allSubj.n_signif_chnPairs]));  % 'lines' is a MATLAB colormap with distinct colors
+% Define a colormap for the scatter plot
 colors = distinguishable_colors(max([aggregTable.n_signif_chnPairs]));
 
 % Iterate over each subject
@@ -83,7 +81,6 @@ for p = 1:numel(pacienti)
     end
     
     filePath = [basedir pacienti(p).folder '\' subfolder '\' PLV_folder '\'];
-    %filePath = [basedir pacienti(p).folder '/' subfolder '/' PLV_folder '/'];
 
     if isfile([filePath PLV_data1])
         % Load the PLV data for all 3 periods
@@ -141,7 +138,7 @@ maxY = max(arrayfun(@(x) x.YLim(2), allAxes));
 % Set the same y-axis limits for all subplots
 arrayfun(@(x) set(x, 'YLim', [minY, maxY]), allAxes);
 
-%% plot histogram with ratio of significant pairs in each freq bin
+%% plot histogram with ratio of significant pairs in each freq bin for each patient 
 
 % Create a new figure
 figure('Name','ratio of significant channel pairs across freq bins');
@@ -161,7 +158,6 @@ for p = 1:numel(pacienti)
         continue;
     end
 
-    %filePath = [basedir pacienti(p).folder '/' subfolder '/' PLV_folder '/'];
     filePath = [basedir pacienti(p).folder '\' subfolder '\' PLV_folder '\'];
     
     if isfile([filePath PLV_data1])
@@ -206,7 +202,6 @@ for p = 1:numel(pacienti)
     end
 end
 
-
 % Get handles to all axes objects
 allAxes = findobj(gcf, 'type', 'axes');
 
@@ -217,48 +212,10 @@ maxY = max(arrayfun(@(x) x.YLim(2), allAxes));
 % Set the same y-axis limits for all subplots
 arrayfun(@(x) set(x, 'YLim', [minY, maxY]), allAxes);
 
-% % normalize by total number of ch pairs in all patients
-% proportionsTotal = sum(ratioPairsAllPatients,1); % proportions for all freq bins - sum across all patients
-% 
-% % Plot histogram for mean of percentage of significant pairs across all patients 
-% subplot(ceil(numPatients/2),2, subjIndex+1);
-% bar(first_delay_plv.PLVCond2.freq, proportionsTotal, 'FaceColor', 'r');
-% 
-% chance_level = median(proportionsTotal);  % The median Sig.P.Ratio across all freq bins is used as the chance level for binomial testing similar to Park et al. 2019
-% hold on
-% line(xlim, [chance_level chance_level], 'Color', 'k', 'LineStyle', '--', 'LineWidth', 2); % plot median
-% 
-% % Add labels and title
-% xlabel('Frequency (Hz)');
-% ylabel('Sig.P.Ratio');
-% title(['Sum across all ' num2str(numPatients) ' patients, ' num2str(sum([aggregTable.n_signif_chnPairs])) '/' num2str(sum([aggregTable.total_n_chnPairs])) ' chn pairs']);
-% legend('', 'median across all freq bins');
 
-
-%% binomial test 1 version - probably less correct than the second approach
-% proportionsTotal = sum(ratioPairsAllPatients,1); % proportions for all freq bins - sum across all patients
-% chnPairsTotal = sum([aggregTable.total_n_chnPairs]); % total number of channel pairs - sum across all patients
-% chance_level = median(proportionsTotal);  % The median Sig.P.Ratio across all freq bins is used as the chance level for binomial testing similar to Park et al. 2019
-% 
-% x = round(proportionsTotal*chnPairsTotal); % observed number of 'successes'
-% 
-% % Perform binomial test for each proportion - freq bin
-% p_values = zeros(size(proportionsTotal));
-% for i = 1:numel(proportionsTotal)
-%     p_values(i) = binocdf(x(i), chnPairsTotal , chance_level, 'upper' ); % one-sided test
-% end
-% 
-% % FDR correction 
-% [~, ~, adj_p_values] = fdr_bh(p_values, 0.05, 'dep');
-% 
-% isignificant_bins = find(adj_p_values<0.05);
-% significant_bins = first_delay_plv.PLVCond2.freq(isignificant_bins);
-% fprintf('Significant Frequency Bins in Hz:\n');
-% disp(significant_bins);
-
-%% binomial test 2 version
+%% binomial test 
 chnPairsTotal = sum([aggregTable.total_n_chnPairs]); % total number of channel pairs - sum across all patients
-SigPRatioAll = sum(countsSigPRatioAll,1)/chnPairsTotal ; % proportions for all freq bins across all subejcts
+SigPRatioAll = sum(countsSigPRatioAll,1)/chnPairsTotal ; % proportions for all freq bins across all patients
 chance_level = median(SigPRatioAll);  % The median Sig.P.Ratio across all freq bins is used as the chance level for binomial testing similar to Park et al. 2019
 x = sum(countsSigPRatioAll,1); % observed number of 'successes'
 % Perform binomial test for each proportion - freq bin
@@ -269,7 +226,7 @@ end
 
 isignificant_bins_uncorr = find(p_values<0.05); % indexes of significant freq bins before fdr corr
 
-% FDR correction - do we need it here?
+% FDR correction 
 [~, ~, adj_p_values] = fdr_bh(p_values, 0.05, 'dep');
 
 isignificant_bins = find(adj_p_values<0.05);
@@ -277,7 +234,7 @@ significant_bins = first_delay_plv.PLVCond2.freq(isignificant_bins);
 fprintf('Significant Frequency Bins in Hz:\n');
 disp(significant_bins);
 
-% new histogram
+% histogram - ratio of significant pairs in each freq bin for all patients together
 figure;
 set(gcf, 'units', 'normalized', 'outerposition', [0 0 1 1]); % Maximize the figure window
 barHandle = bar(first_delay_plv.PLVCond2.freq, SigPRatioAll, 'FaceColor', 'r');
@@ -322,3 +279,6 @@ filename2 = [outputPath '\' figureName];
 % Save the figure as JPEG in high resolution
 print(gcf, filename2, '-djpeg', '-r300'); 
 
+% save also in matlab format
+figureName2 = ['SigPairRatio_of_PLV_difference_between_anyPeriod_and_bs_in_' ROI1 '-' ROI2 '.fig'];
+savefig([outputPath '\' figureName2]);

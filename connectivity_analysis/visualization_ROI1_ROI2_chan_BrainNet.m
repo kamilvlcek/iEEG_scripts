@@ -85,3 +85,28 @@ nod_table.node_label = regexprep(nod_table.node_label, '\((\w+).*\)', '$1');
 filename = ['F:\Sofia\MemoryActions\results\iEEG\connectivity\visualization of channels\' ROI1 '-' ROI2 '_' num2str(size(nod_table,1)) '_channels_in_' num2str(numel(unique_patients)) ' patients.node'];
 writetable(nod_table, filename, 'Delimiter', ' ', 'QuoteStrings', false, 'FileType', 'text', 'WriteVariableNames',0);
 
+%% create a nod table for all channels in 3 ROIs from 9 patients
+load('F:\Sofia\MemoryActions\results\iEEG\PAC_9pat_3ROIs_final.mat')
+
+nod_table = table('Size', [size(PAC,2), 6], 'VariableTypes', {'double','double','double','double','double', 'string'}...
+    , 'VariableNames', {'MNI_x','MNI_y','MNI_z','node_color','node_size', 'node_label'});
+
+nod_table.MNI_x = [PAC.MNI_x]'; 
+nod_table.MNI_y = [PAC.MNI_y]';
+nod_table.MNI_z = [PAC.MNI_z]';
+nod_table.node_label  = {PAC.neurologyLabel}'; % neurologyLabel
+
+% assign values to node_color based on ROI
+unique_labels = unique({PAC.brainlabel}');
+for i = 1:length(unique_labels)
+    nod_table.node_color(strcmp({PAC.brainlabel}', unique_labels{i})) = i;
+end
+
+% replace all values in node_size with 1
+nod_table.node_size = ones(size(nod_table,1),1);
+
+% Modify the 'node_label' column to delete spaces, (), -, otherwise it causes an error in BrainNet
+nod_table.node_label = regexprep(nod_table.node_label, '\((\w+).*\)', '$1');
+
+filename = ['F:\Sofia\MemoryActions\results\iEEG\connectivity\visualization of channels\all_369Chan_3ROIs_9patients.node'];
+writetable(nod_table, filename, 'Delimiter', ' ', 'QuoteStrings', false, 'FileType', 'text', 'WriteVariableNames',0);

@@ -2,17 +2,19 @@
 % and save a summary table with their numbers and indices in .mat file
 
 %% set up a path for data
-% PLV_data =  'PLV_VTC-IPL_diff_vs_same_last 2s delay__trials_200permut_2024-04.mat';
-% PLV_data =  'PLV_VTC-IPL_last 2s delay_vs_bs_all_trials_200permut_2024-03.mat';
-% PLV_data =  'PLV_VTC-IPL_first 2s delay_vs_bs_all_trials_200permut_2024-03.mat';
 PLV_data =  'PLV_VTC-IPL_0.5s recall_vs_bs_all_trials_200permut_2024-04.mat';
+% PLV_data =  'PLV_VTC-IPL_last 1.9s delay_vs_bs_all_trials_200permut_2024-04.mat';
+% PLV_data =  'PLV_VTC-IPL_first 1.9s delay_vs_bs_all_trials_200permut_2024-04.mat';
+% PLV_data =  'PLV_Hip-IPL_0.5s recall_vs_bs_all_trials_200permut_2024-04.mat';
+% PLV_data =  'PLV_Hip-IPL_first 1.9s delay_vs_bs_all_trials_200permut_2024-04.mat';
+% PLV_data =  'PLV_Hip-IPL_last 1.9s delay_vs_bs_all_trials_200permut_2024-04.mat';
 PLV_folder = 'PLV_permut_stat';
 direction = 1;  % 1 - significant ch pairs where cond 1 > cond 2; 2 - significant ch pairs where cond 2 > cond 1
 
 setup = setup_memact(1); % setup for the delayed epochs
 basedir = setup.basedir; % folder where the data of all patients stored
 subfolder = setup.subfolder;
-[pacienti] = pacienti_memact();
+[pacienti] = pacienti_memact(); % 
 
 %%
 tablePLV_allSubj = [];
