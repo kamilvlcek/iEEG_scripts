@@ -8,15 +8,16 @@ baseline4delay = 0;
 %% an analysis of immediate epochs
  if immediate
     disp(' ++++ ANALYSIS 1 - immediate epochs ++++');
-    pacienti = {'VT66'}; 
-    cfg = struct('hybernovat',0,'suffix','Ep2023-06'); 
+    pacienti = {'VT62'}; 
+    cfg = struct('hybernovat',0,'suffix','Ep2023-11'); 
     cfg.pacienti = pacienti; %which patients to analyse - has to be added after struct creation
-    %cfg.overwrite=1; %overwrite old output files?
-    %cfg.freqepochs=1; %save all frequencies from all epochs?
+    cfg.overwrite=0; %overwrite old output files?
+    cfg.freqepochs=1; %save all frequencies from all epochs?
     %cfg.normalization='z'; %use different normalization than orig (orig =divide by mean)
     %cfg.epochfilter = {7,[0 1]}; %which epochs to extract and save - {column, [values]}; %stored already in setup
     cfg.typeEpochs = 0; % immediate
     cfg.normalizeEpochs = 1;
+    cfg.debug = 0;
     filenames = BatchHilbert('memact',cfg);
 end
 %% an analysis of epochs before delay
