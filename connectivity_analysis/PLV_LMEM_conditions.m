@@ -6,28 +6,32 @@
 % --------------------
 
 % first, set up the indexes of freq bins to use for averaging PLV in the model (obtained earlier by plot_PLVdiff_variability)
-% isignificant_bins = [1 2 3]; % low theta, 2-4Hz, Hip-IPL
+isignificant_bins = [1 2 3]; % low theta, 2-4Hz, Hip-IPL
 % isignificant_bins = [6 7]; % high theta, 7-8Hz, Hip-IPL
 % isignificant_bins = [1:7]; % the whole range, Hip-IPL
-isignificant_bins = [1:4]; % low theta, 2-5 Hz, VTC-IPL
+% isignificant_bins = [1:4]; % low theta, 2-5 Hz, VTC-IPL
 
 % load an aggregated table with indices of all significant pairs for all three periods across patients
-filenameTable = 'F:\Sofia\MemoryActions\results\iEEG\connectivity\group data\PLV_VTC-IPL_aggregated_significant_chnPairs.mat';
-% filenameTable = 'F:\Sofia\MemoryActions\results\iEEG\connectivity\group data\PLV_Hip-IPL_aggregated_significant_chnPairs.mat';
+% filenameTable = 'F:\Sofia\MemoryActions\results\iEEG\connectivity\group data\PLV_VTC-IPL_aggregated_significant_chnPairs.mat';
+% filenameTable = 'F:\Sofia\MemoryActions\results\iEEG\connectivity\group data\PLV_VTC-IPL_aggregated_significant_chnPairs_Sept24.mat';
+filenameTable = 'F:\Sofia\MemoryActions\results\iEEG\connectivity\group data\PLV_Hip-IPL_aggregated_significant_chnPairs.mat';
+% filenameTable = 'F:\Sofia\MemoryActions\results\iEEG\connectivity\group data\PLV_Hip-IPL_aggregated_significant_chnPairs_Sept24.mat';
 load(filenameTable);
 
 % path for the output files
 outputPath = 'F:\Sofia\MemoryActions\results\iEEG\connectivity\group data\LMEM_May2024\conditions';
 
 % set up a path for the main data
-% PLV_data1 =  'PLV_Hip-IPL_diff_vs_same_first 1.9s delay__trials_2024-05.mat';
-% PLV_data2 =  'PLV_Hip-IPL_diff_vs_same_last 1.9s delay__trials_2024-05.mat';
-% PLV_data3 =  'PLV_Hip-IPL_diff_vs_same_0.5s recall__trials_2024-05.mat';
-% PLV_data4 = 'PLV_Hip-IPL_diff_vs_same_0.5s bs__trials_2024-05.mat';
-PLV_data1 =  'PLV_VTC-IPL_diff_vs_same_first 1.9s delay__trials_2024-05.mat';
-PLV_data2 =  'PLV_VTC-IPL_diff_vs_same_last 1.9s delay__trials_2024-05.mat';
-PLV_data3 =  'PLV_VTC-IPL_diff_vs_same_0.5s recall__trials_2024-05.mat';
-PLV_data4 = 'PLV_VTC-IPL_diff_vs_same_0.5s bs__trials_2024-05.mat';
+PLV_data1 =  'PLV_Hip-IPL_diff_vs_same_first 1.9s delay__trials_2024-05.mat';
+PLV_data2 =  'PLV_Hip-IPL_diff_vs_same_last 1.9s delay__trials_2024-05.mat';
+PLV_data3 =  'PLV_Hip-IPL_diff_vs_same_0.5s recall__trials_2024-05.mat';
+PLV_data4 = 'PLV_Hip-IPL_diff_vs_same_0.5s bs__trials_2024-05.mat';
+PLV_data5 = 'PLV_Hip-IPL_diff_vs_same_1.9s encoding__trials_2024-09.mat';
+% PLV_data1 =  'PLV_VTC-IPL_diff_vs_same_first 1.9s delay__trials_2024-05.mat';
+% PLV_data2 =  'PLV_VTC-IPL_diff_vs_same_last 1.9s delay__trials_2024-05.mat';
+% PLV_data3 =  'PLV_VTC-IPL_diff_vs_same_0.5s recall__trials_2024-05.mat';
+% PLV_data4 = 'PLV_VTC-IPL_diff_vs_same_0.5s bs__trials_2024-05.mat';
+% PLV_data5 = 'PLV_VTC-IPL_diff_vs_same_1.9s encoding__trials_2024-09.mat';
 PLV_folder = 'PLV_permut_stat';
 setup = setup_memact(1); % setup for the delayed epochs
 basedir = setup.basedir; % folder where the data of all patients stored
@@ -66,6 +70,7 @@ for p = 1:numel(pacienti)
         last_delay_plv = load([filePath PLV_data2]);
         recall_plv = load([filePath PLV_data3]);
         bs_plv = load([filePath PLV_data4]);
+        encoding_plv = load([filePath PLV_data5]);
 
         % Get indices of aggregated significant channel pairs for the current subject
         significantidxChan = aggregTable(subjIndex).idxChan_in_Pairs; % n signif pairs x 2 (each pair with chan indices)
@@ -86,6 +91,8 @@ for p = 1:numel(pacienti)
             meanPLV_recall_diff = mean(squeeze(recall_plv.PLVCond2.plvspctrm(ipair(1),ipair(2),isignificant_bins)));
             meanPLV_bs_same = mean(squeeze(bs_plv.PLVCond1.plvspctrm(ipair(1),ipair(2),isignificant_bins)));
             meanPLV_bs_diff = mean(squeeze(bs_plv.PLVCond2.plvspctrm(ipair(1),ipair(2),isignificant_bins)));
+            meanPLV_encod_same = mean(squeeze(encoding_plv.PLVCond1.plvspctrm(ipair(1),ipair(2),isignificant_bins)));
+            meanPLV_encod_diff = mean(squeeze(encoding_plv.PLVCond2.plvspctrm(ipair(1),ipair(2),isignificant_bins)));
             
             chn_labels = [first_delay_plv.PLVCond1.label{ipair(1)} first_delay_plv.PLVCond1.label{ipair(2)}];  % original labels of chan in this pair
 
@@ -94,13 +101,15 @@ for p = 1:numel(pacienti)
 %             newRow2 = {pacienti(p).folder, chn_labels, 'diff', meanPLV_diff}; 
             newRow1 = {pacienti(p).folder, chn_labels, 'bs', 'same', meanPLV_bs_same}; % baseline
             newRow2 = {pacienti(p).folder, chn_labels, 'bs', 'diff', meanPLV_bs_diff}; % baseline
-            newRow3 = {pacienti(p).folder, chn_labels, 'first_1.9s_delay', 'same', meanPLV_first_delay_same}; % first half of the delay
-            newRow4 = {pacienti(p).folder, chn_labels, 'first_1.9s_delay', 'diff', meanPLV_first_delay_diff}; % first half of the delay
-            newRow5 = {pacienti(p).folder, chn_labels, 'last_1.9s_delay', 'same', meanPLV_last_delay_same}; % last half of the delay
-            newRow6 = {pacienti(p).folder, chn_labels, 'last_1.9s_delay', 'diff', meanPLV_last_delay_diff}; % last half of the delay
-            newRow7 = {pacienti(p).folder, chn_labels, 'recall', 'same', meanPLV_recall_same}; % recall
-            newRow8 = {pacienti(p).folder, chn_labels, 'recall', 'diff', meanPLV_recall_diff}; % recall
-            resultsTable = [resultsTable; newRow1; newRow2; newRow3; newRow4; newRow5; newRow6; newRow7; newRow8];
+            newRow3 = {pacienti(p).folder, chn_labels, 'encoding', 'same', meanPLV_encod_same}; % encoding
+            newRow4 = {pacienti(p).folder, chn_labels, 'encoding', 'diff', meanPLV_encod_diff}; % encoding            
+            newRow5 = {pacienti(p).folder, chn_labels, 'first_1.9s_delay', 'same', meanPLV_first_delay_same}; % first half of the delay
+            newRow6 = {pacienti(p).folder, chn_labels, 'first_1.9s_delay', 'diff', meanPLV_first_delay_diff}; % first half of the delay
+            newRow7 = {pacienti(p).folder, chn_labels, 'last_1.9s_delay', 'same', meanPLV_last_delay_same}; % last half of the delay
+            newRow8 = {pacienti(p).folder, chn_labels, 'last_1.9s_delay', 'diff', meanPLV_last_delay_diff}; % last half of the delay
+            newRow9 = {pacienti(p).folder, chn_labels, 'recall', 'same', meanPLV_recall_same}; % recall
+            newRow10 = {pacienti(p).folder, chn_labels, 'recall', 'diff', meanPLV_recall_diff}; % recall            
+            resultsTable = [resultsTable; newRow1; newRow2; newRow3; newRow4; newRow5; newRow6; newRow7; newRow8; newRow9; newRow10];
         end
     end
 end
@@ -125,6 +134,39 @@ alpha = 0.05;
 
 % Adjust the alpha level using Bonferroni correction
 alphaAdjusted = alpha / numComparisons;
+
+%% post-hoc encoding vs other periodss
+% Test if there is a difference between 'encoding' and 'first_1.9s_delay'
+pVal1 = coefTest(model, [0 1 -1 0 0 0 0 0 0 0]); 
+
+% Test if there is a difference between 'encoding' and 'last_1.9s_delay'
+pVal2 = coefTest(model, [0 1 0 -1 0 0 0 0 0 0]);
+
+% Test if there is a difference between 'encoding' and 'recall'
+pVal3 = coefTest(model, [0 1 0 0 -1 0 0 0 0 0]);
+
+% Test if there is a difference between 'first_1.9s_delay' and 'last_1.9s_delay'
+pVal4 = coefTest(model, [0 0 1 -1 0 0 0 0 0 0]);
+
+% Number of comparisons (post-hoc testing)
+numComparisons = 4;
+
+% Original alpha level
+alpha = 0.05;
+
+% Adjust alpha using Bonferroni correction
+alphaAdjusted_post_hoc = alpha / numComparisons;
+
+% Check significance with Bonferroni correction
+significant_post_hoc = [pVal1; pVal2; pVal3; pVal4] < alphaAdjusted_post_hoc;
+
+% Display the results
+disp('p-values for pairwise comparisons:');
+disp([pVal1, pVal2, pVal3, pVal4]);
+
+disp('Significant after Bonferroni correction:');
+disp(significant_post_hoc);
+
 
 %% export the results to the xls file
 
@@ -336,11 +378,12 @@ shiftWidth = 0.1;
 
 % set the same y-limits
 globalMin = 0.1; 
-globalMax = 0.2;
+globalMax = 0.21;
 
 % Initialize figure
 figure;
-set(gcf, 'units', 'normalized', 'outerposition', [0 0 1 1]); % Maximize the figure window
+set(gcf, 'Units', 'centimeters', 'Position', [5, 5, 17, 13]); % [x_position, y_position, width, height]
+% set(gcf, 'units', 'normalized', 'outerposition', [0 0 1 1]); % Maximize the figure window
 hold on;
 
 % Initialize arrays to store maximum PLV values for each condition
@@ -371,7 +414,7 @@ for conditionIdx = 1:numConditions
     
     % Plot the mean with error bars for each condition
     errorbar(xPositions, meanValues, semValues, 'o', 'Color', colors(conditionIdx,:),...
-        'DisplayName', char(uniqueConditions(conditionIdx)), 'LineWidth', 2, 'MarkerSize', 10, 'CapSize', 10, 'MarkerFaceColor', colors(conditionIdx,:));
+        'DisplayName', char(uniqueConditions(conditionIdx)), 'LineWidth', 1.5, 'MarkerSize', 7, 'CapSize', 7, 'MarkerFaceColor', colors(conditionIdx,:));
     
     % Update max PLV for this condition
     maxPLV(conditionIdx) = max(meanValues);
@@ -380,32 +423,35 @@ end
 % Customize the plot
 ax = gca; % Get current axis
 ax.XTick = 1:numTimePeriods;
-ax.XTickLabel = {'Baseline', 'First 1.9s Delay', 'Last 1.9s Delay', 'Recall'};
+ax.XTickLabel = {'Baseline', 'Encoding', 'Delay 1', 'Delay 2', 'Recall'};
 ax.FontSize = 14; % Increase font size for better readability
 ax.LineWidth = 1.5; % Make the axes lines thicker
 ax.XAxis.FontSize = 16; % Specific font size for X-axis
 ax.YAxis.FontSize = 16; % Specific font size for Y-axis
 
+% Rotate X-tick labels to 45 degrees
+xtickangle(20);
+
 % Labeling
 ylabel(['Mean PLV in Freq Range: ' num2str(first_delay_plv.PLVCond2.freq(isignificant_bins(1))) '-' num2str(first_delay_plv.PLVCond2.freq(isignificant_bins(end)))  ' Hz'], ...
-    'FontSize', 16, 'FontWeight', 'bold');
-xlabel('Time Period', 'FontSize', 16, 'FontWeight', 'bold');
+    'FontSize', 14, 'FontWeight', 'bold');
+xlabel('Time Period', 'FontSize', 14, 'FontWeight', 'bold');
 title(['Mean +- SEM of PLV in ' num2str(first_delay_plv.PLVCond2.freq(isignificant_bins(1))) '-' num2str(first_delay_plv.PLVCond2.freq(isignificant_bins(end)))...
-    'Hz in ' ROI1 '-' ROI2 ' over all chn pairs '], 'FontSize', 18, 'FontWeight', 'bold');
+    'Hz in ' ROI1 '-' ROI2 ' over all chn pairs '], 'FontSize', 16, 'FontWeight', 'bold');
 
 % Set axis limits with some padding
 xlim([0.5, numTimePeriods + 0.5]);
 % ylim([min(meanValues(:) - semValues(:)) * 0.9, max(maxPLV) * 1.1]);
 % Set consistent y-axis limits
 ylim([globalMin globalMax]);
-yticks(globalMin:0.02:globalMax)
+yticks(globalMin:0.03:globalMax)
 
 % Add legend
 legend(uniqueConditions, 'Location', 'northwest', 'Interpreter', 'None', 'FontSize', 14);
 
-% Show grid
-grid on;
-set(ax, 'GridLineStyle', '--'); % Customize grid lines
+% % Show grid
+% grid on;
+% set(ax, 'GridLineStyle', '--'); % Customize grid lines
 
 % Release hold
 hold off;
