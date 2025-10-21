@@ -631,7 +631,7 @@ classdef CBrainPlot < matlab.mixin.Copyable
             ChNum = nan(numel(pacienti),2); %number of channels for each pacient, columns pacient no, num of channels             
             for p = 1:numel(pacienti)
                 index = [];
-                if pacienti(p).todo == 1 || (isnum(pactodo) && ~pactodo) %it todo=1 or it should ne be used (as pactodo == 0)
+                if pacienti(p).todo == 1 || (isnumeric(pactodo) && ~pactodo) %it todo=1 or it should ne be used (as pactodo == 0)
                     if iscell(pactodo) %if the pactodo contains list of pacients to include
                        if isempty(find( cellfun(@(x) ~isempty(strfind(pacienti(p).folder,x)), pactodo), 1 )) %anonymous function with argument x
                            continue; %the current pacient is not in the pactodo cellarray
